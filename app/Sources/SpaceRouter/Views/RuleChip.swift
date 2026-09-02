@@ -72,6 +72,16 @@ struct LayoutGlyph: View {
     let layout: WindowLayout
     let size: CGSize
 
+    init(layout: WindowLayout, size: CGSize) {
+        self.layout = layout
+        self.size = size
+    }
+
+    /// Hazır düzen düğmeleri için standart boy.
+    init(preset: WindowLayout) {
+        self.init(layout: preset, size: CGSize(width: 30, height: 20))
+    }
+
     var body: some View {
         Canvas { context, canvasSize in
             let frame = CGRect(origin: .zero, size: canvasSize).insetBy(dx: 0.5, dy: 0.5)
