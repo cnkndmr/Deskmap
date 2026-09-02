@@ -228,9 +228,11 @@ private struct RuleOptionsPanel: View {
 
             if let destination = rule[mode] {
                 LayoutEditor(layout: Binding(
-                    get: { destination.layout },
+                    // Her zaman depodaki güncel değeri oku; yakalanan
+                    // `destination` bir sonraki çizime kadar eski kalır.
+                    get: { store.rule(rule.id)?[mode]?.layout ?? destination.layout },
                     set: { layout in
-                        var updated = destination
+                        var updated = store.rule(rule.id)?[mode] ?? destination
                         updated.layout = layout
                         store.setDestination(updated, for: rule.id, mode: mode)
                     }))
@@ -303,49 +305,45 @@ private struct LayoutEditor: View {
         }
     }
 
-    // Kenar boşluğu (%) <-> oran dönüşümleri. Genişlik en az %10 kalır.
+    // Kenar boşluğu (%) <-> oran dönüşümleri. Pencere en az %10 kalır.
+    // Her ayar tek bir atama ile yazılır; iki ayrı atama arasında
+    // binding'in eski değeri okunup diğer kenarı bozuyordu.
 
-    private var leftBinding: Binding<Int> {
+    private struct Margins {
+        var left: Int, right: Int, top: Int, bottom: Int
+
+        init(_ layout: WindowLayout) {
+            left = Int((layout.x * 100).rounded())
+            right = 100 - Int(((layout.x + layout.w) * 100).rounded())
+            top = Int((layout.y * 100).rounded())
+            bottom = 100 - Int(((layout.y + layout.h) * 100).rounded())
+        }
+
+        var layout: WindowLayout {
+            WindowLayout(
+                x: Double(left) / 100,
+                y: Double(top) / 100,
+                w: Double(100 - left - right) / 100,
+                h: Double(100 - top - bottom) / 100)
+        }
+    }
+
+    private func margin(_ keyPath: WritableKeyPath<Margins, Int>,
+                        opposite: KeyPath<Margins, Int>) -> Binding<Int> {
         Binding(
-            get: { Int((layout.x * 100).rounded()) },
-            set: { left in
-                let right = 100 - Int(((layout.x + layout.w) * 100).rounded())
-                let clamped = min(max(left, 0), 90 - right)
-                layout.x = Double(clamped) / 100
-                layout.w = Double(100 - clamped - right) / 100
+            get: { Margins(layout)[keyPath: keyPath] },
+            set: { newValue in
+                var margins = Margins(layout)
+                margins[keyPath: keyPath] =
+                    min(max(newValue, 0), 90 - margins[keyPath: opposite])
+                layout = margins.layout
             })
     }
 
-    private var rightBinding: Binding<Int> {
-        Binding(
-            get: { 100 - Int(((layout.x + layout.w) * 100).rounded()) },
-            set: { right in
-                let left = Int((layout.x * 100).rounded())
-                let clamped = min(max(right, 0), 90 - left)
-                layout.w = Double(100 - left - clamped) / 100
-            })
-    }
-
-    private var topBinding: Binding<Int> {
-        Binding(
-            get: { Int((layout.y * 100).rounded()) },
-            set: { top in
-                let bottom = 100 - Int(((layout.y + layout.h) * 100).rounded())
-                let clamped = min(max(top, 0), 90 - bottom)
-                layout.y = Double(clamped) / 100
-                layout.h = Double(100 - clamped - bottom) / 100
-            })
-    }
-
-    private var bottomBinding: Binding<Int> {
-        Binding(
-            get: { 100 - Int(((layout.y + layout.h) * 100).rounded()) },
-            set: { bottom in
-                let top = Int((layout.y * 100).rounded())
-                let clamped = min(max(bottom, 0), 90 - top)
-                layout.h = Double(100 - top - clamped) / 100
-            })
-    }
+    private var leftBinding: Binding<Int> { margin(\.left, opposite: \.right) }
+    private var rightBinding: Binding<Int> { margin(\.right, opposite: \.left) }
+    private var topBinding: Binding<Int> { margin(\.top, opposite: \.bottom) }
+    private var bottomBinding: Binding<Int> { margin(\.bottom, opposite: \.top) }
 }
 
 /// "Sol  [ 10 ] %  −/+" biçiminde tek satırlık yüzde alanı.
