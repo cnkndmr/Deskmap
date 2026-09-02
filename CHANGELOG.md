@@ -2,6 +2,22 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmıştır.
 
+## [0.1.2] — 2026-09-02
+
+### Eklendi
+
+- Motor kendi kaynak dizinini izler; `engine/spacerouter/` içindeki bir
+  `.lua` dosyası değiştiğinde Hammerspoon kendini yeniden yükler.
+  Önceden `rules.json` yeniden yüklemesi Lua modüllerini tazelemediği
+  için kod düzeltmeleri elle "Reload Config" yapılana kadar etkisiz
+  kalıyordu.
+- Menüye "Hammerspoon'u yeniden yükle (motor kodu)".
+
+### Düzeltildi
+
+- Atomik yazmanın ürettiği ikinci FSEvents olayı çifte yeniden
+  yüklemeye yol açıyordu; yapılandırma izleyicisi debounce edildi.
+
 ## [0.1.1] — 2026-09-02
 
 ### Düzeltildi

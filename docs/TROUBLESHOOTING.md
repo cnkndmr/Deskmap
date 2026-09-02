@@ -16,6 +16,23 @@ Sırayla kontrol edin:
    oluşturulmuş olmalı.
 6. **Pencere tam ekran mı** — tam ekran pencereler taşınmaz.
 
+## Düzeltme uyguladım ama hata aynı satırda devam ediyor
+
+Konsoldaki hata satır numarası değişmiyorsa Hammerspoon hâlâ **eski
+kodu bellekte** çalıştırıyordur.
+
+`rules.json` yeniden yüklemesi yalnızca kuralları tazeler. Motorun Lua
+modülleri `package.loaded` içinde önbelleklenir ve ancak tam bir
+**Reload Config** ile yenilenir:
+
+- Hammerspoon menüsü → **Reload Config**, veya
+- **SR → Hammerspoon'u yeniden yükle (motor kodu)**
+
+Motor artık kendi dizinini de izler; `engine/spacerouter/` içindeki bir
+`.lua` dosyası değişince Hammerspoon kendini yeniden yükler. Ancak bu
+izleyicinin devreye girmesi için de bir kez elle yeniden yüklemeniz
+gerekir.
+
 ## "Ekran bağlı değil, ana ekrana düşülüyor" uyarısı
 
 Yapılandırmadaki ekran UUID'si hiçbir bağlı ekranla eşleşmiyor. En sık

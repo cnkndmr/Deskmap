@@ -71,7 +71,13 @@ farklı çözünürlük ve ölçeklemelerde çalışır.
 masaüstüdür. Tam ekran ve Split View Space'leri sayıma katılmaz; aksi
 hâlde bir uygulamayı tam ekran yapmak tüm kuralları kaydırırdı.
 
-**Masaüstü sabitleme.** Sıra numarası ("bu ekranın 2. masaüstü")
+**İki ayrı yeniden yükleme.** `rules.json` değişince yalnızca kurallar
+tazelenir — ucuzdur ve saniyede birkaç kez olabilir. Motorun Lua kodu
+değişince Hammerspoon'un tamamı yeniden yüklenir, çünkü Lua modülleri
+`package.loaded` içinde önbelleklenir. Motor kendi kaynak dizinini
+izleyerek bunu kendisi tetikler.
+
+**Masaüstü sabitleme. Sıra numarası ("bu ekranın 2. masaüstü")
 kırılgandır: aynı ekrana masaüstü eklenince hedef kayar. Sıra bir kez
 çözülür ve gerçek Space kimliği `pins.json` dosyasına yazılır; sonraki
 yerleştirmelerde bu kimlik kullanılır. Sabitleme motora aittir, çünkü
