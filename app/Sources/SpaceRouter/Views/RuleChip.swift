@@ -42,6 +42,7 @@ struct RuleChip: View {
         .opacity(isBeingDragged ? 0.35 : 1)
         .onTapGesture {
             ui.pinDraft = nil
+            ui.profilePanel = false
             ui.selectedRuleID = isSelected ? nil : rule.id
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)

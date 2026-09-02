@@ -14,6 +14,8 @@ final class UIState: ObservableObject {
     @Published var collapsed: Set<String> = []
     /// Haritada gösterilen pencereler. Sürükleme sürerken yenilenmez.
     @Published var windows: [Router.WindowSnapshot] = []
+    /// Aktif profil paneli (ad, kopya, dışa aktar, sil) açık mı?
+    @Published var profilePanel = false
 
     /// Sürükleme sırasında canlı durum ve bilinen hedef çerçeveleri.
     @Published var drag: ChipDrag?
@@ -42,7 +44,12 @@ struct RootView: View {
         VStack(spacing: 0) {
             header
                 .padding(.horizontal, 14)
-                .padding(.vertical, 10)
+                .padding(.top, 10)
+                .padding(.bottom, 6)
+
+            ProfileBar()
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
 
             Divider()
 
@@ -68,6 +75,12 @@ struct RootView: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 14)
                     .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+            } else if ui.profilePanel {
+                Divider()
+                ProfilePanel()
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
             }
 
             Divider()
@@ -75,7 +88,7 @@ struct RootView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
         }
-        .frame(width: 560, height: 600)
+        .frame(width: 560, height: 640)
         .background(.regularMaterial)
         .onAppear {
             mode = screens.mode
@@ -98,6 +111,7 @@ struct RootView: View {
         .onChange(of: mode) { _ in
             ui.selectedRuleID = nil
             ui.pinDraft = nil
+            ui.profilePanel = false
         }
         .onChange(of: ui.windows) { windows in
             // Taslağın penceresi kapandıysa paneli kapat.

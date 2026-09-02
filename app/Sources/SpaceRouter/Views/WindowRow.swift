@@ -89,6 +89,7 @@ struct WindowRow: View {
             // Pinli satıra tıklamak düzen panelini açar.
             guard let rule = pinnedRule else { return }
             ui.pinDraft = nil
+            ui.profilePanel = false
             ui.selectedRuleID = ui.selectedRuleID == rule.id ? nil : rule.id
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)
@@ -98,6 +99,7 @@ struct WindowRow: View {
 
     private func togglePin() {
         ui.selectedRuleID = nil
+        ui.profilePanel = false
         if let rule = pinnedRule {
             store.unpin(rule.id, mode: mode)
             ui.pinDraft = nil

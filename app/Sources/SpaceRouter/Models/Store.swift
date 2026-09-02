@@ -10,24 +10,41 @@ struct KnownScreen: Codable, Equatable, Identifiable, Hashable {
     var isBuiltin: Bool { id == "builtin" }
 }
 
+/// Adlandırılmış bir pin kümesi. Aktif profilin kuralları `Document.rules`
+/// olarak yaşar ve her değişiklikte profile geri yazılır.
+struct Profile: Codable, Equatable, Identifiable, Hashable {
+    var id: String = UUID().uuidString
+    var name: String
+    var rules: [Rule] = []
+}
+
 /// `rules.json` içeriği.
 struct Document: Codable, Equatable {
-    var version: Int = 2
+    var version: Int = 3
     var enabled: Bool = true
     var screens: [KnownScreen] = []
+    /// Aktif profilin kuralları (router bunu okur).
     var rules: [Rule] = []
+    var profiles: [Profile] = []
+    var activeProfileID: String = ""
 
-    init() {}
+    init() {
+        let profile = Profile(name: Self.defaultProfileName)
+        profiles = [profile]
+        activeProfileID = profile.id
+    }
+
+    static let defaultProfileName = "Varsayılan"
 
     private enum CodingKeys: String, CodingKey {
-        case version, enabled, screens, rules, settings
+        case version, enabled, screens, rules, profiles, activeProfileID, settings
     }
 
     private struct LegacySettings: Decodable { var enabled: Bool? }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        version = 2
+        version = 3
         rules = try c.decodeIfPresent([Rule].self, forKey: .rules) ?? []
 
         if let flag = try c.decodeIfPresent(Bool.self, forKey: .enabled) {
@@ -38,6 +55,22 @@ struct Document: Codable, Equatable {
 
         // v2 ekran kayıtları; v1 kayıtları (uuid/role) atlanır, yeniden keşfedilir.
         screens = (try? c.decode([KnownScreen].self, forKey: .screens)) ?? []
+
+        // v3 profiller; yoksa (v1/v2) mevcut kurallar "Varsayılan" profil olur.
+        profiles = (try? c.decode([Profile].self, forKey: .profiles)) ?? []
+        activeProfileID = try c.decodeIfPresent(String.self, forKey: .activeProfileID) ?? ""
+        if profiles.isEmpty {
+            let profile = Profile(name: Self.defaultProfileName, rules: rules)
+            profiles = [profile]
+            activeProfileID = profile.id
+        } else if let active = profiles.first(where: { $0.id == activeProfileID }) {
+            // Aktif profilin kayıtlı kuralları ile üst düzey `rules` aynı
+            // olmalı; üst düzey daha güncel kabul edilir (yarım kalan yazım).
+            if c.contains(.rules) == false { rules = active.rules }
+        } else {
+            activeProfileID = profiles[0].id
+            rules = profiles[0].rules
+        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -46,6 +79,54 @@ struct Document: Codable, Equatable {
         try c.encode(enabled, forKey: .enabled)
         try c.encode(screens, forKey: .screens)
         try c.encode(rules, forKey: .rules)
+        try c.encode(profiles, forKey: .profiles)
+        try c.encode(activeProfileID, forKey: .activeProfileID)
+    }
+
+    /// Aktif profilin kayıtlı kurallarını üst düzey `rules` ile eşitler.
+    mutating func syncActiveProfile() {
+        guard let i = profiles.firstIndex(where: { $0.id == activeProfileID }) else {
+            let profile = Profile(name: Self.defaultProfileName, rules: rules)
+            profiles.append(profile)
+            activeProfileID = profile.id
+            return
+        }
+        if profiles[i].rules != rules { profiles[i].rules = rules }
+    }
+}
+
+/// Dışa/içe aktarma dosyası (`Ad.spacerouter.json`).
+struct ProfileExport: Codable {
+    var kind: String = ProfileExport.kind
+    var version: Int = 1
+    var name: String
+    var exportedAt: Date = Date()
+    /// Kuralların hangi ekran rollerine yazıldığını anlamak için.
+    var screens: [KnownScreen] = []
+    var rules: [Rule]
+
+    static let kind = "spacerouter-profile"
+    static let fileExtension = "spacerouter.json"
+
+    /// Yalnızca kurallar listesi içeren düz bir `rules.json` de kabul edilir.
+    private enum CodingKeys: String, CodingKey {
+        case kind, version, name, exportedAt, screens, rules
+    }
+
+    init(name: String, screens: [KnownScreen], rules: [Rule]) {
+        self.name = name
+        self.screens = screens
+        self.rules = rules
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decodeIfPresent(String.self, forKey: .kind) ?? Self.kind
+        version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "İçe aktarılan"
+        exportedAt = try c.decodeIfPresent(Date.self, forKey: .exportedAt) ?? Date()
+        screens = try c.decodeIfPresent([KnownScreen].self, forKey: .screens) ?? []
+        rules = try c.decodeIfPresent([Rule].self, forKey: .rules) ?? []
     }
 }
 
@@ -55,6 +136,9 @@ final class Store: ObservableObject {
 
     @Published var document = Document()
     @Published private(set) var lastError: String?
+
+    /// Alt çubukta gösterilecek bir hata; bir sonraki başarılı kayıtta silinir.
+    func report(_ message: String) { lastError = message }
 
     static let directoryURL = FileManager.default
         .homeDirectoryForCurrentUser
@@ -71,7 +155,10 @@ final class Store: ObservableObject {
             .dropFirst()
             .removeDuplicates()
             .debounce(for: .milliseconds(400), scheduler: RunLoop.main)
-            .sink { [weak self] _ in self?.save() }
+            .sink { [weak self] _ in
+                self?.document.syncActiveProfile()
+                self?.save()
+            }
             .store(in: &cancellables)
     }
 
@@ -176,6 +263,114 @@ final class Store: ObservableObject {
             rules[i][mode] = destination
         }
         if rules != document.rules { document.rules = rules }
+    }
+
+    // MARK: - Profiller
+
+    var profiles: [Profile] { document.profiles }
+
+    var activeProfile: Profile? {
+        document.profiles.first { $0.id == document.activeProfileID }
+    }
+
+    /// Başka bir profile geçer: mevcut kurallar aktif profile yazılır,
+    /// hedef profilin kuralları yüklenir. Router kural değişimini görüp
+    /// pencereleri yeniden yerleştirir.
+    func switchProfile(to id: String) {
+        guard id != document.activeProfileID,
+              let target = document.profiles.first(where: { $0.id == id }) else { return }
+        var doc = document
+        doc.syncActiveProfile()
+        doc.activeProfileID = target.id
+        doc.rules = target.rules
+        document = doc
+    }
+
+    /// Yeni profil ekler ve ona geçer. `copyingCurrent`: mevcut pinlerle başla.
+    @discardableResult
+    func addProfile(named name: String? = nil, copyingCurrent: Bool = false) -> Profile {
+        var doc = document
+        doc.syncActiveProfile()
+        let profile = Profile(
+            name: uniqueName(name ?? "Profil \(doc.profiles.count + 1)", in: doc.profiles),
+            rules: copyingCurrent ? doc.rules.map { var r = $0; r.id = UUID().uuidString; return r } : [])
+        doc.profiles.append(profile)
+        doc.activeProfileID = profile.id
+        doc.rules = profile.rules
+        document = doc
+        return profile
+    }
+
+    func renameProfile(_ id: String, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let i = document.profiles.firstIndex(where: { $0.id == id }) else { return }
+        document.profiles[i].name = trimmed
+    }
+
+    /// Profili siler; son profil silinemez. Aktif siliniyorsa ilk kalana geçilir.
+    func deleteProfile(_ id: String) {
+        guard document.profiles.count > 1,
+              let i = document.profiles.firstIndex(where: { $0.id == id }) else { return }
+        var doc = document
+        doc.profiles.remove(at: i)
+        if doc.activeProfileID == id, let next = doc.profiles.first {
+            doc.activeProfileID = next.id
+            doc.rules = next.rules
+        }
+        document = doc
+    }
+
+    // MARK: - Dışa / içe aktarma
+
+    func exportData(for id: String) throws -> Data {
+        var doc = document
+        doc.syncActiveProfile()
+        guard let profile = doc.profiles.first(where: { $0.id == id }) else {
+            throw NSError(domain: "SpaceRouter", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Profil bulunamadı"])
+        }
+        let payload = ProfileExport(name: profile.name, screens: doc.screens,
+                                    rules: profile.rules)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        encoder.dateEncodingStrategy = .iso8601
+        return try encoder.encode(payload)
+    }
+
+    /// Dosyadan profil okur, yeni profil olarak ekler ve ona geçer.
+    /// Kural kimlikleri çakışmasın diye yenilenir.
+    @discardableResult
+    func importProfile(from data: Data) throws -> Profile {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let payload = try decoder.decode(ProfileExport.self, from: data)
+        guard payload.kind == ProfileExport.kind || !payload.rules.isEmpty else {
+            throw NSError(domain: "SpaceRouter", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "Bu bir Space Router profili değil"])
+        }
+        var doc = document
+        doc.syncActiveProfile()
+        let rules = payload.rules.map { var r = $0; r.id = UUID().uuidString; return r }
+        let profile = Profile(name: uniqueName(payload.name, in: doc.profiles), rules: rules)
+        doc.profiles.append(profile)
+        doc.activeProfileID = profile.id
+        doc.rules = profile.rules
+        // Dosyadaki ekran adları bilinmeyen rolleri tanıtır (harita için).
+        for screen in payload.screens where !doc.screens.contains(where: { $0.id == screen.id }) {
+            doc.screens.append(screen)
+        }
+        document = doc
+        return profile
+    }
+
+    private func uniqueName(_ name: String, in profiles: [Profile]) -> String {
+        let base = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let taken = Set(profiles.map { $0.name.lowercased() })
+        guard taken.contains(base.lowercased()) else { return base }
+        var n = 2
+        while taken.contains("\(base) (\(n))".lowercased()) { n += 1 }
+        return "\(base) (\(n))"
     }
 
     // MARK: - Ekranlar
