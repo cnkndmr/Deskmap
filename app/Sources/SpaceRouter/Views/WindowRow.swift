@@ -24,9 +24,19 @@ struct WindowRow: View {
         }
     }
 
-    private var isPinned: Bool { pinnedRule != nil }
+    /// Bu pencerenin kimliğine bağlı oturum pini (kalıcı kuraldan önce gelir).
+    private var sessionPin: Destination? { router.sessionPins[window.id] }
+
+    private var isPinned: Bool { sessionPin != nil || pinnedRule != nil }
     private var isDrafting: Bool { ui.pinDraft?.window.id == window.id }
-    private var isSelected: Bool { pinnedRule.map { ui.selectedRuleID == $0.id } ?? false }
+    private var isSelected: Bool {
+        if sessionPin != nil { return ui.selectedSessionWindowID == window.id }
+        return pinnedRule.map { ui.selectedRuleID == $0.id } ?? false
+    }
+    /// Satırda gösterilen düzen: oturum pini varsa onun, yoksa kuralın.
+    private var pinnedLayout: WindowLayout? {
+        sessionPin?.layout ?? pinnedRule?[mode]?.layout
+    }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .window(window.id) }
 
     var body: some View {
@@ -51,7 +61,7 @@ struct WindowRow: View {
 
             Spacer(minLength: 4)
 
-            if let rule = pinnedRule, let layout = rule[mode]?.layout {
+            if let layout = pinnedLayout {
                 LayoutGlyph(layout: layout, size: CGSize(width: 14, height: 10))
                     .foregroundStyle(.tertiary)
                     .help("Düzen: \(layout.label)")
@@ -60,15 +70,19 @@ struct WindowRow: View {
             Button {
                 togglePin()
             } label: {
-                Image(systemName: isPinned ? "pin.fill" : "pin")
-                    .font(.system(size: 11))
-                    .foregroundStyle(isPinned ? Color.accentColor : Color.secondary.opacity(0.6))
+                Image(systemName: sessionPin != nil ? "pin.circle.fill"
+                                  : (isPinned ? "pin.fill" : "pin"))
+                    .font(.system(size: sessionPin != nil ? 13 : 11))
+                    .foregroundStyle(sessionPin != nil ? Color.orange
+                                     : (isPinned ? Color.accentColor : Color.secondary.opacity(0.6)))
                     .frame(width: 18, height: 18)
             }
             .buttonStyle(.plain)
-            .help(isPinned
-                  ? "Pinli: \(pinnedRule?.title ?? ""). Kaldırmak için tıklayın."
-                  : "Bu masaüstüne pinle")
+            .help(sessionPin != nil
+                  ? "Geçici pin (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın."
+                  : (isPinned
+                     ? "Pinli: \(pinnedRule?.title ?? ""). Kaldırmak için tıklayın."
+                     : "Bu masaüstüne pinle"))
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
@@ -80,16 +94,26 @@ struct WindowRow: View {
         .overlay(
             RoundedRectangle(cornerRadius: 6)
                 .strokeBorder(isDrafting || isSelected ? Color.accentColor
-                              : (isPinned ? Color.accentColor.opacity(0.35)
-                                          : Color.primary.opacity(0.08)),
+                              : (sessionPin != nil ? Color.orange.opacity(0.5)
+                                 : (isPinned ? Color.accentColor.opacity(0.35)
+                                             : Color.primary.opacity(0.08))),
                               lineWidth: 1))
         .contentShape(Rectangle())
         .opacity(isBeingDragged ? 0.35 : 1)
         .onTapGesture {
             // Pinli satıra tıklamak düzen panelini açar.
+            if sessionPin != nil {
+                ui.pinDraft = nil
+                ui.profilePanel = false
+                ui.selectedRuleID = nil
+                ui.selectedSessionWindowID =
+                    ui.selectedSessionWindowID == window.id ? nil : window.id
+                return
+            }
             guard let rule = pinnedRule else { return }
             ui.pinDraft = nil
             ui.profilePanel = false
+            ui.selectedSessionWindowID = nil
             ui.selectedRuleID = ui.selectedRuleID == rule.id ? nil : rule.id
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)
@@ -99,8 +123,12 @@ struct WindowRow: View {
 
     private func togglePin() {
         ui.selectedRuleID = nil
+        ui.selectedSessionWindowID = nil
         ui.profilePanel = false
-        if let rule = pinnedRule {
+        if sessionPin != nil {
+            router.unpinSession(window.id)
+            ui.pinDraft = nil
+        } else if let rule = pinnedRule {
             store.unpin(rule.id, mode: mode)
             ui.pinDraft = nil
         } else if isDrafting {
@@ -122,10 +150,16 @@ struct WindowRow: View {
                 defer { ui.drag = nil }
                 guard let target = ui.target(at: value.location) else { return }
                 ui.selectedRuleID = nil
+                ui.selectedSessionWindowID = nil
                 switch target {
                 case .desktop(let screen, let desktop):
                     let placement = Router.Placement(screen: screen, desktop: desktop)
-                    if let rule = pinnedRule, let current = rule[mode] {
+                    if let current = sessionPin {
+                        // Oturum pini: hedef doğrudan güncellenir.
+                        router.pinSession(window.id, destination: Destination(
+                            screen: screen, desktop: desktop, layout: current.layout))
+                        ui.pinDraft = nil
+                    } else if let rule = pinnedRule, let current = rule[mode] {
                         // Pinli pencere: hedef doğrudan güncellenir.
                         store.setDestination(
                             Destination(screen: screen, desktop: desktop,
@@ -137,7 +171,11 @@ struct WindowRow: View {
                         router.moveWindow(window.id, to: placement)
                     }
                 case .tray:
-                    if let rule = pinnedRule { store.unpin(rule.id, mode: mode) }
+                    if sessionPin != nil {
+                        router.unpinSession(window.id)
+                    } else if let rule = pinnedRule {
+                        store.unpin(rule.id, mode: mode)
+                    }
                     ui.pinDraft = nil
                 }
             }

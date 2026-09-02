@@ -137,6 +137,7 @@ private struct DesktopRow: View {
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var router: Router
 
     private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
     private var isTargeted: Bool { ui.drag?.hover == target && acceptsDrag }
@@ -326,7 +327,8 @@ private struct DesktopRow: View {
     }
 
     private func isPinned(_ window: Router.WindowSnapshot) -> Bool {
-        store.document.rules.contains {
+        if router.sessionPins[window.id] != nil { return true }
+        return store.document.rules.contains {
             $0[mode] != nil && $0.matches(bundleID: window.bundleID,
                                           appName: window.appName, title: window.title)
         }

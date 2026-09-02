@@ -37,6 +37,16 @@ final class Router: ObservableObject {
     @Published private(set) var status = Status()
     /// Son taramada görülen pencereler (uygulama adı, sonra kimlik sırasında).
     @Published private(set) var windows: [WindowSnapshot] = []
+    /// Oturum pinleri: pencere kimliğine (CGWindowID) bağlı, diske
+    /// yazılmayan hedefler. Başlığı değişmeyen ama farklı pencereler açan
+    /// uygulamalar için "sadece bu pencere" seçeneği. Pencere kapanınca
+    /// (birkaç tarama boyunca görünmeyince) kendiliğinden silinir; moddan
+    /// bağımsızdır, hedef ekran bağlı değilse o an uygulanmaz.
+    @Published private(set) var sessionPins: [CGWindowID: Destination] = [:]
+    /// Oturum pini olan pencerenin art arda kaç taramada görülmediği.
+    private var sessionMisses: [CGWindowID: Int] = [:]
+    /// Bu kadar ardışık taramada görünmeyen pencerenin oturum pini düşer.
+    private static let sessionMissLimit = 3
 
     private let store: Store
     private let screens: ScreenService
@@ -95,6 +105,30 @@ final class Router: ObservableObject {
         applied.removeAll()
         attempts.removeAll()
         sweep()
+    }
+
+    // MARK: - Oturum pinleri
+
+    /// Bu pencereyi (kimliğiyle) bu oturum boyunca hedefte tutar.
+    func pinSession(_ windowID: CGWindowID, destination: Destination) {
+        sessionPins[windowID] = destination
+        sessionMisses[windowID] = nil
+        forgetApplied(for: windowID)
+        sweep()
+    }
+
+    func unpinSession(_ windowID: CGWindowID) {
+        guard sessionPins.removeValue(forKey: windowID) != nil else { return }
+        sessionMisses[windowID] = nil
+        forgetApplied(for: windowID)
+    }
+
+    /// Bir pencerenin düzen belleğini sıfırlar; hedefi değişince yeniden
+    /// yerleştirilsin.
+    private func forgetApplied(for windowID: CGWindowID) {
+        let prefix = "\(windowID)|"
+        applied = applied.filter { !$0.hasPrefix(prefix) }
+        attempts = attempts.filter { !$0.key.hasPrefix(prefix) }
     }
 
     /// Kısa bir süre sonra yeniden tara (masaüstü taşıması yerleşsin diye).
@@ -156,6 +190,7 @@ final class Router: ObservableObject {
 
         // Duraklatılmışken kural uygulanmaz ama pencereler yine listelenir.
         let rules = store.document.enabled ? store.document.rules.bySpecificity : []
+        let sessionPins = store.document.enabled ? self.sessionPins : [:]
         let mode = screens.mode
         let connected = screens.screens
         let applied = self.applied
@@ -164,14 +199,15 @@ final class Router: ObservableObject {
         sweepRequested = false
 
         queue.async { [weak self] in
-            let outcome = Self.route(rules: rules, mode: mode, screens: connected,
-                                     applied: applied, attempts: attempts)
+            let outcome = Self.route(rules: rules, sessionPins: sessionPins, mode: mode,
+                                     screens: connected, applied: applied, attempts: attempts)
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
                 self.applied = outcome.applied
                 self.attempts = outcome.attempts
                 if outcome.snapshots != self.windows { self.windows = outcome.snapshots }
+                self.expireSessionPins(seen: Set(outcome.snapshots.map(\.id)))
                 if outcome.needsFollowUp || self.sweepRequested {
                     self.scheduleFollowUp(after: outcome.needsFollowUp ? 200 : 20)
                 }
@@ -205,8 +241,8 @@ final class Router: ObservableObject {
     nonisolated private static let quickAttempts = 4
 
     nonisolated private static func route(
-        rules: [Rule], mode: Mode, screens: [ScreenInfo],
-        applied: Set<String>, attempts: [String: Int]
+        rules: [Rule], sessionPins: [CGWindowID: Destination], mode: Mode,
+        screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int]
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts)
         let sky = SkyLight.shared
@@ -227,16 +263,25 @@ final class Router: ObservableObject {
         }
 
         for window in windows {
-            guard let rule = rules.first(where: {
+            // Oturum pini (pencere kimliği) kalıcı kuraldan önce gelir.
+            let destination: Destination
+            let ruleID: String
+            if let pinned = sessionPins[window.id] {
+                destination = pinned
+                ruleID = "session"
+            } else if let rule = rules.first(where: {
                 $0.matches(bundleID: window.bundleID,
                            appName: window.appName, title: window.title)
-            }), let destination = rule[mode] else { continue }
+            }), let ruled = rule[mode] {
+                destination = ruled
+                ruleID = rule.id
+            } else { continue }
 
             guard let screen = screens.first(where: { $0.id == destination.screen })
             else { continue }
 
             outcome.routed += 1
-            let key = "\(window.id)|\(rule.id)|\(mode.rawValue)|\(destination.hashValue)"
+            let key = "\(window.id)|\(ruleID)|\(mode.rawValue)|\(destination.hashValue)"
 
             let targetFrame = Coordinates.axRect(
                 fromCocoa: destination.layout.rect(in: screen.visibleFrame),
@@ -311,6 +356,27 @@ final class Router: ObservableObject {
             }
         }
         return outcome
+    }
+
+    /// Görünmeyen pencerelerin oturum pinlerini birkaç tarama sonra düşürür
+    /// (AX listesi anlık olarak eksik gelebildiği için hemen değil).
+    private func expireSessionPins(seen: Set<CGWindowID>) {
+        guard !sessionPins.isEmpty else { return }
+        var expired: [CGWindowID] = []
+        for id in sessionPins.keys {
+            if seen.contains(id) {
+                sessionMisses[id] = nil
+            } else {
+                let misses = (sessionMisses[id] ?? 0) + 1
+                sessionMisses[id] = misses
+                if misses >= Self.sessionMissLimit { expired.append(id) }
+            }
+        }
+        for id in expired {
+            sessionPins[id] = nil
+            sessionMisses[id] = nil
+            forgetApplied(for: id)
+        }
     }
 
     // MARK: - Yardımcılar

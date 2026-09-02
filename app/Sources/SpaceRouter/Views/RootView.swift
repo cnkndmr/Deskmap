@@ -8,6 +8,8 @@ import SwiftUI
 final class UIState: ObservableObject {
     /// Çipine tıklanan (penceresi kapalı ya da diğer moddaki) pin.
     @Published var selectedRuleID: String?
+    /// Satırına tıklanan oturum pinli (geçici) pencere.
+    @Published var selectedSessionWindowID: CGWindowID?
     /// Pin düğmesi / sürükleme sonrası başlık parçası bekleyen taslak.
     @Published var pinDraft: PinDraft?
     /// Daraltılmış uygulama grupları ("ekran|masaüstü|bundleID").
@@ -75,6 +77,14 @@ struct RootView: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 14)
                     .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+            } else if let id = ui.selectedSessionWindowID,
+                      let window = ui.windows.first(where: { $0.id == id }),
+                      let destination = router.sessionPins[id] {
+                Divider()
+                SessionPinPanel(window: window, destination: destination)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
             } else if ui.profilePanel {
                 Divider()
                 ProfilePanel()
@@ -110,6 +120,7 @@ struct RootView: View {
         }
         .onChange(of: mode) { _ in
             ui.selectedRuleID = nil
+            ui.selectedSessionWindowID = nil
             ui.pinDraft = nil
             ui.profilePanel = false
         }
@@ -117,6 +128,15 @@ struct RootView: View {
             // Taslağın penceresi kapandıysa paneli kapat.
             if let draft = ui.pinDraft, !windows.contains(where: { $0.id == draft.window.id }) {
                 ui.pinDraft = nil
+            }
+            if let id = ui.selectedSessionWindowID, !windows.contains(where: { $0.id == id }) {
+                ui.selectedSessionWindowID = nil
+            }
+        }
+        .onReceive(router.$sessionPins) { pins in
+            // Oturum pini kalkınca (kapanan pencere) paneli kapat.
+            if let id = ui.selectedSessionWindowID, pins[id] == nil {
+                ui.selectedSessionWindowID = nil
             }
         }
     }
@@ -158,9 +178,14 @@ struct RootView: View {
             Spacer()
 
             let pinned = store.document.rules.filter { $0[mode] != nil }.count
-            Text(pinned == 0 ? "pin yok" : "\(pinned) pin")
+            let session = router.sessionPins.count
+            Text((pinned == 0 ? "pin yok" : "\(pinned) pin")
+                 + (session > 0 ? " · \(session) geçici" : ""))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
+                .help(session > 0
+                      ? "\(session) pencere yalnızca bu oturum için pinli (profile yazılmaz)"
+                      : "")
 
             Button {
                 router.reapplyAll()
@@ -230,6 +255,22 @@ private struct PinPanel: View {
     @EnvironmentObject private var screens: ScreenService
     @EnvironmentObject private var ui: UIState
 
+    /// Pin türü: başlığa göre kalıcı kural ya da pencere kimliğine bağlı
+    /// geçici (oturum) pin.
+    enum Kind: String, CaseIterable, Identifiable {
+        case title, session
+        var id: String { rawValue }
+        var label: String {
+            switch self {
+            case .title:   return "Başlığa göre"
+            case .session: return "Sadece bu pencere"
+            }
+        }
+    }
+
+    @EnvironmentObject private var router: Router
+
+    @State private var kind: Kind = .title
     @State private var segments: [String] = []
     @State private var chosen: Set<Int> = []
     @State private var appWide = false
@@ -268,27 +309,46 @@ private struct PinPanel: View {
                 .help("Vazgeç")
             }
 
-            Text(segments.isEmpty
-                 ? "Bu pencerenin başlığı yok; uygulamanın bütün pencereleri pinlenir."
-                 : "Başlığın hangi parçası bu pencereyi tanımlıyor?")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            FlowLayout(spacing: 6) {
-                pill("Tüm pencereler", systemImage: "macwindow.on.rectangle", isOn: appWide) {
-                    appWide.toggle()
-                    if appWide { chosen = [] }
+            Picker("", selection: $kind) {
+                ForEach(Kind.allCases) { candidate in
+                    Text(candidate.label).tag(candidate)
                 }
-                ForEach(segments.indices, id: \.self) { index in
-                    pill(segments[index], isOn: chosen.contains(index)) {
-                        if chosen.contains(index) {
-                            chosen.remove(index)
-                        } else {
-                            chosen.insert(index)
-                            appWide = false
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(width: 300)
+
+            switch kind {
+            case .title:
+                Text(segments.isEmpty
+                     ? "Bu pencerenin başlığı yok; uygulamanın bütün pencereleri pinlenir."
+                     : "Başlığın hangi parçası bu pencereyi tanımlıyor? Kalıcıdır; profile yazılır.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                FlowLayout(spacing: 6) {
+                    pill("Tüm pencereler", systemImage: "macwindow.on.rectangle", isOn: appWide) {
+                        appWide.toggle()
+                        if appWide { chosen = [] }
+                    }
+                    ForEach(segments.indices, id: \.self) { index in
+                        pill(segments[index], isOn: chosen.contains(index)) {
+                            if chosen.contains(index) {
+                                chosen.remove(index)
+                            } else {
+                                chosen.insert(index)
+                                appWide = false
+                            }
                         }
                     }
                 }
+            case .session:
+                Text("Başlığa bakılmaz; yalnızca bu pencere (kimlik #\(window.id)) tutulur. "
+                     + "Pencere kapanana ya da uygulama yeniden başlayana kadar geçerlidir; profile yazılmaz.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             Divider()
@@ -296,10 +356,7 @@ private struct PinPanel: View {
             LayoutEditor(layout: $layout)
 
             HStack {
-                Text(appWide
-                     ? "Başlığa bakılmaz; \(window.appName) uygulamasının her penceresi uyar."
-                     : (matchCount == 1 ? "Şu an 1 pencere uyuyor."
-                                        : "Şu an \(matchCount) pencere uyuyor. Dosya adı gibi değişen parçaları seçmeyin."))
+                Text(footnote)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                     .lineLimit(2)
@@ -307,19 +364,34 @@ private struct PinPanel: View {
                 Button("Vazgeç") { ui.pinDraft = nil }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.small)
-                Button("Pinle", action: pin)
+                Button(kind == .session ? "Geçici pinle" : "Pinle", action: pin)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
-                    .disabled(!appWide && chosen.isEmpty)
+                    .disabled(kind == .title && !appWide && chosen.isEmpty)
             }
         }
         .onAppear { reset() }
         .onChange(of: draft.window.id) { _ in reset() }
     }
 
+    private var footnote: String {
+        switch kind {
+        case .session:
+            return "Aynı başlıklı başka pencereler etkilenmez. Geçici pin turuncu ikonla gösterilir."
+        case .title:
+            if appWide {
+                return "Başlığa bakılmaz; \(window.appName) uygulamasının her penceresi uyar."
+            }
+            return matchCount == 1
+                ? "Şu an 1 pencere uyuyor."
+                : "Şu an \(matchCount) pencere uyuyor. Dosya adı gibi değişen parçaları seçmeyin."
+        }
+    }
+
     private func reset() {
         layout = currentLayout
+        kind = .title
         segments = Rule.split(title: window.title)
         if segments.isEmpty {
             chosen = []
@@ -360,10 +432,15 @@ private struct PinPanel: View {
     }
 
     private func pin() {
-        let rule = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
         let destination = Destination(screen: draft.target.screen,
                                       desktop: draft.target.desktop, layout: layout)
-        store.pin(rule, destination: destination, mode: mode)
+        switch kind {
+        case .title:
+            let rule = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
+            store.pin(rule, destination: destination, mode: mode)
+        case .session:
+            router.pinSession(window.id, destination: destination)
+        }
         ui.pinDraft = nil
     }
 
@@ -450,6 +527,65 @@ private struct RulePanel: View {
     private var otherModeText: String {
         let other: Mode = mode == .docked ? .undocked : .docked
         return rule[other] == nil ? "\(other.title): pin yok" : "\(other.title): pinli"
+    }
+}
+
+// MARK: - Geçici pin paneli
+
+/// Oturum pinli (pencere kimliğine bağlı) satıra tıklanınca açılır:
+/// bilgi, düzen düzenleyici ve "pini kaldır".
+private struct SessionPinPanel: View {
+
+    let window: Router.WindowSnapshot
+    let destination: Destination
+
+    @EnvironmentObject private var router: Router
+    @EnvironmentObject private var ui: UIState
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
+                AppIcon(bundleID: window.bundleID, size: 24)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(window.appName).font(.callout.weight(.semibold))
+                    Text(window.title.isEmpty ? "Adsız pencere" : window.title)
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .lineLimit(1)
+
+                Spacer()
+
+                Label("Geçici · pencere #\(window.id)", systemImage: "pin.circle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(Color.orange)
+                    .help("Yalnızca bu pencere, bu oturum için. Profile yazılmaz.")
+
+                Button {
+                    router.unpinSession(window.id)
+                    ui.selectedSessionWindowID = nil
+                } label: {
+                    Label("Pini kaldır", systemImage: "pin.slash")
+                }
+                .controlSize(.small)
+
+                Button {
+                    ui.selectedSessionWindowID = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.borderless)
+                .help("Kapat")
+            }
+
+            LayoutEditor(layout: Binding(
+                get: { router.sessionPins[window.id]?.layout ?? destination.layout },
+                set: { layout in
+                    var updated = router.sessionPins[window.id] ?? destination
+                    updated.layout = layout
+                    router.pinSession(window.id, destination: updated)
+                }))
+        }
     }
 }
 
