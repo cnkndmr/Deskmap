@@ -29,11 +29,34 @@ struct WindowLayout: Codable, Equatable, Hashable {
         self.x = x; self.y = y; self.w = w; self.h = h
     }
 
-    static let full = WindowLayout()
+    static let full       = WindowLayout(x: 0,   y: 0,   w: 1,   h: 1)
+    static let leftHalf   = WindowLayout(x: 0,   y: 0,   w: 0.5, h: 1)
+    static let rightHalf  = WindowLayout(x: 0.5, y: 0,   w: 0.5, h: 1)
+    static let left70     = WindowLayout(x: 0,   y: 0,   w: 0.7, h: 1)
+    static let right30    = WindowLayout(x: 0.7, y: 0,   w: 0.3, h: 1)
+    static let topHalf    = WindowLayout(x: 0,   y: 0,   w: 1,   h: 0.5)
+    static let bottomHalf = WindowLayout(x: 0,   y: 0.5, w: 1,   h: 0.5)
+    static let center     = WindowLayout(x: 0.1, y: 0.1, w: 0.8, h: 0.8)
 
-    /// Kısa açıklama: "%70 × %100" gibi (genişlik × yükseklik).
+    /// Düzen seçicide gösterilen hazır seçenekler.
+    static let presets: [WindowLayout] = [
+        .full, .leftHalf, .rightHalf, .left70, .right30,
+        .topHalf, .bottomHalf, .center,
+    ]
+
     var label: String {
-        "%\(Int((w * 100).rounded())) × %\(Int((h * 100).rounded()))"
+        switch self {
+        case .full:       return "Tam"
+        case .leftHalf:   return "Sol yarı"
+        case .rightHalf:  return "Sağ yarı"
+        case .left70:     return "Sol %70"
+        case .right30:    return "Sağ %30"
+        case .topHalf:    return "Üst yarı"
+        case .bottomHalf: return "Alt yarı"
+        case .center:     return "Orta"
+        default:
+            return "%\(Int((w * 100).rounded())) × %\(Int((h * 100).rounded()))"
+        }
     }
 
     /// Verilen dikdörtgen içinde düzenin karşılık geldiği alan.

@@ -24,6 +24,7 @@ struct WindowRow: View {
 
     private var isPinned: Bool { pinnedRule != nil }
     private var isDrafting: Bool { ui.pinDraft?.window.id == window.id }
+    private var isSelected: Bool { pinnedRule.map { ui.selectedRuleID == $0.id } ?? false }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .window(window.id) }
 
     var body: some View {
@@ -51,7 +52,7 @@ struct WindowRow: View {
             if let rule = pinnedRule, let layout = rule[mode]?.layout {
                 LayoutGlyph(layout: layout, size: CGSize(width: 14, height: 10))
                     .foregroundStyle(.tertiary)
-                    .help("Pinli çerçeve: \(layout.label)")
+                    .help("Düzen: \(layout.label)")
             }
 
             Button {
@@ -72,17 +73,25 @@ struct WindowRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isDrafting ? Color.accentColor.opacity(0.18)
+                .fill(isDrafting || isSelected ? Color.accentColor.opacity(0.18)
                                  : Color(nsColor: .controlBackgroundColor).opacity(isGhost ? 1 : 0.7)))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(isDrafting ? Color.accentColor
+                .strokeBorder(isDrafting || isSelected ? Color.accentColor
                               : (isPinned ? Color.accentColor.opacity(0.35)
                                           : Color.primary.opacity(0.08)),
                               lineWidth: 1))
         .contentShape(Rectangle())
         .opacity(isBeingDragged ? 0.35 : 1)
+        .onTapGesture {
+            // Pinli satıra tıklamak düzen panelini açar.
+            guard let rule = pinnedRule else { return }
+            ui.pinDraft = nil
+            ui.selectedRuleID = ui.selectedRuleID == rule.id ? nil : rule.id
+        }
         .gesture(dragGesture, including: isGhost ? .none : .all)
+        .help(isPinned ? "Tıklayarak düzeni değiştir, sürükleyerek taşı"
+                       : "Pin ile sabitle, sürükleyerek taşı")
     }
 
     private func togglePin() {
