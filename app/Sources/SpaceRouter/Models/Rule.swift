@@ -129,8 +129,11 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         self.undocked = undocked
     }
 
+    /// Boş `tokens` = uygulamanın bütün pencereleri.
+    var isAppWide: Bool { tokens.isEmpty }
+
     var title: String {
-        tokens.joined(separator: " · ")
+        isAppWide ? "tüm pencereler" : tokens.joined(separator: " · ")
     }
 
     subscript(mode: Mode) -> Destination? {
@@ -196,6 +199,13 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
 
 // MARK: - Eşleştirme
 
+extension Array where Element == Rule {
+    /// Başlığa özgü kurallar uygulama geneli kurallardan önce denenir.
+    var bySpecificity: [Rule] {
+        sorted { $0.tokens.count > $1.tokens.count }
+    }
+}
+
 extension Rule {
     func matches(bundleID windowBundle: String, appName windowApp: String,
                  title: String) -> Bool {
@@ -205,7 +215,7 @@ extension Rule {
             guard appName.caseInsensitiveCompare(windowApp) == .orderedSame
             else { return false }
         }
-        guard !tokens.isEmpty else { return false }
+        if tokens.isEmpty { return true }
         let haystack = title.lowercased()
         return tokens.allSatisfy { haystack.contains($0.lowercased()) }
     }

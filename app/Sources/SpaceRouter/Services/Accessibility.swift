@@ -64,26 +64,50 @@ enum AX {
         return unsafeBitCast(pointer, to: GetWindowFn.self)
     }()
 
-    /// Tüm normal uygulamaların başlıklı, standart pencereleri.
-    static func allWindows() -> [AXWindow] {
+    /// Dock'ta görünen bir uygulama.
+    struct App: Identifiable, Hashable {
+        let pid: pid_t
+        let name: String
+        let bundleID: String
+        var id: pid_t { pid }
+    }
+
+    /// Dock'ta görünen, çalışan bütün uygulamalar (kendimiz hariç).
+    static func runningApps() -> [App] {
         let ownPID = ProcessInfo.processInfo.processIdentifier
+        return NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular && $0.processIdentifier != ownPID }
+            .map { App(pid: $0.processIdentifier,
+                       name: $0.localizedName ?? "?",
+                       bundleID: $0.bundleIdentifier ?? "") }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+    }
+
+    /// Tüm normal uygulamaların pencereleri. Başlıksız pencereler de
+    /// listelenir (uygulama geneli kurallar için); yalnızca yüzen
+    /// paneller ve sistem diyalogları atlanır.
+    /// `timeout`: uygulama başına Accessibility yanıt süresi. Bir uygulamaya
+    /// ilk kez sorulduğunda yanıt yavaş olabilir; kısa değer uygulamayı
+    /// sessizce listeden düşürür.
+    static func allWindows(timeout: Float = 1.0) -> [AXWindow] {
         var result: [AXWindow] = []
 
-        for app in NSWorkspace.shared.runningApplications
-        where app.activationPolicy == .regular && app.processIdentifier != ownPID {
-            let appElement = AXUIElementCreateApplication(app.processIdentifier)
-            AXUIElementSetMessagingTimeout(appElement, 0.3)
+        for app in runningApps() {
+            let appElement = AXUIElementCreateApplication(app.pid)
+            AXUIElementSetMessagingTimeout(appElement, timeout)
 
             guard let windows: [AXUIElement] = attribute(appElement, kAXWindowsAttribute)
             else { continue }
 
             for element in windows {
                 let subrole: String? = attribute(element, kAXSubroleAttribute)
-                guard subrole == nil || subrole == kAXStandardWindowSubrole else {
+                if let subrole,
+                   subrole == kAXFloatingWindowSubrole
+                    || subrole == kAXSystemDialogSubrole
+                    || subrole == kAXSystemFloatingWindowSubrole {
                     continue
                 }
                 let title: String = attribute(element, kAXTitleAttribute) ?? ""
-                guard !title.isEmpty else { continue }
 
                 var windowID: CGWindowID = 0
                 guard let getWindowID,
@@ -92,9 +116,9 @@ enum AX {
 
                 result.append(AXWindow(
                     id: windowID,
-                    pid: app.processIdentifier,
-                    appName: app.localizedName ?? "?",
-                    bundleID: app.bundleIdentifier ?? "",
+                    pid: app.pid,
+                    appName: app.name,
+                    bundleID: app.bundleID,
                     title: title,
                     element: element))
             }

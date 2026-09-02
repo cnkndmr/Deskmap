@@ -65,7 +65,7 @@ final class Router: ObservableObject {
     private func sweep() {
         guard store.document.enabled, !isSweeping, AXIsProcessTrusted() else { return }
 
-        let rules = store.document.rules
+        let rules = store.document.rules.bySpecificity
         let mode = screens.mode
         let connected = screens.screens
         let applied = self.applied

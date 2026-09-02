@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// Açık pencerelerden birini seçip başlığın hangi parçasının kural
-/// olacağını işaretleme akışı. İki adım, metin girişi yok.
+/// Açık bir pencere ya da çalışan bir uygulama seçip başlığın hangi
+/// parçasının kural olacağını işaretleme akışı. İki adım, metin girişi yok.
 struct AddWindowView: View {
 
     let mode: Mode
@@ -11,37 +11,61 @@ struct AddWindowView: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var screens: ScreenService
 
+    /// Seçilen şey: bir pencere ya da yalnızca uygulama.
+    private struct Pick: Equatable {
+        let appName: String
+        let bundleID: String
+        let window: AXWindow?
+    }
+
     @State private var windows: [AXWindow] = []
-    @State private var selected: AXWindow?
+    @State private var apps: [AX.App] = []
+    @State private var isLoading = true
+    @State private var pick: Pick?
     @State private var segments: [String] = []
     @State private var chosen: Set<Int> = []
+    @State private var appWide = false
 
     var body: some View {
         VStack(spacing: 0) {
-            if let window = selected {
-                tokenPicker(for: window)
+            if let pick {
+                tokenPicker(for: pick)
             } else {
                 windowList
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { windows = AX.allWindows().sorted(by: Self.order) }
+        .task { await reload() }
     }
 
-    // MARK: - 1. Pencere seç
+    private func reload() async {
+        isLoading = true
+        let loaded = await Task.detached(priority: .userInitiated) {
+            (AX.allWindows().sorted(by: Self.order), AX.runningApps())
+        }.value
+        windows = loaded.0
+        apps = loaded.1
+        isLoading = false
+    }
+
+    // MARK: - 1. Pencere / uygulama seç
 
     private var windowList: some View {
         VStack(spacing: 0) {
             HStack {
                 Text("Hangi pencere?")
                     .font(.headline)
+                if isLoading {
+                    ProgressView().controlSize(.small).padding(.leading, 6)
+                }
                 Spacer()
                 Button {
-                    windows = AX.allWindows().sorted(by: Self.order)
+                    Task { await reload() }
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
                 .buttonStyle(.borderless)
+                .disabled(isLoading)
                 Button("Vazgeç", action: onCancel)
                     .keyboardShortcut(.cancelAction)
             }
@@ -49,44 +73,83 @@ struct AddWindowView: View {
 
             Divider()
 
-            if windows.isEmpty {
-                Spacer()
-                Text("Başlığı olan açık pencere bulunamadı.")
-                    .foregroundStyle(.secondary)
-                Spacer()
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 2) {
-                        ForEach(windows) { window in
-                            Button {
-                                choose(window)
-                            } label: {
-                                HStack(spacing: 8) {
-                                    AppIcon(bundleID: window.bundleID, size: 20)
-                                    VStack(alignment: .leading, spacing: 1) {
-                                        Text(window.title).lineLimit(1)
-                                        Text(window.appName)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    if isCovered(window) {
-                                        Image(systemName: "checkmark.circle.fill")
-                                            .foregroundStyle(.green)
-                                            .help("Zaten bir kurala uyuyor")
-                                    }
-                                }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 2, pinnedViews: .sectionHeaders) {
+                    Section {
+                        if windows.isEmpty && !isLoading {
+                            Text("Açık pencere bulunamadı.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
-                                .contentShape(Rectangle())
-                            }
-                            .buttonStyle(RowButtonStyle())
                         }
+                        ForEach(windows) { window in
+                            row(icon: window.bundleID,
+                                title: window.title.isEmpty ? "Adsız pencere" : window.title,
+                                subtitle: window.appName,
+                                covered: isCovered(window)) {
+                                choose(Pick(appName: window.appName,
+                                            bundleID: window.bundleID,
+                                            window: window))
+                            }
+                        }
+                    } header: {
+                        sectionHeader("Açık pencereler")
                     }
-                    .padding(6)
+
+                    Section {
+                        ForEach(apps) { app in
+                            row(icon: app.bundleID,
+                                title: app.name,
+                                subtitle: "tüm pencereleri",
+                                covered: isCovered(app)) {
+                                choose(Pick(appName: app.name,
+                                            bundleID: app.bundleID,
+                                            window: nil))
+                            }
+                        }
+                    } header: {
+                        sectionHeader("Uygulamalar")
+                    }
                 }
+                .padding(6)
             }
         }
+    }
+
+    private func sectionHeader(_ text: String) -> some View {
+        Text(text)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(.regularMaterial)
+    }
+
+    private func row(icon: String, title: String, subtitle: String,
+                     covered: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                AppIcon(bundleID: icon, size: 20)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title).lineLimit(1)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if covered {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                        .help("Zaten bir kurala uyuyor")
+                }
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(RowButtonStyle())
     }
 
     private func isCovered(_ window: AXWindow) -> Bool {
@@ -96,96 +159,126 @@ struct AddWindowView: View {
         }
     }
 
-    private func choose(_ window: AXWindow) {
-        segments = Self.split(window.title)
-        // Varsayılan: uygulama adı olmayan son parça (çalışma alanı adı
-        // genellikle başlığın sonundadır).
-        let candidates = segments.indices.filter {
-            segments[$0].caseInsensitiveCompare(window.appName) != .orderedSame
+    private func isCovered(_ app: AX.App) -> Bool {
+        store.document.rules.contains { $0.isAppWide && $0.bundleID == app.bundleID }
+    }
+
+    private func choose(_ pick: Pick) {
+        if let window = pick.window, !window.title.isEmpty {
+            segments = Self.split(window.title)
+            // Varsayılan: uygulama adı olmayan son parça (çalışma alanı adı
+            // genellikle başlığın sonundadır).
+            let candidates = segments.indices.filter {
+                segments[$0].caseInsensitiveCompare(pick.appName) != .orderedSame
+            }
+            chosen = Set([candidates.last ?? segments.indices.last].compactMap { $0 })
+            appWide = false
+        } else {
+            segments = []
+            chosen = []
+            appWide = true
         }
-        chosen = Set([candidates.last ?? segments.indices.last].compactMap { $0 })
-        selected = window
+        self.pick = pick
     }
 
     // MARK: - 2. Parça seç
 
-    private func tokenPicker(for window: AXWindow) -> some View {
+    private func tokenPicker(for pick: Pick) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Button {
-                    selected = nil
+                    self.pick = nil
                 } label: {
                     Image(systemName: "chevron.left")
                 }
                 .buttonStyle(.borderless)
 
-                AppIcon(bundleID: window.bundleID, size: 22)
-                Text(window.appName).font(.headline)
+                AppIcon(bundleID: pick.bundleID, size: 22)
+                Text(pick.appName).font(.headline)
                 Spacer()
             }
 
-            Text("Başlığın hangi parçası bu pencereyi tanımlıyor?")
+            Text(segments.isEmpty
+                 ? "Bu uygulamanın bütün pencereleri aynı yere gidecek."
+                 : "Başlığın hangi parçası bu pencereyi tanımlıyor?")
                 .foregroundStyle(.secondary)
 
             FlowLayout(spacing: 8) {
+                pill("Tüm pencereler", systemImage: "macwindow.on.rectangle",
+                     isOn: appWide) {
+                    appWide.toggle()
+                    if appWide { chosen = [] }
+                }
+
                 ForEach(segments.indices, id: \.self) { index in
-                    let isOn = chosen.contains(index)
-                    Button {
-                        if isOn { chosen.remove(index) } else { chosen.insert(index) }
-                    } label: {
-                        Text(segments[index])
-                            .lineLimit(1)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 5)
-                            .background(
-                                Capsule().fill(isOn ? Color.accentColor
-                                                    : Color.primary.opacity(0.08)))
-                            .foregroundStyle(isOn ? Color.white : Color.primary)
+                    pill(segments[index], isOn: chosen.contains(index)) {
+                        if chosen.contains(index) {
+                            chosen.remove(index)
+                        } else {
+                            chosen.insert(index)
+                            appWide = false
+                        }
                     }
-                    .buttonStyle(.plain)
                 }
             }
 
-            Text("Seçili parçalar başlıkta geçen her pencere bu kurala uyar. "
-                 + "Dosya adı gibi değişen parçaları seçmeyin.")
+            Text(appWide
+                 ? "Başlığa bakılmaz; \(pick.appName) uygulamasının her penceresi uyar."
+                 : "Seçili parçalar başlıkta geçen her pencere bu kurala uyar. "
+                   + "Dosya adı gibi değişen parçaları seçmeyin.")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
             Spacer()
 
             HStack {
-                Text(matchCount(for: window) == 1
+                Text(matchCount(for: pick) == 1
                      ? "Şu an 1 pencere uyuyor"
-                     : "Şu an \(matchCount(for: window)) pencere uyuyor")
+                     : "Şu an \(matchCount(for: pick)) pencere uyuyor")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
                 Button("Vazgeç", action: onCancel)
                     .keyboardShortcut(.cancelAction)
-                Button("Ekle") { add(window) }
+                Button("Ekle") { add(pick) }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
-                    .disabled(chosen.isEmpty)
+                    .disabled(!appWide && chosen.isEmpty)
             }
         }
         .padding(16)
     }
 
-    private var tokens: [String] {
-        chosen.sorted().map { segments[$0] }
+    private func pill(_ text: String, systemImage: String? = nil, isOn: Bool,
+                      action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                if let systemImage { Image(systemName: systemImage) }
+                Text(text).lineLimit(1)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(isOn ? Color.accentColor : Color.primary.opacity(0.08)))
+            .foregroundStyle(isOn ? Color.white : Color.primary)
+        }
+        .buttonStyle(.plain)
     }
 
-    private func matchCount(for window: AXWindow) -> Int {
-        let draft = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
+    private var tokens: [String] {
+        appWide ? [] : chosen.sorted().map { segments[$0] }
+    }
+
+    private func matchCount(for pick: Pick) -> Int {
+        let draft = Rule(appName: pick.appName, bundleID: pick.bundleID, tokens: tokens)
         return windows.filter {
             draft.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
         }.count
     }
 
-    private func add(_ window: AXWindow) {
-        var rule = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
+    private func add(_ pick: Pick) {
+        var rule = Rule(appName: pick.appName, bundleID: pick.bundleID, tokens: tokens)
         // Pencere şu an neredeyse kural oradan başlar; sonra sürüklenir.
-        if mode == screens.mode,
+        if mode == screens.mode, let window = pick.window,
            let placement = Router.locate(window, screens: screens.screens) {
             rule[mode] = Destination(screen: placement.screen, desktop: placement.desktop)
         } else {
@@ -206,7 +299,7 @@ struct AddWindowView: View {
         return cleaned.isEmpty ? [title] : cleaned
     }
 
-    private static func order(_ a: AXWindow, _ b: AXWindow) -> Bool {
+    nonisolated private static func order(_ a: AXWindow, _ b: AXWindow) -> Bool {
         (a.appName.lowercased(), a.title.lowercased())
             < (b.appName.lowercased(), b.title.lowercased())
     }
