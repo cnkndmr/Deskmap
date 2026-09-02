@@ -29,6 +29,7 @@ struct RootView: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var screens: ScreenService
     @EnvironmentObject private var router: Router
+    @EnvironmentObject private var tour: Tour
     @EnvironmentObject private var permission: AccessibilityPermission
     @EnvironmentObject private var ui: UIState
 
@@ -155,6 +156,21 @@ struct RootView: View {
             }
             .buttonStyle(.borderless)
             .help("Pinli pencereleri şimdi yerleştir")
+
+            Button {
+                if tour.isRunning { tour.cancel() } else { tour.start() }
+            } label: {
+                if tour.isRunning {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Image(systemName: "point.topleft.down.to.point.bottomright.curvepath")
+                }
+            }
+            .buttonStyle(.borderless)
+            .disabled(!permission.isTrusted)
+            .help(tour.isRunning
+                  ? "Turu durdur"
+                  : "Tur at: bütün masaüstlerini sırayla gezip her pinli pencereyi yerine oturt")
         }
     }
 
@@ -166,6 +182,8 @@ struct RootView: View {
                 if let error = store.lastError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
+                } else if let progress = tour.progress {
+                    Label("Tur: \(progress)", systemImage: "point.topleft.down.to.point.bottomright.curvepath")
                 } else if let action = router.status.lastAction {
                     Label(action, systemImage: "arrow.turn.down.right")
                 } else {

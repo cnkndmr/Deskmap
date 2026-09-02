@@ -54,6 +54,8 @@ final class Router: ObservableObject {
     private var isSweeping = false
     private var sweepRequested = false
     private var followUp: Task<Void, Never>?
+    /// `sweepAndWait` bekleyenleri; tarama bitince uyandırılır.
+    private var waiters: [CheckedContinuation<Void, Never>] = []
 
     init(store: Store, screens: ScreenService) {
         self.store = store
@@ -95,6 +97,20 @@ final class Router: ObservableObject {
         applied.removeAll()
         attempts.removeAll()
         sweep()
+    }
+
+    /// Bir tarama başlatır ve bitmesini bekler (tur için). Süren bir
+    /// tarama varsa önce onun bitmesi beklenir; sonra yeni tarama yapılır.
+    func sweepAndWait() async {
+        if isSweeping { await waitForSweep() }
+        sweep()
+        if isSweeping { await waitForSweep() }
+    }
+
+    private func waitForSweep() async {
+        await withCheckedContinuation { continuation in
+            waiters.append(continuation)
+        }
     }
 
     /// Kısa bir süre sonra yeniden tara (masaüstü taşıması yerleşsin diye).
@@ -145,6 +161,9 @@ final class Router: ObservableObject {
                     status.lastActionAt = Date()
                 }
                 if status != self.status { self.status = status }
+                let waiters = self.waiters
+                self.waiters.removeAll()
+                waiters.forEach { $0.resume() }
             }
         }
     }
