@@ -1,0 +1,47 @@
+import SwiftUI
+
+/// Haritadaki bırakma hedefleri.
+enum DropTarget: Hashable {
+    case desktop(screen: String, desktop: Int)
+    case tray
+}
+
+struct DropTargetFrame: Equatable {
+    let target: DropTarget
+    let frame: CGRect
+}
+
+/// Alt görünümler kendi çerçevelerini harita koordinat uzayında bildirir.
+struct DropTargetPreference: PreferenceKey {
+    static var defaultValue: [DropTargetFrame] = []
+    static func reduce(value: inout [DropTargetFrame], nextValue: () -> [DropTargetFrame]) {
+        value.append(contentsOf: nextValue())
+    }
+}
+
+/// Çip sürükleme durumu. Sistem sürükle-bırak yerine kendi jestimizi
+/// kullanıyoruz: menü çubuğu penceresinde daha güvenilir ve tıklama ile
+/// çakışmıyor.
+struct ChipDrag: Equatable {
+    var ruleID: String
+    var location: CGPoint
+    var hover: DropTarget?
+}
+
+extension View {
+    /// Görünümü bırakma hedefi olarak kaydeder.
+    func dropTarget(_ target: DropTarget) -> some View {
+        background(
+            GeometryReader { geometry in
+                Color.clear.preference(
+                    key: DropTargetPreference.self,
+                    value: [DropTargetFrame(
+                        target: target,
+                        frame: geometry.frame(in: .named(MapSpace.name)))])
+            })
+    }
+}
+
+enum MapSpace {
+    static let name = "spacerouter.map"
+}

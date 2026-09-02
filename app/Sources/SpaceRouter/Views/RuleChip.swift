@@ -7,11 +7,13 @@ struct RuleChip: View {
 
     let rule: Rule
     let mode: Mode
+    var isGhost = false
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
 
     private var isSelected: Bool { ui.editingRuleID == rule.id }
+    private var isBeingDragged: Bool { !isGhost && ui.drag?.ruleID == rule.id }
 
     var body: some View {
         HStack(spacing: 5) {
@@ -32,9 +34,33 @@ struct RuleChip: View {
         .overlay(Capsule().strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.15),
                                         lineWidth: 1))
         .contentShape(Capsule())
-        .draggable(rule.id)
+        .opacity(isBeingDragged ? 0.35 : 1)
         .onTapGesture { ui.editingRuleID = isSelected ? nil : rule.id }
+        .gesture(dragGesture, including: isGhost ? .none : .all)
         .help("\(rule.appName): \(rule.title)\nSürükleyerek taşı, tıklayarak düzeni seç")
+    }
+
+    private var dragGesture: some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
+            .onChanged { value in
+                ui.drag = ChipDrag(
+                    ruleID: rule.id,
+                    location: value.location,
+                    hover: ui.target(at: value.location))
+            }
+            .onEnded { value in
+                defer { ui.drag = nil }
+                guard let target = ui.target(at: value.location) else { return }
+                switch target {
+                case .desktop(let screen, let desktop):
+                    let layout = rule[mode]?.layout ?? .full
+                    store.setDestination(
+                        Destination(screen: screen, desktop: desktop, layout: layout),
+                        for: rule.id, mode: mode)
+                case .tray:
+                    store.setDestination(nil, for: rule.id, mode: mode)
+                }
+            }
     }
 }
 

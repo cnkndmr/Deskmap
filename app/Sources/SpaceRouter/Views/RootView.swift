@@ -8,6 +8,14 @@ import SwiftUI
 final class UIState: ObservableObject {
     @Published var adding = false
     @Published var editingRuleID: String?
+
+    /// Sürükleme sırasında canlı durum ve bilinen hedef çerçeveleri.
+    @Published var drag: ChipDrag?
+    var targets: [DropTargetFrame] = []
+
+    func target(at point: CGPoint) -> DropTarget? {
+        targets.first { $0.frame.contains(point) }?.target
+    }
 }
 
 struct RootView: View {

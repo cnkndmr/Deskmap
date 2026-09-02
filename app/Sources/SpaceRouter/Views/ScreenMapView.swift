@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Seçili mod için ekranlar, masaüstleri ve üzerlerindeki kural çipleri.
 /// Çipler masaüstleri arasında sürüklenir.
@@ -11,6 +10,7 @@ struct ScreenMapView: View {
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var screens: ScreenService
+    @EnvironmentObject private var ui: UIState
 
     var body: some View {
         VStack(spacing: 12) {
@@ -24,6 +24,17 @@ struct ScreenMapView: View {
             }
 
             UnassignedTray(mode: mode)
+        }
+        .coordinateSpace(name: MapSpace.name)
+        .onPreferenceChange(DropTargetPreference.self) { ui.targets = $0 }
+        .overlay(alignment: .topLeading) {
+            // Sürüklenen çipin hayaleti; imleci izler.
+            if let drag = ui.drag, let rule = store.rule(drag.ruleID) {
+                RuleChip(rule: rule, mode: mode, isGhost: true)
+                    .offset(x: drag.location.x - 12, y: drag.location.y - 12)
+                    .allowsHitTesting(false)
+                    .shadow(radius: 6, y: 2)
+            }
         }
     }
 
@@ -91,7 +102,10 @@ private struct DesktopTile: View {
     let exists: Bool
 
     @EnvironmentObject private var store: Store
-    @State private var isTargeted = false
+    @EnvironmentObject private var ui: UIState
+
+    private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
+    private var isTargeted: Bool { ui.drag?.hover == target }
 
     private var rules: [Rule] {
         store.document.rules.filter {
@@ -123,15 +137,7 @@ private struct DesktopTile: View {
                 .strokeBorder(
                     isTargeted ? Color.accentColor : Color.primary.opacity(0.12),
                     style: StrokeStyle(lineWidth: 1, dash: exists ? [] : [4, 3])))
-        .dropDestination(for: String.self) { ids, _ in
-            for id in ids {
-                let layout = store.rule(id)?[mode]?.layout ?? .full
-                store.setDestination(
-                    Destination(screen: screen.id, desktop: desktop, layout: layout),
-                    for: id, mode: mode)
-            }
-            return !ids.isEmpty
-        } isTargeted: { isTargeted = $0 }
+        .dropTarget(target)
         .help(exists ? "Masaüstü \(desktop)"
                      : "Masaüstü \(desktop) henüz yok; açılınca kullanılır")
     }
@@ -144,8 +150,10 @@ private struct GhostTile: View {
     let desktop: Int
     let mode: Mode
 
-    @EnvironmentObject private var store: Store
-    @State private var isTargeted = false
+    @EnvironmentObject private var ui: UIState
+
+    private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
+    private var isTargeted: Bool { ui.drag?.hover == target }
 
     var body: some View {
         Image(systemName: "plus")
@@ -161,15 +169,7 @@ private struct GhostTile: View {
                     .strokeBorder(
                         isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
                         style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-            .dropDestination(for: String.self) { ids, _ in
-                for id in ids {
-                    let layout = store.rule(id)?[mode]?.layout ?? .full
-                    store.setDestination(
-                        Destination(screen: screen.id, desktop: desktop, layout: layout),
-                        for: id, mode: mode)
-                }
-                return !ids.isEmpty
-            } isTargeted: { isTargeted = $0 }
+            .dropTarget(target)
             .help("Masaüstü \(desktop)")
     }
 }
@@ -182,7 +182,9 @@ private struct UnassignedTray: View {
     let mode: Mode
 
     @EnvironmentObject private var store: Store
-    @State private var isTargeted = false
+    @EnvironmentObject private var ui: UIState
+
+    private var isTargeted: Bool { ui.drag?.hover == .tray }
 
     private var rules: [Rule] {
         store.document.rules.filter { $0[mode] == nil }
@@ -219,10 +221,7 @@ private struct UnassignedTray: View {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
                               style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-        .dropDestination(for: String.self) { ids, _ in
-            for id in ids { store.setDestination(nil, for: id, mode: mode) }
-            return !ids.isEmpty
-        } isTargeted: { isTargeted = $0 }
+        .dropTarget(.tray)
     }
 }
 
