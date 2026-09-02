@@ -219,6 +219,24 @@ enum AX {
         }
     }
 
+    /// Pencere sunucusunun şu an bildiği bütün pencere numaraları (tüm
+    /// masaüstleri, katman/boyut süzgeci yok) → sahip pid. Bir pencerenin
+    /// hâlâ var olup olmadığını AX listesinden bağımsız söyler; AX listesi
+    /// başka masaüstündeki pencereleri anlık kaçırabilir, sunucu kaçırmaz.
+    static func liveWindowIDs() -> [CGWindowID: pid_t] {
+        guard let list = CGWindowListCopyWindowInfo(
+            [.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return [:] }
+        var result: [CGWindowID: pid_t] = [:]
+        for entry in list {
+            if let number = entry[kCGWindowNumber as String] as? UInt32,
+               let pid = entry[kCGWindowOwnerPID as String] as? Int32 {
+                result[number] = pid
+            }
+        }
+        return result
+    }
+
     static func isMinimized(_ window: AXWindow) -> Bool {
         let value: Bool? = attribute(window.element, kAXMinimizedAttribute)
         return value ?? false

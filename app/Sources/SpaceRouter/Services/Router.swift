@@ -18,6 +18,7 @@ final class Router: ObservableObject {
     /// Arayüzde gösterilen pencere anlık görüntüsü; her taramada yenilenir.
     struct WindowSnapshot: Identifiable, Equatable, Hashable {
         let id: CGWindowID
+        let pid: pid_t
         let appName: String
         let bundleID: String
         let title: String
@@ -43,10 +44,28 @@ final class Router: ObservableObject {
     /// (birkaç tarama boyunca görünmeyince) kendiliğinden silinir; moddan
     /// bağımsızdır, hedef ekran bağlı değilse o an uygulanmaz.
     @Published private(set) var sessionPins: [CGWindowID: Destination] = [:]
-    /// Oturum pini olan pencerenin art arda kaç taramada görülmediği.
+    /// Oturum pinlerinin diske yazılan kaydı (pencere yaşadığı sürece
+    /// uygulama yeniden başlasa da geri yüklenir).
+    private var sessionRecords: [CGWindowID: SessionPin] = [:]
+    /// Oturum pini olan pencerenin pencere sunucusunda art arda kaç
+    /// taramada görülmediği.
     private var sessionMisses: [CGWindowID: Int] = [:]
-    /// Bu kadar ardışık taramada görünmeyen pencerenin oturum pini düşer.
+    /// Bu kadar ardışık taramada pencere sunucusunda da yoksa pin düşer.
     private static let sessionMissLimit = 3
+    /// Oturum pinleri dosyası; pencere numarası + sahip pid ile eşlenir.
+    /// Pencere numaraları ve pid'ler yeniden başlatmada değiştiği için
+    /// eski kayıtlar açılışta kendiliğinden elenir.
+    static let sessionFileURL = Store.directoryURL.appendingPathComponent("session-pins.json")
+
+    /// Diske yazılan oturum pini kaydı.
+    struct SessionPin: Codable, Equatable {
+        var windowID: CGWindowID
+        var pid: pid_t
+        var bundleID: String
+        var appName: String
+        var title: String
+        var destination: Destination
+    }
 
     private let store: Store
     private let screens: ScreenService
@@ -69,6 +88,7 @@ final class Router: ObservableObject {
         self.store = store
         self.screens = screens
         self.events = WindowEvents()
+        loadSessionPins()
 
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -109,18 +129,61 @@ final class Router: ObservableObject {
 
     // MARK: - Oturum pinleri
 
-    /// Bu pencereyi (kimliğiyle) bu oturum boyunca hedefte tutar.
+    /// Bu pencereyi (kimliğiyle) pencere kapanana kadar hedefte tutar.
+    /// Kayıt diske yazılır; Space Router yeniden başlarsa pencere hâlâ
+    /// açıksa pin geri gelir.
     func pinSession(_ windowID: CGWindowID, destination: Destination) {
+        let snapshot = windows.first { $0.id == windowID }
+        let previous = sessionRecords[windowID]
+        sessionRecords[windowID] = SessionPin(
+            windowID: windowID,
+            pid: snapshot?.pid ?? previous?.pid ?? 0,
+            bundleID: snapshot?.bundleID ?? previous?.bundleID ?? "",
+            appName: snapshot?.appName ?? previous?.appName ?? "",
+            title: snapshot?.title ?? previous?.title ?? "",
+            destination: destination)
         sessionPins[windowID] = destination
         sessionMisses[windowID] = nil
         forgetApplied(for: windowID)
+        saveSessionPins()
         sweep()
     }
 
     func unpinSession(_ windowID: CGWindowID) {
         guard sessionPins.removeValue(forKey: windowID) != nil else { return }
+        sessionRecords[windowID] = nil
         sessionMisses[windowID] = nil
         forgetApplied(for: windowID)
+        saveSessionPins()
+    }
+
+    /// Açılışta: kayıtlı oturum pinlerinden penceresi hâlâ (aynı pid ile)
+    /// pencere sunucusunda olanlar geri yüklenir, kalanı atılır.
+    private func loadSessionPins() {
+        guard let data = try? Data(contentsOf: Self.sessionFileURL),
+              let records = try? JSONDecoder().decode([SessionPin].self, from: data)
+        else { return }
+        let live = AX.liveWindowIDs()
+        var restored: [CGWindowID: SessionPin] = [:]
+        for record in records where live[record.windowID] == record.pid {
+            restored[record.windowID] = record
+        }
+        sessionRecords = restored
+        sessionPins = restored.mapValues(\.destination)
+        if restored.count != records.count { saveSessionPins() }
+    }
+
+    private func saveSessionPins() {
+        do {
+            try FileManager.default.createDirectory(
+                at: Store.directoryURL, withIntermediateDirectories: true)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let records = sessionRecords.values.sorted { $0.windowID < $1.windowID }
+            try encoder.encode(records).write(to: Self.sessionFileURL, options: .atomic)
+        } catch {
+            store.report("session-pins.json yazılamadı: \(error.localizedDescription)")
+        }
     }
 
     /// Bir pencerenin düzen belleğini sıfırlar; hedefi değişince yeniden
@@ -191,6 +254,7 @@ final class Router: ObservableObject {
         // Duraklatılmışken kural uygulanmaz ama pencereler yine listelenir.
         let rules = store.document.enabled ? store.document.rules.bySpecificity : []
         let sessionPins = store.document.enabled ? self.sessionPins : [:]
+        let checkLive = !self.sessionPins.isEmpty
         let mode = screens.mode
         let connected = screens.screens
         let applied = self.applied
@@ -199,15 +263,16 @@ final class Router: ObservableObject {
         sweepRequested = false
 
         queue.async { [weak self] in
-            let outcome = Self.route(rules: rules, sessionPins: sessionPins, mode: mode,
-                                     screens: connected, applied: applied, attempts: attempts)
+            let outcome = Self.route(rules: rules, sessionPins: sessionPins, checkLive: checkLive,
+                                     mode: mode, screens: connected,
+                                     applied: applied, attempts: attempts)
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
                 self.applied = outcome.applied
                 self.attempts = outcome.attempts
                 if outcome.snapshots != self.windows { self.windows = outcome.snapshots }
-                self.expireSessionPins(seen: Set(outcome.snapshots.map(\.id)))
+                self.expireSessionPins(live: outcome.liveWindows)
                 if outcome.needsFollowUp || self.sweepRequested {
                     self.scheduleFollowUp(after: outcome.needsFollowUp ? 200 : 20)
                 }
@@ -226,6 +291,9 @@ final class Router: ObservableObject {
         var applied: Set<String>
         var attempts: [String: Int]
         var snapshots: [WindowSnapshot] = []
+        /// Pencere sunucusunun bildiği pencere numaraları → pid (oturum
+        /// pinlerinin yaşayıp yaşamadığı buradan anlaşılır).
+        var liveWindows: [CGWindowID: pid_t] = [:]
         var routed = 0
         var lastAction: String?
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
@@ -241,18 +309,19 @@ final class Router: ObservableObject {
     nonisolated private static let quickAttempts = 4
 
     nonisolated private static func route(
-        rules: [Rule], sessionPins: [CGWindowID: Destination], mode: Mode,
-        screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int]
+        rules: [Rule], sessionPins: [CGWindowID: Destination], checkLive: Bool,
+        mode: Mode, screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int]
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts)
         let sky = SkyLight.shared
         let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(screens))
         let visibleSpaces = Set(displays.map(\.current))
         let windows = AX.allWindows()
+        if checkLive { outcome.liveWindows = AX.liveWindowIDs() }
 
         outcome.snapshots = windows.map { window in
             WindowSnapshot(
-                id: window.id, appName: window.appName, bundleID: window.bundleID,
+                id: window.id, pid: window.pid, appName: window.appName, bundleID: window.bundleID,
                 title: window.title,
                 placement: Self.placement(of: window, displays: displays, screens: screens),
                 frame: AX.frame(of: window),
@@ -358,13 +427,17 @@ final class Router: ObservableObject {
         return outcome
     }
 
-    /// Görünmeyen pencerelerin oturum pinlerini birkaç tarama sonra düşürür
-    /// (AX listesi anlık olarak eksik gelebildiği için hemen değil).
-    private func expireSessionPins(seen: Set<CGWindowID>) {
+    /// Pencere sunucusunda artık olmayan (kapanmış) pencerelerin oturum
+    /// pinlerini birkaç tarama sonra düşürür. AX listesinde görünmemek
+    /// yeterli değildir: başka masaüstündeki pencere AX'te eksik çıkabilir
+    /// ama sunucuda durur; pin de durur.
+    private func expireSessionPins(live: [CGWindowID: pid_t]) {
         guard !sessionPins.isEmpty else { return }
         var expired: [CGWindowID] = []
         for id in sessionPins.keys {
-            if seen.contains(id) {
+            let alive = live[id] != nil
+                && (sessionRecords[id].map { $0.pid == 0 || $0.pid == live[id] } ?? true)
+            if alive {
                 sessionMisses[id] = nil
             } else {
                 let misses = (sessionMisses[id] ?? 0) + 1
@@ -374,9 +447,11 @@ final class Router: ObservableObject {
         }
         for id in expired {
             sessionPins[id] = nil
+            sessionRecords[id] = nil
             sessionMisses[id] = nil
             forgetApplied(for: id)
         }
+        if !expired.isEmpty { saveSessionPins() }
     }
 
     // MARK: - Yardımcılar
