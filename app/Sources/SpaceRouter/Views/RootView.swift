@@ -12,6 +12,7 @@ struct RootView: View {
     }
 
     @EnvironmentObject private var store: RuleStore
+    @EnvironmentObject private var screenService: ScreenService
     @EnvironmentObject private var accessibility: AccessibilityService
     @EnvironmentObject private var hammerspoon: HammerspoonBridge
 
@@ -67,6 +68,21 @@ struct RootView: View {
             Divider()
             FooterView()
         }
+        .onAppear(perform: repairScreenRecordsIfNeeded)
+    }
+
+    /// Kurulumdan kalan yer tutucu ekran kayıtları motoru sessizce
+    /// devre dışı bırakıyordu. Menü her açıldığında kayıtları bağlı
+    /// ekranlarla hizalıyoruz; bu işlem idempotenttir.
+    private func repairScreenRecordsIfNeeded() {
+        screenService.refresh()
+
+        let needsRepair =
+            store.document.screens.isEmpty
+            || store.document.screens.contains(where: { $0.hasPlaceholderUUID })
+
+        guard needsRepair else { return }
+        store.syncScreens(with: screenService.screens)
     }
 }
 

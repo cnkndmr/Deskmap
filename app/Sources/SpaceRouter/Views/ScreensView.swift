@@ -11,6 +11,10 @@ struct ScreensView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
 
+                if !unresolved.isEmpty {
+                    warningBanner
+                }
+
                 GroupBox("Şu an bağlı ekranlar") {
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(screenService.screens) { screen in
@@ -105,6 +109,46 @@ struct ScreensView: View {
     }
 
     private func isRegistered(_ screen: DetectedScreen) -> Bool {
-        store.document.screens.contains { $0.uuid == screen.uuid }
+        let normalized = ScreenEntry.normalize(screen.uuid)
+        return store.document.screens.contains {
+            ScreenEntry.normalize($0.uuid) == normalized
+        }
+    }
+
+    private var unresolved: [ScreenEntry] {
+        store.unresolvedScreens(detected: screenService.screens)
+    }
+
+    /// Motor bu kayıtları çözemez; kurallar sessizce ana ekrana düşer.
+    private var warningBanner: some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 8) {
+                Label("\(unresolved.count) ekran kaydı eşleşmiyor",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+
+                ForEach(unresolved) { entry in
+                    Text("• \(entry.name) — "
+                         + (entry.hasPlaceholderUUID
+                            ? "UUID doldurulmamış"
+                            : "şu an bağlı değil"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text("Yer tutucu UUID kalan kayıtlarda kurallar sessizce "
+                     + "ana ekrana düşer. Aşağıdaki düğme bunları bağlı "
+                     + "ekranlarla hizalar.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+
+                Button {
+                    store.syncScreens(with: screenService.screens)
+                } label: {
+                    Label("Kayıtları düzelt", systemImage: "wrench.and.screwdriver")
+                }
+            }
+            .padding(6)
+        }
     }
 }

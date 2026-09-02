@@ -50,6 +50,8 @@ struct RouterSettings: Codable, Equatable {
     var notifications: Bool = true
     var logLevel: String = "info"
     var followWindowAfterMove: Bool = false
+    var clampDesktopToAvailable: Bool = true
+    var pinSpaces: Bool = true
 
     init() {}
 
@@ -74,6 +76,11 @@ struct RouterSettings: Codable, Equatable {
         followWindowAfterMove = try container.decodeIfPresent(
             Bool.self, forKey: .followWindowAfterMove)
             ?? defaults.followWindowAfterMove
+        clampDesktopToAvailable = try container.decodeIfPresent(
+            Bool.self, forKey: .clampDesktopToAvailable)
+            ?? defaults.clampDesktopToAvailable
+        pinSpaces = try container.decodeIfPresent(
+            Bool.self, forKey: .pinSpaces) ?? defaults.pinSpaces
     }
 }
 
@@ -96,4 +103,19 @@ struct ScreenEntry: Codable, Equatable, Identifiable, Hashable {
     var role: Role
     var name: String
     var uuid: String
+
+    /// Kurulumdan gelen, henüz doldurulmamış örnek değer.
+    var hasPlaceholderUUID: Bool {
+        uuid.uppercased().contains("REPLACE-WITH") || uuid.isEmpty
+    }
+
+    /// UUID'ler farklı kaynaklarda süslü parantezli veya küçük harfli
+    /// olabiliyor; karşılaştırma normalize edilmiş biçim üzerinden yapılır.
+    static func normalize(_ uuid: String) -> String {
+        uuid
+            .replacingOccurrences(of: "{", with: "")
+            .replacingOccurrences(of: "}", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .uppercased()
+    }
 }

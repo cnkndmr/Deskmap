@@ -25,6 +25,8 @@ Konum: `~/Library/Application Support/SpaceRouter/rules.json`
 | `notifications` | bool | `true` | Taşıma sonrası bildirim gösterir. |
 | `logLevel` | string | `"info"` | `debug` / `info` / `warning` / `error`. |
 | `followWindowAfterMove` | bool | `false` | `true` ise taşımadan sonra hedef Space'e geçilir. |
+| `clampDesktopToAvailable` | bool | `true` | İstenen Desktop yoksa var olan son masaüstü kullanılır. |
+| `pinSpaces` | bool | `true` | Sıra numarası bir kez çözülüp gerçek Space kimliğine sabitlenir. |
 
 ## screens[]
 
@@ -94,6 +96,27 @@ Lua desenlerinde `( ) . % + - * ? [ ] ^ $` karakterleri özeldir ve
 | `screen` | string | `screens[].id` referansı. Bulunamazsa ana ekran kullanılır. |
 | `desktop` | int | O ekrandaki **normal** Desktop sırası (1 tabanlı). Tam ekran Space'ler sayılmaz. |
 | `layout` | object | `x`, `y`, `w`, `h` — ekranın kullanılabilir alanına göre 0..1 oranları. |
+
+### Desktop numarası nasıl yorumlanır
+
+`desktop` değeri **o ekrandaki** normal masaüstlerinin sırasıdır,
+Mission Control'de gördüğünüz global numara değil. Dahili ekrana yeni bir
+masaüstü eklemek harici monitörün numaralarını kaydırmaz.
+
+Aynı ekrana masaüstü eklenip silinmesine karşı ikinci bir koruma vardır:
+`settings.pinSpaces` açıkken kural ilk kez uygulandığında çözülen gerçek
+Space kimliği `pins.json` dosyasına yazılır ve sonraki yerleştirmelerde
+sıra yerine bu kimlik kullanılır. Böylece pencere hep aynı fiziksel
+masaüstüne gider.
+
+Sabitleme şu durumlarda kendini yeniler:
+
+- Kuraldaki `desktop` değeri değiştiğinde
+- Sabitlenen masaüstü silindiğinde
+- Ayarlardan "Sabitlemeleri sıfırla" çalıştırıldığında
+
+`pins.json` motora aittir; elle düzenlemeye gerek yoktur ve silinmesi
+zararsızdır.
 
 ### Hazır layout oranları
 

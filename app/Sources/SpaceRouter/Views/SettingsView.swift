@@ -21,6 +21,27 @@ struct SettingsView: View {
                                isOn: $store.document.settings
                                 .followWindowAfterMove)
 
+                        Toggle("Olmayan Desktop yerine son masaüstünü kullan",
+                               isOn: $store.document.settings
+                                .clampDesktopToAvailable)
+
+                        VStack(alignment: .leading, spacing: 2) {
+                            Toggle("Masaüstlerini sıra yerine kimliğe sabitle",
+                                   isOn: $store.document.settings.pinSpaces)
+
+                            Text("Sıra numarası, aynı ekrana yeni masaüstü "
+                                 + "eklendiğinde kayar. Sabitleme açıkken "
+                                 + "kural bir kez çözülür ve pencere hep "
+                                 + "aynı fiziksel masaüstüne gider.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+
+                            Button("Sabitlemeleri sıfırla") {
+                                resetPins()
+                            }
+                            .font(.caption)
+                        }
+
                         secondsSlider(
                             "Başlık gecikmesi",
                             help: "Başlık değişimlerinin yatışması için "
@@ -82,6 +103,16 @@ struct SettingsView: View {
             }
             .padding(12)
         }
+    }
+
+    /// Sabitlemeler motora aittir; dosyayı silmek yeterlidir.
+    /// Motor bir sonraki yerleştirmede sıra numarasından yeniden çözer.
+    private func resetPins() {
+        let url = RuleStore.directoryURL
+            .appendingPathComponent("pins.json")
+
+        try? FileManager.default.removeItem(at: url)
+        hammerspoon.rescanWindows()
     }
 
     private func secondsSlider(

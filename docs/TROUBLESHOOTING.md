@@ -16,6 +16,35 @@ Sırayla kontrol edin:
    oluşturulmuş olmalı.
 6. **Pencere tam ekran mı** — tam ekran pencereler taşınmaz.
 
+## "Ekran bağlı değil, ana ekrana düşülüyor" uyarısı
+
+Yapılandırmadaki ekran UUID'si hiçbir bağlı ekranla eşleşmiyor. En sık
+sebebi, kurulumdan gelen `REPLACE-WITH-BUILTIN-UUID` gibi yer tutucu
+değerlerin hiç doldurulmamış olmasıdır.
+
+Menü çubuğu uygulamasında **Ekranlar** sekmesini açın; uyarı kutusundaki
+**Kayıtları düzelt** düğmesi kayıtları bağlı ekranlarla hizalar. Menü her
+açıldığında bu düzeltme kendiliğinden de denenir.
+
+Motor tarafında durumu görmek için: **SR → Ekran kayıtlarını doğrula**.
+Kayıtlı ve bağlı ekranların UUID'lerini yan yana yazar.
+
+UUID tutmazsa motor ekran **adına** göre eşleştirmeyi dener ve bunu
+uyarı olarak bildirir; bu geçici bir kurtarmadır, UUID'yi güncelleyin.
+
+## Masaüstü numaraları kayıyor
+
+`desktop` değeri o ekrandaki normal masaüstlerinin sırasıdır, Mission
+Control'ün global numarası değil; dahili ekrana masaüstü eklemek harici
+monitörün hedeflerini bozmaz.
+
+Aynı ekrana masaüstü eklerseniz sıra yine de kayabilir. Bunun için
+`settings.pinSpaces` varsayılan olarak açıktır: kural bir kez çözülür ve
+gerçek Space kimliğine sabitlenir. Hedefi bilerek değiştirmek isterseniz
+kuraldaki `desktop` değerini güncelleyin — sabitleme otomatik yenilenir.
+Tümünü sıfırlamak için **Ayarlar → Sabitlemeleri sıfırla** veya
+**SR → Masaüstü sabitlemelerini sıfırla**.
+
 ## Yanlış Desktop'a gidiyor
 
 **System Settings → Desktop & Dock → Mission Control → Automatically
@@ -57,6 +86,12 @@ olmalı ve uygulama bir kez yeniden başlatılmalıdır.
 
 `build/` içinden çalıştırdığınız uygulamayı `/Applications` altına
 taşırsanız izni yeniden vermeniz gerekir; macOS izni dosya yoluna bağlar.
+
+## Konsolda "hs.axuielement requires accessibility" hatası
+
+Hammerspoon'a Erişilebilirlik izni verilmemiş. İzni verdikten sonra
+Hammerspoon'u **kapatıp yeniden açın**; izin yeniden başlatmadan tam
+olarak etkinleşmez. Bu izin olmadan pencere taşıma sessizce çalışmaz.
 
 ## Yapılandırma yüklenemedi uyarısı
 

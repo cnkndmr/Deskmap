@@ -71,7 +71,14 @@ farklı çözünürlük ve ölçeklemelerde çalışır.
 masaüstüdür. Tam ekran ve Split View Space'leri sayıma katılmaz; aksi
 hâlde bir uygulamayı tam ekran yapmak tüm kuralları kaydırırdı.
 
-**Debounce.** Başlık değişimi yazarken karakter karakter tetiklenebilir.
+**Masaüstü sabitleme.** Sıra numarası ("bu ekranın 2. masaüstü")
+kırılgandır: aynı ekrana masaüstü eklenince hedef kayar. Sıra bir kez
+çözülür ve gerçek Space kimliği `pins.json` dosyasına yazılır; sonraki
+yerleştirmelerde bu kimlik kullanılır. Sabitleme motora aittir, çünkü
+`rules.json` uygulamaya aittir ve iki taraf aynı dosyayı yazarsa
+birbirini ezer.
+
+**Debounce. Başlık değişimi yazarken karakter karakter tetiklenebilir.
 Pencere başına zamanlayıcı, art arda gelen olayları tek işleme indirir.
 
 **Geri besleme kilidi.** `setFrame` çağrısı `windowMoved` olayını

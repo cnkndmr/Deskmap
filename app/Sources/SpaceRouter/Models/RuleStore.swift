@@ -119,25 +119,67 @@ final class RuleStore: ObservableObject {
 
     // MARK: - Ekran kayıtları
 
-    /// Bağlı ekranları yapılandırmaya ekler; UUID'si zaten kayıtlı
-    /// olanları günceller, kaldırılmış kayıtları silmez.
+    /// Bağlı ekranları yapılandırmaya işler.
+    ///
+    /// - Kurulumdan kalan yer tutucu kayıtlar (`REPLACE-WITH-...`) atılır.
+    /// - UUID'si tutan kayıt güncellenir.
+    /// - UUID tutmayıp adı tutan kayıt varsa UUID'si tazelenir; böylece
+    ///   kurallardaki `screen` referansları bozulmaz.
+    /// - Kalanlar yeni kayıt olarak eklenir.
+    /// - Şu an bağlı olmayan gerçek kayıtlar silinmez.
     func syncScreens(with detected: [DetectedScreen]) {
+        var screens = document.screens.filter { !$0.hasPlaceholderUUID }
+
         for screen in detected {
-            if let index = document.screens.firstIndex(
-                where: { $0.uuid == screen.uuid }) {
-                document.screens[index].name = screen.name
-                document.screens[index].role =
-                    screen.isBuiltin ? .builtin : .external
-            } else {
-                document.screens.append(
-                    ScreenEntry(
-                        id: Self.uniqueScreenID(
-                            for: screen, existing: document.screens),
-                        role: screen.isBuiltin ? .builtin : .external,
-                        name: screen.name,
-                        uuid: screen.uuid))
+            let role: ScreenEntry.Role = screen.isBuiltin ? .builtin : .external
+            let normalized = ScreenEntry.normalize(screen.uuid)
+
+            if let index = screens.firstIndex(
+                where: { ScreenEntry.normalize($0.uuid) == normalized }) {
+                screens[index].name = screen.name
+                screens[index].role = role
+                continue
+            }
+
+            if let index = screens.firstIndex(where: { $0.name == screen.name }) {
+                screens[index].uuid = screen.uuid
+                screens[index].role = role
+                continue
+            }
+
+            screens.append(
+                ScreenEntry(
+                    id: Self.uniqueScreenID(for: screen, existing: screens),
+                    role: role,
+                    name: screen.name,
+                    uuid: screen.uuid))
+        }
+
+        guard screens != document.screens else { return }
+        document.screens = screens
+    }
+
+    /// Yapılandırmada motorun eşleştiremeyeceği ekran kaydı var mı?
+    func unresolvedScreens(detected: [DetectedScreen]) -> [ScreenEntry] {
+        let connected = Set(detected.map { ScreenEntry.normalize($0.uuid) })
+        return document.screens.filter {
+            $0.hasPlaceholderUUID
+            || !connected.contains(ScreenEntry.normalize($0.uuid))
+        }
+    }
+
+    /// Kurallarda kullanılan ama tanımlı olmayan ekran id'leri.
+    var danglingScreenReferences: [String] {
+        let known = Set(document.screens.map(\.id))
+        var missing: Set<String> = []
+
+        for rule in document.rules {
+            for destination in [rule.docked, rule.undocked].compactMap({ $0 })
+            where !known.contains(destination.screen) {
+                missing.insert(destination.screen)
             }
         }
+        return missing.sorted()
     }
 
     private static func uniqueScreenID(
