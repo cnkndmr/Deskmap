@@ -129,6 +129,32 @@ final class Store: ObservableObject {
         update(rule)
     }
 
+    /// Pinler: aynı anahtarlı (uygulama + parçalar) kural varsa onun bu
+    /// moddaki hedefi güncellenir, yoksa yeni kural eklenir. Kural kimliği
+    /// döner.
+    @discardableResult
+    func pin(_ draft: Rule, destination: Destination, mode: Mode) -> String {
+        if let existing = document.rules.first(where: { $0.sameKey(as: draft) }) {
+            setDestination(destination, for: existing.id, mode: mode)
+            return existing.id
+        }
+        var rule = draft
+        rule[mode] = destination
+        add(rule)
+        return rule.id
+    }
+
+    /// Bu moddaki hedefi kaldırır; kuralın hiçbir hedefi kalmazsa silinir.
+    func unpin(_ id: String, mode: Mode) {
+        guard var rule = rule(id) else { return }
+        rule[mode] = nil
+        if rule.docked == nil && rule.undocked == nil {
+            remove(id)
+        } else {
+            update(rule)
+        }
+    }
+
     // MARK: - Ekranlar
 
     /// Bağlı ekranları bilinen ekranlara işler; bağlı olmayanlar silinmez.

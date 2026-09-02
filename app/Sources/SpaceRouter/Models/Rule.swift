@@ -9,33 +9,31 @@ struct WindowLayout: Codable, Equatable, Hashable {
     var w: Double = 1
     var h: Double = 1
 
-    static let full       = WindowLayout(x: 0,   y: 0,   w: 1,   h: 1)
-    static let leftHalf   = WindowLayout(x: 0,   y: 0,   w: 0.5, h: 1)
-    static let rightHalf  = WindowLayout(x: 0.5, y: 0,   w: 0.5, h: 1)
-    static let left70     = WindowLayout(x: 0,   y: 0,   w: 0.7, h: 1)
-    static let right30    = WindowLayout(x: 0.7, y: 0,   w: 0.3, h: 1)
-    static let topHalf    = WindowLayout(x: 0,   y: 0,   w: 1,   h: 0.5)
-    static let bottomHalf = WindowLayout(x: 0,   y: 0.5, w: 1,   h: 0.5)
-    static let center     = WindowLayout(x: 0.1, y: 0.1, w: 0.8, h: 0.8)
+    /// Pencerenin gerçek çerçevesinden (AX koordinatları) ekranın
+    /// kullanılabilir alanına göre oranlar. Pin, o anki çerçeveyi böyle
+    /// saklar; çözünürlük değişse de aynı yere oturur.
+    init(frame: CGRect, in area: CGRect) {
+        guard area.width > 0, area.height > 0 else { self.init(); return }
+        let x = (frame.minX - area.minX) / area.width
+        let y = (frame.minY - area.minY) / area.height
+        let w = frame.width / area.width
+        let h = frame.height / area.height
+        self.init(
+            x: min(max(x, 0), 0.95),
+            y: min(max(y, 0), 0.95),
+            w: min(max(w, 0.05), 1),
+            h: min(max(h, 0.05), 1))
+    }
 
-    /// Düzen seçicide gösterilen hazır seçenekler.
-    static let presets: [WindowLayout] = [
-        .full, .leftHalf, .rightHalf, .left70, .right30,
-        .topHalf, .bottomHalf, .center,
-    ]
+    init(x: Double = 0, y: Double = 0, w: Double = 1, h: Double = 1) {
+        self.x = x; self.y = y; self.w = w; self.h = h
+    }
 
+    static let full = WindowLayout()
+
+    /// Kısa açıklama: "%70 × %100" gibi (genişlik × yükseklik).
     var label: String {
-        switch self {
-        case .full:       return "Tam"
-        case .leftHalf:   return "Sol yarı"
-        case .rightHalf:  return "Sağ yarı"
-        case .left70:     return "Sol %70"
-        case .right30:    return "Sağ %30"
-        case .topHalf:    return "Üst yarı"
-        case .bottomHalf: return "Alt yarı"
-        case .center:     return "Orta"
-        default:          return "Özel"
-        }
+        "%\(Int((w * 100).rounded())) × %\(Int((h * 100).rounded()))"
     }
 
     /// Verilen dikdörtgen içinde düzenin karşılık geldiği alan.
@@ -218,5 +216,29 @@ extension Rule {
         if tokens.isEmpty { return true }
         let haystack = title.lowercased()
         return tokens.allSatisfy { haystack.contains($0.lowercased()) }
+    }
+}
+
+// MARK: - Başlık parçalama
+
+extension Rule {
+    /// Başlığı yaygın ayraçlardan böler: " — ", " – ", " - ", " | ", " · ", " • ", " : "
+    static func split(title: String) -> [String] {
+        let separator = try! Regex(#"\s*[—–|·•]\s*|\s+[-:]\s+"#)
+        let cleaned = title.split(separator: separator)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .map { $0.replacingOccurrences(of: #"^[●•*]\s*"#, with: "", options: .regularExpression) }
+            .filter { !$0.isEmpty }
+        return cleaned.isEmpty ? (title.isEmpty ? [] : [title]) : cleaned
+    }
+
+    /// Aynı uygulama + aynı parçalar (büyük/küçük harf duyarsız).
+    func sameKey(as other: Rule) -> Bool {
+        let a = bundleID.isEmpty ? appName.lowercased() : bundleID
+        let b = other.bundleID.isEmpty ? other.appName.lowercased() : other.bundleID
+        guard a == b, tokens.count == other.tokens.count else { return false }
+        return zip(tokens, other.tokens).allSatisfy {
+            $0.caseInsensitiveCompare($1) == .orderedSame
+        }
     }
 }

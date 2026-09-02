@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// Seçili mod için ekranlar, masaüstleri ve üzerlerindeki kural çipleri.
-/// Çipler masaüstleri arasında sürüklenir.
+/// Seçili mod için ekranlar, masaüstleri ve üzerlerindeki pencereler.
+/// Şu anki modda canlı pencereler bulundukları masaüstünde listelenir;
+/// diğer modda yalnızca pinli kurallar görünür. Satırlar masaüstleri
+/// arasında sürüklenir (taşımak = pinlemek).
 struct ScreenMapView: View {
 
     let mode: Mode
@@ -12,12 +14,15 @@ struct ScreenMapView: View {
     @EnvironmentObject private var screens: ScreenService
     @EnvironmentObject private var ui: UIState
 
+    private var isLive: Bool { mode == screens.mode }
+
     var body: some View {
         VStack(spacing: 12) {
             ForEach(store.screens(for: mode)) { screen in
                 ScreenCard(
                     screen: screen,
                     mode: mode,
+                    isLive: isLive,
                     isConnected: screens.screens.contains { $0.id == screen.id },
                     tileCount: tileCount(for: screen),
                     realCount: desktopCounts[screen.id])
@@ -28,12 +33,24 @@ struct ScreenMapView: View {
         .coordinateSpace(name: MapSpace.name)
         .onPreferenceChange(DropTargetPreference.self) { ui.targets = $0 }
         .overlay(alignment: .topLeading) {
-            // Sürüklenen çipin hayaleti; imleci izler.
-            if let drag = ui.drag, let rule = store.rule(drag.ruleID) {
-                RuleChip(rule: rule, mode: mode, isGhost: true)
-                    .offset(x: drag.location.x - 12, y: drag.location.y - 12)
-                    .allowsHitTesting(false)
-                    .shadow(radius: 6, y: 2)
+            // Sürüklenen öğenin hayaleti; imleci izler.
+            if let drag = ui.drag {
+                Group {
+                    switch drag.item {
+                    case .rule(let id):
+                        if let rule = store.rule(id) {
+                            RuleChip(rule: rule, mode: mode, isGhost: true)
+                        }
+                    case .window(let id):
+                        if let window = ui.windows.first(where: { $0.id == id }) {
+                            WindowRow(window: window, mode: mode, isGhost: true)
+                                .frame(width: 260)
+                        }
+                    }
+                }
+                .offset(x: drag.location.x - 12, y: drag.location.y - 12)
+                .allowsHitTesting(false)
+                .shadow(radius: 6, y: 2)
             }
         }
     }
@@ -44,8 +61,12 @@ struct ScreenMapView: View {
             .filter { $0.screen == screen.id }
             .map(\.desktop)
             .max() ?? 0
+        let live = isLive
+            ? ui.windows.compactMap(\.placement).filter { $0.screen == screen.id }
+                .map(\.desktop).max() ?? 0
+            : 0
         let real = desktopCounts[screen.id] ?? 0
-        return max(real, used, 1)
+        return max(real, used, live, 1)
     }
 }
 
@@ -55,6 +76,7 @@ private struct ScreenCard: View {
 
     let screen: KnownScreen
     let mode: Mode
+    let isLive: Bool
     let isConnected: Bool
     let tileCount: Int
     let realCount: Int?
@@ -75,7 +97,7 @@ private struct ScreenCard: View {
 
             ForEach(1..<(tileCount + 1), id: \.self) { desktop in
                 DesktopRow(
-                    screen: screen, desktop: desktop, mode: mode,
+                    screen: screen, desktop: desktop, mode: mode, isLive: isLive,
                     exists: realCount.map { desktop <= $0 } ?? true)
             }
             GhostRow(screen: screen, desktop: tileCount + 1, mode: mode)
@@ -92,12 +114,14 @@ private struct ScreenCard: View {
 
 // MARK: - Masaüstü satırı
 
-/// Her masaüstü tam genişlikte bir satır: solda numara, sağda çipler.
+/// Her masaüstü tam genişlikte bir satır: solda numara, sağda uygulama
+/// başına gruplanmış pencereler ve penceresi kapalı pinler.
 private struct DesktopRow: View {
 
     let screen: KnownScreen
     let desktop: Int
     let mode: Mode
+    let isLive: Bool
     /// Bağlı ekranda bu masaüstü gerçekten var mı?
     let exists: Bool
 
@@ -106,11 +130,48 @@ private struct DesktopRow: View {
 
     private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
     private var isTargeted: Bool { ui.drag?.hover == target }
+    private var placement: Router.Placement {
+        Router.Placement(screen: screen.id, desktop: desktop)
+    }
 
-    private var rules: [Rule] {
-        store.document.rules.filter {
-            guard let destination = $0[mode] else { return false }
-            return destination.screen == screen.id && destination.desktop == desktop
+    /// Bu masaüstündeki canlı pencereler (yalnızca şu anki modda).
+    private var windows: [Router.WindowSnapshot] {
+        guard isLive else { return [] }
+        return ui.windows.filter { $0.placement == placement }
+    }
+
+    /// Uygulama başına gruplar; sıra pencere listesinin sırası.
+    private struct AppGroup: Identifiable {
+        let bundleID: String
+        let appName: String
+        var windows: [Router.WindowSnapshot]
+        var id: String { bundleID.isEmpty ? appName : bundleID }
+    }
+
+    private var groups: [AppGroup] {
+        var result: [AppGroup] = []
+        for window in windows {
+            let key = window.bundleID.isEmpty ? window.appName : window.bundleID
+            if let i = result.firstIndex(where: { $0.id == key }) {
+                result[i].windows.append(window)
+            } else {
+                result.append(AppGroup(bundleID: window.bundleID,
+                                       appName: window.appName, windows: [window]))
+            }
+        }
+        return result
+    }
+
+    /// Hedefi burası olan ama şu an açık penceresi olmayan pinler.
+    private var orphanRules: [Rule] {
+        store.document.rules.filter { rule in
+            guard let destination = rule[mode],
+                  destination.screen == screen.id, destination.desktop == desktop
+            else { return false }
+            guard isLive else { return true }
+            return !ui.windows.contains {
+                rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
+            }
         }
     }
 
@@ -122,15 +183,23 @@ private struct DesktopRow: View {
                 .frame(width: 78, alignment: .leading)
                 .padding(.top, 2)
 
-            if rules.isEmpty {
+            if groups.isEmpty && orphanRules.isEmpty {
                 Text(exists ? "boş" : "henüz yok")
                     .font(.caption)
                     .foregroundStyle(.quaternary)
                     .padding(.top, 2)
             } else {
-                FlowLayout(spacing: 6) {
-                    ForEach(rules) { rule in
-                        RuleChip(rule: rule, mode: mode)
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(groups) { group in
+                        groupView(group)
+                    }
+                    if !orphanRules.isEmpty {
+                        FlowLayout(spacing: 6) {
+                            ForEach(orphanRules) { rule in
+                                RuleChip(rule: rule, mode: mode)
+                            }
+                        }
+                        .padding(.top, groups.isEmpty ? 0 : 2)
                     }
                 }
             }
@@ -151,6 +220,64 @@ private struct DesktopRow: View {
         .dropTarget(target)
         .help(exists ? "Masaüstü \(desktop)"
                      : "Masaüstü \(desktop) henüz yok; açılınca kullanılır")
+    }
+
+    @ViewBuilder
+    private func groupView(_ group: AppGroup) -> some View {
+        if group.windows.count == 1, let window = group.windows.first {
+            WindowRow(window: window, mode: mode, showsApp: true)
+        } else {
+            let key = "\(screen.id)|\(desktop)|\(group.id)"
+            let collapsed = ui.collapsed.contains(key)
+            VStack(alignment: .leading, spacing: 2) {
+                Button {
+                    if collapsed { ui.collapsed.remove(key) } else { ui.collapsed.insert(key) }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 10)
+                        AppIcon(bundleID: group.bundleID, size: 16)
+                        Text(group.appName)
+                            .font(.caption.weight(.medium))
+                        Text("\(group.windows.count) pencere")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                        if collapsed {
+                            let pinned = group.windows.filter(isPinned).count
+                            if pinned > 0 {
+                                Image(systemName: "pin.fill")
+                                    .font(.system(size: 8))
+                                    .foregroundStyle(Color.accentColor)
+                                Text("\(pinned)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                if !collapsed {
+                    ForEach(group.windows) { window in
+                        WindowRow(window: window, mode: mode, showsApp: false)
+                            .padding(.leading, 16)
+                    }
+                }
+            }
+        }
+    }
+
+    private func isPinned(_ window: Router.WindowSnapshot) -> Bool {
+        store.document.rules.contains {
+            $0[mode] != nil && $0.matches(bundleID: window.bundleID,
+                                          appName: window.appName, title: window.title)
+        }
     }
 }
 
@@ -189,7 +316,8 @@ private struct GhostRow: View {
 
 // MARK: - Atanmamış kurallar
 
-/// Bu modda hedefi olmayan kurallar. Bir çipi buraya bırakmak hedefi kaldırır.
+/// Bu modda hedefi olmayan pinler (diğer modda pinli). Bir öğeyi buraya
+/// bırakmak bu moddaki pini kaldırır.
 private struct UnassignedTray: View {
 
     let mode: Mode
@@ -211,8 +339,8 @@ private struct UnassignedTray: View {
 
             if rules.isEmpty {
                 Text(mode == .docked
-                     ? "Buraya bırakılan pencere monitör bağlıyken serbest kalır."
-                     : "Buraya bırakılan pencere sadece laptopta serbest kalır.")
+                     ? "Buraya bırakılan pencerenin monitör bağlıyken pini kalkar."
+                     : "Buraya bırakılan pencerenin sadece laptoptayken pini kalkar.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 3)

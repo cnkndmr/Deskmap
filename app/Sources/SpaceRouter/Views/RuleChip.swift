@@ -1,8 +1,10 @@
 import AppKit
 import SwiftUI
 
-/// Bir kuralı temsil eden sürüklenebilir çip: uygulama simgesi, başlık
-/// parçası ve düzen simgesi. Tıklanınca düzen seçici açılır.
+/// Pinli bir kuralı temsil eden sürüklenebilir çip: uygulama simgesi,
+/// başlık parçası ve çerçeve simgesi. Canlı penceresi olmayan pinler
+/// (kapalı uygulama ya da diğer mod) böyle gösterilir. Tıklanınca alt
+/// panelde kural bilgisi ve "pini kaldır" açılır.
 struct RuleChip: View {
 
     let rule: Rule
@@ -12,12 +14,15 @@ struct RuleChip: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
 
-    private var isSelected: Bool { ui.editingRuleID == rule.id }
-    private var isBeingDragged: Bool { !isGhost && ui.drag?.ruleID == rule.id }
+    private var isSelected: Bool { ui.selectedRuleID == rule.id }
+    private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .rule(rule.id) }
 
     var body: some View {
         HStack(spacing: 5) {
             AppIcon(bundleID: rule.bundleID, size: 14)
+            Image(systemName: "pin.fill")
+                .font(.system(size: 8))
+                .foregroundStyle(.secondary)
             Text(rule.title.isEmpty ? rule.appName : rule.title)
                 .font(.caption)
                 .lineLimit(1)
@@ -35,16 +40,19 @@ struct RuleChip: View {
                                         lineWidth: 1))
         .contentShape(Capsule())
         .opacity(isBeingDragged ? 0.35 : 1)
-        .onTapGesture { ui.editingRuleID = isSelected ? nil : rule.id }
+        .onTapGesture {
+            ui.pinDraft = nil
+            ui.selectedRuleID = isSelected ? nil : rule.id
+        }
         .gesture(dragGesture, including: isGhost ? .none : .all)
-        .help("\(rule.appName): \(rule.title)\nSürükleyerek taşı, tıklayarak düzeni seç")
+        .help("\(rule.appName): \(rule.title)\nPenceresi şu an açık değil. Sürükleyerek taşı.")
     }
 
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
             .onChanged { value in
                 ui.drag = ChipDrag(
-                    ruleID: rule.id,
+                    item: .rule(rule.id),
                     location: value.location,
                     hover: ui.target(at: value.location))
             }
@@ -58,7 +66,7 @@ struct RuleChip: View {
                         Destination(screen: screen, desktop: desktop, layout: layout),
                         for: rule.id, mode: mode)
                 case .tray:
-                    store.setDestination(nil, for: rule.id, mode: mode)
+                    store.unpin(rule.id, mode: mode)
                 }
             }
     }

@@ -10,9 +10,22 @@ import Combine
 @MainActor
 final class Router: ObservableObject {
 
-    struct Placement: Equatable {
+    struct Placement: Equatable, Hashable {
         let screen: String
         let desktop: Int
+    }
+
+    /// Arayüzde gösterilen pencere anlık görüntüsü; her taramada yenilenir.
+    struct WindowSnapshot: Identifiable, Equatable, Hashable {
+        let id: CGWindowID
+        let appName: String
+        let bundleID: String
+        let title: String
+        /// Bulunduğu ekran ve masaüstü (tam ekran ya da bilinmiyorsa nil).
+        let placement: Placement?
+        /// AX koordinatlarında (sol üst köşe tabanlı) çerçeve.
+        let frame: CGRect?
+        let isMinimized: Bool
     }
 
     struct Status: Equatable {
@@ -22,6 +35,8 @@ final class Router: ObservableObject {
     }
 
     @Published private(set) var status = Status()
+    /// Son taramada görülen pencereler (uygulama adı, sonra kimlik sırasında).
+    @Published private(set) var windows: [WindowSnapshot] = []
 
     private let store: Store
     private let screens: ScreenService
@@ -95,14 +110,15 @@ final class Router: ObservableObject {
     // MARK: - Tarama
 
     private func sweep() {
-        guard store.document.enabled, AXIsProcessTrusted() else { return }
+        guard AXIsProcessTrusted() else { return }
         if isSweeping {
             // Tarama sürerken gelen olay kaybolmasın; bitince bir tur daha.
             sweepRequested = true
             return
         }
 
-        let rules = store.document.rules.bySpecificity
+        // Duraklatılmışken kural uygulanmaz ama pencereler yine listelenir.
+        let rules = store.document.enabled ? store.document.rules.bySpecificity : []
         let mode = screens.mode
         let connected = screens.screens
         let applied = self.applied
@@ -118,6 +134,7 @@ final class Router: ObservableObject {
                 self.isSweeping = false
                 self.applied = outcome.applied
                 self.attempts = outcome.attempts
+                if outcome.snapshots != self.windows { self.windows = outcome.snapshots }
                 if outcome.needsFollowUp || self.sweepRequested {
                     self.scheduleFollowUp(after: outcome.needsFollowUp ? 200 : 20)
                 }
@@ -135,6 +152,7 @@ final class Router: ObservableObject {
     private struct Outcome {
         var applied: Set<String>
         var attempts: [String: Int]
+        var snapshots: [WindowSnapshot] = []
         var routed = 0
         var lastAction: String?
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
@@ -158,6 +176,18 @@ final class Router: ObservableObject {
         let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(screens))
         let visibleSpaces = Set(displays.map(\.current))
         let windows = AX.allWindows()
+
+        outcome.snapshots = windows.map { window in
+            WindowSnapshot(
+                id: window.id, appName: window.appName, bundleID: window.bundleID,
+                title: window.title,
+                placement: Self.placement(of: window, displays: displays, screens: screens),
+                frame: AX.frame(of: window),
+                isMinimized: AX.isMinimized(window))
+        }.sorted {
+            let a = $0.appName.localizedCaseInsensitiveCompare($1.appName)
+            return a == .orderedSame ? $0.id < $1.id : a == .orderedAscending
+        }
 
         for window in windows {
             guard let rule = rules.first(where: {
@@ -265,16 +295,21 @@ final class Router: ObservableObject {
         (screens.first { $0.frame.origin == .zero } ?? screens.first)?.uuid
     }
 
-    /// Pencerenin şu an bulunduğu ekran ve masaüstü sırası.
-    nonisolated static func locate(_ window: AXWindow, screens: [ScreenInfo]) -> Placement? {
+    /// Pencerenin şu an bulunduğu ekran ve masaüstü sırası. Tam ekran
+    /// (ya da başka özel) bir space'teyse nil.
+    nonisolated static func placement(
+        of window: AXWindow, displays: [SkyLight.DisplaySpaces], screens: [ScreenInfo]
+    ) -> Placement? {
         let sky = SkyLight.shared
         let spaces = sky.spaces(of: window.id)
-        for display in sky.displaySpaces(mainUUID: primaryUUID(screens)) {
-            guard let screen = screens.first(where: { $0.uuid == display.displayUUID })
-            else { continue }
-            let desktops = display.desktops
-            if let index = desktops.firstIndex(where: { spaces.contains($0.id) }) {
-                return Placement(screen: screen.id, desktop: index + 1)
+        if !spaces.isEmpty {
+            if spaces.contains(where: { sky.type(of: $0) != 0 }) { return nil }
+            for display in displays {
+                guard let screen = screens.first(where: { $0.uuid == display.displayUUID })
+                else { continue }
+                if let index = display.desktops.firstIndex(where: { spaces.contains($0.id) }) {
+                    return Placement(screen: screen.id, desktop: index + 1)
+                }
             }
         }
         // Space bilgisi yoksa pencere çerçevesinden ekranı bul.

@@ -23,9 +23,15 @@ struct DropTargetPreference: PreferenceKey {
 /// kullanıyoruz: menü çubuğu penceresinde daha güvenilir ve tıklama ile
 /// çakışmıyor.
 struct ChipDrag: Equatable {
-    var ruleID: String
+    var item: DragItem
     var location: CGPoint
     var hover: DropTarget?
+}
+
+/// Sürüklenen şey: pinli bir kural çipi ya da canlı bir pencere satırı.
+enum DragItem: Equatable {
+    case rule(String)
+    case window(CGWindowID)
 }
 
 extension View {
