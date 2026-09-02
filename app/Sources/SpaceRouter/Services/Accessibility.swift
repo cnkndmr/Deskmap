@@ -64,6 +64,35 @@ enum AX {
         return unsafeBitCast(pointer, to: GetWindowFn.self)
     }()
 
+    private typealias CreateWithRemoteTokenFn =
+        @convention(c) (CFData) -> Unmanaged<AXUIElement>?
+
+    /// `_AXUIElementCreateWithRemoteToken`: pid + pencere numarasından AX
+    /// öğesi. Uygulamanın kendi listelemediği (başka masaüstündeki)
+    /// pencerelere böyle erişilir (yabai / AeroSpace yöntemi).
+    private static let createWithRemoteToken: CreateWithRemoteTokenFn? = {
+        guard let pointer = dlsym(dlopen(nil, RTLD_NOW), "_AXUIElementCreateWithRemoteToken")
+        else { return nil }
+        return unsafeBitCast(pointer, to: CreateWithRemoteTokenFn.self)
+    }()
+
+    /// Pencere numarasından AX öğesi üretir. Belirteç: 20 bayt —
+    /// pid (4), 0 (4), "coco" 0x636f636f (4), windowID (4), 0 (4).
+    static func element(pid: pid_t, windowID: CGWindowID) -> AXUIElement? {
+        guard let createWithRemoteToken else { return nil }
+        var token = [UInt8](repeating: 0, count: 20)
+        func put(_ value: UInt32, at offset: Int) {
+            withUnsafeBytes(of: value.littleEndian) { bytes in
+                for (i, byte) in bytes.enumerated() { token[offset + i] = byte }
+            }
+        }
+        put(UInt32(bitPattern: pid), at: 0)
+        put(0x636f636f, at: 8)
+        put(UInt32(windowID), at: 12)
+        let data = Data(token) as CFData
+        return createWithRemoteToken(data)?.takeRetainedValue()
+    }
+
     /// Dock'ta görünen bir uygulama.
     struct App: Identifiable, Hashable {
         let pid: pid_t
@@ -91,8 +120,11 @@ enum AX {
     /// sessizce listeden düşürür.
     static func allWindows(timeout: Float = 1.0) -> [AXWindow] {
         var result: [AXWindow] = []
+        var seen: Set<CGWindowID> = []
+        let apps = runningApps()
 
-        for app in runningApps() {
+        // 1. Uygulamanın kendi listesi (görünen masaüstündekiler kesin).
+        for app in apps {
             let appElement = AXUIElementCreateApplication(app.pid)
             AXUIElementSetMessagingTimeout(appElement, timeout)
 
@@ -100,19 +132,14 @@ enum AX {
             else { continue }
 
             for element in windows {
-                let subrole: String? = attribute(element, kAXSubroleAttribute)
-                if let subrole,
-                   subrole == kAXFloatingWindowSubrole
-                    || subrole == kAXSystemDialogSubrole
-                    || subrole == kAXSystemFloatingWindowSubrole {
-                    continue
-                }
+                guard isStandardWindow(element) else { continue }
                 let title: String = attribute(element, kAXTitleAttribute) ?? ""
 
                 var windowID: CGWindowID = 0
                 guard let getWindowID,
                       getWindowID(element, &windowID) == .success,
-                      windowID != 0 else { continue }
+                      windowID != 0, !seen.contains(windowID) else { continue }
+                seen.insert(windowID)
 
                 result.append(AXWindow(
                     id: windowID,
@@ -123,7 +150,73 @@ enum AX {
                     element: element))
             }
         }
+
+        // 2. Uygulamanın listelemediği pencereler (başka masaüstü / ekran):
+        //    pencere sunucusundan numaralarını alıp uzak belirteçle AX
+        //    öğesi üret.
+        let byPID = Dictionary(uniqueKeysWithValues: apps.map { ($0.pid, $0) })
+        for info in windowServerWindows() {
+            guard !seen.contains(info.id), let app = byPID[info.pid],
+                  let element = element(pid: app.pid, windowID: info.id)
+            else { continue }
+            AXUIElementSetMessagingTimeout(element, timeout)
+            guard isStandardWindow(element, strict: true) else { continue }
+            let title: String = attribute(element, kAXTitleAttribute) ?? info.name
+            seen.insert(info.id)
+            result.append(AXWindow(
+                id: info.id,
+                pid: app.pid,
+                appName: app.name,
+                bundleID: app.bundleID,
+                title: title,
+                element: element))
+        }
         return result
+    }
+
+    /// Rolü pencere olan ve yüzen panel / sistem diyaloğu olmayan öğe.
+    /// `strict`: rol okunamıyorsa da ele (uzak belirteçle üretilen öğeler
+    /// için; yanıt vermeyen öğe gerçek pencere olmayabilir).
+    private static func isStandardWindow(_ element: AXUIElement, strict: Bool = false) -> Bool {
+        let role: String? = attribute(element, kAXRoleAttribute)
+        guard role == kAXWindowRole || (!strict && role == nil) else { return false }
+        let subrole: String? = attribute(element, kAXSubroleAttribute)
+        if let subrole,
+           subrole == kAXFloatingWindowSubrole
+            || subrole == kAXSystemDialogSubrole
+            || subrole == kAXSystemFloatingWindowSubrole
+            || subrole == kAXUnknownSubrole {
+            return false
+        }
+        return true
+    }
+
+    private struct ServerWindow {
+        let id: CGWindowID
+        let pid: pid_t
+        let name: String
+    }
+
+    /// Pencere sunucusunun bildiği, bütün masaüstlerindeki normal katman
+    /// (0) pencereleri. Yardımcı/gizli pencereler AX rol denetimiyle elenir.
+    private static func windowServerWindows() -> [ServerWindow] {
+        guard let list = CGWindowListCopyWindowInfo(
+            [.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return [] }
+        return list.compactMap { entry in
+            guard let layer = entry[kCGWindowLayer as String] as? Int, layer == 0,
+                  let number = entry[kCGWindowNumber as String] as? UInt32,
+                  let pid = entry[kCGWindowOwnerPID as String] as? Int32
+            else { return nil }
+            if let alpha = entry[kCGWindowAlpha as String] as? Double, alpha == 0 { return nil }
+            if let bounds = entry[kCGWindowBounds as String] as? [String: Any],
+               let w = bounds["Width"] as? Double, let h = bounds["Height"] as? Double,
+               w < 50 || h < 50 {
+                return nil
+            }
+            let name = entry[kCGWindowName as String] as? String ?? ""
+            return ServerWindow(id: number, pid: pid, name: name)
+        }
     }
 
     static func isMinimized(_ window: AXWindow) -> Bool {
