@@ -45,7 +45,7 @@ struct ScreenMapView: View {
             .map(\.desktop)
             .max() ?? 0
         let real = desktopCounts[screen.id] ?? 0
-        return max(real, used, 2)
+        return max(real, used, 1)
     }
 }
 
@@ -60,7 +60,7 @@ private struct ScreenCard: View {
     let realCount: Int?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: screen.isBuiltin ? "laptopcomputer" : "display")
                 Text(screen.name)
@@ -69,17 +69,16 @@ private struct ScreenCard: View {
                         .foregroundStyle(.tertiary)
                 }
             }
-            .font(.caption)
+            .font(.caption.weight(.semibold))
             .foregroundStyle(.secondary)
+            .padding(.bottom, 4)
 
-            HStack(spacing: 6) {
-                ForEach(1..<(tileCount + 1), id: \.self) { desktop in
-                    DesktopTile(
-                        screen: screen, desktop: desktop, mode: mode,
-                        exists: realCount.map { desktop <= $0 } ?? true)
-                }
-                GhostTile(screen: screen, desktop: tileCount + 1, mode: mode)
+            ForEach(1..<(tileCount + 1), id: \.self) { desktop in
+                DesktopRow(
+                    screen: screen, desktop: desktop, mode: mode,
+                    exists: realCount.map { desktop <= $0 } ?? true)
             }
+            GhostRow(screen: screen, desktop: tileCount + 1, mode: mode)
         }
         .padding(10)
         .background(
@@ -91,9 +90,10 @@ private struct ScreenCard: View {
     }
 }
 
-// MARK: - Masaüstü kutusu
+// MARK: - Masaüstü satırı
 
-private struct DesktopTile: View {
+/// Her masaüstü tam genişlikte bir satır: solda numara, sağda çipler.
+private struct DesktopRow: View {
 
     let screen: KnownScreen
     let desktop: Int
@@ -115,27 +115,38 @@ private struct DesktopTile: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("\(desktop)")
-                .font(.caption2.weight(.semibold))
+        HStack(alignment: .top, spacing: 10) {
+            Text("Masaüstü \(desktop)")
+                .font(.caption.weight(.medium))
                 .foregroundStyle(exists ? .secondary : .tertiary)
+                .frame(width: 78, alignment: .leading)
+                .padding(.top, 2)
 
-            ForEach(rules) { rule in
-                RuleChip(rule: rule, mode: mode)
+            if rules.isEmpty {
+                Text(exists ? "boş" : "henüz yok")
+                    .font(.caption)
+                    .foregroundStyle(.quaternary)
+                    .padding(.top, 2)
+            } else {
+                FlowLayout(spacing: 6) {
+                    ForEach(rules) { rule in
+                        RuleChip(rule: rule, mode: mode)
+                    }
+                }
             }
-
             Spacer(minLength: 0)
         }
-        .padding(6)
-        .frame(maxWidth: .infinity, minHeight: 92, alignment: .topLeading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isTargeted ? Color.accentColor.opacity(0.18)
-                                 : Color.primary.opacity(0.05)))
+                                 : Color.primary.opacity(exists ? 0.05 : 0.02)))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(
-                    isTargeted ? Color.accentColor : Color.primary.opacity(0.12),
+                    isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
                     style: StrokeStyle(lineWidth: 1, dash: exists ? [] : [4, 3])))
         .dropTarget(target)
         .help(exists ? "Masaüstü \(desktop)"
@@ -143,8 +154,8 @@ private struct DesktopTile: View {
     }
 }
 
-/// Yeni bir masaüstü numarası oluşturmak için bırakma alanı.
-private struct GhostTile: View {
+/// Yeni bir masaüstü numarası oluşturmak için bırakma satırı.
+private struct GhostRow: View {
 
     let screen: KnownScreen
     let desktop: Int
@@ -156,21 +167,23 @@ private struct GhostTile: View {
     private var isTargeted: Bool { ui.drag?.hover == target }
 
     var body: some View {
-        Image(systemName: "plus")
-            .font(.caption)
-            .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary.opacity(0.5))
-            .frame(width: 28)
-            .frame(minHeight: 92)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(isTargeted ? Color.accentColor.opacity(0.18) : .clear))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(
-                        isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
-                        style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-            .dropTarget(target)
-            .help("Masaüstü \(desktop)")
+        HStack(spacing: 6) {
+            Image(systemName: "plus")
+            Text("Masaüstü \(desktop)")
+        }
+        .font(.caption)
+        .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary.opacity(0.5))
+        .frame(maxWidth: .infinity, minHeight: 24)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isTargeted ? Color.accentColor.opacity(0.18) : .clear))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(
+                    isTargeted ? Color.accentColor : Color.primary.opacity(0.08),
+                    style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+        .dropTarget(target)
+        .opacity(ui.drag == nil ? 0.7 : 1)
     }
 }
 
