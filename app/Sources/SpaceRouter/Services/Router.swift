@@ -107,6 +107,43 @@ final class Router: ObservableObject {
         }
     }
 
+    // MARK: - Elle taşıma
+
+    /// Pinsiz bir pencereyi tek seferlik hedef masaüstüne taşır; kural
+    /// yazılmaz. Ekran değişiyorsa ve pencere görünürse çerçeve önce hedef
+    /// ekranda aynı oranlara taşınır (görünmeyen pencereye AX çerçeve
+    /// uygulanmadığından o durumda yalnızca masaüstü değişir).
+    func moveWindow(_ windowID: CGWindowID, to placement: Placement) {
+        let connected = screens.screens
+        queue.async { [weak self] in
+            let sky = SkyLight.shared
+            guard sky.isAvailable,
+                  let target = connected.first(where: { $0.id == placement.screen }),
+                  let display = sky.displaySpaces(mainUUID: Self.primaryUUID(connected))
+                    .first(where: { $0.displayUUID == target.uuid }),
+                  !display.desktops.isEmpty
+            else { return }
+            let desktops = display.desktops
+            let space = desktops[min(placement.desktop, desktops.count) - 1]
+
+            if let window = AX.allWindows().first(where: { $0.id == windowID }),
+               let frame = AX.frame(of: window),
+               let source = connected.first(where: { screen in
+                   Coordinates.axRect(fromCocoa: screen.frame, screens: connected)
+                       .contains(CGPoint(x: frame.midX, y: frame.midY))
+               }),
+               source.id != target.id {
+                let sourceArea = Coordinates.axRect(fromCocoa: source.visibleFrame, screens: connected)
+                let targetArea = Coordinates.axRect(fromCocoa: target.visibleFrame, screens: connected)
+                let layout = WindowLayout(frame: frame, in: sourceArea)
+                AX.setFrame(layout.rect(in: targetArea), of: window)
+            }
+
+            sky.move(window: windowID, to: space.id)
+            Task { @MainActor in self?.scheduleFollowUp(after: 200) }
+        }
+    }
+
     // MARK: - Tarama
 
     private func sweep() {

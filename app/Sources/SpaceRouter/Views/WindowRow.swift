@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// Canlı bir pencere satırı: başlık ve pin düğmesi. Sürüklenerek başka
-/// masaüstüne taşınır (taşıma = pinleme). Pinli değilse router dokunmaz.
+/// masaüstüne taşınır; pinsiz pencere yalnızca taşınır (kural yazılmaz),
+/// pinli pencerenin hedefi güncellenir. Pinleme yalnızca pin düğmesiyle.
 struct WindowRow: View {
 
     let window: Router.WindowSnapshot
@@ -12,6 +13,7 @@ struct WindowRow: View {
     var isGhost = false
 
     @EnvironmentObject private var store: Store
+    @EnvironmentObject private var router: Router
     @EnvironmentObject private var ui: UIState
 
     /// Bu pencereye uyan ve bu modda hedefi olan kural.
@@ -90,8 +92,8 @@ struct WindowRow: View {
             ui.selectedRuleID = ui.selectedRuleID == rule.id ? nil : rule.id
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)
-        .help(isPinned ? "Tıklayarak düzeni değiştir, sürükleyerek taşı"
-                       : "Pin ile sabitle, sürükleyerek taşı")
+        .help(isPinned ? "Tıklayarak düzeni değiştir, sürükleyerek pinin hedefini değiştir"
+                       : "Sürükleyerek taşı (pinlenmez); sabitlemek için pin'e tıkla")
     }
 
     private func togglePin() {
@@ -129,8 +131,8 @@ struct WindowRow: View {
                             for: rule.id, mode: mode)
                         ui.pinDraft = nil
                     } else if placement != window.placement {
-                        // Taşımak = pinlemek; önce başlık parçası sorulur.
-                        ui.pinDraft = PinDraft(window: window, target: placement)
+                        // Pinsiz pencere: tek seferlik taşınır, kural yazılmaz.
+                        router.moveWindow(window.id, to: placement)
                     }
                 case .tray:
                     if let rule = pinnedRule { store.unpin(rule.id, mode: mode) }
@@ -140,8 +142,8 @@ struct WindowRow: View {
     }
 }
 
-/// Pin düğmesine basılınca ya da pencere sürüklenince oluşan taslak:
-/// hangi pencere, nereye. Başlık parçası seçilince kurala dönüşür.
+/// Pin düğmesine basılınca oluşan taslak: hangi pencere, bulunduğu
+/// masaüstüne. Başlık parçası seçilince kurala dönüşür.
 struct PinDraft: Equatable {
     var window: Router.WindowSnapshot
     var target: Router.Placement
