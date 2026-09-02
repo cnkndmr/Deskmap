@@ -32,6 +32,8 @@ struct ChipDrag: Equatable {
 enum DragItem: Equatable {
     case rule(String)
     case window(CGWindowID)
+    /// Bir masaüstü satırı; üstündeki pinlerle birlikte sıralanır.
+    case desktop(screen: String, desktop: Int)
 }
 
 extension View {

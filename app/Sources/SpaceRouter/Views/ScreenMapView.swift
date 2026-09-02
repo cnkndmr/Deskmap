@@ -46,6 +46,13 @@ struct ScreenMapView: View {
                             WindowRow(window: window, mode: mode, isGhost: true)
                                 .frame(width: 260)
                         }
+                    case .desktop(_, let desktop):
+                        Label("Masaüstü \(desktop)", systemImage: "line.3.horizontal")
+                            .font(.caption.weight(.medium))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Capsule().fill(Color(nsColor: .controlBackgroundColor)))
+                            .overlay(Capsule().strokeBorder(Color.accentColor, lineWidth: 1))
                     }
                 }
                 .offset(x: drag.location.x - 12, y: drag.location.y - 12)
@@ -98,7 +105,8 @@ private struct ScreenCard: View {
             ForEach(1..<(tileCount + 1), id: \.self) { desktop in
                 DesktopRow(
                     screen: screen, desktop: desktop, mode: mode, isLive: isLive,
-                    exists: realCount.map { desktop <= $0 } ?? true)
+                    exists: realCount.map { desktop <= $0 } ?? true,
+                    rowCount: tileCount)
             }
             GhostRow(screen: screen, desktop: tileCount + 1, mode: mode)
         }
@@ -124,14 +132,27 @@ private struct DesktopRow: View {
     let isLive: Bool
     /// Bağlı ekranda bu masaüstü gerçekten var mı?
     let exists: Bool
+    /// Bu ekran kartındaki satır sayısı (sıralama için).
+    let rowCount: Int
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
 
     private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
-    private var isTargeted: Bool { ui.drag?.hover == target }
+    private var isTargeted: Bool { ui.drag?.hover == target && acceptsDrag }
     private var placement: Router.Placement {
         Router.Placement(screen: screen.id, desktop: desktop)
+    }
+
+    /// Masaüstü sürüklemesi yalnızca aynı ekran içinde kabul edilir.
+    private var acceptsDrag: Bool {
+        if case .desktop(let fromScreen, let from) = ui.drag?.item {
+            return fromScreen == screen.id && from != desktop
+        }
+        return true
+    }
+    private var isBeingDragged: Bool {
+        ui.drag?.item == .desktop(screen: screen.id, desktop: desktop)
     }
 
     /// Bu masaüstündeki canlı pencereler (yalnızca şu anki modda).
@@ -177,11 +198,19 @@ private struct DesktopRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            Text("Masaüstü \(desktop)")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(exists ? .secondary : .tertiary)
-                .frame(width: 78, alignment: .leading)
-                .padding(.top, 2)
+            HStack(spacing: 4) {
+                Image(systemName: "line.3.horizontal")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.quaternary)
+                Text("Masaüstü \(desktop)")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(exists ? .secondary : .tertiary)
+            }
+            .frame(width: 84, alignment: .leading)
+            .padding(.top, 2)
+            .contentShape(Rectangle())
+            .gesture(desktopDrag)
+            .help("Sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı taşı")
 
             if groups.isEmpty && orphanRules.isEmpty {
                 Text(exists ? "boş" : "henüz yok")
@@ -217,9 +246,32 @@ private struct DesktopRow: View {
                 .strokeBorder(
                     isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
                     style: StrokeStyle(lineWidth: 1, dash: exists ? [] : [4, 3])))
+        .opacity(isBeingDragged ? 0.4 : 1)
         .dropTarget(target)
-        .help(exists ? "Masaüstü \(desktop)"
-                     : "Masaüstü \(desktop) henüz yok; açılınca kullanılır")
+    }
+
+    /// Satırı tutup sürüklemek: bırakılan masaüstü sırasına taşınır, o
+    /// ekrandaki pinler yeniden numaralanır; router pencereleri taşır.
+    private var desktopDrag: some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
+            .onChanged { value in
+                ui.drag = ChipDrag(
+                    item: .desktop(screen: screen.id, desktop: desktop),
+                    location: value.location,
+                    hover: ui.target(at: value.location))
+            }
+            .onEnded { value in
+                defer { ui.drag = nil }
+                guard case .desktop(let toScreen, let dropped)? = ui.target(at: value.location),
+                      toScreen == screen.id else { return }
+                // "+ Masaüstü N" satırına bırakmak = en sona.
+                let to = min(dropped, rowCount)
+                guard to != desktop else { return }
+                ui.selectedRuleID = nil
+                ui.pinDraft = nil
+                store.moveDesktop(on: screen.id, from: desktop, to: to,
+                                  count: rowCount, mode: mode)
+            }
     }
 
     @ViewBuilder
@@ -291,7 +343,11 @@ private struct GhostRow: View {
     @EnvironmentObject private var ui: UIState
 
     private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
-    private var isTargeted: Bool { ui.drag?.hover == target }
+    private var isTargeted: Bool {
+        guard ui.drag?.hover == target else { return false }
+        if case .desktop(let fromScreen, _) = ui.drag?.item { return fromScreen == screen.id }
+        return true
+    }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -325,7 +381,11 @@ private struct UnassignedTray: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
 
-    private var isTargeted: Bool { ui.drag?.hover == .tray }
+    private var isTargeted: Bool {
+        guard ui.drag?.hover == .tray else { return false }
+        if case .desktop = ui.drag?.item { return false }
+        return true
+    }
 
     private var rules: [Rule] {
         store.document.rules.filter { $0[mode] == nil }

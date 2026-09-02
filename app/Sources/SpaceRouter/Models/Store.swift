@@ -155,6 +155,29 @@ final class Store: ObservableObject {
         }
     }
 
+    /// Bir ekrandaki masaüstünü listede başka sıraya taşır; o ekranın bu
+    /// moddaki bütün pinlerinin masaüstü numaraları buna göre kayar.
+    /// `count`: listedeki satır sayısı (gerçek + pinlerin kullandığı).
+    func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode) {
+        guard from != to, from >= 1, to >= 1 else { return }
+        let total = max(count, from, to)
+        var order = Array(1...total)
+        order.remove(at: from - 1)
+        order.insert(from, at: min(to, total) - 1)
+        // order[newIndex] = eski numara → eski → yeni haritası
+        var mapping: [Int: Int] = [:]
+        for (index, old) in order.enumerated() { mapping[old] = index + 1 }
+
+        var rules = document.rules
+        for i in rules.indices {
+            guard var destination = rules[i][mode], destination.screen == screen,
+                  let updated = mapping[destination.desktop] else { continue }
+            destination.desktop = updated
+            rules[i][mode] = destination
+        }
+        if rules != document.rules { document.rules = rules }
+    }
+
     // MARK: - Ekranlar
 
     /// Bağlı ekranları bilinen ekranlara işler; bağlı olmayanlar silinmez.
