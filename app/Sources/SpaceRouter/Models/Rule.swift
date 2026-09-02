@@ -1,238 +1,212 @@
 import Foundation
 
-// MARK: - Uygulama tanımı
-
-/// Kuralın hangi uygulamanın pencerelerine uygulanacağı.
-/// JSON'da hem `"Safari"` hem `{ "name": ..., "bundleID": ... }` kabul edilir.
-struct AppSpec: Codable, Equatable, Hashable {
-    var name: String
-    var bundleID: String?
-
-    init(name: String, bundleID: String? = nil) {
-        self.name = name
-        self.bundleID = bundleID
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case name, bundleID
-    }
-
-    init(from decoder: Decoder) throws {
-        if let single = try? decoder.singleValueContainer(),
-           let shorthand = try? single.decode(String.self) {
-            name = shorthand
-            bundleID = nil
-            return
-        }
-
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        name = try container.decode(String.self, forKey: .name)
-        bundleID = try container.decodeIfPresent(String.self, forKey: .bundleID)
-    }
-
-    func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(name, forKey: .name)
-        // Boş string yerine alanı hiç yazma; motor bunu "yok" sayar.
-        if let bundleID, !bundleID.isEmpty {
-            try container.encode(bundleID, forKey: .bundleID)
-        }
-    }
-}
-
-// MARK: - Başlık eşleştirme
-
-enum MatchType: String, Codable, CaseIterable, Identifiable {
-    case contains
-    case prefix
-    case suffix
-    case exact
-    case pattern
-
-    var id: String { rawValue }
-
-    var localizedName: String {
-        switch self {
-        case .contains: return "İçerir"
-        case .prefix:   return "İle başlar"
-        case .suffix:   return "İle biter"
-        case .exact:    return "Tam eşleşir"
-        case .pattern:  return "Lua deseni"
-        }
-    }
-
-    var explanation: String {
-        switch self {
-        case .contains:
-            return "Başlık bu metni herhangi bir yerinde içeriyorsa eşleşir."
-        case .prefix:
-            return "Başlık bu metinle başlıyorsa eşleşir. " +
-                   "Açık dosya adı başlığın sonundaysa en güvenli seçenektir."
-        case .suffix:
-            return "Başlık bu metinle bitiyorsa eşleşir."
-        case .exact:
-            return "Başlık tam olarak bu metin ise eşleşir."
-        case .pattern:
-            return "Lua deseni olarak uygulanır. " +
-                   "( ) . % + - * ? [ ] ^ $ karakterleri % ile kaçırılır."
-        }
-    }
-}
-
-struct MatchSpec: Codable, Equatable, Hashable {
-    var type: MatchType
-    var value: String
-
-    init(type: MatchType = .contains, value: String = "") {
-        self.type = type
-        self.value = value
-    }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        type = try container.decodeIfPresent(MatchType.self, forKey: .type)
-            ?? .contains
-        value = try container.decode(String.self, forKey: .value)
-    }
-}
-
-// MARK: - Layout
+// MARK: - Düzen
 
 /// Ekranın kullanılabilir alanına göre 0..1 oranları.
-struct Layout: Codable, Equatable, Hashable {
-    var x: Double
-    var y: Double
-    var w: Double
-    var h: Double
+struct WindowLayout: Codable, Equatable, Hashable {
+    var x: Double = 0
+    var y: Double = 0
+    var w: Double = 1
+    var h: Double = 1
 
-    init(x: Double = 0, y: Double = 0, w: Double = 1, h: Double = 1) {
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-    }
+    static let full       = WindowLayout(x: 0,   y: 0,   w: 1,   h: 1)
+    static let leftHalf   = WindowLayout(x: 0,   y: 0,   w: 0.5, h: 1)
+    static let rightHalf  = WindowLayout(x: 0.5, y: 0,   w: 0.5, h: 1)
+    static let left70     = WindowLayout(x: 0,   y: 0,   w: 0.7, h: 1)
+    static let right30    = WindowLayout(x: 0.7, y: 0,   w: 0.3, h: 1)
+    static let topHalf    = WindowLayout(x: 0,   y: 0,   w: 1,   h: 0.5)
+    static let bottomHalf = WindowLayout(x: 0,   y: 0.5, w: 1,   h: 0.5)
+    static let center     = WindowLayout(x: 0.1, y: 0.1, w: 0.8, h: 0.8)
 
-    static let full      = Layout(x: 0,    y: 0,    w: 1,    h: 1)
-    static let leftHalf  = Layout(x: 0,    y: 0,    w: 0.5,  h: 1)
-    static let rightHalf = Layout(x: 0.5,  y: 0,    w: 0.5,  h: 1)
-    static let left70    = Layout(x: 0,    y: 0,    w: 0.7,  h: 1)
-    static let right30   = Layout(x: 0.7,  y: 0,    w: 0.3,  h: 1)
-    static let center80  = Layout(x: 0.1,  y: 0.1,  w: 0.8,  h: 0.8)
-    static let topHalf   = Layout(x: 0,    y: 0,    w: 1,    h: 0.5)
-    static let bottomHalf = Layout(x: 0,   y: 0.5,  w: 1,    h: 0.5)
-
-    /// UI'da hazır seçenek olarak sunulan düzenler.
-    static let presets: [(name: String, layout: Layout)] = [
-        ("Tam ekran alanı", .full),
-        ("Sol yarı",        .leftHalf),
-        ("Sağ yarı",        .rightHalf),
-        ("Sol %70",         .left70),
-        ("Sağ %30",         .right30),
-        ("Ortada %80",      .center80),
-        ("Üst yarı",        .topHalf),
-        ("Alt yarı",        .bottomHalf),
+    /// Düzen seçicide gösterilen hazır seçenekler.
+    static let presets: [WindowLayout] = [
+        .full, .leftHalf, .rightHalf, .left70, .right30,
+        .topHalf, .bottomHalf, .center,
     ]
 
-    /// Hazır düzenlerden birine karşılık geliyorsa adını döndürür.
-    var presetName: String? {
-        Layout.presets.first { $0.layout == self }?.name
+    var label: String {
+        switch self {
+        case .full:       return "Tam"
+        case .leftHalf:   return "Sol yarı"
+        case .rightHalf:  return "Sağ yarı"
+        case .left70:     return "Sol %70"
+        case .right30:    return "Sağ %30"
+        case .topHalf:    return "Üst yarı"
+        case .bottomHalf: return "Alt yarı"
+        case .center:     return "Orta"
+        default:          return "Özel"
+        }
     }
 
-    var summary: String {
-        presetName ?? String(
-            format: "x %.0f%% · y %.0f%% · %.0f%%×%.0f%%",
-            x * 100, y * 100, w * 100, h * 100)
+    /// Verilen dikdörtgen içinde düzenin karşılık geldiği alan.
+    func rect(in area: CGRect) -> CGRect {
+        let cx = min(max(x, 0), 1)
+        let cy = min(max(y, 0), 1)
+        let cw = min(max(w, 0.05), 1 - cx)
+        let ch = min(max(h, 0.05), 1 - cy)
+        return CGRect(
+            x: area.minX + area.width * cx,
+            y: area.minY + area.height * cy,
+            width: area.width * cw,
+            height: area.height * ch)
     }
 }
 
 // MARK: - Hedef
 
-/// Bir kuralın docked veya undocked durumdaki hedefi.
+/// Bir kuralın belirli bir moddaki (harici monitör var / yok) hedefi.
 struct Destination: Codable, Equatable, Hashable {
+    /// Ekran rolü: `builtin`, `external`, `external-2` ...
     var screen: String
+    /// O ekrandaki normal masaüstü sırası (1 tabanlı).
     var desktop: Int
-    var layout: Layout
+    var layout: WindowLayout
 
-    init(screen: String = "", desktop: Int = 1, layout: Layout = .full) {
+    init(screen: String, desktop: Int = 1, layout: WindowLayout = .full) {
         self.screen = screen
-        self.desktop = desktop
+        self.desktop = max(1, desktop)
         self.layout = layout
     }
 
     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        screen = try container.decodeIfPresent(String.self, forKey: .screen) ?? ""
-        desktop = try container.decodeIfPresent(Int.self, forKey: .desktop) ?? 1
-        layout = try container.decodeIfPresent(Layout.self, forKey: .layout)
-            ?? .full
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        screen = try c.decodeIfPresent(String.self, forKey: .screen) ?? "builtin"
+        desktop = max(1, try c.decodeIfPresent(Int.self, forKey: .desktop) ?? 1)
+        layout = try c.decodeIfPresent(WindowLayout.self, forKey: .layout) ?? .full
+    }
+}
+
+// MARK: - Mod
+
+enum Mode: String, Codable, CaseIterable, Identifiable {
+    /// Harici monitör bağlı.
+    case docked
+    /// Yalnızca dahili ekran.
+    case undocked
+
+    var id: String { rawValue }
+
+    var symbol: String {
+        switch self {
+        case .docked:   return "display.2"
+        case .undocked: return "laptopcomputer"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .docked:   return "Monitör bağlı"
+        case .undocked: return "Sadece laptop"
+        }
     }
 }
 
 // MARK: - Kural
 
+/// "Şu uygulamanın başlığında şu parçalar geçen penceresi şuraya gitsin."
 struct Rule: Codable, Equatable, Identifiable, Hashable {
     var id: String
-    var name: String
-    var enabled: Bool
-    var app: AppSpec
-    var match: MatchSpec
+    var appName: String
+    var bundleID: String
+    /// Başlıkta (büyük/küçük harf duyarsız) hepsi geçmesi gereken parçalar.
+    var tokens: [String]
     var docked: Destination?
     var undocked: Destination?
 
     init(
         id: String = UUID().uuidString,
-        name: String = "Yeni kural",
-        enabled: Bool = true,
-        app: AppSpec = AppSpec(name: "Safari", bundleID: "com.apple.Safari"),
-        match: MatchSpec = MatchSpec(),
-        docked: Destination? = Destination(),
-        undocked: Destination? = Destination()
+        appName: String,
+        bundleID: String,
+        tokens: [String],
+        docked: Destination? = nil,
+        undocked: Destination? = nil
     ) {
         self.id = id
-        self.name = name
-        self.enabled = enabled
-        self.app = app
-        self.match = match
+        self.appName = appName
+        self.bundleID = bundleID
+        self.tokens = tokens
         self.docked = docked
         self.undocked = undocked
     }
 
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        id = try container.decodeIfPresent(String.self, forKey: .id)
-            ?? UUID().uuidString
-        name = try container.decodeIfPresent(String.self, forKey: .name) ?? id
-        enabled = try container.decodeIfPresent(Bool.self, forKey: .enabled)
-            ?? true
-        app = try container.decode(AppSpec.self, forKey: .app)
-        match = try container.decode(MatchSpec.self, forKey: .match)
-        docked = try container.decodeIfPresent(
-            Destination.self, forKey: .docked)
-        undocked = try container.decodeIfPresent(
-            Destination.self, forKey: .undocked)
+    var title: String {
+        tokens.joined(separator: " · ")
     }
 
-    /// Kaydetmeden önce yakalanan sorunlar.
-    var validationIssues: [String] {
-        var issues: [String] = []
+    subscript(mode: Mode) -> Destination? {
+        get { mode == .docked ? docked : undocked }
+        set {
+            if mode == .docked { docked = newValue } else { undocked = newValue }
+        }
+    }
 
-        if app.name.trimmingCharacters(in: .whitespaces).isEmpty {
-            issues.append("Uygulama adı boş olamaz.")
+    // MARK: Çözümleme (eski şemayı da okur)
+
+    private enum CodingKeys: String, CodingKey {
+        case id, appName, bundleID, tokens, docked, undocked
+        // v1 alanları
+        case app, match
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        docked = try c.decodeIfPresent(Destination.self, forKey: .docked)
+        undocked = try c.decodeIfPresent(Destination.self, forKey: .undocked)
+
+        if let name = try c.decodeIfPresent(String.self, forKey: .appName) {
+            appName = name
+            bundleID = try c.decodeIfPresent(String.self, forKey: .bundleID) ?? ""
+            tokens = try c.decodeIfPresent([String].self, forKey: .tokens) ?? []
+            return
         }
-        if match.value.trimmingCharacters(in: .whitespaces).isEmpty {
-            issues.append("Eşleşecek başlık metni boş olamaz.")
+
+        // v1: { app: "Safari" | {name, bundleID}, match: {type, value} }
+        if let legacy = try? c.decode(LegacyApp.self, forKey: .app) {
+            appName = legacy.name
+            bundleID = legacy.bundleID ?? ""
+        } else {
+            appName = (try? c.decode(String.self, forKey: .app)) ?? ""
+            bundleID = ""
         }
-        if docked == nil && undocked == nil {
-            issues.append(
-                "En az bir durum için hedef tanımlanmalı " +
-                "(harici monitör bağlı / bağlı değil).")
+        let match = try? c.decode(LegacyMatch.self, forKey: .match)
+        let value = match?.value ?? ""
+        tokens = value.isEmpty ? [] : [value]
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(appName, forKey: .appName)
+        try c.encode(bundleID, forKey: .bundleID)
+        try c.encode(tokens, forKey: .tokens)
+        try c.encodeIfPresent(docked, forKey: .docked)
+        try c.encodeIfPresent(undocked, forKey: .undocked)
+    }
+
+    private struct LegacyApp: Decodable {
+        var name: String
+        var bundleID: String?
+    }
+
+    private struct LegacyMatch: Decodable {
+        var value: String
+    }
+}
+
+// MARK: - Eşleştirme
+
+extension Rule {
+    func matches(bundleID windowBundle: String, appName windowApp: String,
+                 title: String) -> Bool {
+        if !bundleID.isEmpty {
+            guard bundleID == windowBundle else { return false }
+        } else {
+            guard appName.caseInsensitiveCompare(windowApp) == .orderedSame
+            else { return false }
         }
-        if let docked, docked.desktop < 1 {
-            issues.append("Docked Desktop numarası 1 veya daha büyük olmalı.")
-        }
-        if let undocked, undocked.desktop < 1 {
-            issues.append("Undocked Desktop numarası 1 veya daha büyük olmalı.")
-        }
-        return issues
+        guard !tokens.isEmpty else { return false }
+        let haystack = title.lowercased()
+        return tokens.allSatisfy { haystack.contains($0.lowercased()) }
     }
 }

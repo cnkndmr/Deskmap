@@ -2,22 +2,13 @@
 
 PROJECT := SpaceRouter
 
-.PHONY: help install uninstall app run clean check test
+.PHONY: help app run check clean
 
 help:
-	@echo "make install    Hammerspoon motorunu kur ve rules.json oluştur"
-	@echo "make app        SwiftUI menü çubuğu uygulamasını derle"
-	@echo "make run        Uygulamayı derleyip çalıştır"
-	@echo "make test       Motor mantığı testleri (macOS gerekmez)"
-	@echo "make check      Sözdizimi + testler + Swift derlemesi"
-	@echo "make uninstall  Hammerspoon entegrasyonunu kaldır"
+	@echo "make app        Menü çubuğu uygulamasını derle (build/SpaceRouter.app)"
+	@echo "make run        Derleyip çalıştır"
+	@echo "make check      Debug derlemesi"
 	@echo "make clean      Derleme çıktılarını sil"
-
-install:
-	@./scripts/install.sh
-
-uninstall:
-	@./scripts/uninstall.sh
 
 app:
 	@./scripts/build-app.sh release
@@ -25,11 +16,8 @@ app:
 run: app
 	@open build/$(PROJECT).app
 
-test:
-	@lua engine/tests/spec.lua
-
 check:
-	@./scripts/check.sh
+	@swift build --package-path app -c debug
 
 clean:
 	@rm -rf build app/.build

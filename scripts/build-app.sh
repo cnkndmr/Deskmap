@@ -12,7 +12,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${1:-release}"
 APP_NAME="SpaceRouter"
 BUNDLE_ID="com.spacerouter.app"
-VERSION="0.1.0"
+VERSION="0.2.0"
 
 BUILD_ROOT="$PROJECT_DIR/build"
 APP_BUNDLE="$BUILD_ROOT/$APP_NAME.app"

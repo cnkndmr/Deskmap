@@ -1,108 +1,72 @@
 # Space Router
 
 Pencere başlığında görünen **workspace adına** göre pencereleri doğru
-monitöre, doğru macOS Desktop'ına ve doğru düzene yerleştirir.
+monitöre, doğru macOS masaüstüne (Space) ve doğru düzene yerleştiren
+menü çubuğu uygulaması. Tek bir `.app`; Hammerspoon veya başka bir
+yardımcı program gerekmez.
 
-Uygulamadan bağımsızdır:
+Uygulamadan bağımsızdır: Safari Tab Group, VS Code workspace, Obsidian
+vault, iTerm profili — başlıkta ad gösteren her pencere.
 
-| Uygulama | Workspace kavramı |
-|---|---|
-| Safari | Tab Group |
-| VS Code / Cursor | Workspace veya klasör |
-| Obsidian | Vault |
-| iTerm2 | Oturum profili |
-| Slack, Notion, Figma | Workspace / dosya |
+## Nasıl kullanılır
 
-Kural şuna benzer:
+1. Menü çubuğundaki simgeye tıklayın, **+** ile açık bir pencere seçin.
+2. Başlığın hangi parçasının bu pencereyi tanımladığını işaretleyin
+   (ör. dosya adı değil, proje adı).
+3. Oluşan çipi haritada istediğiniz ekranın istediğiniz masaüstüne
+   **sürükleyin**. Çipe tıklayıp düzeni (sol yarı, tam, orta…) seçin.
+4. Üstteki laptop / monitör düğmesiyle diğer duruma geçip aynı şeyi
+   orası için yapın. Monitör takıldığında veya çıkarıldığında pencereler
+   otomatik yeniden yerleşir.
 
-```
-Uygulama:  Code
-Başlık:    "[WS] project-x" ile başlıyorsa
+Bir çipi alttaki tepsiye bırakmak o durumda pencereyi serbest bırakır.
 
-Harici monitör bağlıyken   -> External Monitor · Desktop 2 · tam alan
-Harici monitör yokken      -> MacBook ekranı · Desktop 1 · ortada %90
-```
-
-Monitör takıldığında veya çıkarıldığında pencereler otomatik olarak
-yeniden yerleştirilir.
-
-## Proje yapısı
+## Kurulum
 
 ```
-SpaceRouter/
-├── engine/                  Hammerspoon motoru (Lua)
-│   ├── spacerouter/         Modüller
-│   └── hammerspoon-init-snippet.lua
-├── app/                     SwiftUI menü çubuğu uygulaması
-│   ├── Package.swift
-│   └── Sources/SpaceRouter/
-│       ├── Models/          rules.json veri modeli ve deposu
-│       ├── Services/        Ekran, izin, pencere ve motor köprüsü
-│       └── Views/           Kural editörü ve durum ekranları
-├── engine/tests/            Hammerspoon taklidiyle mantık testleri
-├── config/rules.example.json
-├── scripts/                 install / uninstall / build / check
-└── docs/                    Kurulum, şema, şablonlar, sorun giderme
+xcode-select --install     # bir kez
+make run                   # derler, build/SpaceRouter.app'i açar
 ```
 
-## İki katmanlı mimari
+İlk açılışta **Erişilebilirlik** izni ister (System Settings › Privacy &
+Security › Accessibility). İzin verildikten sonra uygulamayı yeniden
+başlatmak gerekebilir.
+
+Mission Control'de **"Automatically rearrange Spaces based on most
+recent use"** kapalı olmalı; açıkken masaüstü numaraları kayar.
+
+Kalıcı kurulum: `cp -R build/SpaceRouter.app /Applications/` ve menüden
+**Girişte başlat**.
+
+## Nasıl çalışır
 
 ```
-SwiftUI menü çubuğu uygulaması   (kuralları düzenler)
-              │
-              ▼
-   ~/Library/Application Support/SpaceRouter/rules.json
-              │
-              ▼
-Hammerspoon motoru               (pencereleri yerleştirir)
+app/Sources/SpaceRouter/
+├── Models/     Rule, Destination, WindowLayout ve rules.json deposu
+├── Services/
+│   ├── Accessibility.swift   Pencere listesi, başlık, çerçeve (AX API)
+│   ├── SkyLight.swift        Space okuma/taşıma (özel SkyLight çağrıları)
+│   ├── ScreenService.swift   Bağlı ekranlar, dock durumu
+│   └── Router.swift          2 sn'de bir tarama, taşıma ve düzen
+└── Views/      Ekran haritası, sürüklenebilir çipler, pencere seçici
 ```
 
-İki katman yalnızca bu JSON dosyası üzerinden konuşur. Uygulama dosyayı
-yazar, motor değişikliği anında algılayıp kuralları yeniden yükler.
+macOS'ta bir pencereyi başka bir Space'e taşımanın resmî bir API'si yok.
+`SkyLight.swift`, Hammerspoon ve yabai'nin kullandığı özel çağrıları
+(`SLSMoveWindowsToManagedSpace`, `SLSSpaceSetCompatID` +
+`SLSSetWindowListWorkspace`, macOS 26.4+ için
+`SLSBridgedMoveWindowsToManagedSpaceOperation`) `dlsym` ile çalışma
+anında çözer; sürüme göre uygun olanı seçer. Bir simge bulunamazsa
+uygulama çökmez, yalnızca Space taşıma atlanır ve pencere yine ekran ve
+düzene oturtulur.
 
-Bu ayrım bilinçlidir: bir pencereyi belirli bir macOS Space'e taşımanın
-resmî public API'si yoktur. Space taşıma işi, bu işi zaten yapan
-Hammerspoon'a bırakılmıştır. Ayrıntı: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+Kurallar `~/Library/Application Support/SpaceRouter/rules.json`
+dosyasında tutulur; eski (v1) dosyalar otomatik okunur.
 
-## Hızlı başlangıç
+## Geliştirme
 
-```bash
-brew install --cask hammerspoon
-make install        # motoru bağlar, rules.json oluşturur
-make app            # menü çubuğu uygulamasını derler
-open build/SpaceRouter.app
 ```
-
-Adım adım anlatım: [docs/SETUP.md](docs/SETUP.md)
-
-## Test
-
-Motorun saf mantığı (kural eşleştirme, layout matematiği, Desktop sayımı,
-doğrulama) macOS ve Hammerspoon olmadan çalıştırılabilir:
-
-```bash
-make test     # lua engine/tests/spec.lua
-make check    # sözdizimi + testler + Swift derlemesi
+make app      # release derleme + .app paketi
+make check    # debug derleme
+make clean
 ```
-
-`engine/tests/hs_stub.lua` Hammerspoon API'sini taklit eder; testler
-gerçek pencere veya ekran gerektirmez.
-
-## Belgeler
-
-- [docs/SETUP.md](docs/SETUP.md) — kurulum ve ilk kural
-- [docs/rules-schema.md](docs/rules-schema.md) — `rules.json` alanları
-- [docs/app-presets.md](docs/app-presets.md) — uygulama başına başlık ipuçları
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — tasarım kararları ve sınırlar
-- [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) — sorun giderme
-
-## Gereksinimler
-
-- macOS 13 veya üzeri
-- [Hammerspoon](https://www.hammerspoon.org)
-- Xcode Command Line Tools (yalnızca uygulamayı derlemek için)
-- Erişilebilirlik izni (Hammerspoon ve Space Router için)
-
-## Lisans
-
-MIT — bkz. [LICENSE](LICENSE)

@@ -7,27 +7,11 @@ on:
 
 jobs:
   build:
-    name: Lua + Swift doğrulama
-    runs-on: macos-14
+    name: Swift derlemesi
+    runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Lua kurulumu
-        run: brew install lua
-
-      - name: Lua sözdizimi
-        run: |
-          find engine -name '*.lua' -print0 \
-            | xargs -0 -n1 luac -p
-
-      - name: Motor testleri
-        run: lua engine/tests/spec.lua
-
-      - name: JSON doğrulaması
-        run: |
-          find config -name '*.json' -print0 \
-            | xargs -0 -n1 python3 -c "import json,sys;json.load(open(sys.argv[1]))"
 
       - name: Swift paketi derlemesi
         run: swift build --package-path app -c release

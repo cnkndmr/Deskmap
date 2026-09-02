@@ -17,13 +17,6 @@ Package.resolved
 build/
 *.app/
 
-# Hammerspoon yerel durumu
-*.log
-
-# Kişisel yapılandırma — örnek dosya sürümlenir, gerçek kurallar sürümlenmez
-config/rules.json
-config/rules.local.json
-
 # Editör
 .vscode/
 .idea/
