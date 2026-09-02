@@ -277,7 +277,9 @@ final class Router: ObservableObject {
         // Duraklatılmışken kural uygulanmaz ama pencereler yine listelenir.
         let rules = store.document.enabled ? store.document.rules.bySpecificity : []
         let sessionPins = store.document.enabled ? self.sessionPins : [:]
-        let checkLive = !self.sessionPins.isEmpty
+        // Duraklatılmışken de geçici pinli pencereler listelenir ve yaşam
+        // denetimi sürer.
+        let sessionIDs = Set(self.sessionPins.keys)
         let mode = screens.mode
         let connected = screens.screens
         let applied = self.applied
@@ -286,8 +288,8 @@ final class Router: ObservableObject {
         sweepRequested = false
 
         queue.async { [weak self] in
-            let outcome = Self.route(rules: rules, sessionPins: sessionPins, checkLive: checkLive,
-                                     mode: mode, screens: connected,
+            let outcome = Self.route(rules: rules, sessionPins: sessionPins,
+                                     sessionIDs: sessionIDs, mode: mode, screens: connected,
                                      applied: applied, attempts: attempts)
             Task { @MainActor in
                 guard let self else { return }
@@ -332,15 +334,15 @@ final class Router: ObservableObject {
     nonisolated private static let quickAttempts = 4
 
     nonisolated private static func route(
-        rules: [Rule], sessionPins: [CGWindowID: Destination], checkLive: Bool,
+        rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
         mode: Mode, screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int]
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts)
         let sky = SkyLight.shared
         let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(screens))
         let visibleSpaces = Set(displays.map(\.current))
-        let windows = AX.allWindows()
-        if checkLive { outcome.liveWindows = AX.liveWindowIDs() }
+        let windows = AX.allWindows(alwaysInclude: sessionIDs)
+        if !sessionIDs.isEmpty { outcome.liveWindows = AX.liveWindowIDs() }
 
         outcome.snapshots = windows.map { window in
             WindowSnapshot(

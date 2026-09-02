@@ -118,7 +118,12 @@ enum AX {
     /// `timeout`: uygulama başına Accessibility yanıt süresi. Bir uygulamaya
     /// ilk kez sorulduğunda yanıt yavaş olabilir; kısa değer uygulamayı
     /// sessizce listeden düşürür.
-    static func allWindows(timeout: Float = 1.0) -> [AXWindow] {
+    /// `alwaysInclude`: pencere sunucusunda var olan bu numaralar, uzak
+    /// belirteçle üretilen öğe rol sorusuna yanıt vermese de listelenir
+    /// (geçici pinli pencereler: kullanıcı onları işaretledi, başka
+    /// masaüstündeyken de görünmeli).
+    static func allWindows(timeout: Float = 1.0,
+                           alwaysInclude: Set<CGWindowID> = []) -> [AXWindow] {
         var result: [AXWindow] = []
         var seen: Set<CGWindowID> = []
         let apps = runningApps()
@@ -160,7 +165,8 @@ enum AX {
                   let element = element(pid: app.pid, windowID: info.id)
             else { continue }
             AXUIElementSetMessagingTimeout(element, timeout)
-            guard isStandardWindow(element, strict: true) else { continue }
+            guard alwaysInclude.contains(info.id) || isStandardWindow(element, strict: true)
+            else { continue }
             let title: String = attribute(element, kAXTitleAttribute) ?? info.name
             seen.insert(info.id)
             result.append(AXWindow(
