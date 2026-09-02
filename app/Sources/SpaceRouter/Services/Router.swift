@@ -157,6 +157,29 @@ final class Router: ObservableObject {
         saveSessionPins()
     }
 
+    /// Masaüstü sıralaması değişince bu ekrandaki oturum pinlerinin masaüstü
+    /// numaraları da kurallarla aynı haritaya göre kayar (moddan bağımsız).
+    func moveDesktop(on screen: String, from: Int, to: Int, count: Int) {
+        guard let mapping = Store.desktopMapping(from: from, to: to, count: count)
+        else { return }
+        var changed = false
+        for (id, record) in sessionRecords
+        where record.destination.screen == screen {
+            guard let updated = mapping[record.destination.desktop],
+                  updated != record.destination.desktop else { continue }
+            var next = record
+            next.destination.desktop = updated
+            sessionRecords[id] = next
+            sessionPins[id] = next.destination
+            forgetApplied(for: id)
+            changed = true
+        }
+        if changed {
+            saveSessionPins()
+            sweep()
+        }
+    }
+
     /// Açılışta: kayıtlı oturum pinlerinden penceresi hâlâ (aynı pid ile)
     /// pencere sunucusunda olanlar geri yüklenir, kalanı atılır.
     private func loadSessionPins() {

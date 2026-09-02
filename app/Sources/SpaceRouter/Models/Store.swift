@@ -246,14 +246,8 @@ final class Store: ObservableObject {
     /// moddaki bütün pinlerinin masaüstü numaraları buna göre kayar.
     /// `count`: listedeki satır sayısı (gerçek + pinlerin kullandığı).
     func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode) {
-        guard from != to, from >= 1, to >= 1 else { return }
-        let total = max(count, from, to)
-        var order = Array(1...total)
-        order.remove(at: from - 1)
-        order.insert(from, at: min(to, total) - 1)
-        // order[newIndex] = eski numara → eski → yeni haritası
-        var mapping: [Int: Int] = [:]
-        for (index, old) in order.enumerated() { mapping[old] = index + 1 }
+        guard let mapping = Self.desktopMapping(from: from, to: to, count: count)
+        else { return }
 
         var rules = document.rules
         for i in rules.indices {
@@ -263,6 +257,21 @@ final class Store: ObservableObject {
             rules[i][mode] = destination
         }
         if rules != document.rules { document.rules = rules }
+    }
+
+    /// Masaüstü `from` listede `to` sırasına taşınınca eski numara → yeni
+    /// numara haritası (kurallar ve oturum pinleri aynı haritayı kullanır).
+    /// Geçersiz taşımada nil.
+    static func desktopMapping(from: Int, to: Int, count: Int) -> [Int: Int]? {
+        guard from != to, from >= 1, to >= 1 else { return nil }
+        let total = max(count, from, to)
+        var order = Array(1...total)
+        order.remove(at: from - 1)
+        order.insert(from, at: min(to, total) - 1)
+        // order[newIndex] = eski numara → eski → yeni haritası
+        var mapping: [Int: Int] = [:]
+        for (index, old) in order.enumerated() { mapping[old] = index + 1 }
+        return mapping
     }
 
     // MARK: - Profiller

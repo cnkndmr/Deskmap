@@ -13,6 +13,7 @@ struct ScreenMapView: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var screens: ScreenService
     @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var router: Router
 
     private var isLive: Bool { mode == screens.mode }
 
@@ -72,8 +73,12 @@ struct ScreenMapView: View {
             ? ui.windows.compactMap(\.placement).filter { $0.screen == screen.id }
                 .map(\.desktop).max() ?? 0
             : 0
+        let session = isLive
+            ? router.sessionPins.values.filter { $0.screen == screen.id }
+                .map(\.desktop).max() ?? 0
+            : 0
         let real = desktopCounts[screen.id] ?? 0
-        return max(real, used, live, 1)
+        return max(real, used, live, session, 1)
     }
 }
 
@@ -272,6 +277,7 @@ private struct DesktopRow: View {
                 ui.pinDraft = nil
                 store.moveDesktop(on: screen.id, from: desktop, to: to,
                                   count: rowCount, mode: mode)
+                router.moveDesktop(on: screen.id, from: desktop, to: to, count: rowCount)
             }
     }
 
