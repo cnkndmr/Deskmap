@@ -1,8 +1,10 @@
 import AppKit
 import Combine
 
-/// Yönlendirme motoru. Açık pencereleri düzenli aralıklarla tarar,
-/// kurala uyanları doğru ekranın doğru masaüstüne taşıyıp düzene oturtur.
+/// Yönlendirme motoru. Pencere olaylarında (yeni pencere, başlık, odak,
+/// masaüstü geçişi) ve yedek olarak düzenli aralıklarla açık pencereleri
+/// tarar; kurala uyanları doğru ekranın doğru masaüstüne taşıyıp düzene
+/// oturtur. Düzen, pencere gerçekten hedefe oturana kadar yeniden denenir.
 ///
 /// Tarama arka planda çalışır; arayüz yalnızca özet durumu görür.
 @MainActor
@@ -23,6 +25,7 @@ final class Router: ObservableObject {
 
     private let store: Store
     private let screens: ScreenService
+    private let events: WindowEvents
     private let queue = DispatchQueue(label: "spacerouter.router", qos: .utility)
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
@@ -30,15 +33,30 @@ final class Router: ObservableObject {
     /// (pencere, hedef) çiftleri için düzen bir kez uygulanır; kullanıcı
     /// sonradan pencereyi elle taşırsa yerinden oynatılmaz.
     private var applied: Set<String> = []
+    /// (pencere, hedef) başına kaç kez düzen denendi; uygulama kabul
+    /// etmezse belirli sayıdan sonra vazgeçilir.
+    private var attempts: [String: Int] = [:]
     private var isSweeping = false
+    private var sweepRequested = false
+    private var followUp: Task<Void, Never>?
 
     init(store: Store, screens: ScreenService) {
         self.store = store
         self.screens = screens
+        self.events = WindowEvents()
 
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.sweep() }
+            Task { @MainActor in
+                self?.events.refresh()
+                self?.sweep()
+            }
         }
+
+        // Pencere olayları: art arda gelenleri tek taramada topla.
+        events.changed
+            .debounce(for: .milliseconds(80), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in self?.sweep() }
+            .store(in: &cancellables)
 
         screens.settled
             .sink { [weak self] in self?.reapplyAll() }
@@ -52,32 +70,57 @@ final class Router: ObservableObject {
             .store(in: &cancellables)
     }
 
-    deinit { timer?.invalidate() }
+    deinit {
+        timer?.invalidate()
+        followUp?.cancel()
+    }
 
     /// Düzen belleğini sıfırlayıp bütün pencereleri yeniden yerleştirir.
     func reapplyAll() {
         applied.removeAll()
+        attempts.removeAll()
         sweep()
+    }
+
+    /// Kısa bir süre sonra yeniden tara (masaüstü taşıması yerleşsin diye).
+    private func scheduleFollowUp(after milliseconds: UInt64) {
+        followUp?.cancel()
+        followUp = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: milliseconds * 1_000_000)
+            guard !Task.isCancelled else { return }
+            self?.sweep()
+        }
     }
 
     // MARK: - Tarama
 
     private func sweep() {
-        guard store.document.enabled, !isSweeping, AXIsProcessTrusted() else { return }
+        guard store.document.enabled, AXIsProcessTrusted() else { return }
+        if isSweeping {
+            // Tarama sürerken gelen olay kaybolmasın; bitince bir tur daha.
+            sweepRequested = true
+            return
+        }
 
         let rules = store.document.rules.bySpecificity
         let mode = screens.mode
         let connected = screens.screens
         let applied = self.applied
+        let attempts = self.attempts
         isSweeping = true
+        sweepRequested = false
 
         queue.async { [weak self] in
-            let outcome = Self.route(rules: rules, mode: mode,
-                                     screens: connected, applied: applied)
+            let outcome = Self.route(rules: rules, mode: mode, screens: connected,
+                                     applied: applied, attempts: attempts)
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
                 self.applied = outcome.applied
+                self.attempts = outcome.attempts
+                if outcome.needsFollowUp || self.sweepRequested {
+                    self.scheduleFollowUp(after: outcome.needsFollowUp ? 200 : 20)
+                }
                 var status = self.status
                 status.routedWindows = outcome.routed
                 if let action = outcome.lastAction {
@@ -91,16 +134,29 @@ final class Router: ObservableObject {
 
     private struct Outcome {
         var applied: Set<String>
+        var attempts: [String: Int]
         var routed = 0
         var lastAction: String?
+        /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
+        /// yeniden dene.
+        var needsFollowUp = false
     }
 
+    /// Uygulama düzeni bu kadar denemeden sonra da kabul etmezse bırakılır
+    /// (ör. en küçük boyut kısıtı olan pencereler). Çerçeve artık pencere
+    /// görünürken verildiği için az deneme yeter.
+    nonisolated private static let maxAttempts = 6
+    /// İlk denemeler hızlı ardışık; sonrası olaylara ve zamanlayıcıya kalır.
+    nonisolated private static let quickAttempts = 4
+
     nonisolated private static func route(
-        rules: [Rule], mode: Mode, screens: [ScreenInfo], applied: Set<String>
+        rules: [Rule], mode: Mode, screens: [ScreenInfo],
+        applied: Set<String>, attempts: [String: Int]
     ) -> Outcome {
-        var outcome = Outcome(applied: applied)
+        var outcome = Outcome(applied: applied, attempts: attempts)
         let sky = SkyLight.shared
         let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(screens))
+        let visibleSpaces = Set(displays.map(\.current))
         let windows = AX.allWindows()
 
         for window in windows {
@@ -115,43 +171,95 @@ final class Router: ObservableObject {
             outcome.routed += 1
             let key = "\(window.id)|\(rule.id)|\(mode.rawValue)|\(destination.hashValue)"
 
-            // 1. Masaüstü
+            let targetFrame = Coordinates.axRect(
+                fromCocoa: destination.layout.rect(in: screen.visibleFrame),
+                screens: screens)
+            let needsLayout = !outcome.applied.contains(key) && !AX.isMinimized(window)
+
+            // Hedef masaüstü ve pencerenin şu anki space durumu.
+            var target: SkyLight.Space?
+            var hop: UInt64?          // hedef ekranın şu an görünen masaüstü
+            var onTarget = true
+            var isVisible = true
+            var desktopLabel = ""
             if sky.isAvailable,
                let display = displays.first(where: { $0.displayUUID == screen.uuid }),
                !display.desktops.isEmpty {
                 let desktops = display.desktops
-                let target = desktops[min(destination.desktop, desktops.count) - 1]
+                let index = min(destination.desktop, desktops.count)
+                let space = desktops[index - 1]
                 let current = sky.spaces(of: window.id)
+                // Tam ekran uygulamaya ait pencerelere dokunulmaz.
+                if current.contains(where: { sky.type(of: $0) != 0 }) { continue }
+                target = space
+                onTarget = current.contains(space.id)
+                isVisible = current.isEmpty || current.contains(where: visibleSpaces.contains)
+                hop = display.current
+                desktopLabel = "\(screen.name) · Masaüstü \(index)"
+            }
 
-                if !current.contains(target.id) {
-                    // Tam ekran uygulamaya ait pencereler taşınmaz.
-                    let onFullscreen = current.contains { sky.type(of: $0) != 0 }
-                    if !onFullscreen {
-                        sky.move(window: window.id, to: target.id)
-                        outcome.applied.remove(key)
-                        outcome.lastAction =
-                            "\(window.appName) → \(screen.name) · Masaüstü "
-                            + "\(min(destination.desktop, desktops.count))"
+            // 1. Düzen — pencere GÖRÜNÜRKEN uygulanır. Görünmeyen bir
+            // masaüstündeki pencereye verilen çerçeve uygulama tarafından
+            // seçilene kadar işlenmez; bu yüzden sıra: önce çerçeve, sonra
+            // masaüstü taşıması. Görünmeyen pencere önce hedef ekranın
+            // görünen masaüstüne uğratılır, çerçevesi verilir, sonra hedefe
+            // taşınır.
+            var placed = false
+            if needsLayout {
+                if let frame = AX.frame(of: window), Coordinates.close(frame, targetFrame) {
+                    placed = true
+                } else {
+                    if !isVisible, let hop {
+                        sky.move(window: window.id, to: hop)
+                        Self.wait(until: { sky.spaces(of: window.id).contains(hop) })
+                        onTarget = false
+                    }
+                    AX.setFrame(targetFrame, of: window)
+                    if let after = AX.frame(of: window), Coordinates.close(after, targetFrame) {
+                        placed = true
+                    }
+                }
+
+                if placed {
+                    outcome.applied.insert(key)
+                    outcome.attempts[key] = nil
+                } else {
+                    let count = (outcome.attempts[key] ?? 0) + 1
+                    outcome.attempts[key] = count
+                    if count >= Self.maxAttempts {
+                        outcome.applied.insert(key)
+                        outcome.attempts[key] = nil
+                    } else if count <= Self.quickAttempts {
+                        outcome.needsFollowUp = true
                     }
                 }
             }
 
-            // 2. Düzen
-            guard !outcome.applied.contains(key), !AX.isMinimized(window) else { continue }
-            let targetFrame = Coordinates.axRect(
-                fromCocoa: destination.layout.rect(in: screen.visibleFrame),
-                screens: screens)
-            if let frame = AX.frame(of: window), Coordinates.close(frame, targetFrame) {
-                outcome.applied.insert(key)
-                continue
+            // 2. Masaüstü — çerçeve verildikten sonra; aynı ekrandaki
+            // masaüstüler arası taşıma çerçeveyi korur.
+            if let target, !onTarget {
+                sky.move(window: window.id, to: target.id)
+                outcome.needsFollowUp = true
+                outcome.lastAction = "\(window.appName) → \(desktopLabel)"
             }
-            AX.setFrame(targetFrame, of: window)
-            outcome.applied.insert(key)
         }
         return outcome
     }
 
     // MARK: - Yardımcılar
+
+    /// Koşul sağlanana ya da süre dolana kadar kısa aralıklarla bekler
+    /// (arka plan kuyruğunda; space taşıması eşzamansız olabilir).
+    nonisolated private static func wait(
+        until condition: () -> Bool, timeoutMs: Int = 300
+    ) {
+        var elapsed = 0
+        while elapsed < timeoutMs {
+            if condition() { return }
+            usleep(20_000)
+            elapsed += 20
+        }
+    }
 
     nonisolated static func primaryUUID(_ screens: [ScreenInfo]) -> String? {
         (screens.first { $0.frame.origin == .zero } ?? screens.first)?.uuid
