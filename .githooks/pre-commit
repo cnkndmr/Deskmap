@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+#
+# Commit öncesi hızlı doğrulama.
+# Etkinleştirmek için:  git config core.hooksPath .githooks
+#
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+FAILED=0
+
+# 1. JSON dosyaları geçerli mi?
+while IFS= read -r file; do
+  [[ -f "$REPO_ROOT/$file" ]] || continue
+  if ! python3 -c "import json,sys;json.load(open(sys.argv[1]))" \
+      "$REPO_ROOT/$file" 2>/dev/null; then
+    echo "pre-commit: geçersiz JSON — $file" >&2
+    FAILED=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACM -- '*.json')
+
+# 2. Lua sözdizimi (luac varsa)
+if command -v luac >/dev/null 2>&1; then
+  while IFS= read -r file; do
+    [[ -f "$REPO_ROOT/$file" ]] || continue
+    if ! luac -p "$REPO_ROOT/$file" 2>/dev/null; then
+      echo "pre-commit: Lua sözdizimi hatası — $file" >&2
+      luac -p "$REPO_ROOT/$file" >&2 || true
+      FAILED=1
+    fi
+  done < <(git diff --cached --name-only --diff-filter=ACM -- '*.lua')
+fi
+
+# 3. Kişisel kurallar yanlışlıkla eklenmesin
+if git diff --cached --name-only | grep -q '^config/rules\.json$'; then
+  echo "pre-commit: config/rules.json kişisel dosyadır, commit etmeyin." >&2
+  FAILED=1
+fi
+
+exit $FAILED

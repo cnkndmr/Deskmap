@@ -1,0 +1,12 @@
+* text=auto eol=lf
+
+*.lua    text diff=lua
+*.swift  text diff=swift
+*.json   text
+*.md     text
+*.sh     text eol=lf
+Makefile text
+
+*.png binary
+*.jpg binary
+*.icns binary

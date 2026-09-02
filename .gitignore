@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+._*
+
+# Swift / SwiftPM
+.build/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+Package.resolved
+
+# Derleme çıktısı
+build/
+*.app/
+
+# Hammerspoon yerel durumu
+*.log
+
+# Kişisel yapılandırma — örnek dosya sürümlenir, gerçek kurallar sürümlenmez
+config/rules.json
+config/rules.local.json
+
+# Editör
+.vscode/
+.idea/
+*.swp

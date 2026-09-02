@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    name: Lua + Swift doğrulama
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lua kurulumu
+        run: brew install lua
+
+      - name: Lua sözdizimi
+        run: |
+          find engine -name '*.lua' -print0 \
+            | xargs -0 -n1 luac -p
+
+      - name: JSON doğrulaması
+        run: |
+          find config -name '*.json' -print0 \
+            | xargs -0 -n1 python3 -c "import json,sys;json.load(open(sys.argv[1]))"
+
+      - name: Swift paketi derlemesi
+        run: swift build --package-path app -c release
+
+      - name: .app paketi
+        run: ./scripts/build-app.sh release
