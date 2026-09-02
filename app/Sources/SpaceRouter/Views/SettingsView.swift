@@ -1,9 +1,12 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
 
     @EnvironmentObject private var store: RuleStore
     @EnvironmentObject private var hammerspoon: HammerspoonBridge
+
+    init() {}
 
     var body: some View {
         ScrollView {

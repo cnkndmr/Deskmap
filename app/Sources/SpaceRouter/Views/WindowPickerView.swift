@@ -13,6 +13,14 @@ struct WindowPickerView: View {
     let onSelect: (ObservedWindow) -> Void
     let onCancel: () -> Void
 
+    init(
+        onSelect: @escaping (ObservedWindow) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
+        self.onSelect = onSelect
+        self.onCancel = onCancel
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             HStack {

@@ -39,6 +39,7 @@ SpaceRouter/
 │       ├── Models/          rules.json veri modeli ve deposu
 │       ├── Services/        Ekran, izin, pencere ve motor köprüsü
 │       └── Views/           Kural editörü ve durum ekranları
+├── engine/tests/            Hammerspoon taklidiyle mantık testleri
 ├── config/rules.example.json
 ├── scripts/                 install / uninstall / build / check
 └── docs/                    Kurulum, şema, şablonlar, sorun giderme
@@ -72,7 +73,20 @@ make app            # menü çubuğu uygulamasını derler
 open build/SpaceRouter.app
 ```
 
-Ardım adım anlatım: [docs/SETUP.md](docs/SETUP.md)
+Adım adım anlatım: [docs/SETUP.md](docs/SETUP.md)
+
+## Test
+
+Motorun saf mantığı (kural eşleştirme, layout matematiği, Desktop sayımı,
+doğrulama) macOS ve Hammerspoon olmadan çalıştırılabilir:
+
+```bash
+make test     # lua engine/tests/spec.lua
+make check    # sözdizimi + testler + Swift derlemesi
+```
+
+`engine/tests/hs_stub.lua` Hammerspoon API'sini taklit eder; testler
+gerçek pencere veya ekran gerektirmez.
 
 ## Belgeler
 

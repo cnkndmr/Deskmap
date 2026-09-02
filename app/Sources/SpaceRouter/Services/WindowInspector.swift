@@ -43,7 +43,7 @@ final class WindowInspector: ObservableObject {
 
             for (index, axWindow) in axWindows.enumerated() {
                 var rawTitle: CFTypeRef?
-                AXUIElementCopyAttributeValue(
+                _ = AXUIElementCopyAttributeValue(
                     axWindow, kAXTitleAttribute as CFString, &rawTitle)
 
                 let title = (rawTitle as? String) ?? ""

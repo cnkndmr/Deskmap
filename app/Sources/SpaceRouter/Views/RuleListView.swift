@@ -7,6 +7,10 @@ struct RuleListView: View {
 
     let onEdit: (Rule) -> Void
 
+    init(onEdit: @escaping (Rule) -> Void) {
+        self.onEdit = onEdit
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if store.document.rules.isEmpty {

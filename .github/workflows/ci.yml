@@ -21,6 +21,9 @@ jobs:
           find engine -name '*.lua' -print0 \
             | xargs -0 -n1 luac -p
 
+      - name: Motor testleri
+        run: lua engine/tests/spec.lua
+
       - name: JSON doğrulaması
         run: |
           find config -name '*.json' -print0 \

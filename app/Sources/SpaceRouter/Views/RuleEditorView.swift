@@ -254,7 +254,8 @@ private struct DestinationEditor: View {
                         Text("Özel…").tag(customTag)
                     }
 
-                    if showsCustomLayout {
+                    if showsCustomLayout
+                        || destination.layout.presetName == nil {
                         customLayoutControls
                     }
 

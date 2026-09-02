@@ -5,6 +5,8 @@ struct ScreensView: View {
     @EnvironmentObject private var store: RuleStore
     @EnvironmentObject private var screenService: ScreenService
 
+    init() {}
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {

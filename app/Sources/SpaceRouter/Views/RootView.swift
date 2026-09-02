@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct RootView: View {
@@ -16,6 +17,8 @@ struct RootView: View {
 
     @State private var selectedTab: Tab = .rules
     @State private var editingRule: Rule?
+
+    init() {}
 
     var body: some View {
         VStack(spacing: 0) {

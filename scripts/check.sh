@@ -29,6 +29,25 @@ if [[ -n "$LUAC" ]]; then
   done < <(find "$PROJECT_DIR/engine" -name '*.lua')
 fi
 
+echo "==> Motor testleri"
+if command -v lua5.4 >/dev/null 2>&1; then
+  LUA=lua5.4
+elif command -v lua >/dev/null 2>&1; then
+  LUA=lua
+else
+  LUA=""
+  echo "  ! lua bulunamadı, atlanıyor (brew install lua)"
+fi
+
+if [[ -n "$LUA" ]]; then
+  if (cd "$PROJECT_DIR" && $LUA engine/tests/spec.lua); then
+    echo "  ✓ motor testleri geçti"
+  else
+    echo "  ✗ motor testleri başarısız"
+    FAILED=1
+  fi
+fi
+
 echo "==> JSON şeması"
 while IFS= read -r file; do
   if python3 -c "import json,sys;json.load(open(sys.argv[1]))" "$file"; then
