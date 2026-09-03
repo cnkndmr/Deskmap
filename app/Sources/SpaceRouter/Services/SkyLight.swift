@@ -142,55 +142,10 @@ final class SkyLight {
 
     // MARK: - Taşıma
 
-    /// Pencereyi masaüstüne taşımak için kullanılan yol (macOS sürümüne ve
-    /// bulunan simgelere göre).
-    enum MovePath: String {
-        case bridged = "SLSBridgedMoveWindowsToManagedSpaceOperation (26.4+)"
-        case compatID = "SLSSpaceSetCompatID + SLSSetWindowListWorkspace"
-        case legacy = "SLSMoveWindowsToManagedSpace"
-        case unavailable = "taşıma simgesi bulunamadı"
-    }
-
-    /// Bu makinede taşıma için hangi yolun kullanılacağı.
-    var movePath: MovePath {
-        if performBridgedOperation != nil,
-           NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation") != nil {
-            return .bridged
-        }
-        if Self.needsCompatWorkaround, spaceSetCompatID != nil, setWindowListWorkspace != nil {
-            return .compatID
-        }
-        if moveWindowsToManagedSpace != nil { return .legacy }
-        return .unavailable
-    }
-
-    /// Bulunan / bulunamayan simgeler (Tanılama paneli için).
-    var symbolReport: [(name: String, found: Bool)] {
-        [("SLSMainConnectionID", connection != 0),
-         ("SLSCopyManagedDisplaySpaces", copyManagedDisplaySpaces != nil),
-         ("SLSCopySpacesForWindows", copySpacesForWindows != nil),
-         ("SLSSpaceGetType", spaceGetType != nil),
-         ("SLSMoveWindowsToManagedSpace", moveWindowsToManagedSpace != nil),
-         ("SLSSpaceSetCompatID", spaceSetCompatID != nil),
-         ("SLSSetWindowListWorkspace", setWindowListWorkspace != nil),
-         ("SLSPerformAsynchronousBridgedWindowManagementOperation",
-          performBridgedOperation != nil),
-         ("SLSBridgedMoveWindowsToManagedSpaceOperation (sınıf)",
-          NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation") != nil)]
-    }
-
-    private static var needsCompatWorkaround: Bool {
-        let version = ProcessInfo.processInfo.operatingSystemVersion
-        return (version.majorVersion == 12 && version.minorVersion >= 7)
-            || (version.majorVersion == 13 && version.minorVersion >= 6)
-            || (version.majorVersion == 14 && version.minorVersion >= 5)
-            || version.majorVersion >= 15
-    }
-
-    /// Pencereyi verilen masaüstüne taşır; kullanılan yolu döndürür. Sonuç
-    /// doğrulanmaz; çağıran `spaces(of:)` ile kontrol edebilir.
+    /// Pencereyi verilen masaüstüne taşır. Sonuç doğrulanmaz; çağıran
+    /// `spaces(of:)` ile kontrol edebilir.
     @discardableResult
-    func move(window windowID: CGWindowID, to space: UInt64) -> MovePath {
+    func move(window windowID: CGWindowID, to space: UInt64) -> Bool {
         var wid = windowID
         let list = [NSNumber(value: windowID)] as CFArray
 
@@ -204,25 +159,32 @@ final class SkyLight {
                 object, NSSelectorFromString("initWithWindows:spaceID:"),
                 list, space) {
                 _ = perform(operation)
-                return .bridged
+                return true
             }
         }
 
-        if Self.needsCompatWorkaround,
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        let needsWorkaround =
+            (version.majorVersion == 12 && version.minorVersion >= 7)
+            || (version.majorVersion == 13 && version.minorVersion >= 6)
+            || (version.majorVersion == 14 && version.minorVersion >= 5)
+            || version.majorVersion >= 15
+
+        if needsWorkaround,
            let setCompat = spaceSetCompatID,
            let setWorkspace = setWindowListWorkspace {
             let tag: Int32 = 0x7961_6265
             _ = setCompat(connection, space, tag)
             _ = setWorkspace(connection, &wid, 1, tag)
             _ = setCompat(connection, space, 0)
-            return .compatID
+            return true
         }
 
         if let move = moveWindowsToManagedSpace {
             _ = move(connection, list, space)
-            return .legacy
+            return true
         }
-        return .unavailable
+        return false
     }
 
     private static func uint64(_ value: Any?) -> UInt64? {

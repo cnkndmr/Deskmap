@@ -35,33 +35,7 @@ final class Router: ObservableObject {
         var lastActionAt: Date?
     }
 
-    /// Tanılama paneli için son tarama özeti: listeleme raporu, ekran /
-    /// masaüstü durumu, son taşıma denemeleri ve sonuçları.
-    struct Diagnostics: Equatable {
-        struct Move: Identifiable, Equatable {
-            let id: Int
-            let at: Date
-            let text: String
-            let path: SkyLight.MovePath
-            /// Taşımadan sonra pencere gerçekten hedef space'te görüldü mü?
-            let verified: Bool
-        }
-        struct Display: Identifiable, Equatable {
-            var id: String { name }
-            let name: String
-            let desktops: Int
-            let currentIndex: Int?
-        }
-        var lastSweepAt: Date?
-        var sweepDuration: TimeInterval = 0
-        var scan = AX.ScanReport()
-        var displays: [Display] = []
-        var moves: [Move] = []
-        var moveCounter = 0
-    }
-
     @Published private(set) var status = Status()
-    @Published private(set) var diagnostics = Diagnostics()
     /// Son taramada görülen pencereler (uygulama adı, sonra kimlik sırasında).
     @Published private(set) var windows: [WindowSnapshot] = []
     /// Oturum pinleri: pencere kimliğine (CGWindowID) bağlı, diske
@@ -307,11 +281,6 @@ final class Router: ObservableObject {
         // denetimi sürer.
         let sessionIDs = Set(self.sessionPins.keys)
         let mode = screens.mode
-        // Bu modda kuralı olan uygulamalar: pencereleri başka masaüstünde
-        // rol sorusuna yanıt vermese de listelenir (duraklatılmışken de).
-        let ruled = store.document.rules.filter { $0[mode] != nil }
-        let ruledBundles = Set(ruled.map(\.bundleID).filter { !$0.isEmpty })
-        let ruledNames = Set(ruled.filter { $0.bundleID.isEmpty }.map { $0.appName.lowercased() })
         let connected = screens.screens
         let applied = self.applied
         let attempts = self.attempts
@@ -319,18 +288,14 @@ final class Router: ObservableObject {
         sweepRequested = false
 
         queue.async { [weak self] in
-            let started = Date()
             let outcome = Self.route(rules: rules, sessionPins: sessionPins,
                                      sessionIDs: sessionIDs, mode: mode, screens: connected,
-                                     applied: applied, attempts: attempts,
-                                     ruledBundles: ruledBundles, ruledNames: ruledNames)
-            let duration = Date().timeIntervalSince(started)
+                                     applied: applied, attempts: attempts)
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
                 self.applied = outcome.applied
                 self.attempts = outcome.attempts
-                self.record(outcome: outcome, duration: duration)
                 if outcome.snapshots != self.windows { self.windows = outcome.snapshots }
                 self.expireSessionPins(live: outcome.liveWindows)
                 if outcome.needsFollowUp || self.sweepRequested {
@@ -359,27 +324,6 @@ final class Router: ObservableObject {
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
         /// yeniden dene.
         var needsFollowUp = false
-        /// Tanılama: listeleme raporu, ekranlar, bu taramadaki taşımalar.
-        var scan = AX.ScanReport()
-        var displays: [Diagnostics.Display] = []
-        var moves: [(text: String, path: SkyLight.MovePath, verified: Bool)] = []
-    }
-
-    /// Tarama sonucunu tanılama özetine işler (son 12 taşıma tutulur).
-    private func record(outcome: Outcome, duration: TimeInterval) {
-        var next = diagnostics
-        next.lastSweepAt = Date()
-        next.sweepDuration = duration
-        next.scan = outcome.scan
-        next.displays = outcome.displays
-        for move in outcome.moves {
-            next.moveCounter += 1
-            next.moves.insert(Diagnostics.Move(
-                id: next.moveCounter, at: Date(), text: move.text,
-                path: move.path, verified: move.verified), at: 0)
-        }
-        if next.moves.count > 12 { next.moves.removeLast(next.moves.count - 12) }
-        if next != diagnostics { diagnostics = next }
     }
 
     /// Uygulama düzeni bu kadar denemeden sonra da kabul etmezse bırakılır
@@ -391,33 +335,13 @@ final class Router: ObservableObject {
 
     nonisolated private static func route(
         rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
-        mode: Mode, screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int],
-        ruledBundles: Set<String>, ruledNames: Set<String>
+        mode: Mode, screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int]
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts)
         let sky = SkyLight.shared
         let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(screens))
         let visibleSpaces = Set(displays.map(\.current))
-        let scanned = AX.scan(
-            alwaysInclude: sessionIDs,
-            includeApp: { app in
-                ruledBundles.contains(app.bundleID) || ruledNames.contains(app.name.lowercased())
-            },
-            onHiddenDesktop: { id in
-                // Bir masaüstünde olmalı ve o masaüstü hiçbir ekranda
-                // görünmüyor olmalı; space'i olmayan pencere hayalettir.
-                let spaces = sky.spaces(of: id)
-                return !spaces.isEmpty && !spaces.contains(where: visibleSpaces.contains)
-            })
-        let windows = scanned.windows
-        outcome.scan = scanned.report
-        outcome.displays = displays.map { display in
-            let name = screens.first { $0.uuid == display.displayUUID }?.name
-                ?? String(display.displayUUID.prefix(8))
-            let current = display.desktops.firstIndex { $0.id == display.current }
-            return Diagnostics.Display(name: name, desktops: display.desktops.count,
-                                       currentIndex: current.map { $0 + 1 })
-        }
+        let windows = AX.allWindows(alwaysInclude: sessionIDs)
         if !sessionIDs.isEmpty { outcome.liveWindows = AX.liveWindowIDs() }
 
         outcome.snapshots = windows.map { window in
@@ -492,12 +416,8 @@ final class Router: ObservableObject {
                     placed = true
                 } else {
                     if !isVisible, let hop {
-                        let path = sky.move(window: window.id, to: hop)
+                        sky.move(window: window.id, to: hop)
                         Self.wait(until: { sky.spaces(of: window.id).contains(hop) })
-                        let verified = sky.spaces(of: window.id).contains(hop)
-                        outcome.moves.append((
-                            text: "\(window.appName) → görünen masaüstü (çerçeve için)",
-                            path: path, verified: verified))
                         onTarget = false
                     }
                     AX.setFrame(targetFrame, of: window)
@@ -524,14 +444,9 @@ final class Router: ObservableObject {
             // 2. Masaüstü — çerçeve verildikten sonra; aynı ekrandaki
             // masaüstüler arası taşıma çerçeveyi korur.
             if let target, !onTarget {
-                let path = sky.move(window: window.id, to: target.id)
-                Self.wait(until: { sky.spaces(of: window.id).contains(target.id) })
-                let verified = sky.spaces(of: window.id).contains(target.id)
-                outcome.moves.append((
-                    text: "\(window.appName) → \(desktopLabel)", path: path, verified: verified))
+                sky.move(window: window.id, to: target.id)
                 outcome.needsFollowUp = true
                 outcome.lastAction = "\(window.appName) → \(desktopLabel)"
-                    + (verified ? "" : " (doğrulanamadı)")
             }
         }
         return outcome
