@@ -37,6 +37,9 @@ struct RootView: View {
     @EnvironmentObject private var ui: UIState
 
     @State private var mode: Mode = .undocked
+    /// Son görülen gerçek mod; değişince seçici onu izler (kullanıcının
+    /// elle seçtiği mod ekran parametreleri değişti diye sıfırlanmaz).
+    @State private var liveMode: Mode?
     @State private var desktopCounts: [String: Int] = [:]
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     /// Sürükleme sırasında gelen tarama sonucu; sürükleme bitince uygulanır.
@@ -102,16 +105,28 @@ struct RootView: View {
         .background(.regularMaterial)
         .onAppear {
             mode = screens.mode
+            liveMode = screens.mode
             ui.windows = router.windows
             syncScreens()
         }
-        .onReceive(screens.$screens) { _ in syncScreens() }
+        .onReceive(screens.$screens) { _ in
+            syncScreens()
+            // Monitör takılıp çıkarıldığında seçici gerçek modu izler
+            // (pencere bir kez oluşturulduğu için onAppear yeniden gelmez).
+            if liveMode != screens.mode {
+                liveMode = screens.mode
+                mode = screens.mode
+            }
+        }
         .onReceive(router.$windows) { windows in
             if ui.drag == nil {
                 ui.windows = windows
             } else {
                 pendingWindows = windows
             }
+            // Mission Control'de eklenen/silinen masaüstü haritaya yansısın.
+            let counts = Router.desktopCounts(screens: screens.screens)
+            if counts != desktopCounts { desktopCounts = counts }
         }
         .onChange(of: ui.drag == nil) { idle in
             guard idle, let pending = pendingWindows else { return }
@@ -205,6 +220,11 @@ struct RootView: View {
                 if let error = store.lastError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
+                } else if !router.status.unresponsive.isEmpty {
+                    Label("\(router.status.unresponsive.joined(separator: ", ")) yanıt vermiyor; geçici olarak atlanıyor",
+                          systemImage: "hourglass")
+                        .foregroundStyle(.orange)
+                        .help("Uygulama Accessibility sorularına yanıt vermedi (donmuş ya da hata ayıklayıcıda). Yanıt verince otomatik olarak yeniden listelenir.")
                 } else if let action = router.status.lastAction {
                     Label(action, systemImage: "arrow.turn.down.right")
                 } else {

@@ -18,6 +18,15 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 - Çıkışta bekleyen (400 ms gecikmeli) kayıt diske yazılır.
 - Okunamayan `rules.json` üzerine yazılmadan önce `rules.json.bak`'a
   yedeklenir.
+- Kapanmış pencerelerin düzen/deneme kayıtları her taramada budanır
+  (uzun süre açık kalınca bellek büyümüyor).
+- Monitör takılıp çıkarılınca mod seçici gerçek modu izler; Mission
+  Control'de eklenen/silinen masaüstü haritaya anında yansır.
+- Accessibility'ye yanıt vermeyen (donmuş) uygulama artan sürelerle
+  (2–30 sn) atlanır, alt çubukta "X yanıt vermiyor" gösterilir; böylece
+  bir uygulama bütün taramayı bekletmez.
+- Bozuk dosyada aktif profil bulunamayınca üretilen "Varsayılan" profil
+  adı çakışırsa "Varsayılan (2)" olur.
 
 ## [0.2.0] — 2026-09-02
 

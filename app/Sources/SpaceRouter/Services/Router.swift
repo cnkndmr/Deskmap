@@ -33,6 +33,8 @@ final class Router: ObservableObject {
         var routedWindows = 0
         var lastAction: String?
         var lastActionAt: Date?
+        /// Accessibility'ye yanıt vermediği için geçici olarak atlanan uygulamalar.
+        var unresponsive: [String] = []
     }
 
     @Published private(set) var status = Status()
@@ -315,6 +317,17 @@ final class Router: ObservableObject {
                 }
                 self.invalidateAll = false
                 self.invalidatedPrefixes = []
+                // Kapanmış pencerelerin düzen/deneme kayıtları birikmesin.
+                let live = outcome.liveWindows
+                if !live.isEmpty {
+                    func isLive(_ key: String) -> Bool {
+                        guard let end = key.firstIndex(of: "|"),
+                              let id = CGWindowID(key[..<end]) else { return true }
+                        return live[id] != nil
+                    }
+                    applied = applied.filter(isLive)
+                    attempts = attempts.filter { isLive($0.key) }
+                }
                 self.applied = applied
                 self.attempts = attempts
                 if outcome.snapshots != self.windows { self.windows = outcome.snapshots }
@@ -324,6 +337,7 @@ final class Router: ObservableObject {
                 }
                 var status = self.status
                 status.routedWindows = outcome.routed
+                status.unresponsive = outcome.unresponsive
                 if let action = outcome.lastAction {
                     status.lastAction = action
                     status.lastActionAt = Date()
@@ -340,6 +354,7 @@ final class Router: ObservableObject {
         /// Pencere sunucusunun bildiği pencere numaraları → pid (oturum
         /// pinlerinin yaşayıp yaşamadığı buradan anlaşılır).
         var liveWindows: [CGWindowID: pid_t] = [:]
+        var unresponsive: [String] = []
         var routed = 0
         var lastAction: String?
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
@@ -367,7 +382,10 @@ final class Router: ObservableObject {
         let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(screens))
         let visibleSpaces = Set(displays.map(\.current))
         let windows = AX.allWindows(alwaysInclude: sessionIDs)
-        if !sessionIDs.isEmpty { outcome.liveWindows = AX.liveWindowIDs() }
+        outcome.unresponsive = AX.unresponsiveApps()
+        // Oturum pinlerinin yaşam denetimi ve kapalı pencere kayıtlarının
+        // budanması için her taramada okunur.
+        outcome.liveWindows = AX.liveWindowIDs()
 
         outcome.snapshots = windows.map { window in
             WindowSnapshot(

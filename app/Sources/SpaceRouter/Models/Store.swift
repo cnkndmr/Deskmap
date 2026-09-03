@@ -84,10 +84,21 @@ struct Document: Codable, Equatable {
         try c.encode(activeProfileID, forKey: .activeProfileID)
     }
 
+    /// Verilen adı, listedekilerle çakışmayacak biçimde ("Ad (2)") döndürür.
+    static func uniqueName(_ name: String, in profiles: [Profile]) -> String {
+        let base = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let taken = Set(profiles.map { $0.name.lowercased() })
+        guard taken.contains(base.lowercased()) else { return base }
+        var n = 2
+        while taken.contains("\(base) (\(n))".lowercased()) { n += 1 }
+        return "\(base) (\(n))"
+    }
+
     /// Aktif profilin kayıtlı kurallarını üst düzey `rules` ile eşitler.
     mutating func syncActiveProfile() {
         guard let i = profiles.firstIndex(where: { $0.id == activeProfileID }) else {
-            let profile = Profile(name: Self.defaultProfileName, rules: rules)
+            let profile = Profile(
+                name: Self.uniqueName(Self.defaultProfileName, in: profiles), rules: rules)
             profiles.append(profile)
             activeProfileID = profile.id
             return
@@ -402,12 +413,7 @@ final class Store: ObservableObject {
     }
 
     private func uniqueName(_ name: String, in profiles: [Profile]) -> String {
-        let base = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let taken = Set(profiles.map { $0.name.lowercased() })
-        guard taken.contains(base.lowercased()) else { return base }
-        var n = 2
-        while taken.contains("\(base) (\(n))".lowercased()) { n += 1 }
-        return "\(base) (\(n))"
+        Document.uniqueName(name, in: profiles)
     }
 
     // MARK: - Ekranlar

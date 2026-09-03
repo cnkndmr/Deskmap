@@ -53,6 +53,56 @@ struct AXWindow: Identifiable, Hashable {
 /// Accessibility üzerinden pencere okuma ve taşıma.
 enum AX {
 
+    // MARK: - Yanıt vermeyen uygulamalar
+
+    /// Bir uygulama Accessibility sorularına bu kadar sürede yanıt vermezse
+    /// (donmuş, hata ayıklayıcıda duran) sonraki taramalarda bir süre
+    /// atlanır; süre her tekrarında ikiye katlanır (2 sn → 30 sn).
+    private struct Backoff {
+        var until: Date
+        var delay: TimeInterval
+        let name: String
+    }
+
+    private static var backoffs: [pid_t: Backoff] = [:]
+    private static let backoffLock = NSLock()
+    /// Uygulama başına tarama süresi bunu aşarsa yanıt vermiyor sayılır
+    /// (tek bir zaman aşımı ≈ `timeout` = 1 sn).
+    private static let slowThreshold: TimeInterval = 0.7
+    private static let minBackoff: TimeInterval = 2
+    private static let maxBackoff: TimeInterval = 30
+
+    private static func isBackedOff(_ pid: pid_t, now: Date) -> Bool {
+        backoffLock.lock(); defer { backoffLock.unlock() }
+        guard let entry = backoffs[pid] else { return false }
+        return entry.until > now
+    }
+
+    /// Uygulamanın bu taramada harcadığı süreyi kaydeder: yavaşsa
+    /// atlama süresi başlar/uzar, hızlıysa kayıt silinir.
+    private static func note(pid: pid_t, name: String, seconds: TimeInterval, now: Date) {
+        backoffLock.lock(); defer { backoffLock.unlock() }
+        if seconds >= slowThreshold {
+            let delay = min((backoffs[pid]?.delay).map { $0 * 2 } ?? minBackoff, maxBackoff)
+            backoffs[pid] = Backoff(until: now.addingTimeInterval(delay), delay: delay, name: name)
+        } else {
+            backoffs[pid] = nil
+        }
+    }
+
+    /// Kapanmış uygulamaların kayıtlarını temizler.
+    private static func pruneBackoffs(running: Set<pid_t>) {
+        backoffLock.lock(); defer { backoffLock.unlock() }
+        backoffs = backoffs.filter { running.contains($0.key) }
+    }
+
+    /// Şu an atlanan (yanıt vermeyen) uygulamaların adları.
+    static func unresponsiveApps() -> [String] {
+        backoffLock.lock(); defer { backoffLock.unlock() }
+        let now = Date()
+        return backoffs.values.filter { $0.until > now }.map(\.name).sorted()
+    }
+
     private typealias GetWindowFn =
         @convention(c) (AXUIElement, UnsafeMutablePointer<CGWindowID>) -> AXError
 
@@ -127,9 +177,16 @@ enum AX {
         var result: [AXWindow] = []
         var seen: Set<CGWindowID> = []
         let apps = runningApps()
+        let now = Date()
+        pruneBackoffs(running: Set(apps.map(\.pid)))
+        /// Bu taramada uygulama başına harcanan süre (yanıt vermeyeni bulmak için).
+        var spent: [pid_t: TimeInterval] = [:]
+        let active = apps.filter { !isBackedOff($0.pid, now: now) }
 
         // 1. Uygulamanın kendi listesi (görünen masaüstündekiler kesin).
-        for app in apps {
+        for app in active {
+            let started = Date()
+            defer { spent[app.pid, default: 0] += Date().timeIntervalSince(started) }
             let appElement = AXUIElementCreateApplication(app.pid)
             AXUIElementSetMessagingTimeout(appElement, timeout)
 
@@ -159,11 +216,13 @@ enum AX {
         // 2. Uygulamanın listelemediği pencereler (başka masaüstü / ekran):
         //    pencere sunucusundan numaralarını alıp uzak belirteçle AX
         //    öğesi üret.
-        let byPID = Dictionary(uniqueKeysWithValues: apps.map { ($0.pid, $0) })
+        let byPID = Dictionary(uniqueKeysWithValues: active.map { ($0.pid, $0) })
         for info in windowServerWindows() {
             guard !seen.contains(info.id), let app = byPID[info.pid],
                   let element = element(pid: app.pid, windowID: info.id)
             else { continue }
+            let started = Date()
+            defer { spent[app.pid, default: 0] += Date().timeIntervalSince(started) }
             AXUIElementSetMessagingTimeout(element, timeout)
             guard alwaysInclude.contains(info.id) || isStandardWindow(element, strict: true)
             else { continue }
@@ -176,6 +235,10 @@ enum AX {
                 bundleID: app.bundleID,
                 title: title,
                 element: element))
+        }
+
+        for app in active {
+            note(pid: app.pid, name: app.name, seconds: spent[app.pid] ?? 0, now: now)
         }
         return result
     }
