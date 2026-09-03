@@ -157,16 +157,24 @@ enum AX {
     /// `includeApp`: bu uygulamaların pencereleri de rol okunamasa bile
     /// listelenir (kuralı olan uygulamalar: kural başka masaüstündeki
     /// pencereye de uygulanabilmeli).
+    /// `onHiddenDesktop`: pencere görünmeyen bir masaüstünde mi? Rolü
+    /// okunamayan pencere yalnızca bu doğruysa listelenir: görünen
+    /// masaüstündeki gerçek pencereler uygulamanın kendi listesinde zaten
+    /// vardır; orada olmayıp görünen masaüstünde duran pencere yardımcı /
+    /// hayalet penceredir. nil verilirse denetim yapılmaz.
     static func allWindows(timeout: Float = 1.0,
                            alwaysInclude: Set<CGWindowID> = [],
-                           includeApp: ((App) -> Bool)? = nil) -> [AXWindow] {
-        scan(timeout: timeout, alwaysInclude: alwaysInclude, includeApp: includeApp).windows
+                           includeApp: ((App) -> Bool)? = nil,
+                           onHiddenDesktop: ((CGWindowID) -> Bool)? = nil) -> [AXWindow] {
+        scan(timeout: timeout, alwaysInclude: alwaysInclude,
+             includeApp: includeApp, onHiddenDesktop: onHiddenDesktop).windows
     }
 
     /// `allWindows` + tanılama raporu.
     static func scan(timeout: Float = 1.0,
                      alwaysInclude: Set<CGWindowID> = [],
-                     includeApp: ((App) -> Bool)? = nil)
+                     includeApp: ((App) -> Bool)? = nil,
+                     onHiddenDesktop: ((CGWindowID) -> Bool)? = nil)
         -> (windows: [AXWindow], report: ScanReport) {
         var result: [AXWindow] = []
         var seen: Set<CGWindowID> = []
@@ -238,6 +246,13 @@ enum AX {
                 }
                 report.fromServerVerified += 1
             } else {
+                // Rol okunamıyor. Görünen masaüstündeyse gerçek pencere
+                // olamaz (gerçek olsaydı uygulamanın listesinde olurdu);
+                // geçici pinli pencere bunun dışındadır.
+                if !forced, let onHiddenDesktop, !onHiddenDesktop(info.id) {
+                    report.dropped.append(entry("rol okunamadı, görünmeyen masaüstünde değil"))
+                    continue
+                }
                 let reason: String
                 if forced {
                     reason = "geçici pinli"

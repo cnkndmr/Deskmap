@@ -398,9 +398,17 @@ final class Router: ObservableObject {
         let sky = SkyLight.shared
         let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(screens))
         let visibleSpaces = Set(displays.map(\.current))
-        let scanned = AX.scan(alwaysInclude: sessionIDs, includeApp: { app in
-            ruledBundles.contains(app.bundleID) || ruledNames.contains(app.name.lowercased())
-        })
+        let scanned = AX.scan(
+            alwaysInclude: sessionIDs,
+            includeApp: { app in
+                ruledBundles.contains(app.bundleID) || ruledNames.contains(app.name.lowercased())
+            },
+            onHiddenDesktop: { id in
+                // Bir masaüstünde olmalı ve o masaüstü hiçbir ekranda
+                // görünmüyor olmalı; space'i olmayan pencere hayalettir.
+                let spaces = sky.spaces(of: id)
+                return !spaces.isEmpty && !spaces.contains(where: visibleSpaces.contains)
+            })
         let windows = scanned.windows
         outcome.scan = scanned.report
         outcome.displays = displays.map { display in
