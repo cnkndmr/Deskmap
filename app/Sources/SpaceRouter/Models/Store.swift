@@ -1,5 +1,6 @@
-import Foundation
+import AppKit
 import Combine
+import Foundation
 
 /// Bilinen bir ekran: rol kimliği ve kullanıcıya gösterilecek ad.
 struct KnownScreen: Codable, Equatable, Identifiable, Hashable {
@@ -146,8 +147,11 @@ final class Store: ObservableObject {
                                 isDirectory: true)
 
     static let fileURL = directoryURL.appendingPathComponent("rules.json")
+    /// Okunamayan `rules.json` üzerine yazılmadan önce buraya kopyalanır.
+    static let backupURL = directoryURL.appendingPathComponent("rules.json.bak")
 
     private var cancellables = Set<AnyCancellable>()
+    private var terminateObserver: NSObjectProtocol?
 
     init() {
         load()
@@ -160,6 +164,25 @@ final class Store: ObservableObject {
                 self?.save()
             }
             .store(in: &cancellables)
+
+        // Kayıt 400 ms gecikmeli; çıkışta bekleyen değişiklik kaybolmasın.
+        terminateObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.flush() }
+        }
+    }
+
+    deinit {
+        if let terminateObserver {
+            NotificationCenter.default.removeObserver(terminateObserver)
+        }
+    }
+
+    /// Bekleyen değişiklikleri hemen diske yazar.
+    func flush() {
+        document.syncActiveProfile()
+        save()
     }
 
     func load() {
@@ -171,7 +194,12 @@ final class Store: ObservableObject {
             document = try JSONDecoder().decode(Document.self, from: data)
             lastError = nil
         } catch {
+            // Bozuk dosya ilk değişiklikte ezilecek; önce yedeğini al.
+            let fm = FileManager.default
+            try? fm.removeItem(at: Self.backupURL)
+            let backedUp = (try? fm.copyItem(at: Self.fileURL, to: Self.backupURL)) != nil
             lastError = "rules.json okunamadı: \(error.localizedDescription)"
+                + (backedUp ? " (yedek: rules.json.bak)" : "")
         }
     }
 

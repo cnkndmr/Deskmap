@@ -82,6 +82,11 @@ final class Router: ObservableObject {
     private var attempts: [String: Int] = [:]
     private var isSweeping = false
     private var sweepRequested = false
+    /// Tarama sürerken gelen "düzen belleğini unut" istekleri: tarama
+    /// bitince sonucun üstüne uygulanır; yoksa taramanın döndürdüğü eski
+    /// küme bu istekleri ezerdi (ör. "Yeniden yerleştir" düğmesi).
+    private var invalidatedPrefixes: Set<String> = []
+    private var invalidateAll = false
     private var followUp: Task<Void, Never>?
 
     init(store: Store, screens: ScreenService) {
@@ -124,6 +129,7 @@ final class Router: ObservableObject {
     func reapplyAll() {
         applied.removeAll()
         attempts.removeAll()
+        if isSweeping { invalidateAll = true }
         sweep()
     }
 
@@ -215,6 +221,7 @@ final class Router: ObservableObject {
         let prefix = "\(windowID)|"
         applied = applied.filter { !$0.hasPrefix(prefix) }
         attempts = attempts.filter { !$0.key.hasPrefix(prefix) }
+        if isSweeping { invalidatedPrefixes.insert(prefix) }
     }
 
     /// Kısa bir süre sonra yeniden tara (masaüstü taşıması yerleşsin diye).
@@ -294,8 +301,22 @@ final class Router: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
-                self.applied = outcome.applied
-                self.attempts = outcome.attempts
+                var applied = outcome.applied
+                var attempts = outcome.attempts
+                if self.invalidateAll {
+                    applied = []
+                    attempts = [:]
+                } else if !self.invalidatedPrefixes.isEmpty {
+                    let prefixes = self.invalidatedPrefixes
+                    applied = applied.filter { key in
+                        !prefixes.contains { key.hasPrefix($0) } }
+                    attempts = attempts.filter { entry in
+                        !prefixes.contains { entry.key.hasPrefix($0) } }
+                }
+                self.invalidateAll = false
+                self.invalidatedPrefixes = []
+                self.applied = applied
+                self.attempts = attempts
                 if outcome.snapshots != self.windows { self.windows = outcome.snapshots }
                 self.expireSessionPins(live: outcome.liveWindows)
                 if outcome.needsFollowUp || self.sweepRequested {
@@ -332,6 +353,10 @@ final class Router: ObservableObject {
     nonisolated private static let maxAttempts = 6
     /// İlk denemeler hızlı ardışık; sonrası olaylara ve zamanlayıcıya kalır.
     nonisolated private static let quickAttempts = 4
+    /// Masaüstü taşıması bu kadar denemeden sonra da tutmazsa (macOS
+    /// taşımayı reddediyor / özel API çalışmıyor) o pencere için bırakılır;
+    /// pencere hedefe varınca ya da bellek sıfırlanınca sayaç silinir.
+    nonisolated private static let maxMoveAttempts = 6
 
     nonisolated private static func route(
         rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
@@ -364,8 +389,10 @@ final class Router: ObservableObject {
                 destination = pinned
                 ruleID = "session"
             } else if let rule = rules.first(where: {
-                $0.matches(bundleID: window.bundleID,
-                           appName: window.appName, title: window.title)
+                // Arayüzle aynı seçim: bu modda hedefi olan ilk (en özgül)
+                // eşleşen kural; hedefi olmayan daha özgül kural engellemez.
+                $0[mode] != nil && $0.matches(bundleID: window.bundleID,
+                                              appName: window.appName, title: window.title)
             }), let ruled = rule[mode] {
                 destination = ruled
                 ruleID = rule.id
@@ -380,7 +407,7 @@ final class Router: ObservableObject {
             let targetFrame = Coordinates.axRect(
                 fromCocoa: destination.layout.rect(in: screen.visibleFrame),
                 screens: screens)
-            let needsLayout = !outcome.applied.contains(key) && !AX.isMinimized(window)
+            var needsLayout = !outcome.applied.contains(key) && !AX.isMinimized(window)
 
             // Hedef masaüstü ve pencerenin şu anki space durumu.
             var target: SkyLight.Space?
@@ -400,7 +427,10 @@ final class Router: ObservableObject {
                 target = space
                 onTarget = current.contains(space.id)
                 isVisible = current.isEmpty || current.contains(where: visibleSpaces.contains)
-                hop = display.current
+                // Hedef ekranda o an tam ekran bir uygulama görünüyorsa
+                // oraya "hop" yapılmaz; pencere tam ekran space'e girip
+                // orada kalabilir ve router bir daha dokunmazdı.
+                hop = sky.type(of: display.current) == 0 ? display.current : nil
                 desktopLabel = "\(screen.name) · Masaüstü \(index)"
             }
 
@@ -410,6 +440,10 @@ final class Router: ObservableObject {
             // masaüstü taşıması. Görünmeyen pencere önce hedef ekranın
             // görünen masaüstüne uğratılır, çerçevesi verilir, sonra hedefe
             // taşınır.
+            // Görünmeyen pencereye çerçeve verilemez ve uğrayacak görünen
+            // masaüstü yoksa düzen bu turda denenmez (deneme de sayılmaz).
+            if !isVisible && hop == nil { needsLayout = false }
+
             var placed = false
             if needsLayout {
                 if let frame = AX.frame(of: window), Coordinates.close(frame, targetFrame) {
@@ -443,10 +477,17 @@ final class Router: ObservableObject {
 
             // 2. Masaüstü — çerçeve verildikten sonra; aynı ekrandaki
             // masaüstüler arası taşıma çerçeveyi korur.
+            let moveKey = "\(window.id)|move|\(ruleID)|\(mode.rawValue)|\(destination.hashValue)"
             if let target, !onTarget {
-                sky.move(window: window.id, to: target.id)
-                outcome.needsFollowUp = true
-                outcome.lastAction = "\(window.appName) → \(desktopLabel)"
+                let count = (outcome.attempts[moveKey] ?? 0) + 1
+                if count <= Self.maxMoveAttempts {
+                    outcome.attempts[moveKey] = count
+                    sky.move(window: window.id, to: target.id)
+                    if count <= Self.quickAttempts { outcome.needsFollowUp = true }
+                    outcome.lastAction = "\(window.appName) → \(desktopLabel)"
+                }
+            } else if onTarget {
+                outcome.attempts[moveKey] = nil
             }
         }
         return outcome

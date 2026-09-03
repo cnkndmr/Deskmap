@@ -2,6 +2,23 @@
 
 Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmıştır.
 
+## [Yayınlanmadı]
+
+### Düzeltildi
+
+- Router, bu modda hedefi olmayan daha özgül bir kural yüzünden pencereyi
+  atlıyordu; artık arayüzle aynı seçimi yapar (bu modda hedefi olan ilk
+  eşleşen kural).
+- "Yeniden yerleştir" (ve düzen belleğini sıfırlayan diğer işlemler)
+  tarama sürerken basılınca etkisiz kalıyordu.
+- Masaüstü taşıması tutmayan pencere için sonsuz 200 ms döngüsü; artık
+  6 denemeden sonra bırakılır, pencere hedefe varınca sayaç sıfırlanır.
+- Hedef ekranda tam ekran uygulama görünürken pencere tam ekran space'e
+  "hop" ettirilmiyor.
+- Çıkışta bekleyen (400 ms gecikmeli) kayıt diske yazılır.
+- Okunamayan `rules.json` üzerine yazılmadan önce `rules.json.bak`'a
+  yedeklenir.
+
 ## [0.2.0] — 2026-09-02
 
 Baştan sadeleştirme: tek uygulama, görsel arayüz.
