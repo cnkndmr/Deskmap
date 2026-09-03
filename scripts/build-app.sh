@@ -46,6 +46,12 @@ rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
 cp "$BINARY" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
+# Simgeler: uygulama simgesi (.icns) ve menü çubuğu şablon simgesi (PNG @1x/@2x).
+RESOURCES_DIR="$PROJECT_DIR/app/Resources"
+cp "$RESOURCES_DIR/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/"
+cp "$RESOURCES_DIR/MenuBarIcon.png" "$RESOURCES_DIR/MenuBarIcon@2x.png" "$APP_BUNDLE/Contents/Resources/"
+ok "Simgeler kopyalandı"
+
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -57,6 +63,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <key>CFBundleIdentifier</key>        <string>$BUNDLE_ID</string>
     <key>CFBundleExecutable</key>        <string>$APP_NAME</string>
     <key>CFBundlePackageType</key>       <string>APPL</string>
+    <key>CFBundleIconFile</key>          <string>AppIcon</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key>           <string>$VERSION</string>
     <key>LSMinimumSystemVersion</key>    <string>13.0</string>

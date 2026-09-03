@@ -157,6 +157,9 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         isAppWide ? "tüm pencereler" : tokens.joined(separator: " · ")
     }
 
+    /// Verilen moddaki hedef. İki mod (monitör bağlı / sadece laptop)
+    /// birbirinden tamamen bağımsızdır; biri diğerinden devralmaz,
+    /// kullanıcı her iki kurulumu da ayrı ayrı yapar.
     subscript(mode: Mode) -> Destination? {
         get { mode == .docked ? docked : undocked }
         set {
