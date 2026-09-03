@@ -41,6 +41,8 @@ struct RootView: View {
     /// elle seçtiği mod ekran parametreleri değişti diye sıfırlanmaz).
     @State private var liveMode: Mode?
     @State private var desktopCounts: [String: Int] = [:]
+    /// Gerekli macOS ayarlarının canlı durumu (her taramada yenilenir).
+    @State private var settingChecks: [MacSettings.Check] = MacSettings.checks()
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     /// Sürükleme sırasında gelen tarama sonucu; sürükleme bitince uygulanır.
     @State private var pendingWindows: [Router.WindowSnapshot]?
@@ -62,6 +64,9 @@ struct RootView: View {
                 VStack(spacing: 14) {
                     if !permission.isTrusted {
                         PermissionCard()
+                    }
+                    if !settingChecks.allSatisfy(\.ok) || !store.document.setupNoticeDismissed {
+                        SetupCard(checks: settingChecks)
                     }
                     ScreenMapView(mode: mode, desktopCounts: desktopCounts)
                 }
@@ -127,6 +132,9 @@ struct RootView: View {
             // Mission Control'de eklenen/silinen masaüstü haritaya yansısın.
             let counts = Router.desktopCounts(screens: screens.screens)
             if counts != desktopCounts { desktopCounts = counts }
+            // Kullanıcı Sistem Ayarları'nda düzeltince kart kendiliğinden güncellensin.
+            let checks = MacSettings.checks()
+            if checks != settingChecks { settingChecks = checks }
         }
         .onChange(of: ui.drag == nil) { idle in
             guard idle, let pending = pendingWindows else { return }
@@ -744,6 +752,75 @@ private struct PercentField: View {
                 .labelsHidden()
         }
         .controlSize(.small)
+    }
+}
+
+// MARK: - macOS ayarları kartı
+
+/// Space Router'ın çalışması için gereken macOS ayarları. Canlı denetlenen
+/// ayarlardan biri yanlışsa kart kapatılamaz; hepsi doğruysa yalnızca
+/// genel hatırlatma gösterilir ve "Anladım" ile gizlenir.
+private struct SetupCard: View {
+
+    let checks: [MacSettings.Check]
+
+    @EnvironmentObject private var store: Store
+
+    private var allOK: Bool { checks.allSatisfy(\.ok) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Image(systemName: allOK ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                    .font(.title2)
+                    .foregroundStyle(allOK ? Color.green : Color.orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(allOK ? "macOS ayarları uygun" : "macOS ayarları düzeltilmeli")
+                        .font(.callout.weight(.semibold))
+                    Text(allOK
+                         ? "Kurulumda bir kez kontrol edilmesi gerekenler aşağıda."
+                         : "Bu ayarlar böyle kalırsa Space Router düzgün çalışmaz: Dock'tan geçiş "
+                           + "yanlış masaüstüne gider, pencereler belirip kaybolur.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer()
+                Button("Desktop & Dock'u aç") { MacSettings.openDesktopAndDock() }
+                    .controlSize(.small)
+                if allOK {
+                    Button("Anladım") { store.document.setupNoticeDismissed = true }
+                        .controlSize(.small)
+                        .help("Kartı gizle; bir ayar bozulursa yeniden görünür")
+                }
+            }
+
+            ForEach(checks) { check in
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: check.ok ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundStyle(check.ok ? Color.green : Color.red)
+                        .padding(.top, 1)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(check.title).font(.caption.weight(.medium))
+                        Text(check.detail).font(.caption2).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+
+            ForEach(MacSettings.reminders, id: \.self) { reminder in
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "info.circle")
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 1)
+                    Text(reminder).font(.caption2).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 10)
+            .fill((allOK ? Color.green : Color.orange).opacity(0.10)))
     }
 }
 

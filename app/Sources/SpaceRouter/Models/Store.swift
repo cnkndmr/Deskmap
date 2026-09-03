@@ -28,6 +28,9 @@ struct Document: Codable, Equatable {
     var rules: [Rule] = []
     var profiles: [Profile] = []
     var activeProfileID: String = ""
+    /// Kurulum hatırlatması (Dock "Assign To" vb.) kullanıcı tarafından
+    /// kapatıldı mı? Canlı denetlenen ayarlar bozuksa kart yine görünür.
+    var setupNoticeDismissed: Bool = false
 
     init() {
         let profile = Profile(name: Self.defaultProfileName)
@@ -39,6 +42,7 @@ struct Document: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case version, enabled, screens, rules, profiles, activeProfileID, settings
+        case setupNoticeDismissed
     }
 
     private struct LegacySettings: Decodable { var enabled: Bool? }
@@ -60,6 +64,7 @@ struct Document: Codable, Equatable {
         // v3 profiller; yoksa (v1/v2) mevcut kurallar "Varsayılan" profil olur.
         profiles = (try? c.decode([Profile].self, forKey: .profiles)) ?? []
         activeProfileID = try c.decodeIfPresent(String.self, forKey: .activeProfileID) ?? ""
+        setupNoticeDismissed = try c.decodeIfPresent(Bool.self, forKey: .setupNoticeDismissed) ?? false
         if profiles.isEmpty {
             let profile = Profile(name: Self.defaultProfileName, rules: rules)
             profiles = [profile]
@@ -82,6 +87,7 @@ struct Document: Codable, Equatable {
         try c.encode(rules, forKey: .rules)
         try c.encode(profiles, forKey: .profiles)
         try c.encode(activeProfileID, forKey: .activeProfileID)
+        try c.encode(setupNoticeDismissed, forKey: .setupNoticeDismissed)
     }
 
     /// Verilen adı, listedekilerle çakışmayacak biçimde ("Ad (2)") döndürür.

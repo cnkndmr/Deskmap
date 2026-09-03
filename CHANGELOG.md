@@ -34,6 +34,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 
 ### Eklendi
 
+- macOS ayarları kartı: "Automatically rearrange Spaces", "switch to a
+  Space with open windows", "Group windows by application", "Displays have
+  separate Spaces" canlı denetlenir; yanlış olan varsa kart kapanmaz,
+  "Desktop & Dock'u aç" düğmesi ilgili bölmeyi açar. Dock "Assign To: None"
+  hatırlatması "Anladım" ile gizlenir (`setupNoticeDismissed`). README'de
+  "Gerekli macOS ayarları" bölümü.
 - `scripts/build-and-run.command`: Finder'dan çift tıklayınca çalışan
   Space Router'ı kapatır, derler, yeniden açar; çıktı `build/last-build.log`.
 

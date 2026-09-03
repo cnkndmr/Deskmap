@@ -32,8 +32,28 @@ make run                   # derler, build/SpaceRouter.app'i açar
 Security › Accessibility). İzin verildikten sonra uygulamayı yeniden
 başlatmak gerekebilir.
 
-Mission Control'de **"Automatically rearrange Spaces based on most
-recent use"** kapalı olmalı; açıkken masaüstü numaraları kayar.
+### Gerekli macOS ayarları (bunlar yapılmazsa uygulama düzgün çalışmaz)
+
+Uygulama açılınca bu ayarları kendisi denetler ve yanlış olanı turuncu
+kartla gösterir; kart ayar düzelene kadar kapanmaz.
+
+**System Settings › Desktop & Dock › Mission Control** bölümü:
+
+| Ayar | Olması gereken | Neden |
+|---|---|---|
+| Automatically rearrange Spaces based on most recent use | **Kapalı** | Açıkken macOS masaüstü sırasını değiştirir: Dock'tan başka masaüstündeki uygulamaya geçiş komşu Space'e gider, pencere belirip kaybolur, pinlerin masaüstü numaraları kayar. |
+| When switching to an application, switch to a Space with open windows | **Açık** | Kapalıyken Dock'a tıklamak masaüstü değiştirmez. |
+| Group windows by application | Kapalı (önerilir) | Mission Control sırası ile masaüstü numaraları uyuşmayabilir. |
+| Displays have separate Spaces | **Açık** | Kapalıyken harici ekranın masaüstleri görülemez. |
+
+**Dock simgesi › sağ tık › Options › Assign To → None.** Pinlediğin
+uygulamalarda "This Desktop" / "All Desktops" seçili olmamalı; macOS
+pencereyi kendi atadığı Space'e çeker ve Space Router'ın taşımasıyla
+çelişir.
+
+Bu liste 3 Eylül 2026'da yaşanan bir sorundan çıktı: "Automatically
+rearrange Spaces" açıkken Dock'tan uygulamaya geçiş önce komşu Space'e
+gidiyor, uygulama kısa süre görünüp kayboluyordu; ayar kapatılınca düzeldi.
 
 Kalıcı kurulum: `cp -R build/SpaceRouter.app /Applications/` ve menüden
 **Girişte başlat**.
