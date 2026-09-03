@@ -27,6 +27,15 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   bir uygulama bütün taramayı bekletmez.
 - Bozuk dosyada aktif profil bulunamayınca üretilen "Varsayılan" profil
   adı çakışırsa "Varsayılan (2)" olur.
+- "Hop" kaldırıldı: görünmeyen masaüstündeki pinli pencere artık düzen
+  için bulunduğun masaüstüne uğratılmıyor (o masaüstünde yabancı pencere
+  belirip kayboluyor, Dock'tan uygulamaya geçişte macOS yanlış Space'e
+  gidiyordu). Düzen, o masaüstüne ilk geçişte verilir.
+
+### Eklendi
+
+- `scripts/build-and-run.command`: Finder'dan çift tıklayınca çalışan
+  Space Router'ı kapatır, derler, yeniden açar; çıktı `build/last-build.log`.
 
 ## [0.2.0] — 2026-09-02
 

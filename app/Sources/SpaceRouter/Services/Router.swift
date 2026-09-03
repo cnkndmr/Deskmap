@@ -429,7 +429,6 @@ final class Router: ObservableObject {
 
             // Hedef masaüstü ve pencerenin şu anki space durumu.
             var target: SkyLight.Space?
-            var hop: UInt64?          // hedef ekranın şu an görünen masaüstü
             var onTarget = true
             var isVisible = true
             var desktopLabel = ""
@@ -445,33 +444,23 @@ final class Router: ObservableObject {
                 target = space
                 onTarget = current.contains(space.id)
                 isVisible = current.isEmpty || current.contains(where: visibleSpaces.contains)
-                // Hedef ekranda o an tam ekran bir uygulama görünüyorsa
-                // oraya "hop" yapılmaz; pencere tam ekran space'e girip
-                // orada kalabilir ve router bir daha dokunmazdı.
-                hop = sky.type(of: display.current) == 0 ? display.current : nil
                 desktopLabel = "\(screen.name) · Masaüstü \(index)"
             }
 
-            // 1. Düzen — pencere GÖRÜNÜRKEN uygulanır. Görünmeyen bir
-            // masaüstündeki pencereye verilen çerçeve uygulama tarafından
-            // seçilene kadar işlenmez; bu yüzden sıra: önce çerçeve, sonra
-            // masaüstü taşıması. Görünmeyen pencere önce hedef ekranın
-            // görünen masaüstüne uğratılır, çerçevesi verilir, sonra hedefe
-            // taşınır.
-            // Görünmeyen pencereye çerçeve verilemez ve uğrayacak görünen
-            // masaüstü yoksa düzen bu turda denenmez (deneme de sayılmaz).
-            if !isVisible && hop == nil { needsLayout = false }
+            // 1. Düzen — pencere yalnızca GÖRÜNÜRKEN uygulanır. Görünmeyen
+            // bir masaüstündeki pencereye verilen çerçeve uygulama
+            // tarafından işlenmez; düzen "beklemede" kalır ve kullanıcı o
+            // masaüstüne geçince (activeSpaceDidChange taraması) verilir.
+            // Eski "hop" (pencereyi önce görünen masaüstüne uğratma)
+            // kaldırıldı: bulunduğun masaüstünde yabancı pencere beliriyor,
+            // Dock'tan uygulamaya geçişte macOS yanlış Space'e gidiyordu.
+            if !isVisible { needsLayout = false }
 
             var placed = false
             if needsLayout {
                 if let frame = AX.frame(of: window), Coordinates.close(frame, targetFrame) {
                     placed = true
                 } else {
-                    if !isVisible, let hop {
-                        sky.move(window: window.id, to: hop)
-                        Self.wait(until: { sky.spaces(of: window.id).contains(hop) })
-                        onTarget = false
-                    }
                     AX.setFrame(targetFrame, of: window)
                     if let after = AX.frame(of: window), Coordinates.close(after, targetFrame) {
                         placed = true
@@ -539,19 +528,6 @@ final class Router: ObservableObject {
     }
 
     // MARK: - Yardımcılar
-
-    /// Koşul sağlanana ya da süre dolana kadar kısa aralıklarla bekler
-    /// (arka plan kuyruğunda; space taşıması eşzamansız olabilir).
-    nonisolated private static func wait(
-        until condition: () -> Bool, timeoutMs: Int = 300
-    ) {
-        var elapsed = 0
-        while elapsed < timeoutMs {
-            if condition() { return }
-            usleep(20_000)
-            elapsed += 20
-        }
-    }
 
     nonisolated static func primaryUUID(_ screens: [ScreenInfo]) -> String? {
         (screens.first { $0.frame.origin == .zero } ?? screens.first)?.uuid
