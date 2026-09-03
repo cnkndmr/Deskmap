@@ -9,6 +9,10 @@ import Combine
 final class AccessibilityPermission: ObservableObject {
 
     @Published private(set) var isTrusted = AXIsProcessTrusted()
+    /// Ekran Kaydı izni: zorunlu değil; varsa pencere sunucusu başka
+    /// masaüstündeki pencerelerin başlığını da verir (`kCGWindowName`),
+    /// böylece başlık kuralları görünmeyen pencerelere de uygulanır.
+    @Published private(set) var canReadWindowNames = CGPreflightScreenCaptureAccess()
     private var timer: Timer?
 
     init() {
@@ -17,8 +21,15 @@ final class AccessibilityPermission: ObservableObject {
                 guard let self else { return }
                 let now = AXIsProcessTrusted()
                 if now != self.isTrusted { self.isTrusted = now }
+                let names = CGPreflightScreenCaptureAccess()
+                if names != self.canReadWindowNames { self.canReadWindowNames = names }
             }
         }
+    }
+
+    /// Ekran Kaydı iznini ister (sistem diyaloğu; sonrası Sistem Ayarları).
+    func requestWindowNames() {
+        _ = CGRequestScreenCaptureAccess()
     }
 
     deinit { timer?.invalidate() }
@@ -112,6 +123,27 @@ enum AX {
             .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    /// Bir taramanın pencere listeleme raporu (Tanılama paneli için):
+    /// hangi yoldan kaç pencere geldi, hangileri neden elendi.
+    struct ScanReport: Equatable {
+        struct Entry: Identifiable, Equatable {
+            let id: CGWindowID
+            let appName: String
+            let name: String
+            let reason: String
+        }
+        /// Uygulamanın kendi `AXWindows` listesinden gelenler.
+        var fromAXList = 0
+        /// Uzak belirteçle bulunup rolü `AXWindow` okunanlar.
+        var fromServerVerified = 0
+        /// Uzak belirteçle bulunup rolü okunamayan ama yine de listelenenler.
+        var fromServerLenient: [Entry] = []
+        /// Pencere sunucusunda olup listeye alınmayanlar.
+        var dropped: [Entry] = []
+        var remoteTokenAvailable = false
+        var getWindowIDAvailable = false
+    }
+
     /// Tüm normal uygulamaların pencereleri. Başlıksız pencereler de
     /// listelenir (uygulama geneli kurallar için); yalnızca yüzen
     /// paneller ve sistem diyalogları atlanır.
@@ -122,10 +154,25 @@ enum AX {
     /// belirteçle üretilen öğe rol sorusuna yanıt vermese de listelenir
     /// (geçici pinli pencereler: kullanıcı onları işaretledi, başka
     /// masaüstündeyken de görünmeli).
+    /// `includeApp`: bu uygulamaların pencereleri de rol okunamasa bile
+    /// listelenir (kuralı olan uygulamalar: kural başka masaüstündeki
+    /// pencereye de uygulanabilmeli).
     static func allWindows(timeout: Float = 1.0,
-                           alwaysInclude: Set<CGWindowID> = []) -> [AXWindow] {
+                           alwaysInclude: Set<CGWindowID> = [],
+                           includeApp: ((App) -> Bool)? = nil) -> [AXWindow] {
+        scan(timeout: timeout, alwaysInclude: alwaysInclude, includeApp: includeApp).windows
+    }
+
+    /// `allWindows` + tanılama raporu.
+    static func scan(timeout: Float = 1.0,
+                     alwaysInclude: Set<CGWindowID> = [],
+                     includeApp: ((App) -> Bool)? = nil)
+        -> (windows: [AXWindow], report: ScanReport) {
         var result: [AXWindow] = []
         var seen: Set<CGWindowID> = []
+        var report = ScanReport()
+        report.remoteTokenAvailable = createWithRemoteToken != nil
+        report.getWindowIDAvailable = getWindowID != nil
         let apps = runningApps()
 
         // 1. Uygulamanın kendi listesi (görünen masaüstündekiler kesin).
@@ -145,6 +192,7 @@ enum AX {
                       getWindowID(element, &windowID) == .success,
                       windowID != 0, !seen.contains(windowID) else { continue }
                 seen.insert(windowID)
+                report.fromAXList += 1
 
                 result.append(AXWindow(
                     id: windowID,
@@ -158,15 +206,52 @@ enum AX {
 
         // 2. Uygulamanın listelemediği pencereler (başka masaüstü / ekran):
         //    pencere sunucusundan numaralarını alıp uzak belirteçle AX
-        //    öğesi üret.
+        //    öğesi üret. Sunucu listesi zaten katman 0 / görünür / makul
+        //    boyut süzgecinden geçmiştir. Uzak öğe rol sorusuna çoğu
+        //    uygulamada YANIT VERMİYOR (kullanıcıda doğrulandı); bu yüzden
+        //    rol okunamayan pencere hemen elenmez: adı varsa, geçici pinliyse
+        //    ya da uygulamasının kuralı varsa listelenir. Rolü okunup pencere
+        //    OLMADIĞI anlaşılanlar (sheet, popover, panel) elenir.
         let byPID = Dictionary(uniqueKeysWithValues: apps.map { ($0.pid, $0) })
         for info in windowServerWindows() {
-            guard !seen.contains(info.id), let app = byPID[info.pid],
-                  let element = element(pid: app.pid, windowID: info.id)
-            else { continue }
+            guard !seen.contains(info.id), let app = byPID[info.pid] else { continue }
+            let entry = { (reason: String) -> ScanReport.Entry in
+                ScanReport.Entry(id: info.id, appName: app.name, name: info.name, reason: reason)
+            }
+            guard let element = element(pid: app.pid, windowID: info.id) else {
+                report.dropped.append(entry("uzak belirteç öğesi üretilemedi"))
+                continue
+            }
             AXUIElementSetMessagingTimeout(element, timeout)
-            guard alwaysInclude.contains(info.id) || isStandardWindow(element, strict: true)
-            else { continue }
+
+            let role: String? = attribute(element, kAXRoleAttribute)
+            let forced = alwaysInclude.contains(info.id)
+            if let role {
+                if role != kAXWindowRole && !forced {
+                    report.dropped.append(entry("rol \(role)"))
+                    continue
+                }
+                let subrole: String? = attribute(element, kAXSubroleAttribute)
+                if let subrole, Self.isAuxiliarySubrole(subrole), !forced {
+                    report.dropped.append(entry("alt rol \(subrole)"))
+                    continue
+                }
+                report.fromServerVerified += 1
+            } else {
+                let reason: String
+                if forced {
+                    reason = "geçici pinli"
+                } else if includeApp?(app) == true {
+                    reason = "uygulamanın kuralı var"
+                } else if !info.name.isEmpty {
+                    reason = "sunucuda adı var"
+                } else {
+                    report.dropped.append(entry("rol okunamadı, adsız"))
+                    continue
+                }
+                report.fromServerLenient.append(entry("rol okunamadı · \(reason)"))
+            }
+
             let title: String = attribute(element, kAXTitleAttribute) ?? info.name
             seen.insert(info.id)
             result.append(AXWindow(
@@ -177,24 +262,24 @@ enum AX {
                 title: title,
                 element: element))
         }
-        return result
+        return (result, report)
     }
 
-    /// Rolü pencere olan ve yüzen panel / sistem diyaloğu olmayan öğe.
-    /// `strict`: rol okunamıyorsa da ele (uzak belirteçle üretilen öğeler
-    /// için; yanıt vermeyen öğe gerçek pencere olmayabilir).
-    private static func isStandardWindow(_ element: AXUIElement, strict: Bool = false) -> Bool {
+    /// Rolü pencere olan ve yüzen panel / sistem diyaloğu olmayan öğe
+    /// (uygulamanın kendi listesi için; rol okunamıyorsa pencere sayılır).
+    private static func isStandardWindow(_ element: AXUIElement) -> Bool {
         let role: String? = attribute(element, kAXRoleAttribute)
-        guard role == kAXWindowRole || (!strict && role == nil) else { return false }
+        guard role == kAXWindowRole || role == nil else { return false }
         let subrole: String? = attribute(element, kAXSubroleAttribute)
-        if let subrole,
-           subrole == kAXFloatingWindowSubrole
+        if let subrole, isAuxiliarySubrole(subrole) { return false }
+        return true
+    }
+
+    private static func isAuxiliarySubrole(_ subrole: String) -> Bool {
+        subrole == kAXFloatingWindowSubrole
             || subrole == kAXSystemDialogSubrole
             || subrole == kAXSystemFloatingWindowSubrole
-            || subrole == kAXUnknownSubrole {
-            return false
-        }
-        return true
+            || subrole == kAXUnknownSubrole
     }
 
     private struct ServerWindow {
@@ -204,7 +289,9 @@ enum AX {
     }
 
     /// Pencere sunucusunun bildiği, bütün masaüstlerindeki normal katman
-    /// (0) pencereleri. Yardımcı/gizli pencereler AX rol denetimiyle elenir.
+    /// (0), saydam olmayan, en az 50×50 pencereleri. `name`
+    /// (`kCGWindowName`) yalnızca Ekran Kaydı izni varken dolu gelir;
+    /// izin yoksa boş dizedir.
     private static func windowServerWindows() -> [ServerWindow] {
         guard let list = CGWindowListCopyWindowInfo(
             [.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]

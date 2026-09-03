@@ -18,6 +18,8 @@ final class UIState: ObservableObject {
     @Published var windows: [Router.WindowSnapshot] = []
     /// Aktif profil paneli (ad, kopya, dışa aktar, sil) açık mı?
     @Published var profilePanel = false
+    /// Tanılama paneli (izinler, Space API, son tarama, taşımalar) açık mı?
+    @Published var diagnosticsPanel = false
 
     /// Sürükleme sırasında canlı durum ve bilinen hedef çerçeveleri.
     @Published var drag: ChipDrag?
@@ -91,6 +93,12 @@ struct RootView: View {
                     .padding(.horizontal, 24)
                     .padding(.vertical, 14)
                     .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
+            } else if ui.diagnosticsPanel {
+                Divider()
+                DiagnosticsPanel()
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
             }
 
             Divider()
@@ -123,6 +131,7 @@ struct RootView: View {
             ui.selectedSessionWindowID = nil
             ui.pinDraft = nil
             ui.profilePanel = false
+            ui.diagnosticsPanel = false
         }
         .onChange(of: ui.windows) { windows in
             // Taslağın penceresi kapandıysa paneli kapat.
@@ -227,6 +236,22 @@ struct RootView: View {
                         try? SMAppService.mainApp.unregister()
                     }
                 }
+
+            Button {
+                let open = !ui.diagnosticsPanel
+                ui.diagnosticsPanel = open
+                if open {
+                    ui.pinDraft = nil
+                    ui.selectedRuleID = nil
+                    ui.selectedSessionWindowID = nil
+                    ui.profilePanel = false
+                }
+            } label: {
+                Image(systemName: "stethoscope")
+                    .foregroundStyle(ui.diagnosticsPanel ? Color.accentColor : Color.secondary)
+            }
+            .buttonStyle(.borderless)
+            .help("Tanılama: izinler, Space API, son tarama ve taşımalar")
 
             Button {
                 NSApplication.shared.terminate(nil)
