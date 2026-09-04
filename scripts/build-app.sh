@@ -6,13 +6,20 @@
 #   ./scripts/build-app.sh            # release
 #   ./scripts/build-app.sh debug      # debug
 #
+# Ortam değişkenleri:
+#   VERSION=0.3.1          Info.plist sürümü (varsayılan: aşağıdaki VERSION)
+#   UNIVERSAL=1            arm64 + x86_64 evrensel ikili (dağıtım için)
+#   SIGN_IDENTITY="..."    codesign kimliği (varsayılan "-" = ad-hoc)
+#
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${1:-release}"
 APP_NAME="SpaceRouter"
 BUNDLE_ID="com.spacerouter.app"
-VERSION="0.2.0"
+VERSION="${VERSION:-0.3.0}"
+UNIVERSAL="${UNIVERSAL:-0}"
+SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 
 BUILD_ROOT="$PROJECT_DIR/build"
 APP_BUNDLE="$BUILD_ROOT/$APP_NAME.app"
@@ -31,15 +38,22 @@ if ! command -v swift >/dev/null 2>&1; then
   exit 1
 fi
 
-info "Swift paketi derleniyor ($CONFIGURATION)"
-swift build --package-path "$PROJECT_DIR/app" -c "$CONFIGURATION"
-
-BINARY="$PROJECT_DIR/app/.build/$CONFIGURATION/$APP_NAME"
+if [[ "$UNIVERSAL" == "1" ]]; then
+  info "Swift paketi derleniyor ($CONFIGURATION, evrensel arm64+x86_64)"
+  swift build --package-path "$PROJECT_DIR/app" -c "$CONFIGURATION" \
+    --arch arm64 --arch x86_64
+  BINARY="$(swift build --package-path "$PROJECT_DIR/app" -c "$CONFIGURATION" \
+    --arch arm64 --arch x86_64 --show-bin-path)/$APP_NAME"
+else
+  info "Swift paketi derleniyor ($CONFIGURATION)"
+  swift build --package-path "$PROJECT_DIR/app" -c "$CONFIGURATION"
+  BINARY="$PROJECT_DIR/app/.build/$CONFIGURATION/$APP_NAME"
+fi
 if [[ ! -f "$BINARY" ]]; then
   echo "Derleme çıktısı bulunamadı: $BINARY" >&2
   exit 1
 fi
-ok "İkili dosya hazır"
+ok "İkili dosya hazır ($(lipo -archs "$BINARY" 2>/dev/null || echo '?'))"
 
 info ".app paketi oluşturuluyor"
 rm -rf "$APP_BUNDLE"
@@ -75,10 +89,16 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 PLIST
 ok "Info.plist yazıldı"
 
-info "Ad-hoc imzalanıyor"
-codesign --force --sign - "$APP_BUNDLE" >/dev/null 2>&1 \
-  && ok "İmzalandı" \
-  || echo "  ! İmzalama atlandı (zorunlu değil)"
+if [[ "$SIGN_IDENTITY" == "-" ]]; then
+  info "Ad-hoc imzalanıyor"
+  codesign --force --sign - "$APP_BUNDLE" >/dev/null 2>&1 \
+    && ok "İmzalandı (ad-hoc)" \
+    || echo "  ! İmzalama atlandı (zorunlu değil)"
+else
+  info "İmzalanıyor: $SIGN_IDENTITY"
+  codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP_BUNDLE"
+  ok "İmzalandı"
+fi
 
 cat <<NEXT
 

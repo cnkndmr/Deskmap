@@ -4,6 +4,13 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 
 ## [Yayınlanmadı]
 
+### Eklendi
+
+- `make dist`: evrensel (arm64 + x86_64) derleme, imza, isteğe bağlı noter ve
+  `build/dist/*.zip` / `.dmg` paketi (`scripts/make-dist.sh`,
+  Finder için `scripts/make-dist.command`). `build-app.sh` artık `VERSION`,
+  `UNIVERSAL` ve `SIGN_IDENTITY` ortam değişkenlerini tanır; sürüm 0.3.0.
+
 ### Düzeltildi
 
 - Router, bu modda hedefi olmayan daha özgül bir kural yüzünden pencereyi

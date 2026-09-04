@@ -88,5 +88,20 @@ dosyasında tutulur; eski (v1) dosyalar otomatik okunur.
 ```
 make app      # release derleme + .app paketi
 make check    # debug derleme
+make dist     # gönderilebilir paket: evrensel derleme + imza + build/dist/*.zip
 make clean
+```
+
+### Dağıtım
+
+`make dist` arm64 + x86_64 evrensel bir `SpaceRouter.app` üretir ve
+`build/dist/SpaceRouter-<sürüm>.zip` olarak paketler (`FORMAT=dmg` ya da
+`FORMAT=both` ile DMG; `VERSION=0.3.1` ile sürüm). Varsayılan imza ad-hoc'tur:
+alıcı uygulamayı ilk kez **sağ tık › Open** ile açmalı ya da
+`xattr -dr com.apple.quarantine /Applications/SpaceRouter.app` çalıştırmalıdır.
+Developer ID hesabıyla Gatekeeper'sız dağıtım için:
+
+```
+xcrun notarytool store-credentials notary --apple-id ... --team-id ... --password <app-specific>
+SIGN_IDENTITY="Developer ID Application: Ad (TEAMID)" NOTARY_PROFILE=notary make dist
 ```

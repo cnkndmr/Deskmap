@@ -2,12 +2,14 @@
 
 PROJECT := SpaceRouter
 
-.PHONY: help app run check clean
+.PHONY: help app run check dist clean
 
 help:
 	@echo "make app        Menü çubuğu uygulamasını derle (build/SpaceRouter.app)"
 	@echo "make run        Derleyip çalıştır"
 	@echo "make check      Debug derlemesi"
+	@echo "make dist       Gönderilebilir paket: evrensel derleme + imza + zip (build/dist)"
+	@echo "                FORMAT=dmg|both  VERSION=x.y.z  SIGN_IDENTITY=...  NOTARY_PROFILE=..."
 	@echo "make clean      Derleme çıktılarını sil"
 
 app:
@@ -18,6 +20,9 @@ run: app
 
 check:
 	@swift build --package-path app -c debug
+
+dist:
+	@./scripts/make-dist.sh
 
 clean:
 	@rm -rf build app/.build
