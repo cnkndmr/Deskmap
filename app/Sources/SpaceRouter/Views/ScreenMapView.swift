@@ -7,8 +7,6 @@ import SwiftUI
 struct ScreenMapView: View {
 
     let mode: Mode
-    /// Bağlı ekranlardaki gerçek masaüstü sayısı (ekran id → sayı).
-    let desktopCounts: [String: Int]
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var screens: ScreenService
@@ -26,7 +24,7 @@ struct ScreenMapView: View {
                     isLive: isLive,
                     isConnected: screens.screens.contains { $0.id == screen.id },
                     tileCount: tileCount(for: screen),
-                    realCount: desktopCounts[screen.id])
+                    realCount: ui.desktopCounts[screen.id])
             }
 
             UnassignedTray(mode: mode)
@@ -77,7 +75,7 @@ struct ScreenMapView: View {
             ? router.sessionPins.values.filter { $0.screen == screen.id }
                 .map(\.desktop).max() ?? 0
             : 0
-        let real = desktopCounts[screen.id] ?? 0
+        let real = ui.desktopCounts[screen.id] ?? 0
         return max(real, used, live, session, 1)
     }
 }
@@ -273,8 +271,11 @@ private struct DesktopRow: View {
                 // "+ Masaüstü N" satırına bırakmak = en sona.
                 let to = min(dropped, rowCount)
                 guard to != desktop else { return }
-                ui.selectedRuleID = nil
-                ui.pinDraft = nil
+                // Pin hedefleri yeniden numaralanıyor; pin ve taslak panelleri kapanır.
+                switch ui.panel {
+                case .rule, .pin: ui.panel = nil
+                default: break
+                }
                 store.moveDesktop(on: screen.id, from: desktop, to: to,
                                   count: rowCount, mode: mode)
                 router.moveDesktop(on: screen.id, from: desktop, to: to, count: rowCount)

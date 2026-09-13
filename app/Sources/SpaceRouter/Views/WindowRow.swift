@@ -30,8 +30,8 @@ struct WindowRow: View {
     private var isPinned: Bool { sessionPin != nil || pinnedRule != nil }
     private var isDrafting: Bool { ui.pinDraft?.window.id == window.id }
     private var isSelected: Bool {
-        if sessionPin != nil { return ui.selectedSessionWindowID == window.id }
-        return pinnedRule.map { ui.selectedRuleID == $0.id } ?? false
+        if sessionPin != nil { return ui.panel == .session(window.id) }
+        return pinnedRule.map { ui.panel == .rule($0.id) } ?? false
     }
     /// Satırda gösterilen düzen: oturum pini varsa onun, yoksa kuralın.
     private var pinnedLayout: WindowLayout? {
@@ -101,20 +101,12 @@ struct WindowRow: View {
         .contentShape(Rectangle())
         .opacity(isBeingDragged ? 0.35 : 1)
         .onTapGesture {
-            // Pinli satıra tıklamak düzen panelini açar.
+            // Pinli satıra tıklamak düzen panelini açar (tekrar tıklamak kapatır).
             if sessionPin != nil {
-                ui.pinDraft = nil
-                ui.profilePanel = false
-                ui.selectedRuleID = nil
-                ui.selectedSessionWindowID =
-                    ui.selectedSessionWindowID == window.id ? nil : window.id
-                return
+                ui.toggle(.session(window.id))
+            } else if let rule = pinnedRule {
+                ui.toggle(.rule(rule.id))
             }
-            guard let rule = pinnedRule else { return }
-            ui.pinDraft = nil
-            ui.profilePanel = false
-            ui.selectedSessionWindowID = nil
-            ui.selectedRuleID = ui.selectedRuleID == rule.id ? nil : rule.id
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)
         .help(isPinned ? "Tıklayarak düzeni değiştir, sürükleyerek pinin hedefini değiştir"
@@ -122,19 +114,14 @@ struct WindowRow: View {
     }
 
     private func togglePin() {
-        ui.selectedRuleID = nil
-        ui.selectedSessionWindowID = nil
-        ui.profilePanel = false
+        let wasDrafting = isDrafting
+        ui.panel = nil
         if sessionPin != nil {
             router.unpinSession(window.id)
-            ui.pinDraft = nil
         } else if let rule = pinnedRule {
             store.unpin(rule.id, mode: mode)
-            ui.pinDraft = nil
-        } else if isDrafting {
-            ui.pinDraft = nil
-        } else if let placement = window.placement {
-            ui.pinDraft = PinDraft(window: window, target: placement)
+        } else if !wasDrafting, let placement = window.placement {
+            ui.panel = .pin(PinDraft(window: window, target: placement))
         }
     }
 
@@ -149,8 +136,12 @@ struct WindowRow: View {
             .onEnded { value in
                 defer { ui.drag = nil }
                 guard let target = ui.target(at: value.location) else { return }
-                ui.selectedRuleID = nil
-                ui.selectedSessionWindowID = nil
+                // Bilgi panelleri kapanır; başka pencerenin pin taslağı ve
+                // profil paneli tek seferlik taşımadan etkilenmez.
+                switch ui.panel {
+                case .rule, .session: ui.panel = nil
+                default: break
+                }
                 switch target {
                 case .desktop(let screen, let desktop):
                     let placement = Router.Placement(screen: screen, desktop: desktop)
@@ -158,14 +149,14 @@ struct WindowRow: View {
                         // Oturum pini: hedef doğrudan güncellenir.
                         router.pinSession(window.id, destination: Destination(
                             screen: screen, desktop: desktop, layout: current.layout))
-                        ui.pinDraft = nil
+                        ui.panel = nil
                     } else if let rule = pinnedRule, let current = rule[mode] {
                         // Pinli pencere: hedef doğrudan güncellenir.
                         store.setDestination(
                             Destination(screen: screen, desktop: desktop,
                                         layout: current.layout),
                             for: rule.id, mode: mode)
-                        ui.pinDraft = nil
+                        ui.panel = nil
                     } else if placement != window.placement {
                         // Pinsiz pencere: tek seferlik taşınır, kural yazılmaz.
                         router.moveWindow(window.id, to: placement)
@@ -176,15 +167,8 @@ struct WindowRow: View {
                     } else if let rule = pinnedRule {
                         store.unpin(rule.id, mode: mode)
                     }
-                    ui.pinDraft = nil
+                    ui.panel = nil
                 }
             }
     }
-}
-
-/// Pin düğmesine basılınca oluşan taslak: hangi pencere, bulunduğu
-/// masaüstüne. Başlık parçası seçilince kurala dönüşür.
-struct PinDraft: Equatable {
-    var window: Router.WindowSnapshot
-    var target: Router.Placement
 }

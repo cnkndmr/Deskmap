@@ -14,7 +14,7 @@ struct RuleChip: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
 
-    private var isSelected: Bool { ui.selectedRuleID == rule.id }
+    private var isSelected: Bool { ui.panel == .rule(rule.id) }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .rule(rule.id) }
 
     var body: some View {
@@ -40,11 +40,7 @@ struct RuleChip: View {
                                         lineWidth: 1))
         .contentShape(Capsule())
         .opacity(isBeingDragged ? 0.35 : 1)
-        .onTapGesture {
-            ui.pinDraft = nil
-            ui.profilePanel = false
-            ui.selectedRuleID = isSelected ? nil : rule.id
-        }
+        .onTapGesture { ui.toggle(.rule(rule.id)) }
         .gesture(dragGesture, including: isGhost ? .none : .all)
         .help("\(rule.appName): \(rule.title)\nPenceresi şu an açık değil. Sürükleyerek taşı.")
     }

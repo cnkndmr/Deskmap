@@ -21,9 +21,8 @@ struct ProfileBar: View {
                         chip(profile)
                     }
                     Button {
-                        closePanels()
                         store.addProfile()
-                        ui.profilePanel = true
+                        ui.panel = .profile
                     } label: {
                         Image(systemName: "plus")
                             .font(.caption.weight(.semibold))
@@ -38,7 +37,7 @@ struct ProfileBar: View {
             }
 
             Button {
-                closePanels()
+                ui.panel = nil
                 ProfileFiles.importProfile(into: store)
             } label: {
                 Image(systemName: "square.and.arrow.down")
@@ -53,10 +52,10 @@ struct ProfileBar: View {
         let isActive = profile.id == store.document.activeProfileID
         return Button {
             if isActive {
-                closePanels()
-                ui.profilePanel.toggle()
+                // Açık olan başka bir panel (pin, geçici pin) varsa yerini alır.
+                ui.toggle(.profile)
             } else {
-                closePanels()
+                ui.panel = nil
                 store.switchProfile(to: profile.id)
             }
         } label: {
@@ -77,12 +76,6 @@ struct ProfileBar: View {
         .buttonStyle(.plain)
         .help(isActive ? "Aktif profil — ad, kopya, dışa aktar, sil için tıkla"
                        : "Bu profile geç (\(profile.rules.count) pin)")
-    }
-
-    private func closePanels() {
-        ui.pinDraft = nil
-        ui.selectedRuleID = nil
-        ui.profilePanel = false
     }
 }
 
@@ -110,12 +103,13 @@ struct ProfilePanel: View {
                     }
                     Spacer()
                     Button {
-                        ui.profilePanel = false
+                        ui.panel = nil
                     } label: {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                     }
                     .buttonStyle(.borderless)
-                    .help("Kapat")
+                    .keyboardShortcut(.cancelAction)
+                    .help("Kapat (Esc)")
                 }
 
                 HStack(spacing: 8) {

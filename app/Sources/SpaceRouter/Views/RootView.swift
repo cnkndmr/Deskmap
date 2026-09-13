@@ -2,32 +2,6 @@ import AppKit
 import ServiceManagement
 import SwiftUI
 
-/// Pencere içi görünüm durumu. Menü çubuğu penceresi popover, sheet veya
-/// menü açılınca kapandığı için her şey aynı pencerede, satır içi gösterilir.
-@MainActor
-final class UIState: ObservableObject {
-    /// Çipine tıklanan (penceresi kapalı ya da diğer moddaki) pin.
-    @Published var selectedRuleID: String?
-    /// Satırına tıklanan oturum pinli (geçici) pencere.
-    @Published var selectedSessionWindowID: CGWindowID?
-    /// Pin düğmesi / sürükleme sonrası başlık parçası bekleyen taslak.
-    @Published var pinDraft: PinDraft?
-    /// Daraltılmış uygulama grupları ("ekran|masaüstü|bundleID").
-    @Published var collapsed: Set<String> = []
-    /// Haritada gösterilen pencereler. Sürükleme sürerken yenilenmez.
-    @Published var windows: [Router.WindowSnapshot] = []
-    /// Aktif profil paneli (ad, kopya, dışa aktar, sil) açık mı?
-    @Published var profilePanel = false
-
-    /// Sürükleme sırasında canlı durum ve bilinen hedef çerçeveleri.
-    @Published var drag: ChipDrag?
-    var targets: [DropTargetFrame] = []
-
-    func target(at point: CGPoint) -> DropTarget? {
-        targets.first { $0.frame.contains(point) }?.target
-    }
-}
-
 struct RootView: View {
 
     @EnvironmentObject private var store: Store
@@ -40,7 +14,6 @@ struct RootView: View {
     /// Son görülen gerçek mod; değişince seçici onu izler (kullanıcının
     /// elle seçtiği mod ekran parametreleri değişti diye sıfırlanmaz).
     @State private var liveMode: Mode?
-    @State private var desktopCounts: [String: Int] = [:]
     /// Gerekli macOS ayarlarının canlı durumu (her taramada yenilenir).
     @State private var settingChecks: [MacSettings.Check] = MacSettings.checks()
     /// "Girişte başlat" kaydının gerçek durumu; her taramada ve kayıt
@@ -70,38 +43,12 @@ struct RootView: View {
                     if !settingChecks.allSatisfy(\.ok) || !store.document.setupNoticeDismissed {
                         SetupCard(checks: settingChecks)
                     }
-                    ScreenMapView(mode: mode, desktopCounts: desktopCounts)
+                    ScreenMapView(mode: mode)
                 }
                 .padding(14)
             }
 
-            if let draft = ui.pinDraft, mode == screens.mode {
-                Divider()
-                PinPanel(draft: draft, mode: mode)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 14)
-                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-            } else if let id = ui.selectedRuleID, let rule = store.rule(id) {
-                Divider()
-                RulePanel(rule: rule, mode: mode)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 14)
-                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-            } else if let id = ui.selectedSessionWindowID,
-                      let window = ui.windows.first(where: { $0.id == id }),
-                      let destination = router.sessionPins[id] {
-                Divider()
-                SessionPinPanel(window: window, destination: destination)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 14)
-                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-            } else if ui.profilePanel {
-                Divider()
-                ProfilePanel()
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 14)
-                    .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-            }
+            bottomPanel
 
             Divider()
             footer
@@ -133,7 +80,7 @@ struct RootView: View {
             }
             // Mission Control'de eklenen/silinen masaüstü haritaya yansısın.
             let counts = Router.desktopCounts(screens: screens.screens)
-            if counts != desktopCounts { desktopCounts = counts }
+            if counts != ui.desktopCounts { ui.desktopCounts = counts }
             // Kullanıcı Sistem Ayarları'nda düzeltince kart kendiliğinden güncellensin.
             let checks = MacSettings.checks()
             if checks != settingChecks { settingChecks = checks }
@@ -145,31 +92,64 @@ struct RootView: View {
             pendingWindows = nil
         }
         .onChange(of: mode) { _ in
-            ui.selectedRuleID = nil
-            ui.selectedSessionWindowID = nil
-            ui.pinDraft = nil
-            ui.profilePanel = false
+            ui.panel = nil
         }
         .onChange(of: ui.windows) { windows in
-            // Taslağın penceresi kapandıysa paneli kapat.
-            if let draft = ui.pinDraft, !windows.contains(where: { $0.id == draft.window.id }) {
-                ui.pinDraft = nil
-            }
-            if let id = ui.selectedSessionWindowID, !windows.contains(where: { $0.id == id }) {
-                ui.selectedSessionWindowID = nil
+            // Taslağın ya da geçici pinin penceresi kapandıysa paneli kapat.
+            switch ui.panel {
+            case .pin(let draft) where !windows.contains(where: { $0.id == draft.window.id }):
+                ui.panel = nil
+            case .session(let id) where !windows.contains(where: { $0.id == id }):
+                ui.panel = nil
+            default:
+                break
             }
         }
         .onReceive(router.$sessionPins) { pins in
             // Oturum pini kalkınca (kapanan pencere) paneli kapat.
-            if let id = ui.selectedSessionWindowID, pins[id] == nil {
-                ui.selectedSessionWindowID = nil
+            if case .session(let id) = ui.panel, pins[id] == nil {
+                ui.panel = nil
+            }
+        }
+        .onReceive(store.$document) { document in
+            // Kuralı silinen (ya da profil değişince kaybolan) panel kapanır.
+            if case .rule(let id) = ui.panel, document.rule(id) == nil {
+                ui.panel = nil
             }
         }
     }
 
     private func syncScreens() {
         store.remember(screens.screens.map(\.known))
-        desktopCounts = Router.desktopCounts(screens: screens.screens)
+        ui.desktopCounts = Router.desktopCounts(screens: screens.screens)
+    }
+
+    // MARK: - Alt panel
+
+    /// Açık panele göre içerik; pin taslağı yalnızca şu anki modda anlamlı.
+    @ViewBuilder
+    private var bottomPanel: some View {
+        switch ui.panel {
+        case .pin(let draft) where mode == screens.mode:
+            PinPanel(draft: draft, mode: mode)
+                .bottomPanelChrome()
+        case .rule(let id):
+            if let rule = store.rule(id) {
+                RulePanel(rule: rule, mode: mode)
+                    .bottomPanelChrome()
+            }
+        case .session(let id):
+            if let window = ui.windows.first(where: { $0.id == id }),
+               let destination = router.sessionPins[id] {
+                SessionPinPanel(window: window, destination: destination)
+                    .bottomPanelChrome()
+            }
+        case .profile:
+            ProfilePanel()
+                .bottomPanelChrome()
+        default:
+            EmptyView()
+        }
     }
 
     // MARK: - Üst çubuk
@@ -305,590 +285,5 @@ struct RootView: View {
         }
         // Gerçek durumu oku: register sonrası .requiresApproval da olabilir.
         refreshLoginStatus()
-    }
-}
-
-// MARK: - Pin paneli
-
-/// Pin düğmesine basılınca ya da pencere sürüklenince açılır: başlığın
-/// hangi parçası bu pencereyi tanımlıyor? Seçim kurala dönüşür; çerçeve
-/// pencerenin o anki çerçevesidir.
-private struct PinPanel: View {
-
-    let draft: PinDraft
-    let mode: Mode
-
-    @EnvironmentObject private var store: Store
-    @EnvironmentObject private var screens: ScreenService
-    @EnvironmentObject private var ui: UIState
-
-    /// Pin türü: başlığa göre kalıcı kural ya da pencere kimliğine bağlı
-    /// geçici (oturum) pin.
-    enum Kind: String, CaseIterable, Identifiable {
-        case title, session
-        var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .title:   return "Başlığa göre"
-            case .session: return "Sadece bu pencere"
-            }
-        }
-    }
-
-    @EnvironmentObject private var router: Router
-
-    @State private var kind: Kind = .title
-    @State private var segments: [String] = []
-    @State private var chosen: Set<Int> = []
-    @State private var appWide = false
-    /// Varsayılan: pencerenin şu anki çerçevesi; hazır düzenle değiştirilebilir.
-    @State private var layout: WindowLayout = .full
-
-    private var window: Router.WindowSnapshot { draft.window }
-
-    private var targetLabel: String {
-        let name = store.screens(for: mode).first { $0.id == draft.target.screen }?.name
-            ?? draft.target.screen
-        return "\(name) · Masaüstü \(draft.target.desktop)"
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                AppIcon(bundleID: window.bundleID, size: 24)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(window.appName).font(.callout.weight(.semibold))
-                    Text(window.title.isEmpty ? "Adsız pencere" : window.title)
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .lineLimit(1)
-                Spacer()
-                Label(targetLabel, systemImage: "pin")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button {
-                    ui.pinDraft = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.borderless)
-                .help("Vazgeç")
-            }
-
-            Picker("", selection: $kind) {
-                ForEach(Kind.allCases) { candidate in
-                    Text(candidate.label).tag(candidate)
-                }
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .controlSize(.small)
-            .frame(width: 300)
-
-            switch kind {
-            case .title:
-                Text(segments.isEmpty
-                     ? "Bu pencerenin başlığı yok; uygulamanın bütün pencereleri pinlenir."
-                     : "Başlığın hangi parçası bu pencereyi tanımlıyor? Kalıcıdır; profile yazılır.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                FlowLayout(spacing: 6) {
-                    pill("Tüm pencereler", systemImage: "macwindow.on.rectangle", isOn: appWide) {
-                        appWide.toggle()
-                        if appWide { chosen = [] }
-                    }
-                    ForEach(segments.indices, id: \.self) { index in
-                        pill(segments[index], isOn: chosen.contains(index)) {
-                            if chosen.contains(index) {
-                                chosen.remove(index)
-                            } else {
-                                chosen.insert(index)
-                                appWide = false
-                            }
-                        }
-                    }
-                }
-            case .session:
-                Text("Başlığa bakılmaz; yalnızca bu pencere (kimlik #\(window.id)) tutulur. "
-                     + "Pencere kapanana ya da uygulama yeniden başlayana kadar geçerlidir; profile yazılmaz.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            Divider()
-
-            LayoutEditor(layout: $layout)
-
-            HStack {
-                Text(footnote)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(2)
-                Spacer()
-                Button("Vazgeç") { ui.pinDraft = nil }
-                    .keyboardShortcut(.cancelAction)
-                    .controlSize(.small)
-                Button(kind == .session ? "Geçici pinle" : "Pinle", action: pin)
-                    .keyboardShortcut(.defaultAction)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                    .disabled(kind == .title && !appWide && chosen.isEmpty)
-            }
-        }
-        .onAppear { reset() }
-        .onChange(of: draft.window.id) { _ in reset() }
-    }
-
-    private var footnote: String {
-        switch kind {
-        case .session:
-            return "Aynı başlıklı başka pencereler etkilenmez. Geçici pin turuncu ikonla gösterilir."
-        case .title:
-            if appWide {
-                return "Başlığa bakılmaz; \(window.appName) uygulamasının her penceresi uyar."
-            }
-            return matchCount == 1
-                ? "Şu an 1 pencere uyuyor."
-                : "Şu an \(matchCount) pencere uyuyor. Dosya adı gibi değişen parçaları seçmeyin."
-        }
-    }
-
-    private func reset() {
-        layout = currentLayout
-        kind = .title
-        segments = Rule.split(title: window.title)
-        if segments.isEmpty {
-            chosen = []
-            appWide = true
-        } else {
-            // Varsayılan: uygulama adı olmayan son parça (çalışma alanı adı
-            // genellikle başlığın sonundadır).
-            let candidates = segments.indices.filter {
-                segments[$0].caseInsensitiveCompare(window.appName) != .orderedSame
-            }
-            chosen = Set([candidates.last ?? segments.indices.last].compactMap { $0 })
-            appWide = false
-        }
-    }
-
-    private var tokens: [String] {
-        appWide ? [] : chosen.sorted().map { segments[$0] }
-    }
-
-    private var matchCount: Int {
-        let rule = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
-        return ui.windows.filter {
-            rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
-        }.count
-    }
-
-    /// Pencerenin şu anki çerçevesi, bulunduğu ekranın kullanılabilir
-    /// alanına göre oranlar. Başka ekrana taşınıyorsa aynı oranlar orada
-    /// uygulanır.
-    private var currentLayout: WindowLayout {
-        let screenID = window.placement?.screen ?? draft.target.screen
-        guard let frame = window.frame,
-              let screen = screens.screens.first(where: { $0.id == screenID })
-        else { return .full }
-        let area = Coordinates.axRect(fromCocoa: screen.visibleFrame,
-                                      screens: screens.screens)
-        return WindowLayout(frame: frame, in: area)
-    }
-
-    private func pin() {
-        let destination = Destination(screen: draft.target.screen,
-                                      desktop: draft.target.desktop, layout: layout)
-        switch kind {
-        case .title:
-            let rule = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
-            store.pin(rule, destination: destination, mode: mode)
-        case .session:
-            router.pinSession(window.id, destination: destination)
-        }
-        ui.pinDraft = nil
-    }
-
-    private func pill(_ text: String, systemImage: String? = nil, isOn: Bool,
-                      action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 4) {
-                if let systemImage { Image(systemName: systemImage) }
-                Text(text).lineLimit(1)
-            }
-            .font(.caption)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
-            .background(Capsule().fill(isOn ? Color.accentColor : Color.primary.opacity(0.08)))
-            .foregroundStyle(isOn ? Color.white : Color.primary)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Pin bilgi paneli
-
-/// Bir pin çipine ya da pinli pencere satırına tıklanınca açılır: bilgi,
-/// düzen düzenleyici ve "pini kaldır".
-private struct RulePanel: View {
-
-    let rule: Rule
-    let mode: Mode
-
-    @EnvironmentObject private var store: Store
-    @EnvironmentObject private var ui: UIState
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            headerRow
-            if let destination = rule[mode] {
-                LayoutEditor(layout: Binding(
-                    // Her zaman depodaki güncel değeri oku; yakalanan
-                    // `destination` bir sonraki çizime kadar eski kalır.
-                    get: { store.rule(rule.id)?[mode]?.layout ?? destination.layout },
-                    set: { layout in
-                        var updated = store.rule(rule.id)?[mode] ?? destination
-                        updated.layout = layout
-                        store.setDestination(updated, for: rule.id, mode: mode)
-                    }))
-            }
-        }
-    }
-
-    private var headerRow: some View {
-        HStack(spacing: 8) {
-            AppIcon(bundleID: rule.bundleID, size: 24)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(rule.appName).font(.callout.weight(.semibold))
-                Text(rule.title).font(.caption).foregroundStyle(.secondary)
-            }
-            .lineLimit(1)
-
-            Spacer()
-
-            Text(otherModeText)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-
-            Button {
-                store.unpin(rule.id, mode: mode)
-                ui.selectedRuleID = nil
-            } label: {
-                Label("Pini kaldır", systemImage: "pin.slash")
-            }
-            .controlSize(.small)
-
-            Button {
-                ui.selectedRuleID = nil
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.borderless)
-            .help("Kapat")
-        }
-    }
-
-    private var otherModeText: String {
-        let other: Mode = mode == .docked ? .undocked : .docked
-        return rule[other] == nil ? "\(other.title): pin yok" : "\(other.title): pinli"
-    }
-}
-
-// MARK: - Geçici pin paneli
-
-/// Oturum pinli (pencere kimliğine bağlı) satıra tıklanınca açılır:
-/// bilgi, düzen düzenleyici ve "pini kaldır".
-private struct SessionPinPanel: View {
-
-    let window: Router.WindowSnapshot
-    let destination: Destination
-
-    @EnvironmentObject private var router: Router
-    @EnvironmentObject private var ui: UIState
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                AppIcon(bundleID: window.bundleID, size: 24)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(window.appName).font(.callout.weight(.semibold))
-                    Text(window.title.isEmpty ? "Adsız pencere" : window.title)
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .lineLimit(1)
-
-                Spacer()
-
-                Label("Geçici · pencere #\(window.id)", systemImage: "pin.circle.fill")
-                    .font(.caption2)
-                    .foregroundStyle(Color.orange)
-                    .help("Yalnızca bu pencere, bu oturum için. Profile yazılmaz.")
-
-                Button {
-                    router.unpinSession(window.id)
-                    ui.selectedSessionWindowID = nil
-                } label: {
-                    Label("Pini kaldır", systemImage: "pin.slash")
-                }
-                .controlSize(.small)
-
-                Button {
-                    ui.selectedSessionWindowID = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.borderless)
-                .help("Kapat")
-            }
-
-            LayoutEditor(layout: Binding(
-                get: { router.sessionPins[window.id]?.layout ?? destination.layout },
-                set: { layout in
-                    var updated = router.sessionPins[window.id] ?? destination
-                    updated.layout = layout
-                    router.pinSession(window.id, destination: updated)
-                }))
-        }
-    }
-}
-
-// MARK: - Düzen düzenleyici
-
-/// Hazır düzenler + yüzde kenar boşlukları + canlı önizleme.
-private struct LayoutEditor: View {
-
-    @Binding var layout: WindowLayout
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 18) {
-            // Önizleme
-            VStack(spacing: 6) {
-                LayoutGlyph(layout: layout, size: CGSize(width: 128, height: 80))
-                    .foregroundStyle(Color.accentColor)
-                Text(layout.label)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            VStack(alignment: .leading, spacing: 10) {
-                // Hazır düzenler
-                HStack(spacing: 4) {
-                    ForEach(WindowLayout.presets, id: \.self) { preset in
-                        let isSelected = preset == layout
-                        Button {
-                            layout = preset
-                        } label: {
-                            LayoutGlyph(preset: preset)
-                                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                                .padding(4)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .fill(isSelected ? Color.accentColor.opacity(0.15)
-                                                         : Color.primary.opacity(0.04)))
-                        }
-                        .buttonStyle(.plain)
-                        .help(preset.label)
-                    }
-                }
-
-                // Kenar boşlukları
-                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
-                    GridRow {
-                        PercentField("Sol", systemImage: "arrow.left.to.line",
-                                     value: leftBinding)
-                        PercentField("Sağ", systemImage: "arrow.right.to.line",
-                                     value: rightBinding)
-                    }
-                    GridRow {
-                        PercentField("Üst", systemImage: "arrow.up.to.line",
-                                     value: topBinding)
-                        PercentField("Alt", systemImage: "arrow.down.to.line",
-                                     value: bottomBinding)
-                    }
-                }
-                Text("Ekranın kullanılabilir alanında, kenardan bırakılacak boşluk.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    // Kenar boşluğu (%) <-> oran dönüşümleri. Pencere en az %10 kalır.
-    // Her ayar tek bir atama ile yazılır; iki ayrı atama arasında
-    // binding'in eski değeri okunup diğer kenarı bozuyordu.
-
-    private struct Margins {
-        var left: Int, right: Int, top: Int, bottom: Int
-
-        init(_ layout: WindowLayout) {
-            left = Int((layout.x * 100).rounded())
-            right = 100 - Int(((layout.x + layout.w) * 100).rounded())
-            top = Int((layout.y * 100).rounded())
-            bottom = 100 - Int(((layout.y + layout.h) * 100).rounded())
-        }
-
-        var layout: WindowLayout {
-            WindowLayout(
-                x: Double(left) / 100,
-                y: Double(top) / 100,
-                w: Double(100 - left - right) / 100,
-                h: Double(100 - top - bottom) / 100)
-        }
-    }
-
-    private func margin(_ keyPath: WritableKeyPath<Margins, Int>,
-                        opposite: KeyPath<Margins, Int>) -> Binding<Int> {
-        Binding(
-            get: { Margins(layout)[keyPath: keyPath] },
-            set: { newValue in
-                var margins = Margins(layout)
-                margins[keyPath: keyPath] =
-                    min(max(newValue, 0), 90 - margins[keyPath: opposite])
-                layout = margins.layout
-            })
-    }
-
-    private var leftBinding: Binding<Int> { margin(\.left, opposite: \.right) }
-    private var rightBinding: Binding<Int> { margin(\.right, opposite: \.left) }
-    private var topBinding: Binding<Int> { margin(\.top, opposite: \.bottom) }
-    private var bottomBinding: Binding<Int> { margin(\.bottom, opposite: \.top) }
-}
-
-/// "Sol  [ 10 ] %  −/+" biçiminde tek satırlık yüzde alanı.
-private struct PercentField: View {
-
-    let label: String
-    let systemImage: String
-    @Binding var value: Int
-
-    init(_ label: String, systemImage: String, value: Binding<Int>) {
-        self.label = label
-        self.systemImage = systemImage
-        _value = value
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .foregroundStyle(.secondary)
-                .frame(width: 14)
-            Text(label)
-                .font(.caption)
-                .frame(width: 24, alignment: .leading)
-            TextField("", value: $value, format: .number)
-                .textFieldStyle(.roundedBorder)
-                .multilineTextAlignment(.trailing)
-                .frame(width: 46)
-            Text("%")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Stepper("", value: $value, in: 0...90, step: 5)
-                .labelsHidden()
-        }
-        .controlSize(.small)
-    }
-}
-
-// MARK: - macOS ayarları kartı
-
-/// Space Router'ın çalışması için gereken macOS ayarları. Canlı denetlenen
-/// ayarlardan biri yanlışsa kart kapatılamaz; hepsi doğruysa yalnızca
-/// genel hatırlatma gösterilir ve "Anladım" ile gizlenir.
-private struct SetupCard: View {
-
-    let checks: [MacSettings.Check]
-
-    @EnvironmentObject private var store: Store
-
-    private var allOK: Bool { checks.allSatisfy(\.ok) }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
-                Image(systemName: allOK ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
-                    .font(.title2)
-                    .foregroundStyle(allOK ? Color.green : Color.orange)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(allOK ? "macOS ayarları uygun" : "macOS ayarları düzeltilmeli")
-                        .font(.callout.weight(.semibold))
-                    Text(allOK
-                         ? "Kurulumda bir kez kontrol edilmesi gerekenler aşağıda."
-                         : "Bu ayarlar böyle kalırsa Space Router düzgün çalışmaz: Dock'tan geçiş "
-                           + "yanlış masaüstüne gider, pencereler belirip kaybolur.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                Spacer()
-                Button("Desktop & Dock'u aç") { MacSettings.openDesktopAndDock() }
-                    .controlSize(.small)
-                if allOK {
-                    Button("Anladım") { store.document.setupNoticeDismissed = true }
-                        .controlSize(.small)
-                        .help("Kartı gizle; bir ayar bozulursa yeniden görünür")
-                }
-            }
-
-            ForEach(checks) { check in
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: check.ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundStyle(check.ok ? Color.green : Color.red)
-                        .padding(.top, 1)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(check.title).font(.caption.weight(.medium))
-                        Text(check.detail).font(.caption2).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-
-            ForEach(MacSettings.reminders, id: \.self) { reminder in
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: "info.circle")
-                        .foregroundStyle(.secondary)
-                        .padding(.top, 1)
-                    Text(reminder).font(.caption2).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-        }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 10)
-            .fill((allOK ? Color.green : Color.orange).opacity(0.10)))
-    }
-}
-
-// MARK: - İzin kartı
-
-private struct PermissionCard: View {
-
-    @EnvironmentObject private var permission: AccessibilityPermission
-
-    var body: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "hand.raised.fill")
-                .font(.title2)
-                .foregroundStyle(.orange)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Erişilebilirlik izni gerekli")
-                    .font(.callout.weight(.semibold))
-                Text("Pencereleri görmek ve taşımak için.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Button("İzin ver") {
-                permission.request()
-                permission.openSettings()
-            }
-            .controlSize(.small)
-        }
-        .padding(12)
-        .background(RoundedRectangle(cornerRadius: 10).fill(.orange.opacity(0.12)))
     }
 }
