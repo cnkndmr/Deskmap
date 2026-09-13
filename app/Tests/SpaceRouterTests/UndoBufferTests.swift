@@ -22,27 +22,27 @@ struct UndoBufferTests {
 
         let first = document(rules: 1)
         let second = document(rules: 2)
-        buffer.record("Pin kaldırıldı", before: first, after: Document())
-        buffer.record("Profil silindi: Ofis", before: second, after: Document())
+        buffer.record("Pin removed", before: first, after: Document())
+        buffer.record("Profile deleted: Ofis", before: second, after: Document())
         #expect(!buffer.isEmpty)
-        #expect(buffer.entry?.label == "Profil silindi: Ofis")
+        #expect(buffer.entry?.label == "Profile deleted: Ofis")
         #expect(buffer.entry?.before == second)   // tek seviye: yalnızca sonuncusu
     }
 
     @Test func takeReturnsEntryAndClears() {
         var buffer = UndoBuffer()
         let doc = document(rules: 3)
-        buffer.record("Masaüstü sırası değişti", before: doc, after: Document())
+        buffer.record("Desktop order changed", before: doc, after: Document())
         let taken = buffer.take()
         #expect(taken?.before == doc)
-        #expect(taken?.label == "Masaüstü sırası değişti")
+        #expect(taken?.label == "Desktop order changed")
         #expect(buffer.isEmpty)
         #expect(buffer.take() == nil)
     }
 
     @Test func clearEmptiesBuffer() {
         var buffer = UndoBuffer()
-        buffer.record("Pin kaldırıldı", before: Document(), after: Document())
+        buffer.record("Pin removed", before: Document(), after: Document())
         buffer.clear()
         #expect(buffer.isEmpty)
         #expect(buffer.take() == nil)
@@ -53,7 +53,7 @@ struct UndoBufferTests {
         var buffer = UndoBuffer()
         let t0 = Date(timeIntervalSince1970: 1_000)
         #expect(!buffer.isVisible(at: t0))            // boş tampon görünmez
-        buffer.record("Pin kaldırıldı", before: Document(), after: Document(), at: t0)
+        buffer.record("Pin removed", before: Document(), after: Document(), at: t0)
         #expect(buffer.isVisible(at: t0))
         #expect(buffer.isVisible(at: t0.addingTimeInterval(9.9)))
         #expect(!buffer.isVisible(at: t0.addingTimeInterval(10)))
@@ -97,7 +97,7 @@ struct UndoBufferTests {
         var after = before
         after.rules.removeLast()
         var buffer = UndoBuffer()
-        buffer.record("Pin kaldırıldı", before: before, after: after)
+        buffer.record("Pin removed", before: before, after: after)
 
         // Belge kayıttaki "sonra" hâlinde: geçerli; anahtar ve ekranlar sayılmaz.
         #expect(buffer.isStillValid(current: after))
@@ -125,7 +125,7 @@ struct UndoBufferTests {
         var after = before
         after.rules.removeAll()
         var buffer = UndoBuffer()
-        buffer.record("Pin kaldırıldı", before: before, after: after)
+        buffer.record("Pin removed", before: before, after: after)
 
         var switched = after
         switched.switchProfile(to: switched.profiles[1].id)
@@ -137,7 +137,7 @@ struct UndoBufferTests {
         var ran = 0
         var buffer = UndoBuffer()
         let doc = Document()
-        buffer.record("Masaüstü sırası değişti", before: doc, after: doc, companion: { ran += 1 })
+        buffer.record("Desktop order changed", before: doc, after: doc, companion: { ran += 1 })
         let taken = buffer.take()
         taken?.companion?()
         #expect(ran == 1)

@@ -1,0 +1,7 @@
+/*
+  Space Router — English (development language).
+
+  Keys are the English strings themselves (see app/Sources/SpaceRouter/Localization.swift),
+  so this table is intentionally empty. It exists so that the app bundle declares an
+  English localization next to tr.lproj.
+*/

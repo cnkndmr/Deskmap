@@ -199,13 +199,13 @@ struct RootView: View {
             .toggleStyle(.switch)
             .controlSize(.small)
             .labelsHidden()
-            .help(store.document.enabled ? "Yönlendirme açık" : "Yönlendirme duraklatıldı")
-            .accessibilityLabel(store.document.enabled ? "Yönlendirme açık" : "Yönlendirme duraklatıldı")
+            .help(store.document.enabled ? L("Routing on") : L("Routing paused"))
+            .accessibilityLabel(store.document.enabled ? L("Routing on") : L("Routing paused"))
 
             Picker("", selection: $mode) {
                 ForEach(Array(Mode.allCases.enumerated()), id: \.element) { index, candidate in
                     Image(systemName: candidate.symbol)
-                        .help("\(candidate.title) (⌘\(index + 1))")
+                        .help(candidate.title + " (⌘\(index + 1))")
                         .accessibilityLabel(candidate.title)
                         .tag(candidate)
                 }
@@ -216,7 +216,7 @@ struct RootView: View {
             .background(modeShortcuts)
 
             if mode == screens.mode {
-                Text("şu an")
+                Text(L("now"))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
@@ -227,13 +227,16 @@ struct RootView: View {
             // yalnızca şu anki modun haritasında görünür, orada sayılır.
             let pinned = store.document.rules.filter { $0[mode] != nil }.count
             let session = mode == screens.mode ? router.sessionPins.count : 0
-            Text((pinned == 0 ? "pin yok" : "\(pinned) pin")
-                 + (session > 0 ? " · \(session) geçici" : ""))
+            let pinText = pinned == 0 ? L("no pins")
+                : pinned == 1 ? L("1 pin") : L("%ld pins", pinned)
+            Text(session > 0 ? L("%@ · %ld temporary", pinText, session) : pinText)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-                .help(session > 0
-                      ? "\(session) pencere yalnızca bu oturum için pinli (profile yazılmaz)"
-                      : "\(mode.title) modunda \(pinned) pin")
+                .help(session == 0
+                      ? L("Pins in %@ mode: %ld", mode.title, pinned)
+                      : session == 1
+                        ? L("1 window is pinned for this session only (not saved to the profile)")
+                        : L("%ld windows are pinned for this session only (not saved to the profile)", session))
 
             Button {
                 router.reapplyAll()
@@ -242,8 +245,8 @@ struct RootView: View {
             }
             .buttonStyle(.borderless)
             .keyboardShortcut("r", modifiers: .command)
-            .help("Pinli pencereleri şimdi yerleştir (⌘R)")
-            .accessibilityLabel("Pinli pencereleri şimdi yerleştir")
+            .help(L("Place pinned windows now (⌘R)"))
+            .accessibilityLabel(L("Place pinned windows now"))
         }
     }
 
@@ -274,21 +277,22 @@ struct RootView: View {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                 } else if !router.status.unresponsive.isEmpty {
-                    Label("\(router.status.unresponsive.joined(separator: ", ")) yanıt vermiyor; geçici olarak atlanıyor",
+                    Label(L("%@ not responding; skipped for now",
+                            router.status.unresponsive.joined(separator: ", ")),
                           systemImage: "hourglass")
                         .foregroundStyle(.orange)
-                        .help("Uygulama Accessibility sorularına yanıt vermedi (donmuş ya da hata ayıklayıcıda). Yanıt verince otomatik olarak yeniden listelenir.")
+                        .help(L("The app did not answer Accessibility requests (frozen or stopped in a debugger). It is listed again automatically once it responds."))
                 } else if let action = recentAction {
                     Label(action, systemImage: "arrow.turn.down.right")
                 } else if !SkyLight.shared.isAvailable {
-                    Label("Masaüstü taşıma bu macOS'ta kullanılamıyor; yalnızca ekran ve düzen uygulanır",
+                    Label(L("Moving windows between desktops is not available on this macOS; only display and layout are applied"),
                           systemImage: "rectangle.on.rectangle.slash")
                         .foregroundStyle(.orange)
-                        .help("SkyLight çağrıları bulunamadı. Pencereler doğru ekrana ve düzene oturtulur ama başka masaüstüne taşınmaz.")
+                        .help(L("SkyLight calls not found. Windows are placed on the right display and in the right layout but are not moved to other desktops."))
                 } else {
                     Text(store.document.rules.isEmpty
-                         ? "Bir pencereyi pinleyin ya da başka masaüstüne sürükleyin."
-                         : "Pinli pencereler yerinde tutulur; diğerlerine dokunulmaz.")
+                         ? L("Pin a window, or drag it to another desktop.")
+                         : L("Pinned windows are kept in place; others are left alone."))
                 }
             }
             .lineLimit(1)
@@ -299,17 +303,17 @@ struct RootView: View {
                 Button {
                     undo()
                 } label: {
-                    Label("\(entry.label) · Geri al", systemImage: "arrow.uturn.backward")
+                    Label(L("%@ · Undo", entry.label), systemImage: "arrow.uturn.backward")
                 }
                 .buttonStyle(.link)
                 .controlSize(.small)
                 .keyboardShortcut("z", modifiers: .command)
                 .lineLimit(1)
                 .layoutPriority(1)
-                .help("Son işlemi geri al (⌘Z)")
+                .help(L("Undo the last action (⌘Z)"))
             }
 
-            Toggle("Girişte başlat", isOn: Binding(
+            Toggle(L("Launch at login"), isOn: Binding(
                 get: { loginStatus == .enabled || loginStatus == .requiresApproval },
                 set: { setLaunchAtLogin($0) }))
                 .toggleStyle(.checkbox)
@@ -319,11 +323,11 @@ struct RootView: View {
 
             if loginStatus == .requiresApproval {
                 // Kayıt var ama macOS onay bekliyor (Login Items'ta kapalı).
-                Button("Onay gerekli") { SMAppService.openSystemSettingsLoginItems() }
+                Button(L("Approval needed")) { SMAppService.openSystemSettingsLoginItems() }
                     .buttonStyle(.link)
                     .controlSize(.small)
                     .foregroundStyle(.orange)
-                    .help("System Settings › General › Login Items'ta Space Router'ı açın")
+                    .help(L("Turn on Space Router in System Settings › General › Login Items"))
             }
 
             Button {
@@ -333,8 +337,8 @@ struct RootView: View {
             }
             .buttonStyle(.borderless)
             .layoutPriority(1)
-            .help("Space Router'dan çık")
-            .accessibilityLabel("Space Router'dan çık")
+            .help(L("Quit Space Router"))
+            .accessibilityLabel(L("Quit Space Router"))
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -357,9 +361,9 @@ struct RootView: View {
     private var launchAtLoginHelp: String {
         let path = Bundle.main.bundleURL.path
         if path.hasPrefix("/Applications/") {
-            return "macOS oturumu açılınca Space Router başlar"
+            return L("Space Router starts when you log in to macOS")
         }
-        return "Girişte bu kopya açılır: \(path). Kalıcı kurulum için /Applications'a kopyalayın."
+        return L("This copy opens at login: %@. For a permanent install, copy it to /Applications.", path)
     }
 
     private func refreshLoginStatus() {
@@ -375,7 +379,9 @@ struct RootView: View {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            store.report("Girişte başlatma \(enabled ? "açılamadı" : "kapatılamadı"): \(error.localizedDescription)")
+            store.report(enabled
+                ? L("Could not turn on launch at login: %@", error.localizedDescription)
+                : L("Could not turn off launch at login: %@", error.localizedDescription))
         }
         // Gerçek durumu oku: register sonrası .requiresApproval da olabilir.
         refreshLoginStatus()

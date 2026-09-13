@@ -20,23 +20,22 @@ struct SetupCard: View {
                     .font(.title2)
                     .foregroundStyle(allOK ? Color.green : Color.orange)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(allOK ? "macOS ayarları uygun" : "macOS ayarları düzeltilmeli")
+                    Text(allOK ? L("macOS settings look good") : L("macOS settings need fixing"))
                         .font(.callout.weight(.semibold))
                     Text(allOK
-                         ? "Kurulumda bir kez kontrol edilmesi gerekenler aşağıda."
-                         : "Bu ayarlar böyle kalırsa Space Router düzgün çalışmaz: Dock'tan geçiş "
-                           + "yanlış masaüstüne gider, pencereler belirip kaybolur.")
+                         ? L("Things to check once during setup are listed below.")
+                         : L("With these settings Space Router cannot work properly: switching from the Dock goes to the wrong desktop, and windows appear and vanish."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Button("Desktop & Dock'u aç") { MacSettings.openDesktopAndDock() }
+                Button(L("Open Desktop & Dock")) { MacSettings.openDesktopAndDock() }
                     .controlSize(.small)
                 if allOK {
-                    Button("Anladım") { store.document.setupNoticeDismissed = true }
+                    Button(L("Got It")) { store.document.setupNoticeDismissed = true }
                         .controlSize(.small)
-                        .help("Kartı gizle; bir ayar bozulursa yeniden görünür")
+                        .help(L("Hide this card; it comes back if a setting changes"))
                 }
             }
 
@@ -81,14 +80,14 @@ struct PermissionCard: View {
                 .font(.title2)
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 2) {
-                Text("Erişilebilirlik izni gerekli")
+                Text(L("Accessibility permission required"))
                     .font(.callout.weight(.semibold))
-                Text("Pencereleri görmek ve taşımak için.")
+                Text(L("Needed to see and move windows."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button("İzin ver") {
+            Button(L("Grant Access")) {
                 permission.request()
                 permission.openSettings()
             }
@@ -108,16 +107,15 @@ struct FirstStepsCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Başlarken")
+            Text(L("Getting Started"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             step(1, "pin",
-                 "Aşağıda bir pencere satırındaki pin düğmesine tıklayın.")
+                 L("Click the pin button on a window row below."))
             step(2, "textformat",
-                 "Başlığın bu pencereyi tanımlayan parçasını seçin; pencere artık o masaüstünde kalır.")
+                 L("Select the part of the title that identifies the window; it now stays on that desktop."))
             step(3, "arrow.up.and.down.and.arrow.left.and.right",
-                 "Bir satırı başka masaüstüne sürüklemek pencereyi bir kez taşır, pinlemez. "
-                 + "Üstteki laptop / monitör düğmesi diğer kurulum içindir; ikisi ayrı ayarlanır.")
+                 L("Dragging a row to another desktop moves the window once without pinning it. The laptop / monitor switch at the top is for the other setup; the two are configured separately."))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

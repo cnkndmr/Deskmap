@@ -64,7 +64,7 @@ enum URLCommand: Equatable {
 }
 
 /// URL komutlarını Store ve Router üzerinde çalıştırır. Bilinmeyen komut
-/// ya da profil çökmez; alt çubukta Türkçe bir hata gösterilir.
+/// ya da profil çökmez; alt çubukta (yerelleştirilmiş) bir hata gösterilir.
 @MainActor
 enum URLCommands {
 
@@ -74,7 +74,7 @@ enum URLCommands {
 
     static func handle(_ url: URL, store: Store, router: Router) {
         guard let command = URLCommand.parse(url) else {
-            store.report("Bilinmeyen URL komutu: \(url.absoluteString)")
+            store.report(L("Unknown URL command: %@", url.absoluteString))
             return
         }
         run(command, store: store, router: router)
@@ -92,7 +92,7 @@ enum URLCommands {
             store.document.enabled.toggle()
         case .profile(let name):
             guard let profile = profile(named: name, in: store.profiles) else {
-                store.report("Profil bulunamadı: \(name)")
+                store.report(L("Profile not found: %@", name))
                 return
             }
             store.switchProfile(to: profile.id)

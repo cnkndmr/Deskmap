@@ -59,12 +59,12 @@ struct RuleChip: View {
     private var helpText: String {
         let base = "\(rule.appName): \(rule.title)"
         guard let shadowedBy else {
-            return base + "\nPenceresi şu an açık değil. Sürükleyerek taşı."
+            return base + "\n" + L("Its window is not open right now. Drag to move.")
         }
         let winner = shadowedBy == Routing.sessionRuleID
-            ? "geçici pin"
-            : "„\(store.rule(shadowedBy)?.title ?? "")\" pini"
-        return base + "\nBu pencereye önce \(winner) uyuyor; bu pin devreye girmiyor."
+            ? L("a temporary pin")
+            : L("the “%@” pin", store.rule(shadowedBy)?.title ?? "")
+        return base + "\n" + L("This window is matched first by %@; this pin does not take effect.", winner)
     }
 
     private var dragGesture: some Gesture {

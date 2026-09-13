@@ -27,7 +27,7 @@ struct PinPanelHeader<Trailing: View>: View {
             trailing()
 
             Button(action: unpin) {
-                Label("Pini kaldır", systemImage: "pin.slash")
+                Label(L("Unpin"), systemImage: "pin.slash")
             }
             .controlSize(.small)
 
@@ -37,8 +37,8 @@ struct PinPanelHeader<Trailing: View>: View {
             }
             .buttonStyle(.borderless)
             .keyboardShortcut(.cancelAction)
-            .help("Kapat (Esc)")
-            .accessibilityLabel("Kapat")
+            .help(L("Close (Esc)"))
+            .accessibilityLabel(L("Close"))
         }
     }
 }
@@ -96,7 +96,7 @@ struct RulePanel: View {
 
     private var otherModeText: String {
         let other: Mode = mode == .docked ? .undocked : .docked
-        return rule[other] == nil ? "\(other.title): pin yok" : "\(other.title): pinli"
+        return rule[other] == nil ? L("%@: no pin", other.title) : L("%@: pinned", other.title)
     }
 
     // MARK: Başlık parçaları
@@ -146,12 +146,12 @@ struct RulePanel: View {
                         .foregroundStyle(conflict != nil ? Color.orange : Color.secondary)
                         .lineLimit(1)
                     Spacer()
-                    Button("Uygula") {
+                    Button(L("Apply")) {
                         store.setTokens(draftTokens, for: rule.id)
                     }
                     .controlSize(.small)
                     .disabled(!canApply)
-                    .help("Seçili parçaları bu pinin başlık parçaları yap")
+                    .help(L("Use the selected parts as this pin's title parts"))
                 }
             }
             .onAppear { reset(title) }
@@ -161,14 +161,14 @@ struct RulePanel: View {
             VStack(alignment: .leading, spacing: 6) {
                 FlowLayout(spacing: 6) {
                     if rule.isAppWide {
-                        TokenPill("Tüm pencereler", systemImage: "macwindow.on.rectangle", isOn: true)
+                        TokenPill(L("All windows"), systemImage: "macwindow.on.rectangle", isOn: true)
                     } else {
                         ForEach(Array(rule.tokens.enumerated()), id: \.offset) { _, token in
                             TokenPill(token, isOn: true)
                         }
                     }
                 }
-                Text("Parçaları değiştirmek için bu pine uyan bir pencere açık olmalı.")
+                Text(L("To change the parts, a window matching this pin must be open."))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -177,17 +177,17 @@ struct RulePanel: View {
 
     private var tokenCaption: String {
         if let conflict {
-            return "Bu parçalarla zaten bir pin var: „\(conflict.title)\""
+            return L("A pin with these parts already exists: “%@”", conflict.title)
         }
         if appWide {
-            return "Başlığa bakılmaz; \(rule.appName) uygulamasının her penceresi uyar."
+            return L("The title is ignored; every window of %@ matches.", rule.appName)
         }
         if chosen.isEmpty {
-            return "En az bir parça seçin ya da Tüm pencereler."
+            return L("Select at least one part, or All windows.")
         }
         return draftMatchCount == 1
-            ? "Şu an 1 pencere uyuyor."
-            : "Şu an \(draftMatchCount) pencere uyuyor."
+            ? L("1 window matches right now.")
+            : L("%ld windows match right now.", draftMatchCount)
     }
 
     /// Uyan pencerenin başlığını böler, kuralın mevcut parçalarını işaretler.
@@ -214,17 +214,17 @@ struct SessionPinPanel: View {
         VStack(alignment: .leading, spacing: 12) {
             PinPanelHeader(
                 bundleID: window.bundleID, appName: window.appName,
-                subtitle: window.title.isEmpty ? "Adsız pencere" : window.title,
+                subtitle: window.title.isEmpty ? L("Untitled window") : window.title,
                 unpin: {
                     router.unpinSession(window.id)
                     ui.panel = nil
                 },
                 close: { ui.panel = nil }
             ) {
-                Label("Geçici · pencere #\(window.id)", systemImage: "pin.circle.fill")
+                Label(L("Temporary · window #%ld", Int(window.id)), systemImage: "pin.circle.fill")
                     .font(.caption2)
                     .foregroundStyle(Color.orange)
-                    .help("Yalnızca bu pencere, bu oturum için. Profile yazılmaz.")
+                    .help(L("Only this window, for this session. Not saved to the profile."))
             }
 
             LayoutEditor(layout: Binding(

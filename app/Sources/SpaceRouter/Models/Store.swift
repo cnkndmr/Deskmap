@@ -50,7 +50,9 @@ struct Document: Codable, Equatable {
         activeProfileID = profile.id
     }
 
-    static let defaultProfileName = "Varsayılan"
+    /// Yeni ya da profilsiz (v1/v2) belgede üretilen profilin adı; kullanıcı
+    /// verisidir, kaydedildikten sonra dil değişse de aynı kalır.
+    static let defaultProfileName = L("Default")
 
     private enum CodingKeys: String, CodingKey {
         case version, enabled, screens, rules, profiles, activeProfileID, settings
@@ -255,7 +257,7 @@ struct Document: Codable, Equatable {
     mutating func addProfile(named name: String? = nil, copyingCurrent: Bool = false) -> Profile {
         syncActiveProfile()
         let profile = Profile(
-            name: Self.uniqueName(name ?? "Profil \(profiles.count + 1)", in: profiles),
+            name: Self.uniqueName(name ?? L("Profile %ld", profiles.count + 1), in: profiles),
             rules: copyingCurrent ? Self.regeneratingIDs(rules) : [])
         profiles.append(profile)
         activeProfileID = profile.id
@@ -288,7 +290,7 @@ struct Document: Codable, Equatable {
         doc.syncActiveProfile()
         guard let profile = doc.profiles.first(where: { $0.id == id }) else {
             throw NSError(domain: "SpaceRouter", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "Profil bulunamadı"])
+                          userInfo: [NSLocalizedDescriptionKey: L("Profile not found")])
         }
         let payload = ProfileExport(name: profile.name, screens: doc.screens,
                                     rules: profile.rules)
@@ -307,7 +309,7 @@ struct Document: Codable, Equatable {
         let payload = try decoder.decode(ProfileExport.self, from: data)
         guard payload.kind == ProfileExport.kind || !payload.rules.isEmpty else {
             throw NSError(domain: "SpaceRouter", code: 2,
-                          userInfo: [NSLocalizedDescriptionKey: "Bu bir Space Router profili değil"])
+                          userInfo: [NSLocalizedDescriptionKey: L("This is not a Space Router profile")])
         }
         syncActiveProfile()
         let profile = Profile(name: Self.uniqueName(payload.name, in: profiles),
@@ -357,7 +359,7 @@ struct ProfileExport: Codable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         kind = try c.decodeIfPresent(String.self, forKey: .kind) ?? Self.kind
         version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
-        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "İçe aktarılan"
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? L("Imported")
         exportedAt = try c.decodeIfPresent(Date.self, forKey: .exportedAt) ?? Date()
         screens = try c.decodeIfPresent([KnownScreen].self, forKey: .screens) ?? []
         let lossyRules = try c.decodeIfPresent(LossyArray<Rule>.self, forKey: .rules)
@@ -403,7 +405,7 @@ final class Store: ObservableObject {
     /// eski sürüm bilmediği alanları silerek dosyayı bozmasın.
     var isReadOnly: Bool { document.isFromNewerVersion }
     static let newerVersionMessage =
-        "rules.json daha yeni bir Space Router sürümüne ait; değişiklikler kaydedilmeyecek"
+        L("rules.json belongs to a newer version of Space Router; changes will not be saved")
 
     private var cancellables = Set<AnyCancellable>()
     // nonisolated(unsafe): yalnızca init'te (ana aktör) atanır, deinit'te
@@ -455,17 +457,26 @@ final class Store: ObservableObject {
             } else if document.droppedRuleCount > 0 {
                 // Atlanan kurallar ilk kayıtta dosyadan düşecek; önce yedeğini al.
                 let backedUp = backUpFile()
-                lastError = "\(document.droppedRuleCount) kural okunamadı"
-                    + (backedUp ? " (yedek: rules.json.bak)" : "")
+                let count = document.droppedRuleCount
+                lastError = Self.withBackupNote(
+                    count == 1 ? L("1 rule could not be read")
+                               : L("%ld rules could not be read", count),
+                    backedUp: backedUp)
             } else {
                 lastError = nil
             }
         } catch {
             // Bozuk dosya ilk değişiklikte ezilecek; önce yedeğini al.
             let backedUp = backUpFile()
-            lastError = "rules.json okunamadı: \(error.localizedDescription)"
-                + (backedUp ? " (yedek: rules.json.bak)" : "")
+            lastError = Self.withBackupNote(
+                L("Could not read rules.json: %@", error.localizedDescription),
+                backedUp: backedUp)
         }
+    }
+
+    /// Yedek alındıysa iletinin sonuna yedek dosyasının adını ekler.
+    private static func withBackupNote(_ message: String, backedUp: Bool) -> String {
+        backedUp ? L("%@ (backup: rules.json.bak)", message) : message
     }
 
     /// `rules.json`'ı `rules.json.bak` olarak kopyalar; başarıyı döndürür.
@@ -490,7 +501,7 @@ final class Store: ObservableObject {
             try encoder.encode(document).write(to: Self.fileURL, options: .atomic)
             lastError = nil
         } catch {
-            lastError = "rules.json yazılamadı: \(error.localizedDescription)"
+            lastError = L("Could not write rules.json: %@", error.localizedDescription)
         }
     }
 
@@ -541,7 +552,7 @@ final class Store: ObservableObject {
     }
 
     func remove(_ id: String) {
-        recording("Pin silindi") {
+        recording(L("Pin deleted")) {
             document.rules.removeAll { $0.id == id }
         }
     }
@@ -559,7 +570,7 @@ final class Store: ObservableObject {
     /// Sürükleyip bırakma ile hedef değişimi: `setDestination` gibi, ama
     /// geri alınabilir (yanlış masaüstüne bırakılan pin tek tıkla döner).
     func moveRule(_ id: String, to destination: Destination, mode: Mode) {
-        recording("Pin taşındı") {
+        recording(L("Pin moved")) {
             document.setDestination(destination, for: id, mode: mode)
         }
     }
@@ -576,7 +587,7 @@ final class Store: ObservableObject {
             return document.pin(draft, destination: destination, mode: mode)
         }
         var id = existing.id
-        recording("Pin güncellendi") {
+        recording(L("Pin updated")) {
             id = document.pin(draft, destination: destination, mode: mode)
         }
         return id
@@ -587,7 +598,7 @@ final class Store: ObservableObject {
     @discardableResult
     func setTokens(_ tokens: [String], for id: String) -> Bool {
         var changed = false
-        recording("Başlık parçaları değişti") {
+        recording(L("Title parts changed")) {
             changed = document.setTokens(tokens, for: id)
         }
         return changed
@@ -595,7 +606,7 @@ final class Store: ObservableObject {
 
     /// Bu moddaki hedefi kaldırır; kuralın hiçbir hedefi kalmazsa silinir.
     func unpin(_ id: String, mode: Mode) {
-        recording("Pin kaldırıldı") {
+        recording(L("Pin removed")) {
             document.unpin(id, mode: mode)
         }
     }
@@ -606,7 +617,7 @@ final class Store: ObservableObject {
     /// kapanış (Router'ın ters taşıması); geri almada belgeyle birlikte çalışır.
     func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode,
                      undoingSessionPins companion: (() -> Void)? = nil) {
-        recording("Masaüstü sırası değişti", companion: companion) {
+        recording(L("Desktop order changed"), companion: companion) {
             document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode)
         }
     }
@@ -636,7 +647,7 @@ final class Store: ObservableObject {
     /// Profili siler; son profil silinemez. Aktif siliniyorsa ilk kalana geçilir.
     func deleteProfile(_ id: String) {
         let name = profiles.first { $0.id == id }?.name ?? ""
-        recording("Profil silindi: \(name)") {
+        recording(L("Profile deleted: %@", name)) {
             document.deleteProfile(id)
         }
     }
@@ -678,14 +689,14 @@ final class Store: ObservableObject {
     /// Verilen modda haritada gösterilecek ekranlar.
     func screens(for mode: Mode) -> [KnownScreen] {
         let builtin = document.screens.first { $0.isBuiltin }
-            ?? KnownScreen(id: "builtin", name: "Dahili ekran", aspect: 1.55)
+            ?? KnownScreen(id: "builtin", name: L("Built-in display"), aspect: 1.55)
         switch mode {
         case .undocked:
             return [builtin]
         case .docked:
             var externals = document.screens.filter { !$0.isBuiltin }
             if externals.isEmpty {
-                externals = [KnownScreen(id: "external", name: "Harici monitör",
+                externals = [KnownScreen(id: "external", name: L("External display"),
                                          aspect: 1.78)]
             }
             return externals + [builtin]

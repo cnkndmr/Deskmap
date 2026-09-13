@@ -299,7 +299,7 @@ final class Router: ObservableObject {
             let records = sessionRecords.values.sorted { $0.windowID < $1.windowID }
             try encoder.encode(records).write(to: Self.sessionFileURL, options: .atomic)
         } catch {
-            store.report("session-pins.json yazılamadı: \(error.localizedDescription)")
+            store.report(L("Could not write session-pins.json: %@", error.localizedDescription))
         }
     }
 
@@ -593,7 +593,7 @@ final class Router: ObservableObject {
                 target = space
                 onTarget = current.contains(space.id)
                 isVisible = current.isEmpty || current.contains(where: visibleSpaces.contains)
-                desktopLabel = "\(screen.name) · Masaüstü \(index)"
+                desktopLabel = L("%@ · Desktop %ld", screen.name, index)
             }
 
             // 1. Düzen — pencere yalnızca GÖRÜNÜRKEN uygulanır. Görünmeyen

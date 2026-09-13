@@ -13,7 +13,7 @@ struct ProfileBar: View {
         HStack(spacing: 8) {
             Image(systemName: "square.stack.3d.up")
                 .foregroundStyle(.secondary)
-                .help("Profiller: her biri ayrı bir pin kümesi")
+                .help(L("Profiles: each one is a separate set of pins"))
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
@@ -31,8 +31,8 @@ struct ProfileBar: View {
                             .background(Capsule().fill(Color.primary.opacity(0.06)))
                     }
                     .buttonStyle(.plain)
-                    .help("Yeni boş profil")
-                    .accessibilityLabel("Yeni boş profil")
+                    .help(L("New empty profile"))
+                    .accessibilityLabel(L("New empty profile"))
                 }
                 .padding(.vertical, 1)
             }
@@ -44,8 +44,8 @@ struct ProfileBar: View {
                 Image(systemName: "square.and.arrow.down")
             }
             .buttonStyle(.borderless)
-            .help("Profili dosyadan içe aktar (.spacerouter.json)")
-            .accessibilityLabel("Profili dosyadan içe aktar")
+            .help(L("Import a profile from a file (.spacerouter.json)"))
+            .accessibilityLabel(L("Import a profile from a file"))
         }
         .font(.caption)
     }
@@ -76,8 +76,9 @@ struct ProfileBar: View {
             .foregroundStyle(isActive ? Color.white : Color.primary)
         }
         .buttonStyle(.plain)
-        .help(isActive ? "Aktif profil — ad, kopya, dışa aktar, sil için tıkla"
-                       : "Bu profile geç (\(profile.rules.count) pin)")
+        .help(isActive ? L("Active profile: click to rename, duplicate, export or delete")
+              : profile.rules.count == 1 ? L("Switch to this profile (1 pin)")
+              : L("Switch to this profile (%ld pins)", profile.rules.count))
     }
 }
 
@@ -95,12 +96,12 @@ struct ProfilePanel: View {
                 HStack(spacing: 8) {
                     Image(systemName: "square.stack.3d.up")
                         .foregroundStyle(.secondary)
-                    TextField("Profil adı", text: $name)
+                    TextField(L("Profile name"), text: $name)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 200)
                         .onSubmit { store.renameProfile(profile.id, to: name) }
                     if name.trimmingCharacters(in: .whitespaces) != profile.name {
-                        Button("Kaydet") { store.renameProfile(profile.id, to: name) }
+                        Button(L("Save")) { store.renameProfile(profile.id, to: name) }
                             .controlSize(.small)
                     }
                     Spacer()
@@ -111,38 +112,38 @@ struct ProfilePanel: View {
                     }
                     .buttonStyle(.borderless)
                     .keyboardShortcut(.cancelAction)
-                    .help("Kapat (Esc)")
-                    .accessibilityLabel("Kapat")
+                    .help(L("Close (Esc)"))
+                    .accessibilityLabel(L("Close"))
                 }
 
                 HStack(spacing: 8) {
-                    Text(profile.rules.count == 1 ? "1 pin" : "\(profile.rules.count) pin")
+                    Text(profile.rules.count == 1 ? L("1 pin") : L("%ld pins", profile.rules.count))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
                     Button {
-                        store.addProfile(named: "\(profile.name) kopyası", copyingCurrent: true)
+                        store.addProfile(named: L("%@ copy", profile.name), copyingCurrent: true)
                         name = store.activeProfile?.name ?? ""
                     } label: {
-                        Label("Kopyala", systemImage: "doc.on.doc")
+                        Label(L("Duplicate"), systemImage: "doc.on.doc")
                     }
-                    .help("Bu pinlerle yeni profil oluştur")
+                    .help(L("Create a new profile with these pins"))
 
                     Button {
                         ProfileFiles.exportProfile(profile.id, from: store)
                     } label: {
-                        Label("Dışa aktar", systemImage: "square.and.arrow.up")
+                        Label(L("Export"), systemImage: "square.and.arrow.up")
                     }
-                    .help("\(profile.name).spacerouter.json olarak kaydet")
+                    .help(L("Save as %@.spacerouter.json", profile.name))
 
                     Button(role: .destructive) {
                         store.deleteProfile(profile.id)
                         name = store.activeProfile?.name ?? ""
                     } label: {
-                        Label("Sil", systemImage: "trash")
+                        Label(L("Delete"), systemImage: "trash")
                     }
                     .disabled(store.profiles.count < 2)
-                    .help(store.profiles.count < 2 ? "Son profil silinemez" : "Profili sil")
+                    .help(store.profiles.count < 2 ? L("The last profile cannot be deleted") : L("Delete profile"))
                 }
                 .controlSize(.small)
             }
@@ -164,7 +165,7 @@ enum ProfileFiles {
     static func exportProfile(_ id: String, from store: Store) {
         guard let profile = store.profiles.first(where: { $0.id == id }) else { return }
         let panel = NSSavePanel()
-        panel.title = "Profili dışa aktar"
+        panel.title = L("Export Profile")
         panel.nameFieldStringValue = "\(safeFileName(profile.name)).\(ProfileExport.fileExtension)"
         panel.allowedContentTypes = [contentType]
         panel.canCreateDirectories = true
@@ -173,13 +174,13 @@ enum ProfileFiles {
         do {
             try store.exportData(for: id).write(to: url, options: .atomic)
         } catch {
-            store.report("Dışa aktarılamadı: \(error.localizedDescription)")
+            store.report(L("Could not export: %@", error.localizedDescription))
         }
     }
 
     static func importProfile(into store: Store) {
         let panel = NSOpenPanel()
-        panel.title = "Profili içe aktar"
+        panel.title = L("Import Profile")
         panel.allowedContentTypes = [contentType]
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
@@ -189,7 +190,7 @@ enum ProfileFiles {
             let data = try Data(contentsOf: url)
             try store.importProfile(from: data)
         } catch {
-            store.report("İçe aktarılamadı: \(error.localizedDescription)")
+            store.report(L("Could not import: %@", error.localizedDescription))
         }
     }
 
@@ -197,6 +198,6 @@ enum ProfileFiles {
         let bad = CharacterSet(charactersIn: "/:\\?%*|\"<>")
         let cleaned = name.components(separatedBy: bad).joined(separator: "-")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        return cleaned.isEmpty ? "profil" : cleaned
+        return cleaned.isEmpty ? L("profile") : cleaned
     }
 }

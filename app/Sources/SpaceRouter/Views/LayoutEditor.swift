@@ -41,19 +41,19 @@ struct LayoutEditor: View {
                 // Kenar boşlukları
                 Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
                     GridRow {
-                        PercentField("Sol", systemImage: "arrow.left.to.line",
+                        PercentField(L("Left"), systemImage: "arrow.left.to.line",
                                      value: leftBinding)
-                        PercentField("Sağ", systemImage: "arrow.right.to.line",
+                        PercentField(L("Right"), systemImage: "arrow.right.to.line",
                                      value: rightBinding)
                     }
                     GridRow {
-                        PercentField("Üst", systemImage: "arrow.up.to.line",
+                        PercentField(L("Top"), systemImage: "arrow.up.to.line",
                                      value: topBinding)
-                        PercentField("Alt", systemImage: "arrow.down.to.line",
+                        PercentField(L("Bottom"), systemImage: "arrow.down.to.line",
                                      value: bottomBinding)
                     }
                 }
-                Text("Ekranın kullanılabilir alanında, kenardan bırakılacak boşluk.")
+                Text(L("Gap to leave from each edge, within the display's usable area."))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -102,7 +102,8 @@ struct LayoutEditor: View {
     private var bottomBinding: Binding<Int> { margin(\.bottom, opposite: \.top) }
 }
 
-/// "Sol  [ 10 ] %  −/+" biçiminde tek satırlık yüzde alanı.
+/// "Left  [ 10 ] %  −/+" biçiminde tek satırlık yüzde alanı. Etiket
+/// sütunu en uzun İngilizce etikete ("Bottom") göre genişliktedir.
 struct PercentField: View {
 
     let label: String
@@ -122,7 +123,7 @@ struct PercentField: View {
                 .frame(width: 14)
             Text(label)
                 .font(.caption)
-                .frame(width: 24, alignment: .leading)
+                .frame(width: 42, alignment: .leading)
             TextField("", value: $value, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)

@@ -66,6 +66,14 @@ cp "$RESOURCES_DIR/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/"
 cp "$RESOURCES_DIR/MenuBarIcon.png" "$RESOURCES_DIR/MenuBarIcon@2x.png" "$APP_BUNDLE/Contents/Resources/"
 ok "Simgeler kopyalandı"
 
+# Yerelleştirmeler: anahtarlar kaynakta İngilizce; tr.lproj Türkçe çeviriyi taşır,
+# en.lproj boştur ama paketin İngilizce yerelleştirmeyi bildirmesi için gerekir.
+for lproj in "$RESOURCES_DIR"/*.lproj; do
+  plutil -lint -s "$lproj"/*.strings
+  cp -R "$lproj" "$APP_BUNDLE/Contents/Resources/"
+done
+ok "Yerelleştirmeler kopyalandı ($(cd "$RESOURCES_DIR" && ls -d *.lproj | sed 's/\.lproj//' | tr '\n' ' '))"
+
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
@@ -81,6 +89,13 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key>           <string>$VERSION</string>
     <key>LSMinimumSystemVersion</key>    <string>13.0</string>
+    <!-- Dil: İngilizce varsayılan; Türkçe tercih edenlere tr.lproj. -->
+    <key>CFBundleDevelopmentRegion</key> <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>tr</string>
+    </array>
     <!-- Menü çubuğu uygulaması: Dock'ta simge gösterme. -->
     <key>LSUIElement</key>               <true/>
     <key>NSHighResolutionCapable</key>   <true/>

@@ -13,7 +13,8 @@ enum MacSettings {
 
     struct Check: Identifiable, Equatable {
         let id: String
-        /// Ayarın macOS (İngilizce) arayüzündeki adı.
+        /// Ayarın macOS (İngilizce) arayüzündeki adı. Bilerek çevrilmez:
+        /// Sistem Ayarları'nda aranacak metin budur.
         let title: String
         /// Olması gereken durum ve nedeni.
         let detail: String
@@ -30,31 +31,27 @@ enum MacSettings {
         return [
             Check(id: "mru",
                   title: "Automatically rearrange Spaces based on most recent use",
-                  detail: "KAPALI olmalı. Açıkken macOS masaüstü sırasını değiştirir; Dock'tan "
-                        + "uygulamaya geçiş yanlış Space'e gider, pinlerin masaüstü numaraları kayar.",
+                  detail: L("Must be OFF. When on, macOS reorders your desktops: switching to an app from the Dock goes to the wrong Space and pin desktop numbers shift."),
                   ok: !mruSpaces),
             Check(id: "swoosh",
                   title: "When switching to an application, switch to a Space with open windows",
-                  detail: "AÇIK olmalı. Kapalıyken Dock'a tıklamak masaüstü değiştirmez.",
+                  detail: L("Must be ON. When off, clicking an app in the Dock does not switch desktops."),
                   ok: autoSwoosh),
             Check(id: "group",
                   title: "Group windows by application",
-                  detail: "KAPALI önerilir; açıkken Mission Control sırası ile masaüstü numaraları "
-                        + "uyuşmayabilir.",
+                  detail: L("OFF is recommended. When on, the Mission Control order may not match desktop numbers."),
                   ok: !groupApps),
             Check(id: "spans",
                   title: "Displays have separate Spaces",
-                  detail: "AÇIK olmalı. Kapalıyken Space Router harici ekranın masaüstlerini göremez.",
+                  detail: L("Must be ON. When off, Space Router cannot see the external display's desktops."),
                   ok: !spansDisplays),
         ]
     }
 
     /// Canlı denetlenemeyen, kurulumda bir kez okunması gereken uyarılar.
     static let reminders: [String] = [
-        "Pinlediğin uygulamaların Dock simgesinde sağ tık › Options › Assign To "
-            + "\"None\" olmalı. \"This Desktop\" / \"All Desktops\" seçiliyse macOS pencereyi "
-            + "kendi atadığı Space'e çeker; Space Router'ın taşımasıyla çelişir.",
-        "Ayarlar: System Settings › Desktop & Dock › Mission Control bölümü.",
+        L("For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Space Router's moves."),
+        L("Settings: System Settings › Desktop & Dock › Mission Control section."),
     ]
 
     static func openDesktopAndDock() {

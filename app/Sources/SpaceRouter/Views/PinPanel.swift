@@ -20,8 +20,8 @@ struct PinPanel: View {
         var id: String { rawValue }
         var label: String {
             switch self {
-            case .title:   return "Başlığa göre"
-            case .session: return "Sadece bu pencere"
+            case .title:   return L("By title")
+            case .session: return L("This window only")
             }
         }
     }
@@ -38,7 +38,7 @@ struct PinPanel: View {
     private var targetLabel: String {
         let name = store.screens(for: mode).first { $0.id == draft.target.screen }?.name
             ?? draft.target.screen
-        return "\(name) · Masaüstü \(draft.target.desktop)"
+        return L("%@ · Desktop %ld", name, draft.target.desktop)
     }
 
     var body: some View {
@@ -47,7 +47,7 @@ struct PinPanel: View {
                 AppIcon(bundleID: window.bundleID, size: 24)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(window.appName).font(.callout.weight(.semibold))
-                    Text(window.title.isEmpty ? "Adsız pencere" : window.title)
+                    Text(window.title.isEmpty ? L("Untitled window") : window.title)
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 .lineLimit(1)
@@ -62,8 +62,8 @@ struct PinPanel: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.borderless)
-                .help("Vazgeç (Esc)")
-                .accessibilityLabel("Vazgeç")
+                .help(L("Cancel (Esc)"))
+                .accessibilityLabel(L("Cancel"))
             }
 
             Picker("", selection: $kind) {
@@ -79,15 +79,14 @@ struct PinPanel: View {
             switch kind {
             case .title:
                 Text(segments.isEmpty
-                     ? "Bu pencerenin başlığı yok; uygulamanın bütün pencereleri pinlenir."
-                     : "Başlığın hangi parçası bu pencereyi tanımlıyor? Kalıcıdır; profile yazılır.")
+                     ? L("This window has no title; all windows of the app are pinned.")
+                     : L("Which part of the title identifies this window? This pin is permanent and saved to the profile."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
                 TokenPicker(segments: segments, chosen: $chosen, appWide: $appWide)
             case .session:
-                Text("Başlığa bakılmaz; yalnızca bu pencere (kimlik #\(window.id)) tutulur. "
-                     + "Pencere kapanana ya da uygulama yeniden başlayana kadar geçerlidir; profile yazılmaz.")
+                Text(L("The title is ignored; only this window (ID #%ld) is kept. Valid until the window closes or its app restarts; not saved to the profile.", Int(window.id)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -103,10 +102,10 @@ struct PinPanel: View {
                     .foregroundStyle(.tertiary)
                     .lineLimit(2)
                 Spacer()
-                Button("Vazgeç") { ui.panel = nil }
+                Button(L("Cancel")) { ui.panel = nil }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.small)
-                Button(kind == .session ? "Geçici pinle" : "Pinle", action: pin)
+                Button(kind == .session ? L("Pin temporarily") : L("Pin"), action: pin)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
@@ -120,14 +119,14 @@ struct PinPanel: View {
     private var footnote: String {
         switch kind {
         case .session:
-            return "Aynı başlıklı başka pencereler etkilenmez. Geçici pin turuncu ikonla gösterilir."
+            return L("Other windows with the same title are not affected. Temporary pins are shown with an orange icon.")
         case .title:
             if appWide {
-                return "Başlığa bakılmaz; \(window.appName) uygulamasının her penceresi uyar."
+                return L("The title is ignored; every window of %@ matches.", window.appName)
             }
             return matchCount == 1
-                ? "Şu an 1 pencere uyuyor."
-                : "Şu an \(matchCount) pencere uyuyor. Dosya adı gibi değişen parçaları seçmeyin."
+                ? L("1 window matches right now.")
+                : L("%ld windows match right now. Avoid parts that change, such as file names.", matchCount)
         }
     }
 

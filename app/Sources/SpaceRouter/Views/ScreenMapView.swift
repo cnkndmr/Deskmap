@@ -53,7 +53,7 @@ struct ScreenMapView: View {
                                 .frame(width: 260)
                         }
                     case .desktop(_, let desktop):
-                        Label("Masaüstü \(desktop)", systemImage: "line.3.horizontal")
+                        Label(L("Desktop %ld", desktop), systemImage: "line.3.horizontal")
                             .font(.caption.weight(.medium))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 4)
@@ -144,7 +144,7 @@ private struct ScreenCard: View {
                 Image(systemName: screen.isBuiltin ? "laptopcomputer" : "display")
                 Text(screen.name)
                 if !isConnected {
-                    Text("bağlı değil")
+                    Text(L("not connected"))
                         .foregroundStyle(.tertiary)
                 }
             }
@@ -258,7 +258,7 @@ private struct DesktopRow: View {
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 9))
                     .foregroundStyle(.quaternary)
-                Text("Masaüstü \(desktop)")
+                Text(L("Desktop %ld", desktop))
                     .font(.caption.weight(.medium))
                     .foregroundStyle(exists ? .secondary : .tertiary)
             }
@@ -266,10 +266,10 @@ private struct DesktopRow: View {
             .padding(.top, 2)
             .contentShape(Rectangle())
             .gesture(desktopDrag)
-            .help("Sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı taşı")
+            .help(L("Drag to move this desktop (with its pins) up or down"))
 
             if groups.isEmpty && orphanRules.isEmpty {
-                Text(exists ? "boş" : "henüz yok")
+                Text(exists ? L("empty") : L("doesn't exist yet"))
                     .font(.caption)
                     .foregroundStyle(.quaternary)
                     .padding(.top, 2)
@@ -360,7 +360,7 @@ private struct DesktopRow: View {
                         AppIcon(bundleID: group.bundleID, size: 16)
                         Text(group.appName)
                             .font(.caption.weight(.medium))
-                        Text("\(group.windows.count) pencere")
+                        Text(L("%ld windows", group.windows.count))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                         if collapsed {
@@ -420,7 +420,7 @@ private struct GhostRow: View {
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "plus")
-            Text("Masaüstü \(desktop)")
+            Text(L("Desktop %ld", desktop))
         }
         .font(.caption)
         .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary.opacity(0.5))
@@ -467,8 +467,8 @@ private struct UnassignedTray: View {
 
             if rules.isEmpty {
                 Text(mode == .docked
-                     ? "Buraya bırakılan pencerenin monitör bağlıyken pini kalkar."
-                     : "Buraya bırakılan pencerenin sadece laptoptayken pini kalkar.")
+                     ? L("Drop a window here to unpin it while a monitor is connected.")
+                     : L("Drop a window here to unpin it while on the laptop only."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 3)

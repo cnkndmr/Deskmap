@@ -1,0 +1,199 @@
+/*
+  Space Router — Türkçe.
+
+  Anahtar İngilizce metnin kendisidir (app/Sources/SpaceRouter/Localization.swift).
+  Biçim belirteçleri anahtarla aynı olmalı; sıra değişiyorsa %1$@ / %2$ld kullanın.
+  LocalizationTests: her L("...") anahtarının burada karşılığı var mı, fazla anahtar
+  var mı ve belirteçler uyuşuyor mu diye denetler.
+*/
+
+/* Models/Rule.swift: düzenler, modlar */
+"Full" = "Tam";
+"Left half" = "Sol yarı";
+"Right half" = "Sağ yarı";
+"Left 70%" = "Sol %70";
+"Right 30%" = "Sağ %30";
+"Top half" = "Üst yarı";
+"Bottom half" = "Alt yarı";
+"Center" = "Orta";
+"%ld%% × %ld%%" = "%%%1$ld × %%%2$ld";
+"Monitor connected" = "Monitör bağlı";
+"Laptop only" = "Sadece laptop";
+"all windows" = "tüm pencereler";
+
+/* Models/Store.swift: profiller, dosya hataları, geri alma etiketleri, ekranlar */
+"Default" = "Varsayılan";
+"Profile %ld" = "Profil %ld";
+"Profile not found" = "Profil bulunamadı";
+"This is not a Space Router profile" = "Bu bir Space Router profili değil";
+"Imported" = "İçe aktarılan";
+"rules.json belongs to a newer version of Space Router; changes will not be saved" = "rules.json daha yeni bir Space Router sürümüne ait; değişiklikler kaydedilmeyecek";
+"1 rule could not be read" = "1 kural okunamadı";
+"%ld rules could not be read" = "%ld kural okunamadı";
+"Could not read rules.json: %@" = "rules.json okunamadı: %@";
+"%@ (backup: rules.json.bak)" = "%@ (yedek: rules.json.bak)";
+"Could not write rules.json: %@" = "rules.json yazılamadı: %@";
+"Pin deleted" = "Pin silindi";
+"Pin moved" = "Pin taşındı";
+"Pin updated" = "Pin güncellendi";
+"Title parts changed" = "Başlık parçaları değişti";
+"Pin removed" = "Pin kaldırıldı";
+"Desktop order changed" = "Masaüstü sırası değişti";
+"Profile deleted: %@" = "Profil silindi: %@";
+"Built-in display" = "Dahili ekran";
+"External display" = "Harici monitör";
+
+/* Services/URLCommands.swift */
+"Unknown URL command: %@" = "Bilinmeyen URL komutu: %@";
+"Profile not found: %@" = "Profil bulunamadı: %@";
+
+/* Services/MacSettings.swift (ayar adları macOS'taki İngilizce adlarıyla kalır) */
+"Must be OFF. When on, macOS reorders your desktops: switching to an app from the Dock goes to the wrong Space and pin desktop numbers shift." = "KAPALI olmalı. Açıkken macOS masaüstü sırasını değiştirir; Dock'tan uygulamaya geçiş yanlış Space'e gider, pinlerin masaüstü numaraları kayar.";
+"Must be ON. When off, clicking an app in the Dock does not switch desktops." = "AÇIK olmalı. Kapalıyken Dock'a tıklamak masaüstü değiştirmez.";
+"OFF is recommended. When on, the Mission Control order may not match desktop numbers." = "KAPALI önerilir; açıkken Mission Control sırası ile masaüstü numaraları uyuşmayabilir.";
+"Must be ON. When off, Space Router cannot see the external display's desktops." = "AÇIK olmalı. Kapalıyken Space Router harici ekranın masaüstlerini göremez.";
+"For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Space Router's moves." = "Pinlediğin uygulamaların Dock simgesinde sağ tık › Options › Assign To \"None\" olmalı. \"This Desktop\" / \"All Desktops\" seçiliyse macOS pencereyi kendi atadığı Space'e çeker; Space Router'ın taşımasıyla çelişir.";
+"Settings: System Settings › Desktop & Dock › Mission Control section." = "Ayarlar: System Settings › Desktop & Dock › Mission Control bölümü.";
+
+/* Services/Router.swift */
+"Could not write session-pins.json: %@" = "session-pins.json yazılamadı: %@";
+"%@ · Desktop %ld" = "%1$@ · Masaüstü %2$ld";
+
+/* Views/RootView.swift: üst çubuk, alt çubuk */
+"Routing on" = "Yönlendirme açık";
+"Routing paused" = "Yönlendirme duraklatıldı";
+"now" = "şu an";
+"no pins" = "pin yok";
+"1 pin" = "1 pin";
+"%ld pins" = "%ld pin";
+"%@ · %ld temporary" = "%1$@ · %2$ld geçici";
+"Pins in %@ mode: %ld" = "%1$@ modunda %2$ld pin";
+"1 window is pinned for this session only (not saved to the profile)" = "1 pencere yalnızca bu oturum için pinli (profile yazılmaz)";
+"%ld windows are pinned for this session only (not saved to the profile)" = "%ld pencere yalnızca bu oturum için pinli (profile yazılmaz)";
+"Place pinned windows now (⌘R)" = "Pinli pencereleri şimdi yerleştir (⌘R)";
+"Place pinned windows now" = "Pinli pencereleri şimdi yerleştir";
+"%@ not responding; skipped for now" = "%@ yanıt vermiyor; geçici olarak atlanıyor";
+"The app did not answer Accessibility requests (frozen or stopped in a debugger). It is listed again automatically once it responds." = "Uygulama Accessibility sorularına yanıt vermedi (donmuş ya da hata ayıklayıcıda). Yanıt verince otomatik olarak yeniden listelenir.";
+"Moving windows between desktops is not available on this macOS; only display and layout are applied" = "Masaüstü taşıma bu macOS'ta kullanılamıyor; yalnızca ekran ve düzen uygulanır";
+"SkyLight calls not found. Windows are placed on the right display and in the right layout but are not moved to other desktops." = "SkyLight çağrıları bulunamadı. Pencereler doğru ekrana ve düzene oturtulur ama başka masaüstüne taşınmaz.";
+"Pin a window, or drag it to another desktop." = "Bir pencereyi pinleyin ya da başka masaüstüne sürükleyin.";
+"Pinned windows are kept in place; others are left alone." = "Pinli pencereler yerinde tutulur; diğerlerine dokunulmaz.";
+"%@ · Undo" = "%@ · Geri al";
+"Undo the last action (⌘Z)" = "Son işlemi geri al (⌘Z)";
+"Launch at login" = "Girişte başlat";
+"Approval needed" = "Onay gerekli";
+"Turn on Space Router in System Settings › General › Login Items" = "System Settings › General › Login Items'ta Space Router'ı açın";
+"Quit Space Router" = "Space Router'dan çık";
+"Space Router starts when you log in to macOS" = "macOS oturumu açılınca Space Router başlar";
+"This copy opens at login: %@. For a permanent install, copy it to /Applications." = "Girişte bu kopya açılır: %@. Kalıcı kurulum için /Applications'a kopyalayın.";
+"Could not turn on launch at login: %@" = "Girişte başlatma açılamadı: %@";
+"Could not turn off launch at login: %@" = "Girişte başlatma kapatılamadı: %@";
+
+/* Views/ScreenMapView.swift: harita */
+"Desktop %ld" = "Masaüstü %ld";
+"not connected" = "bağlı değil";
+"Drag to move this desktop (with its pins) up or down" = "Sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı taşı";
+"empty" = "boş";
+"doesn't exist yet" = "henüz yok";
+"%ld windows" = "%ld pencere";
+"Drop a window here to unpin it while a monitor is connected." = "Buraya bırakılan pencerenin monitör bağlıyken pini kalkar.";
+"Drop a window here to unpin it while on the laptop only." = "Buraya bırakılan pencerenin sadece laptoptayken pini kalkar.";
+
+/* Views/PinPanel.swift: pin taslağı */
+"By title" = "Başlığa göre";
+"This window only" = "Sadece bu pencere";
+"Untitled window" = "Adsız pencere";
+"Cancel (Esc)" = "Vazgeç (Esc)";
+"Cancel" = "Vazgeç";
+"This window has no title; all windows of the app are pinned." = "Bu pencerenin başlığı yok; uygulamanın bütün pencereleri pinlenir.";
+"Which part of the title identifies this window? This pin is permanent and saved to the profile." = "Başlığın hangi parçası bu pencereyi tanımlıyor? Kalıcıdır; profile yazılır.";
+"The title is ignored; only this window (ID #%ld) is kept. Valid until the window closes or its app restarts; not saved to the profile." = "Başlığa bakılmaz; yalnızca bu pencere (kimlik #%ld) tutulur. Pencere kapanana ya da uygulama yeniden başlayana kadar geçerlidir; profile yazılmaz.";
+"Pin temporarily" = "Geçici pinle";
+"Pin" = "Pinle";
+"Other windows with the same title are not affected. Temporary pins are shown with an orange icon." = "Aynı başlıklı başka pencereler etkilenmez. Geçici pin turuncu ikonla gösterilir.";
+"The title is ignored; every window of %@ matches." = "Başlığa bakılmaz; %@ uygulamasının her penceresi uyar.";
+"1 window matches right now." = "Şu an 1 pencere uyuyor.";
+"%ld windows match right now. Avoid parts that change, such as file names." = "Şu an %ld pencere uyuyor. Dosya adı gibi değişen parçaları seçmeyin.";
+
+/* Views/RulePanels.swift: pin bilgisi, geçici pin */
+"Unpin" = "Pini kaldır";
+"Close (Esc)" = "Kapat (Esc)";
+"Close" = "Kapat";
+"%@: no pin" = "%@: pin yok";
+"%@: pinned" = "%@: pinli";
+"Apply" = "Uygula";
+"Use the selected parts as this pin's title parts" = "Seçili parçaları bu pinin başlık parçaları yap";
+"All windows" = "Tüm pencereler";
+"To change the parts, a window matching this pin must be open." = "Parçaları değiştirmek için bu pine uyan bir pencere açık olmalı.";
+"A pin with these parts already exists: “%@”" = "Bu parçalarla zaten bir pin var: „%@\"";
+"Select at least one part, or All windows." = "En az bir parça seçin ya da Tüm pencereler.";
+"%ld windows match right now." = "Şu an %ld pencere uyuyor.";
+"Temporary · window #%ld" = "Geçici · pencere #%ld";
+"Only this window, for this session. Not saved to the profile." = "Yalnızca bu pencere, bu oturum için. Profile yazılmaz.";
+
+/* Views/ProfileViews.swift: profiller, dışa/içe aktarma */
+"Profiles: each one is a separate set of pins" = "Profiller: her biri ayrı bir pin kümesi";
+"New empty profile" = "Yeni boş profil";
+"Import a profile from a file (.spacerouter.json)" = "Profili dosyadan içe aktar (.spacerouter.json)";
+"Import a profile from a file" = "Profili dosyadan içe aktar";
+"Active profile: click to rename, duplicate, export or delete" = "Aktif profil — ad, kopya, dışa aktar, sil için tıkla";
+"Switch to this profile (1 pin)" = "Bu profile geç (1 pin)";
+"Switch to this profile (%ld pins)" = "Bu profile geç (%ld pin)";
+"Profile name" = "Profil adı";
+"Save" = "Kaydet";
+"%@ copy" = "%@ kopyası";
+"Duplicate" = "Kopyala";
+"Create a new profile with these pins" = "Bu pinlerle yeni profil oluştur";
+"Export" = "Dışa aktar";
+"Save as %@.spacerouter.json" = "%@.spacerouter.json olarak kaydet";
+"Delete" = "Sil";
+"The last profile cannot be deleted" = "Son profil silinemez";
+"Delete profile" = "Profili sil";
+"Export Profile" = "Profili dışa aktar";
+"Could not export: %@" = "Dışa aktarılamadı: %@";
+"Import Profile" = "Profili içe aktar";
+"Could not import: %@" = "İçe aktarılamadı: %@";
+"profile" = "profil";
+
+/* Views/WindowRow.swift: pencere satırı */
+"Minimized" = "Simge durumunda";
+"Layout: %@" = "Düzen: %@";
+"Click to change the layout; drag to change the pin's target" = "Tıklayarak düzeni değiştir, sürükleyerek pinin hedefini değiştir";
+"Drag to move (does not pin); click the pin to keep it here" = "Sürükleyerek taşı (pinlenmez); sabitlemek için pin'e tıkla";
+"Temporary pin (this window only, this session). Click to remove." = "Geçici pin (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın.";
+"Pinned: %@. Click to remove." = "Pinli: %@. Kaldırmak için tıklayın.";
+"Pin to this desktop" = "Bu masaüstüne pinle";
+"Temporary pin moved" = "Geçici pin taşındı";
+
+/* Views/StatusCards.swift: macOS ayarları, izin, ilk adımlar */
+"macOS settings look good" = "macOS ayarları uygun";
+"macOS settings need fixing" = "macOS ayarları düzeltilmeli";
+"Things to check once during setup are listed below." = "Kurulumda bir kez kontrol edilmesi gerekenler aşağıda.";
+"With these settings Space Router cannot work properly: switching from the Dock goes to the wrong desktop, and windows appear and vanish." = "Bu ayarlar böyle kalırsa Space Router düzgün çalışmaz: Dock'tan geçiş yanlış masaüstüne gider, pencereler belirip kaybolur.";
+"Open Desktop & Dock" = "Desktop & Dock'u aç";
+"Got It" = "Anladım";
+"Hide this card; it comes back if a setting changes" = "Kartı gizle; bir ayar bozulursa yeniden görünür";
+"Accessibility permission required" = "Erişilebilirlik izni gerekli";
+"Needed to see and move windows." = "Pencereleri görmek ve taşımak için.";
+"Grant Access" = "İzin ver";
+"Getting Started" = "Başlarken";
+"Click the pin button on a window row below." = "Aşağıda bir pencere satırındaki pin düğmesine tıklayın.";
+"Select the part of the title that identifies the window; it now stays on that desktop." = "Başlığın bu pencereyi tanımlayan parçasını seçin; pencere artık o masaüstünde kalır.";
+"Dragging a row to another desktop moves the window once without pinning it. The laptop / monitor switch at the top is for the other setup; the two are configured separately." = "Bir satırı başka masaüstüne sürüklemek pencereyi bir kez taşır, pinlemez. Üstteki laptop / monitör düğmesi diğer kurulum içindir; ikisi ayrı ayarlanır.";
+
+/* Views/RuleChip.swift: pin çipi ipucu */
+"Its window is not open right now. Drag to move." = "Penceresi şu an açık değil. Sürükleyerek taşı.";
+"a temporary pin" = "geçici pin";
+"the “%@” pin" = "„%@\" pini";
+"This window is matched first by %@; this pin does not take effect." = "Bu pencereye önce %@ uyuyor; bu pin devreye girmiyor.";
+
+/* Views/LayoutEditor.swift: kenar boşlukları */
+"Left" = "Sol";
+"Right" = "Sağ";
+"Top" = "Üst";
+"Bottom" = "Alt";
+"Gap to leave from each edge, within the display's usable area." = "Ekranın kullanılabilir alanında, kenardan bırakılacak boşluk.";
+
+/* Views/MissingDesktopBadge.swift: eksik masaüstü rozeti (D = Desktop, M = Masaüstü) */
+"D%ld→%ld" = "M%ld→%ld";
+"Desktops on this display: %ld. Add desktops in Mission Control or drag the pin to another desktop." = "Bu ekranda yalnızca %ld masaüstü var; Mission Control'de masaüstü ekleyin ya da pini başka masaüstüne sürükleyin";

@@ -63,11 +63,12 @@ struct LayoutTests {
     }
 
     @Test func labels() {
-        #expect(WindowLayout.full.label == "Tam")
-        #expect(WindowLayout.leftHalf.label == "Sol yarı")
-        #expect(WindowLayout.right30.label == "Sağ %30")
-        #expect(WindowLayout.center.label == "Orta")
-        #expect(WindowLayout(x: 0.2, y: 0.1, w: 0.6, h: 0.75).label == "%60 × %75")
+        // Test sürecinde çeviri tablosu yok: İngilizce anahtar görünür.
+        #expect(WindowLayout.full.label == "Full")
+        #expect(WindowLayout.leftHalf.label == "Left half")
+        #expect(WindowLayout.right30.label == "Right 30%")
+        #expect(WindowLayout.center.label == "Center")
+        #expect(WindowLayout(x: 0.2, y: 0.1, w: 0.6, h: 0.75).label == "60% × 75%")
     }
 
     // MARK: Coordinates

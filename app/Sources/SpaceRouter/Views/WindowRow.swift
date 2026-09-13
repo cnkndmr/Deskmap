@@ -61,9 +61,9 @@ struct WindowRow: View {
                 Image(systemName: "arrow.down.right.and.arrow.up.left")
                     .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
-                    .help("Simge durumunda")
+                    .help(L("Minimized"))
             }
-            Text(window.title.isEmpty ? "Adsız pencere" : window.title)
+            Text(window.title.isEmpty ? L("Untitled window") : window.title)
                 .font(.caption)
                 .foregroundStyle(window.title.isEmpty ? .tertiary : .secondary)
                 .lineLimit(1)
@@ -78,7 +78,7 @@ struct WindowRow: View {
             if let layout = pinnedLayout {
                 LayoutGlyph(layout: layout, size: CGSize(width: 14, height: 10))
                     .foregroundStyle(.tertiary)
-                    .help("Düzen: \(layout.label)")
+                    .help(L("Layout: %@", layout.label))
             }
 
             Button {
@@ -120,17 +120,17 @@ struct WindowRow: View {
             }
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)
-        .help(isPinned ? "Tıklayarak düzeni değiştir, sürükleyerek pinin hedefini değiştir"
-                       : "Sürükleyerek taşı (pinlenmez); sabitlemek için pin'e tıkla")
+        .help(isPinned ? L("Click to change the layout; drag to change the pin's target")
+                       : L("Drag to move (does not pin); click the pin to keep it here"))
     }
 
     private var pinButtonHelp: String {
         if sessionPin != nil {
-            return "Geçici pin (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın."
+            return L("Temporary pin (this window only, this session). Click to remove.")
         }
         return isPinned
-            ? "Pinli: \(pinnedRule?.title ?? ""). Kaldırmak için tıklayın."
-            : "Bu masaüstüne pinle"
+            ? L("Pinned: %@. Click to remove.", pinnedRule?.title ?? "")
+            : L("Pin to this desktop")
     }
 
     private func togglePin() {
@@ -174,7 +174,7 @@ struct WindowRow: View {
                         router.pinSession(window.id, destination: next)
                         if next != current {
                             let router = router, id = window.id
-                            store.recordSessionChange("Geçici pin taşındı") {
+                            store.recordSessionChange(L("Temporary pin moved")) {
                                 if router.sessionPins[id] != nil {
                                     router.pinSession(id, destination: current)
                                 }

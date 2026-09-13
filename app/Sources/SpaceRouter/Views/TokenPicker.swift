@@ -12,7 +12,7 @@ struct TokenPicker: View {
 
     var body: some View {
         FlowLayout(spacing: 6) {
-            TokenPill("Tüm pencereler", systemImage: "macwindow.on.rectangle", isOn: appWide) {
+            TokenPill(L("All windows"), systemImage: "macwindow.on.rectangle", isOn: appWide) {
                 appWide.toggle()
                 if appWide { chosen = [] }
             }

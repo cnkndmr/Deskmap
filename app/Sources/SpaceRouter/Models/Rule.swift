@@ -46,16 +46,16 @@ struct WindowLayout: Codable, Equatable, Hashable {
 
     var label: String {
         switch self {
-        case .full:       return "Tam"
-        case .leftHalf:   return "Sol yarı"
-        case .rightHalf:  return "Sağ yarı"
-        case .left70:     return "Sol %70"
-        case .right30:    return "Sağ %30"
-        case .topHalf:    return "Üst yarı"
-        case .bottomHalf: return "Alt yarı"
-        case .center:     return "Orta"
+        case .full:       return L("Full")
+        case .leftHalf:   return L("Left half")
+        case .rightHalf:  return L("Right half")
+        case .left70:     return L("Left 70%")
+        case .right30:    return L("Right 30%")
+        case .topHalf:    return L("Top half")
+        case .bottomHalf: return L("Bottom half")
+        case .center:     return L("Center")
         default:
-            return "%\(Int((w * 100).rounded())) × %\(Int((h * 100).rounded()))"
+            return L("%ld%% × %ld%%", Int((w * 100).rounded()), Int((h * 100).rounded()))
         }
     }
 
@@ -116,8 +116,8 @@ enum Mode: String, Codable, CaseIterable, Identifiable {
 
     var title: String {
         switch self {
-        case .docked:   return "Monitör bağlı"
-        case .undocked: return "Sadece laptop"
+        case .docked:   return L("Monitor connected")
+        case .undocked: return L("Laptop only")
         }
     }
 }
@@ -166,7 +166,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     var isAppWide: Bool { tokens.isEmpty }
 
     var title: String {
-        isAppWide ? "tüm pencereler" : tokens.joined(separator: " · ")
+        isAppWide ? L("all windows") : tokens.joined(separator: " · ")
     }
 
     /// Verilen moddaki hedef. İki mod (monitör bağlı / sadece laptop)

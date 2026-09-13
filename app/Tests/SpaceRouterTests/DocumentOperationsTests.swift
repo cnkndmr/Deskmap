@@ -163,14 +163,14 @@ struct DocumentOperationsTests {
         var doc = Document()
         doc.rules = [rule("a", docked: external2), rule("b", tokens: ["B"])]
         let empty = doc.addProfile()
-        #expect(empty.name == "Profil 2")
+        #expect(empty.name == "Profile 2")
         #expect(empty.rules.isEmpty)
         #expect(doc.activeProfileID == empty.id)
         #expect(doc.rules.isEmpty)
 
         doc.switchProfile(to: doc.profiles[0].id)
-        let copy = doc.addProfile(named: "Varsayılan", copyingCurrent: true)
-        #expect(copy.name == "Varsayılan (2)")
+        let copy = doc.addProfile(named: Document.defaultProfileName, copyingCurrent: true)
+        #expect(copy.name == "\(Document.defaultProfileName) (2)")
         #expect(copy.rules.count == 2)
         #expect(Set(copy.rules.map(\.id)).isDisjoint(with: ["a", "b"]))
         #expect(copy.rules[0].docked == external2)
@@ -233,7 +233,7 @@ struct DocumentOperationsTests {
                        { "id": "external-2", "name": "Dell", "aspect": 1.78 } ] }
         """.utf8)
         let profile = try doc.importProfile(from: json)
-        #expect(profile.name == "İçe aktarılan")
+        #expect(profile.name == "Imported")
         #expect(profile.rules.count == 1)          // bozuk kural atlandı
         #expect(profile.rules[0].id != "a")        // kimlik yenilendi
         #expect(profile.rules[0].tokens == ["X"])
@@ -252,10 +252,10 @@ struct DocumentOperationsTests {
         let data = try doc.exportData(for: doc.activeProfileID)
         let text = String(decoding: data, as: UTF8.self)
         #expect(text.contains("\"kind\" : \"spacerouter-profile\""))
-        #expect(text.contains("\"name\" : \"Varsayılan\""))
+        #expect(text.contains("\"name\" : \"\(Document.defaultProfileName)\""))
 
         let imported = try doc.importProfile(from: data)
-        #expect(imported.name == "Varsayılan (2)")
+        #expect(imported.name == "\(Document.defaultProfileName) (2)")
         #expect(imported.rules.count == 2)
         #expect(imported.rules.map(\.tokens) == [["A"], ["B", "C"]])
         #expect(imported.rules[0].docked == external2)

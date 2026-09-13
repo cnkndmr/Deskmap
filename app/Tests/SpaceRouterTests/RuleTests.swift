@@ -129,7 +129,7 @@ struct RuleTests {
     @Test func appWideRuleIgnoresTitle() {
         let rule = Rule(appName: "Music", bundleID: "com.apple.Music", tokens: [])
         #expect(rule.isAppWide)
-        #expect(rule.title == "tüm pencereler")
+        #expect(rule.title == "all windows")
         #expect(rule.matches(bundleID: "com.apple.Music", appName: "Music", title: ""))
         #expect(rule.matches(bundleID: "com.apple.Music", appName: "Music", title: "Anything"))
     }
