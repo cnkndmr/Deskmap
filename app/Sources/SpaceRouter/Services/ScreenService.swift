@@ -60,6 +60,15 @@ final class ScreenService: ObservableObject {
     // başka türlü sıkı eşzamanlılık uyarısı verir.
     nonisolated(unsafe) private var observer: NSObjectProtocol?
     private var settleTask: Task<Void, Never>?
+    /// Süren yatışma bölümünün ilk ekran değişimi (üst sınır için).
+    private var settleEpisodeStart: Date?
+    /// Son ekran değişiminden sonra bu kadar sessizlik "yatıştı" sayılır
+    /// (monitör takılınca macOS birkaç saniye boyunca yeniden düzenler).
+    nonisolated static let settleInterval: TimeInterval = 2.5
+    /// Değişimler hiç durmazsa (titrek kablo, sürekli bildirim) yatışma en
+    /// geç bölümün başından bu kadar sonra zorla biter; yoksa `isSettling`
+    /// hiç düşmez ve yönlendirme sonsuza dek kapalı kalırdı.
+    nonisolated static let settleHardCap: TimeInterval = 10
 
     init() {
         refresh()
@@ -84,22 +93,35 @@ final class ScreenService: ObservableObject {
 
     private func screensChanged() {
         refresh()
+        let now = Date()
         if !isSettling {
             isSettling = true
+            settleEpisodeStart = now
             Log.screens.notice("Ekran değişimi: \(self.screens.count) ekran, yatışma bekleniyor")
         }
+        let delay = Self.settleDelay(episodeStart: settleEpisodeStart ?? now, now: now)
+        let forced = delay < Self.settleInterval
         settleTask?.cancel()
         settleTask = Task { [weak self] in
-            // Monitör takılınca macOS birkaç saniye boyunca yeniden düzenler.
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard !Task.isCancelled, let self else { return }
+            self.settleEpisodeStart = nil
             self.refresh()
             self.isSettling = false
             Log.screens.notice("""
-                Ekranlar yatıştı: \(self.screens.map(\.id).joined(separator: ", "), privacy: .public)
+                Ekranlar yatıştı\(forced ? " (üst sınır)" : "", privacy: .public): \
+                \(self.screens.map(\.id).joined(separator: ", "), privacy: .public)
                 """)
             self.settled.send()
         }
+    }
+
+    /// Bu ekran değişiminden sonra ne kadar beklenir (saf): normalde
+    /// `settleInterval`; bölüm başlangıcından `settleHardCap` sonrasını
+    /// aşmaz, sınır geçildiyse 0.
+    nonisolated static func settleDelay(episodeStart: Date, now: Date) -> TimeInterval {
+        let remaining = settleHardCap - now.timeIntervalSince(episodeStart)
+        return max(0, min(settleInterval, remaining))
     }
 
     /// Harici ekranların rol sırası (`external`, `external-2` …): soldan
