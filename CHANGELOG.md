@@ -6,6 +6,32 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 
 ### Eklendi
 
+- Tek seviyeli geri alma: pin kaldırma, pin silme, profil silme, masaüstü
+  sırası değiştirme, sürükleyerek hedef değiştirme ve başlık parçası
+  düzenleme öncesinde belge saklanır; alt çubukta 10 sn "<işlem> · Geri al"
+  görünür, ⌘Z de geri alır. Düzen adımları ve profil geçişi kaydedilmez
+  (`Models/UndoBuffer.swift`, `Store.undo()`).
+- Pin bilgi panelinde başlık parçaları yazmadan düzenlenir: pine uyan bir
+  pencere açıksa onun başlığı parçalanır, mevcut parçalar işaretli gelir,
+  "Tüm pencereler" seçilebilir, "Şu an N pencere uyuyor" canlı gösterilir;
+  "Uygula" ile yazılır. Başka bir pinle aynı anahtara düşen seçim
+  uygulanmaz, turuncu açıklama çıkar. Uyan pencere yoksa parçalar salt
+  okunur (`TokenPicker`, `Document.setTokens`).
+- Gölgede kalan pinler: bir pencereye uyduğu hâlde daha özgül bir pine ya
+  da geçici pine yenilen kural haritada soluk çip olarak, hedef
+  masaüstünde görünür; ipucu hangi pinin önce uyduğunu söyler
+  (`ScreenMapView.shadows`).
+- Eksik masaüstü rozeti: pinin hedef masaüstü bağlı ekranda yoksa (router
+  sonuncuya kırpıyor) pencere satırında ve çipte turuncu "M5→3" rozeti;
+  ipucu Mission Control'de masaüstü eklemeyi ya da pini sürüklemeyi önerir.
+- Klavye kısayolları (pencere öndeyken): ⌘R yeniden yerleştir, ⌘1 / ⌘2 mod
+  seçici (Monitör bağlı / Sadece laptop), ⌘Z geri al, Esc açık alt paneli
+  kapatır. İpuçları kısayolu söyler.
+- İlk kullanım kartı: Erişilebilirlik izni var ama aktif profilde pin ve
+  geçici pin yokken haritanın üstünde üç adım; ilk pinle kaybolur.
+- Alt çubuk: SkyLight çağrıları yoksa turuncu "Masaüstü taşıma bu macOS'ta
+  kullanılamıyor; yalnızca ekran ve düzen uygulanır" (hata ve yanıt vermeyen
+  uygulama iletilerinin altında). Router'ın son işlemi 30 sn sonra solar.
 - `spacerouter://` URL şeması: `reapply`, `pause`, `resume`, `toggle`,
   `profile/<ad>` (ya da `profile?name=<ad>`), `next-profile`. Shortcuts
   "Open URLs", Raycast, Hammerspoon `hs.urlevent.openURL` ve terminalde
@@ -29,6 +55,13 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 
 ### Değişti
 
+- Alt panel durumu tek değer (`UIState.panel: BottomPanel?` — pin taslağı,
+  pin bilgisi, geçici pin, profil); aynı anda tek panel açık kalır.
+  `RootView.swift` (894 satır) UIState / RootView / PinPanel / RulePanels /
+  LayoutEditor / StatusCards / TokenPicker dosyalarına bölündü; dört kopya
+  panel çerçevesi tek `bottomPanelChrome()` oldu. Davranış aynı.
+- Üst çubuktaki "N pin" seçili modu sayar; "· M geçici" yalnızca seçili
+  mod şu anki mod iken gösterilir (geçici pinler yalnızca orada listelenir).
 - Kural ve profil mantığı (`pin`, `unpin`, `moveDesktop`, profil geçişi/kopya/
   silme, dışa/içe aktarma) `Document` üzerinde saf işlemler oldu; `Store`
   yalnızca çağırıp yayınlar ve kaydeder. Davranış aynı.
@@ -38,6 +71,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 
 ### Düzeltildi
 
+- Geçici pin paneli açıkken aktif profil çipine tıklamak hiçbir şey
+  yapmıyordu (`closePanels()` oturum seçimini temizlemiyor, if-else zinciri
+  profil panelini gizliyordu); tek panel değeriyle ortadan kalktı. Kuralı
+  silinen ya da profil değişince kaybolan pin paneli kendiliğinden kapanır.
+- Bir pencereye uyan ama daha özgül bir kurala yenilen pin haritada hiç
+  görünmüyordu (satırda kazanan gösteriliyor, çip olarak da gizleniyordu).
 - "Girişte başlat" gerçek `SMAppService` durumunu okur: kayıt değişince ve
   her taramada yenilenir (Sistem Ayarları'ndan kapatılırsa kutu da kapanır),
   `.requiresApproval` için turuncu "Onay gerekli" bağlantısı Login Items'ı

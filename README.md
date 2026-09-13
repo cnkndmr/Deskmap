@@ -10,16 +10,39 @@ vault, iTerm profili — başlıkta ad gösteren her pencere.
 
 ## Nasıl kullanılır
 
-1. Menü çubuğundaki simgeye tıklayın, **+** ile açık bir pencere seçin.
+1. Menü çubuğundaki simgeye tıklayın. Harita, ekranları ve masaüstlerini
+   açık pencerelerle gösterir. Bir pencere satırındaki **pin** düğmesine
+   basın.
 2. Başlığın hangi parçasının bu pencereyi tanımladığını işaretleyin
-   (ör. dosya adı değil, proje adı).
-3. Oluşan çipi haritada istediğiniz ekranın istediğiniz masaüstüne
-   **sürükleyin**. Çipe tıklayıp düzeni (sol yarı, tam, orta…) seçin.
-4. Üstteki laptop / monitör düğmesiyle diğer duruma geçip aynı şeyi
-   orası için yapın. Monitör takıldığında veya çıkarıldığında pencereler
-   otomatik yeniden yerleşir.
+   (ör. dosya adı değil, proje adı). "Tüm pencereler" uygulamanın her
+   penceresini pinler; "Sadece bu pencere" başlığa bakmadan yalnızca o
+   pencereyi, bu oturum için tutar.
+3. Pinli satırı ya da çipi haritada başka ekranın başka masaüstüne
+   **sürükleyin**; tıklayıp düzeni (sol yarı, tam, orta…) seçin. Pinsiz bir
+   satırı sürüklemek pencereyi bir kez taşır, pin yazmaz.
+4. Üstteki laptop / monitör düğmesiyle (⌘1 / ⌘2) diğer duruma geçip aynı
+   şeyi orası için yapın; iki kurulum birbirinden bağımsızdır. Monitör
+   takıldığında veya çıkarıldığında pencereler otomatik yeniden yerleşir.
 
 Bir çipi alttaki tepsiye bırakmak o durumda pencereyi serbest bırakır.
+
+**Parçaları sonradan değiştirmek:** pinli satıra ya da çipe tıklayın; pine
+uyan bir pencere açıksa panelde başlığın parçaları yeniden seçilir ve
+**Uygula** ile yazılır. Başka bir pinle aynı uygulama + aynı parçalara
+düşen seçim uygulanmaz, panel nedenini söyler.
+
+**Geri alma:** pin kaldırma, profil silme, masaüstü sırası değiştirme,
+sürükleyerek taşıma ve parça düzenleme sonrasında alt çubukta 10 sn
+"… · Geri al" görünür; tıklayın ya da ⌘Z basın. Tek seviyedir; onay
+diyaloğu yerine bunu kullanın.
+
+**Kısayollar** (pencere öndeyken): ⌘R pinli pencereleri şimdi yerleştir,
+⌘1 / ⌘2 mod seçici, ⌘Z geri al, Esc açık paneli kapat.
+
+Bir pinin hedef masaüstü o ekranda yoksa (Mission Control'de o kadar
+masaüstü açık değilse) pencere son masaüstüne gider ve satırda turuncu
+"M5→3" rozeti çıkar; masaüstü ekleyin ya da pini sürükleyin. Bir pencereye
+uyan ama daha özgül bir pine yenilen pin haritada soluk çip olarak durur.
 
 ## Kurulum
 
@@ -118,7 +141,7 @@ app/Sources/SpaceRouter/
 │   ├── ScreenService.swift   Bağlı ekranlar, dock durumu
 │   ├── URLCommands.swift     spacerouter:// komutları (ayrıştırma + çalıştırma)
 │   └── Router.swift          2 sn'de bir tarama, taşıma ve düzen
-└── Views/      Ekran haritası, sürüklenebilir çipler, pencere seçici
+└── Views/      Ekran haritası, sürüklenebilir çipler, pin ve profil panelleri
 ```
 
 macOS'ta bir pencereyi başka bir Space'e taşımanın resmî bir API'si yok.
@@ -145,7 +168,8 @@ make clean
 
 Testler saf mantığı kapsar: `Rule` eşleştirme ve başlık parçalama,
 `WindowLayout` oranları, `rules.json` şema geçişleri, `Document` üzerindeki
-pin/profil işlemleri ve `Routing` hedef seçimi. Diske ya da pencerelere
+pin/profil/parça işlemleri, `Routing` hedef seçimi, `UndoBuffer`, gölgede
+kalan kural hesabı ve eksik masaüstü rozeti kararı. Diske ya da pencerelere
 dokunmazlar. `git config core.hooksPath .githooks` ile commit öncesi derleme ve
 testler kendiliğinden çalışır. Sürüm numarası kökteki `VERSION` dosyasından okunur.
 
