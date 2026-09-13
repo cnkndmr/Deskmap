@@ -13,6 +13,9 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   üzerinden alınır; ayrıştırma saf `URLCommand.parse` işlevinde
   (`Services/URLCommands.swift`). Bilinmeyen komut/profil alt çubukta
   hata olarak gösterilir. README'de "Otomasyon" bölümü.
+- Tek kopya koruması: aynı bundle kimliğiyle çalışan başka bir Space Router
+  varsa yenisi Router yaratılmadan çıkar (iki yönlendirici aynı pencereleri
+  çekiştirmesin).
 - `make dist`: evrensel (arm64 + x86_64) derleme, imza, isteğe bağlı noter ve
   `build/dist/*.zip` / `.dmg` paketi (`scripts/make-dist.sh`,
   Finder için `scripts/make-dist.command`). `build-app.sh` artık `VERSION`,

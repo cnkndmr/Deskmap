@@ -58,6 +58,10 @@ gidiyor, uygulama kısa süre görünüp kayboluyordu; ayar kapatılınca düzel
 Kalıcı kurulum: `cp -R build/SpaceRouter.app /Applications/` ve menüden
 **Girişte başlat**.
 
+Aynı anda ikinci bir Space Router açılırsa (ör. `build/` ve
+`/Applications` kopyaları) yenisi hiçbir şey yapmadan kapanır; iki
+yönlendirici aynı pencereleri çekiştirmesin.
+
 ## Otomasyon
 
 Uygulama `spacerouter://` URL şemasını tanır. Shortcuts, Raycast,

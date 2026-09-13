@@ -13,6 +13,9 @@ struct SpaceRouterApp: App {
     @StateObject private var ui = UIState()
 
     init() {
+        // Router yaratılmadan önce: ikinci kopya hiç tarama yapmadan çıkar.
+        SingleInstance.exitIfAlreadyRunning()
+
         let model = AppModel.shared
         _store = StateObject(wrappedValue: model.store)
         _screens = StateObject(wrappedValue: model.screens)
@@ -66,6 +69,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         let model = AppModel.shared
         URLCommands.handle(urls, store: model.store, router: model.router)
+    }
+}
+
+/// Tek kopya koruması. İki Space Router aynı anda çalışırsa iki Router
+/// aynı pencereleri iki ayrı düzen belleğiyle taşımaya çalışır: pencere
+/// ileri geri gider, rules.json'u ikisi de yazar. Bu yüzden aynı bundle
+/// kimliğiyle çalışan başka bir kopya varsa yenisi hemen çıkar; eskisi
+/// öne getirilmez (menü çubuğu uygulamasının öne gelecek penceresi yok).
+/// `swift run` ile paket dışında bundle kimliği olmadığı için atlanır.
+enum SingleInstance {
+
+    static func exitIfAlreadyRunning() {
+        guard let bundleID = Bundle.main.bundleIdentifier else { return }
+        let me = ProcessInfo.processInfo.processIdentifier
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: bundleID)
+            .filter { $0.processIdentifier != me }
+        guard !others.isEmpty else { return }
+        // NSApp henüz yok (App.init içindeyiz); doğrudan çık.
+        exit(0)
     }
 }
 
