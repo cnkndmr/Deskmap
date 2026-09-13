@@ -66,11 +66,38 @@ enum AX {
 
     private static var backoffs: [pid_t: Backoff] = [:]
     private static let backoffLock = NSLock()
-    /// Uygulama başına tarama süresi bunu aşarsa yanıt vermiyor sayılır
-    /// (tek bir zaman aşımı ≈ `timeout` = 1 sn).
-    private static let slowThreshold: TimeInterval = 0.7
+    /// Tek bir AX çağrısı bu kadar sürerse uygulama yanıt vermiyor sayılır:
+    /// donmuş uygulama ilk çağrıda `timeout` (1 sn) zaman aşımına takılır.
+    /// Çok pencereli ama yanıt veren uygulamaların (Electron, tarayıcı)
+    /// toplam süresi bunu tetiklemez.
+    static let slowCallThreshold: TimeInterval = 0.5
+    /// Emniyet: tek çağrılar kısa olsa da uygulamanın toplamı bunu aşarsa
+    /// yine atlanır (tarama bir uygulamaya kilitlenmesin).
+    static let slowTotalThreshold: TimeInterval = 4
     private static let minBackoff: TimeInterval = 2
     private static let maxBackoff: TimeInterval = 30
+
+    /// Bir uygulamanın taramadaki AX çağrı süreleri.
+    struct AppTiming: Equatable {
+        var total: TimeInterval = 0
+        /// En uzun tek çağrı.
+        var maxCall: TimeInterval = 0
+
+        /// Çağrıyı çalıştırıp süresini işler.
+        mutating func measure<T>(_ call: () -> T) -> T {
+            let started = Date()
+            let value = call()
+            let elapsed = Date().timeIntervalSince(started)
+            total += elapsed
+            maxCall = max(maxCall, elapsed)
+            return value
+        }
+    }
+
+    /// Backoff kararı (saf): en uzun tek çağrı ya da toplam eşiği aştı mı.
+    static func isUnresponsive(maxSingleCall: TimeInterval, total: TimeInterval) -> Bool {
+        maxSingleCall >= slowCallThreshold || total >= slowTotalThreshold
+    }
 
     private static func isBackedOff(_ pid: pid_t, now: Date) -> Bool {
         backoffLock.lock(); defer { backoffLock.unlock() }
@@ -78,16 +105,35 @@ enum AX {
         return entry.until > now
     }
 
-    /// Uygulamanın bu taramada harcadığı süreyi kaydeder: yavaşsa
+    /// Uygulamanın bu taramadaki çağrı sürelerini kaydeder: yavaşsa
     /// atlama süresi başlar/uzar, hızlıysa kayıt silinir.
-    private static func note(pid: pid_t, name: String, seconds: TimeInterval, now: Date) {
+    private static func note(pid: pid_t, name: String, timing: AppTiming, now: Date) {
         backoffLock.lock(); defer { backoffLock.unlock() }
-        if seconds >= slowThreshold {
-            let delay = min((backoffs[pid]?.delay).map { $0 * 2 } ?? minBackoff, maxBackoff)
+        let previous = backoffs[pid]
+        if isUnresponsive(maxSingleCall: timing.maxCall, total: timing.total) {
+            let delay = min((previous?.delay).map { $0 * 2 } ?? minBackoff, maxBackoff)
             backoffs[pid] = Backoff(until: now.addingTimeInterval(delay), delay: delay, name: name)
+            if previous == nil {
+                Log.ax.notice("""
+                    \(name, privacy: .public) (pid \(pid)) yanıt vermiyor: en uzun çağrı \
+                    \(timing.maxCall, format: .fixed(precision: 2)) sn, toplam \
+                    \(timing.total, format: .fixed(precision: 2)) sn; \(delay, format: .fixed(precision: 0)) sn atlanacak
+                    """)
+            }
         } else {
             backoffs[pid] = nil
+            if previous != nil {
+                Log.ax.notice("\(name, privacy: .public) (pid \(pid)) yeniden yanıt veriyor")
+            }
         }
+    }
+
+    /// Süreç geneli varsayılan AX yanıt süresi. Sistem geneli öğeye
+    /// verilen değer, ayrıca ayarlanmamış bütün öğeler için geçerlidir
+    /// (`kAXWindows` ile gelen pencere öğeleri ~6 sn varsayılanı
+    /// kullanmasın). Router açılışta bir kez çağırır.
+    static func setGlobalTimeout(_ seconds: Float) {
+        AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), seconds)
     }
 
     /// Kapanmış uygulamaların kayıtlarını temizler.
@@ -172,40 +218,46 @@ enum AX {
     /// belirteçle üretilen öğe rol sorusuna yanıt vermese de listelenir
     /// (geçici pinli pencereler: kullanıcı onları işaretledi, başka
     /// masaüstündeyken de görünmeli).
+    /// `server`: aynı taramada zaten okunmuş pencere sunucusu listesi;
+    /// verilmezse burada okunur.
     static func allWindows(timeout: Float = 1.0,
-                           alwaysInclude: Set<CGWindowID> = []) -> [AXWindow] {
+                           alwaysInclude: Set<CGWindowID> = [],
+                           server: WindowServerList? = nil) -> [AXWindow] {
         var result: [AXWindow] = []
         var seen: Set<CGWindowID> = []
         let apps = runningApps()
         let now = Date()
         pruneBackoffs(running: Set(apps.map(\.pid)))
-        /// Bu taramada uygulama başına harcanan süre (yanıt vermeyeni bulmak için).
-        var spent: [pid_t: TimeInterval] = [:]
+        /// Bu taramada uygulama başına AX çağrı süreleri (yanıt vermeyeni bulmak için).
+        var timings: [pid_t: AppTiming] = [:]
         let active = apps.filter { !isBackedOff($0.pid, now: now) }
 
         // 1. Uygulamanın kendi listesi (görünen masaüstündekiler kesin).
         for app in active {
-            let started = Date()
-            defer { spent[app.pid, default: 0] += Date().timeIntervalSince(started) }
-            let appElement = AXUIElementCreateApplication(app.pid)
+            let pid = app.pid
+            let appElement = AXUIElementCreateApplication(pid)
             AXUIElementSetMessagingTimeout(appElement, timeout)
 
-            guard let windows: [AXUIElement] = attribute(appElement, kAXWindowsAttribute)
+            guard let windows: [AXUIElement] = timings[pid, default: AppTiming()]
+                .measure({ attribute(appElement, kAXWindowsAttribute) })
             else { continue }
 
             for element in windows {
-                guard isStandardWindow(element) else { continue }
-                let title: String = attribute(element, kAXTitleAttribute) ?? ""
+                guard timings[pid, default: AppTiming()].measure({ isStandardWindow(element) })
+                else { continue }
+                let title: String = timings[pid, default: AppTiming()]
+                    .measure({ attribute(element, kAXTitleAttribute) }) ?? ""
 
                 var windowID: CGWindowID = 0
                 guard let getWindowID,
-                      getWindowID(element, &windowID) == .success,
+                      timings[pid, default: AppTiming()]
+                        .measure({ getWindowID(element, &windowID) }) == .success,
                       windowID != 0, !seen.contains(windowID) else { continue }
                 seen.insert(windowID)
 
                 result.append(AXWindow(
                     id: windowID,
-                    pid: app.pid,
+                    pid: pid,
                     appName: app.name,
                     bundleID: app.bundleID,
                     title: title,
@@ -217,20 +269,22 @@ enum AX {
         //    pencere sunucusundan numaralarını alıp uzak belirteçle AX
         //    öğesi üret.
         let byPID = Dictionary(uniqueKeysWithValues: active.map { ($0.pid, $0) })
-        for info in windowServerWindows() {
+        for info in (server ?? windowServerList()).windows {
             guard !seen.contains(info.id), let app = byPID[info.pid],
                   let element = element(pid: app.pid, windowID: info.id)
             else { continue }
-            let started = Date()
-            defer { spent[app.pid, default: 0] += Date().timeIntervalSince(started) }
+            let pid = app.pid
             AXUIElementSetMessagingTimeout(element, timeout)
-            guard alwaysInclude.contains(info.id) || isStandardWindow(element, strict: true)
+            guard alwaysInclude.contains(info.id)
+                    || timings[pid, default: AppTiming()]
+                        .measure({ isStandardWindow(element, strict: true) })
             else { continue }
-            let title: String = attribute(element, kAXTitleAttribute) ?? info.name
+            let title: String = timings[pid, default: AppTiming()]
+                .measure({ attribute(element, kAXTitleAttribute) }) ?? info.name
             seen.insert(info.id)
             result.append(AXWindow(
                 id: info.id,
-                pid: app.pid,
+                pid: pid,
                 appName: app.name,
                 bundleID: app.bundleID,
                 title: title,
@@ -238,7 +292,7 @@ enum AX {
         }
 
         for app in active {
-            note(pid: app.pid, name: app.name, seconds: spent[app.pid] ?? 0, now: now)
+            note(pid: app.pid, name: app.name, timing: timings[app.pid] ?? AppTiming(), now: now)
         }
         return result
     }
@@ -260,50 +314,55 @@ enum AX {
         return true
     }
 
-    private struct ServerWindow {
+    struct ServerWindow {
         let id: CGWindowID
         let pid: pid_t
         let name: String
     }
 
-    /// Pencere sunucusunun bildiği, bütün masaüstlerindeki normal katman
-    /// (0) pencereleri. Yardımcı/gizli pencereler AX rol denetimiyle elenir.
-    private static func windowServerWindows() -> [ServerWindow] {
+    /// Tek bir `CGWindowListCopyWindowInfo` okumasından türeyen iki görünüm.
+    struct WindowServerList {
+        /// Bütün masaüstlerindeki normal katman (0) pencereleri: saydam
+        /// (alpha 0) ve 50 pt'den küçük olanlar elenmiş. Yardımcı/gizli
+        /// pencereler sonra AX rol denetimiyle elenir.
+        let windows: [ServerWindow]
+        /// Sunucunun şu an bildiği bütün pencere numaraları (katman/boyut
+        /// süzgeci yok) → sahip pid. Bir pencerenin hâlâ var olup olmadığını
+        /// AX listesinden bağımsız söyler; AX listesi başka masaüstündeki
+        /// pencereleri anlık kaçırabilir, sunucu kaçırmaz.
+        let live: [CGWindowID: pid_t]
+    }
+
+    /// Pencere sunucusunu bir kez okur; tarama başına tek çağrı yeter.
+    static func windowServerList() -> WindowServerList {
         guard let list = CGWindowListCopyWindowInfo(
             [.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
-        else { return [] }
-        return list.compactMap { entry in
-            guard let layer = entry[kCGWindowLayer as String] as? Int, layer == 0,
-                  let number = entry[kCGWindowNumber as String] as? UInt32,
+        else { return WindowServerList(windows: [], live: [:]) }
+        var windows: [ServerWindow] = []
+        var live: [CGWindowID: pid_t] = [:]
+        for entry in list {
+            guard let number = entry[kCGWindowNumber as String] as? UInt32,
                   let pid = entry[kCGWindowOwnerPID as String] as? Int32
-            else { return nil }
-            if let alpha = entry[kCGWindowAlpha as String] as? Double, alpha == 0 { return nil }
+            else { continue }
+            live[number] = pid
+
+            guard let layer = entry[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
+            if let alpha = entry[kCGWindowAlpha as String] as? Double, alpha == 0 { continue }
             if let bounds = entry[kCGWindowBounds as String] as? [String: Any],
                let w = bounds["Width"] as? Double, let h = bounds["Height"] as? Double,
                w < 50 || h < 50 {
-                return nil
+                continue
             }
             let name = entry[kCGWindowName as String] as? String ?? ""
-            return ServerWindow(id: number, pid: pid, name: name)
+            windows.append(ServerWindow(id: number, pid: pid, name: name))
         }
+        return WindowServerList(windows: windows, live: live)
     }
 
-    /// Pencere sunucusunun şu an bildiği bütün pencere numaraları (tüm
-    /// masaüstleri, katman/boyut süzgeci yok) → sahip pid. Bir pencerenin
-    /// hâlâ var olup olmadığını AX listesinden bağımsız söyler; AX listesi
-    /// başka masaüstündeki pencereleri anlık kaçırabilir, sunucu kaçırmaz.
+    /// Pencere sunucusunun şu an bildiği bütün pencere numaraları → sahip
+    /// pid (bkz. `WindowServerList.live`). Açılışta oturum pinleri için.
     static func liveWindowIDs() -> [CGWindowID: pid_t] {
-        guard let list = CGWindowListCopyWindowInfo(
-            [.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
-        else { return [:] }
-        var result: [CGWindowID: pid_t] = [:]
-        for entry in list {
-            if let number = entry[kCGWindowNumber as String] as? UInt32,
-               let pid = entry[kCGWindowOwnerPID as String] as? Int32 {
-                result[number] = pid
-            }
-        }
-        return result
+        windowServerList().live
     }
 
     static func isMinimized(_ window: AXWindow) -> Bool {
