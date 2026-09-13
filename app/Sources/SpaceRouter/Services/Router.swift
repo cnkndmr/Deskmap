@@ -212,9 +212,11 @@ final class Router: ObservableObject {
 
     /// Masaüstü sıralaması değişince bu ekrandaki oturum pinlerinin masaüstü
     /// numaraları da kurallarla aynı haritaya göre kayar (moddan bağımsız).
-    func moveDesktop(on screen: String, from: Int, to: Int, count: Int) {
+    /// En az bir pin kaydıysa true döner (geri alma kaydı için).
+    @discardableResult
+    func moveDesktop(on screen: String, from: Int, to: Int, count: Int) -> Bool {
         guard let mapping = Document.desktopMapping(from: from, to: to, count: count)
-        else { return }
+        else { return false }
         var changed = false
         for (id, record) in sessionRecords
         where record.destination.screen == screen {
@@ -231,6 +233,7 @@ final class Router: ObservableObject {
             saveSessionPins()
             sweep()
         }
+        return changed
     }
 
     /// Açılışta: kayıtlı oturum pinlerinden penceresi hâlâ (aynı pid ile)

@@ -308,6 +308,8 @@ private struct DesktopRow: View {
 
     /// Satırı tutup sürüklemek: bırakılan masaüstü sırasına taşınır, o
     /// ekrandaki pinler yeniden numaralanır; router pencereleri taşır.
+    /// Geri alma belgeyle birlikte oturum pinlerini de ters taşımayla
+    /// (to → from, aynı satır sayısı) geri getirir.
     private var desktopDrag: some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
             .onChanged { value in
@@ -328,9 +330,14 @@ private struct DesktopRow: View {
                 case .rule, .pin: ui.panel = nil
                 default: break
                 }
-                store.moveDesktop(on: screen.id, from: desktop, to: to,
-                                  count: rowCount, mode: mode)
-                router.moveDesktop(on: screen.id, from: desktop, to: to, count: rowCount)
+                let router = router
+                let screenID = screen.id, from = desktop, count = rowCount
+                let sessionMoved = router.moveDesktop(on: screenID, from: from, to: to, count: count)
+                store.moveDesktop(
+                    on: screenID, from: from, to: to, count: count, mode: mode,
+                    undoingSessionPins: sessionMoved
+                        ? { router.moveDesktop(on: screenID, from: to, to: from, count: count) }
+                        : nil)
             }
     }
 

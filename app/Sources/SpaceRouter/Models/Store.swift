@@ -372,10 +372,19 @@ struct ProfileExport: Codable {
 @MainActor
 final class Store: ObservableObject {
 
-    @Published var document = Document()
+    @Published var document = Document() {
+        didSet {
+            // Kayıttan sonra belge başka yoldan değiştiyse (yeni pin, düzen
+            // adımı, profil geçişi, URL komutu) geri alma o değişikliği de
+            // silerdi; kayıt düşer. Kaydı bırakan işlemin kendi değişimi
+            // `recording` içinde kayıttan önce gerçekleşir, ona dokunmaz.
+            undoBuffer.invalidate(ifChangedFrom: document)
+        }
+    }
     @Published private(set) var lastError: String?
     /// Son yıkıcı işlemden önceki belge; alt çubuktaki "Geri al" bunu geri
-    /// yükler. Düzen adımları ve profil geçişi kaydedilmez.
+    /// yükler. Düzen adımları ve profil geçişi kaydedilmez; araya girerlerse
+    /// bekleyen kaydı düşürürler.
     @Published private(set) var undoBuffer = UndoBuffer()
 
     /// Alt çubukta gösterilecek bir hata; bir sonraki başarılı kayıtta silinir.
@@ -484,23 +493,38 @@ final class Store: ObservableObject {
 
     // MARK: - Geri alma
 
-    /// `change` belgeyi gerçekten değiştirdiyse önceki hâli `label` ile
-    /// saklar; etkisiz çağrılar (olmayan kural, son profil) kayıt bırakmaz.
-    private func recording(_ label: String, _ change: () -> Void) {
+    /// `change` belgeyi gerçekten değiştirdiyse önceki ve sonraki hâli
+    /// `label` ile saklar; etkisiz çağrılar (olmayan kural, son profil) kayıt
+    /// bırakmaz. `companion`: belge dışındaki durumu (oturum pinleri) geri
+    /// alan kapanış; verilmişse belge değişmese de kayıt bırakılır (yalnızca
+    /// oturum pinleri kaymış olabilir).
+    private func recording(_ label: String, companion: (() -> Void)? = nil,
+                           _ change: () -> Void) {
         let before = document
         change()
-        if document != before { undoBuffer.record(label, document: before) }
+        if document != before || companion != nil {
+            undoBuffer.record(label, before: before, after: document, companion: companion)
+        }
     }
 
-    /// Son yıkıcı işlemi geri alır: saklanan belge tek atamayla geri gelir.
-    /// Açık/kapalı anahtarı ve o arada tanınan ekranlar işlemle ilgisiz
-    /// olduğu için şu anki değerleriyle korunur.
+    /// Belgeye dokunmayan ama geri alınabilir olması istenen işlem (geçici
+    /// pinin sürüklenmesi): yalnızca eşlik kapanışı saklanır. Belge sonradan
+    /// değişirse bu kayıt da düşer.
+    func recordSessionChange(_ label: String, undo companion: @escaping () -> Void) {
+        undoBuffer.record(label, before: document, after: document, companion: companion)
+    }
+
+    /// Son yıkıcı işlemi geri alır: saklanan belge tek atamayla geri gelir,
+    /// ardından eşlik kapanışı (oturum pinleri) çalışır. Açık/kapalı
+    /// anahtarı ve o arada tanınan ekranlar işlemle ilgisiz olduğu için şu
+    /// anki değerleriyle korunur.
     func undo() {
         guard let entry = undoBuffer.take() else { return }
-        var restored = entry.document
+        var restored = entry.before
         restored.enabled = document.enabled
         restored.screens = document.screens
-        document = restored
+        if restored != document { document = restored }
+        entry.companion?()
     }
 
     // MARK: - Kurallar
@@ -538,11 +562,21 @@ final class Store: ObservableObject {
     }
 
     /// Pinler: aynı anahtarlı (uygulama + parçalar) kural varsa onun bu
-    /// moddaki hedefi güncellenir, yoksa yeni kural eklenir. Kural kimliği
-    /// döner.
+    /// moddaki hedefi güncellenir (mevcut hedef eziliyorsa geri alınabilir),
+    /// yoksa yeni kural eklenir. Kural kimliği döner.
     @discardableResult
     func pin(_ draft: Rule, destination: Destination, mode: Mode) -> String {
-        document.pin(draft, destination: destination, mode: mode)
+        // Yeni kural ya da bu modda henüz hedefi olmayan kural: ezilen bir
+        // şey yok, kayıt gerekmez (bekleyen kaydı belge değişimi düşürür).
+        guard let existing = document.rules.first(where: { $0.sameKey(as: draft) }),
+              existing[mode] != nil else {
+            return document.pin(draft, destination: destination, mode: mode)
+        }
+        var id = existing.id
+        recording("Pin güncellendi") {
+            id = document.pin(draft, destination: destination, mode: mode)
+        }
+        return id
     }
 
     /// Kuralın başlık parçalarını değiştirir (geri alınabilir). Başka bir
@@ -565,8 +599,11 @@ final class Store: ObservableObject {
 
     /// Bir ekrandaki masaüstünü listede başka sıraya taşır; o ekranın bu
     /// moddaki bütün pinlerinin masaüstü numaraları buna göre kayar.
-    func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode) {
-        recording("Masaüstü sırası değişti") {
+    /// `undoingSessionPins`: oturum pinleri de kaydıysa onları geri taşıyan
+    /// kapanış (Router'ın ters taşıması); geri almada belgeyle birlikte çalışır.
+    func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode,
+                     undoingSessionPins companion: (() -> Void)? = nil) {
+        recording("Masaüstü sırası değişti", companion: companion) {
             document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode)
         }
     }

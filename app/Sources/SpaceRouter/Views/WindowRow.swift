@@ -157,9 +157,20 @@ struct WindowRow: View {
                 case .desktop(let screen, let desktop):
                     let placement = Router.Placement(screen: screen, desktop: desktop)
                     if let current = sessionPin {
-                        // Oturum pini: hedef doğrudan güncellenir.
-                        router.pinSession(window.id, destination: Destination(
-                            screen: screen, desktop: desktop, layout: current.layout))
+                        // Oturum pini: hedef doğrudan güncellenir; geri alma
+                        // pin hâlâ duruyorsa eski hedefe döndürür (pencere
+                        // kapanıp pin düştüyse dokunmaz).
+                        let next = Destination(screen: screen, desktop: desktop,
+                                               layout: current.layout)
+                        router.pinSession(window.id, destination: next)
+                        if next != current {
+                            let router = router, id = window.id
+                            store.recordSessionChange("Geçici pin taşındı") {
+                                if router.sessionPins[id] != nil {
+                                    router.pinSession(id, destination: current)
+                                }
+                            }
+                        }
                         ui.panel = nil
                     } else if let rule = pinnedRule, let current = rule[mode] {
                         // Pinli pencere: hedef doğrudan güncellenir (geri alınabilir).

@@ -31,6 +31,27 @@ struct DocumentOperationsTests {
         #expect(Document.desktopMapping(from: 1, to: 0, count: 3) == nil)
     }
 
+    /// Geri alma masaüstü taşımasını ters taşımayla (to → from, aynı satır
+    /// sayısı) geri getirir; Store belgeyi yükler, Router oturum pinlerini
+    /// bu ters haritayla kaydırır. İki harita art arda birim olmalı.
+    @Test func desktopMappingInverseRestoresIdentity() {
+        for count in 1...5 {
+            for from in 1...count {
+                for to in 1...(count + 2) where to != from {
+                    let forward = Document.desktopMapping(from: from, to: to, count: count)
+                    let inverse = Document.desktopMapping(from: to, to: from, count: count)
+                    #expect(forward != nil && inverse != nil)
+                    guard let forward, let inverse else { continue }
+                    #expect(Set(forward.keys) == Set(inverse.keys),
+                            "\(from)→\(to), \(count) satır")
+                    for (old, new) in forward {
+                        #expect(inverse[new] == old, "\(from)→\(to), \(count) satır: \(old)")
+                    }
+                }
+            }
+        }
+    }
+
     @Test func moveDesktopShiftsOnlyMatchingScreenAndMode() {
         var doc = Document()
         doc.rules = [
