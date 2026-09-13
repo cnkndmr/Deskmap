@@ -16,12 +16,12 @@ struct WindowRow: View {
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var ui: UIState
 
-    /// Bu pencereye uyan ve bu modda hedefi olan kural.
+    /// Bu pencereye uyan ve bu modda hedefi olan kural; router ile aynı
+    /// seçim. Oturum pini ayrı tutulduğu için burada verilmez.
     private var pinnedRule: Rule? {
-        store.document.rules.bySpecificity.first {
-            $0[mode] != nil && $0.matches(bundleID: window.bundleID,
-                                          appName: window.appName, title: window.title)
-        }
+        Routing.select(rules: store.document.rules, sessionPins: [:], mode: mode,
+                       windowID: window.id, bundleID: window.bundleID,
+                       appName: window.appName, title: window.title)?.rule
     }
 
     /// Bu pencerenin kimliğine bağlı oturum pini (kalıcı kuraldan önce gelir).

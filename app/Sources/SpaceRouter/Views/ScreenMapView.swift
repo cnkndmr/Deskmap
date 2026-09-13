@@ -332,12 +332,12 @@ private struct DesktopRow: View {
         }
     }
 
+    /// Oturum pini ya da bu modda hedefi olan bir kural var mı (router ile
+    /// aynı seçim).
     private func isPinned(_ window: Router.WindowSnapshot) -> Bool {
-        if router.sessionPins[window.id] != nil { return true }
-        return store.document.rules.contains {
-            $0[mode] != nil && $0.matches(bundleID: window.bundleID,
-                                          appName: window.appName, title: window.title)
-        }
+        Routing.select(rules: store.document.rules, sessionPins: router.sessionPins,
+                       mode: mode, windowID: window.id, bundleID: window.bundleID,
+                       appName: window.appName, title: window.title) != nil
     }
 }
 
