@@ -140,10 +140,46 @@ final class SkyLight {
         Int(spaceGetType?(connection, space) ?? 0)
     }
 
+    /// `displaySpaces` sonucundan space kimliği → türü haritası. Bir tarama
+    /// boyunca `type(of:)` IPC'si yerine bu harita kullanılır; listede
+    /// olmayan (nadir) kimlikler için `type(of:)` çağrılır.
+    static func spaceTypes(of displays: [DisplaySpaces]) -> [UInt64: Int] {
+        var types: [UInt64: Int] = [:]
+        for display in displays {
+            for space in display.spaces where types[space.id] == nil {
+                types[space.id] = space.type
+            }
+        }
+        return types
+    }
+
     // MARK: - Taşıma
 
+    /// Bu macOS'ta `move(window:to:)` hangi yolu kullanır (yalnızca günlük için).
+    var movePath: String {
+        if performBridgedOperation != nil,
+           NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation") != nil {
+            return "SLSBridgedMoveWindowsToManagedSpaceOperation"
+        }
+        if Self.needsCompatIDWorkaround, spaceSetCompatID != nil, setWindowListWorkspace != nil {
+            return "SLSSpaceSetCompatID + SLSSetWindowListWorkspace"
+        }
+        if moveWindowsToManagedSpace != nil { return "SLSMoveWindowsToManagedSpace" }
+        return "yok"
+    }
+
+    /// macOS 12.7 / 13.6 / 14.5 ve sonrası `SLSMoveWindowsToManagedSpace`
+    /// yerine CompatID yöntemini gerektirir.
+    private static let needsCompatIDWorkaround: Bool = {
+        let version = ProcessInfo.processInfo.operatingSystemVersion
+        return (version.majorVersion == 12 && version.minorVersion >= 7)
+            || (version.majorVersion == 13 && version.minorVersion >= 6)
+            || (version.majorVersion == 14 && version.minorVersion >= 5)
+            || version.majorVersion >= 15
+    }()
+
     /// Pencereyi verilen masaüstüne taşır. Sonuç doğrulanmaz; çağıran
-    /// `spaces(of:)` ile kontrol edebilir.
+    /// `spaces(of:)` ile kontrol edebilir. Hiçbir taşıma yolu yoksa false.
     @discardableResult
     func move(window windowID: CGWindowID, to space: UInt64) -> Bool {
         var wid = windowID
@@ -163,14 +199,7 @@ final class SkyLight {
             }
         }
 
-        let version = ProcessInfo.processInfo.operatingSystemVersion
-        let needsWorkaround =
-            (version.majorVersion == 12 && version.minorVersion >= 7)
-            || (version.majorVersion == 13 && version.minorVersion >= 6)
-            || (version.majorVersion == 14 && version.minorVersion >= 5)
-            || version.majorVersion >= 15
-
-        if needsWorkaround,
+        if Self.needsCompatIDWorkaround,
            let setCompat = spaceSetCompatID,
            let setWorkspace = setWindowListWorkspace {
             let tag: Int32 = 0x7961_6265
