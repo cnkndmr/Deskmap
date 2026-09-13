@@ -14,6 +14,7 @@ struct WindowRow: View {
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var router: Router
+    @EnvironmentObject private var screens: ScreenService
     @EnvironmentObject private var ui: UIState
 
     /// Bu pencereye uyan ve bu modda hedefi olan kural; router ile aynı
@@ -38,10 +39,12 @@ struct WindowRow: View {
         sessionPin ?? pinnedRule?[mode]
     }
     private var pinnedLayout: WindowLayout? { pinnedDestination?.layout }
-    /// Hedef masaüstü bu ekranda yoksa router'ın kırptığı sayı.
+    /// Hedef masaüstü bu ekranda yoksa router'ın kırptığı sayı (canlı
+    /// pencereler yalnızca şu anki modda listelenir; yine de mod denetlenir).
     private var clampedDesktop: Int? {
         pinnedDestination.flatMap {
-            MissingDesktopBadge.clamped(for: $0, desktopCounts: ui.desktopCounts)
+            MissingDesktopBadge.clamped(for: $0, desktopCounts: ui.desktopCounts,
+                                        isLive: mode == screens.mode)
         }
     }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .window(window.id) }

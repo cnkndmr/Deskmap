@@ -15,10 +15,13 @@ struct RuleChip: View {
     var shadowedBy: String?
 
     @EnvironmentObject private var store: Store
+    @EnvironmentObject private var screens: ScreenService
     @EnvironmentObject private var ui: UIState
 
     private var isSelected: Bool { ui.panel == .rule(rule.id) }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .rule(rule.id) }
+    /// Harita şu anki modu gösteriyor mu? Eksik masaüstü rozeti yalnızca o zaman.
+    private var isLive: Bool { mode == screens.mode }
 
     var body: some View {
         HStack(spacing: 5) {
@@ -32,7 +35,8 @@ struct RuleChip: View {
                 .truncationMode(.middle)
             if let destination = rule[mode] {
                 if let real = MissingDesktopBadge.clamped(for: destination,
-                                                          desktopCounts: ui.desktopCounts) {
+                                                          desktopCounts: ui.desktopCounts,
+                                                          isLive: isLive) {
                     MissingDesktopBadge(wanted: destination.desktop, real: real)
                 }
                 LayoutGlyph(layout: destination.layout, size: CGSize(width: 14, height: 10))

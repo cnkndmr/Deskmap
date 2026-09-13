@@ -26,8 +26,12 @@ struct MissingDesktopBadge: View {
         return realCount
     }
 
-    /// Hedefin ekranı için `desktopCounts`'tan karar.
-    static func clamped(for destination: Destination, desktopCounts: [String: Int]) -> Int? {
-        clamped(wanted: destination.desktop, realCount: desktopCounts[destination.screen])
+    /// Hedefin ekranı için `desktopCounts`'tan karar. `desktopCounts` şu an
+    /// bağlı ekranları anlatır ve router yalnızca şu anki modda kırpar; harita
+    /// diğer modu gösteriyorsa (`isLive` false) rozet yok.
+    static func clamped(for destination: Destination, desktopCounts: [String: Int],
+                        isLive: Bool) -> Int? {
+        guard isLive else { return nil }
+        return clamped(wanted: destination.desktop, realCount: desktopCounts[destination.screen])
     }
 }

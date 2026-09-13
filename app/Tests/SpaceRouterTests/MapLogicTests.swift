@@ -103,10 +103,22 @@ struct MapLogicTests {
     @Test func badgeLooksUpDestinationScreen() {
         let counts = ["builtin": 2, "external": 4]
         #expect(MissingDesktopBadge.clamped(
-            for: Destination(screen: "builtin", desktop: 3), desktopCounts: counts) == 2)
+            for: Destination(screen: "builtin", desktop: 3), desktopCounts: counts,
+            isLive: true) == 2)
         #expect(MissingDesktopBadge.clamped(
-            for: Destination(screen: "external", desktop: 3), desktopCounts: counts) == nil)
+            for: Destination(screen: "external", desktop: 3), desktopCounts: counts,
+            isLive: true) == nil)
         #expect(MissingDesktopBadge.clamped(
-            for: Destination(screen: "external-2", desktop: 9), desktopCounts: counts) == nil)
+            for: Destination(screen: "external-2", desktop: 9), desktopCounts: counts,
+            isLive: true) == nil)
+    }
+
+    @Test func badgeOnlyInLiveMode() {
+        // desktopCounts bağlı ekranları anlatır, router yalnızca şu anki modda
+        // kırpar; diğer modun haritasında aynı hedef rozet almaz.
+        let counts = ["builtin": 2]
+        let wanted = Destination(screen: "builtin", desktop: 5)
+        #expect(MissingDesktopBadge.clamped(for: wanted, desktopCounts: counts, isLive: true) == 2)
+        #expect(MissingDesktopBadge.clamped(for: wanted, desktopCounts: counts, isLive: false) == nil)
     }
 }
