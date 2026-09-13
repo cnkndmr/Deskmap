@@ -151,11 +151,12 @@ struct WindowRow: View {
                             screen: screen, desktop: desktop, layout: current.layout))
                         ui.panel = nil
                     } else if let rule = pinnedRule, let current = rule[mode] {
-                        // Pinli pencere: hedef doğrudan güncellenir.
-                        store.setDestination(
-                            Destination(screen: screen, desktop: desktop,
-                                        layout: current.layout),
-                            for: rule.id, mode: mode)
+                        // Pinli pencere: hedef doğrudan güncellenir (geri alınabilir).
+                        store.moveRule(
+                            rule.id,
+                            to: Destination(screen: screen, desktop: desktop,
+                                            layout: current.layout),
+                            mode: mode)
                         ui.panel = nil
                     } else if placement != window.placement {
                         // Pinsiz pencere: tek seferlik taşınır, kural yazılmaz.

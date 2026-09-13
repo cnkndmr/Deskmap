@@ -59,9 +59,10 @@ struct RuleChip: View {
                 switch target {
                 case .desktop(let screen, let desktop):
                     let layout = rule[mode]?.layout ?? .full
-                    store.setDestination(
-                        Destination(screen: screen, desktop: desktop, layout: layout),
-                        for: rule.id, mode: mode)
+                    store.moveRule(
+                        rule.id,
+                        to: Destination(screen: screen, desktop: desktop, layout: layout),
+                        mode: mode)
                 case .tray:
                     store.unpin(rule.id, mode: mode)
                 }

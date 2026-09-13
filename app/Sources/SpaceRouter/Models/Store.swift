@@ -355,6 +355,9 @@ final class Store: ObservableObject {
 
     @Published var document = Document()
     @Published private(set) var lastError: String?
+    /// Son yıkıcı işlemden önceki belge; alt çubuktaki "Geri al" bunu geri
+    /// yükler. Düzen adımları ve profil geçişi kaydedilmez.
+    @Published private(set) var undoBuffer = UndoBuffer()
 
     /// Alt çubukta gösterilecek bir hata; bir sonraki başarılı kayıtta silinir.
     func report(_ message: String) { lastError = message }
@@ -460,6 +463,27 @@ final class Store: ObservableObject {
         }
     }
 
+    // MARK: - Geri alma
+
+    /// `change` belgeyi gerçekten değiştirdiyse önceki hâli `label` ile
+    /// saklar; etkisiz çağrılar (olmayan kural, son profil) kayıt bırakmaz.
+    private func recording(_ label: String, _ change: () -> Void) {
+        let before = document
+        change()
+        if document != before { undoBuffer.record(label, document: before) }
+    }
+
+    /// Son yıkıcı işlemi geri alır: saklanan belge tek atamayla geri gelir.
+    /// Açık/kapalı anahtarı ve o arada tanınan ekranlar işlemle ilgisiz
+    /// olduğu için şu anki değerleriyle korunur.
+    func undo() {
+        guard let entry = undoBuffer.take() else { return }
+        var restored = entry.document
+        restored.enabled = document.enabled
+        restored.screens = document.screens
+        document = restored
+    }
+
     // MARK: - Kurallar
 
     func add(_ rule: Rule) {
@@ -471,7 +495,9 @@ final class Store: ObservableObject {
     }
 
     func remove(_ id: String) {
-        document.rules.removeAll { $0.id == id }
+        recording("Pin silindi") {
+            document.rules.removeAll { $0.id == id }
+        }
     }
 
     func rule(_ id: String) -> Rule? {
@@ -479,8 +505,17 @@ final class Store: ObservableObject {
     }
 
     /// Bir kuralın verilen moddaki hedefini değiştirir (nil = atanmamış).
+    /// Düzen adımları buradan geçer; geri alma kaydı bırakmaz.
     func setDestination(_ destination: Destination?, for id: String, mode: Mode) {
         document.setDestination(destination, for: id, mode: mode)
+    }
+
+    /// Sürükleyip bırakma ile hedef değişimi: `setDestination` gibi, ama
+    /// geri alınabilir (yanlış masaüstüne bırakılan pin tek tıkla döner).
+    func moveRule(_ id: String, to destination: Destination, mode: Mode) {
+        recording("Pin taşındı") {
+            document.setDestination(destination, for: id, mode: mode)
+        }
     }
 
     /// Pinler: aynı anahtarlı (uygulama + parçalar) kural varsa onun bu
@@ -493,13 +528,17 @@ final class Store: ObservableObject {
 
     /// Bu moddaki hedefi kaldırır; kuralın hiçbir hedefi kalmazsa silinir.
     func unpin(_ id: String, mode: Mode) {
-        document.unpin(id, mode: mode)
+        recording("Pin kaldırıldı") {
+            document.unpin(id, mode: mode)
+        }
     }
 
     /// Bir ekrandaki masaüstünü listede başka sıraya taşır; o ekranın bu
     /// moddaki bütün pinlerinin masaüstü numaraları buna göre kayar.
     func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode) {
-        document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode)
+        recording("Masaüstü sırası değişti") {
+            document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode)
+        }
     }
 
     // MARK: - Profiller
@@ -526,7 +565,10 @@ final class Store: ObservableObject {
 
     /// Profili siler; son profil silinemez. Aktif siliniyorsa ilk kalana geçilir.
     func deleteProfile(_ id: String) {
-        document.deleteProfile(id)
+        let name = profiles.first { $0.id == id }?.name ?? ""
+        recording("Profil silindi: \(name)") {
+            document.deleteProfile(id)
+        }
     }
 
     // MARK: - Dışa / içe aktarma

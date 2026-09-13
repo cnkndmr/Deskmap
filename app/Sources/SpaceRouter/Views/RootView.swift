@@ -21,6 +21,9 @@ struct RootView: View {
     @State private var loginStatus: SMAppService.Status = SMAppService.mainApp.status
     /// Sürükleme sırasında gelen tarama sonucu; sürükleme bitince uygulanır.
     @State private var pendingWindows: [Router.WindowSnapshot]?
+    /// Alt çubuktaki süreli iletiler ("Geri al") için saat; yalnızca bir
+    /// ileti düşeceği anda yenilenir, sürekli zamanlayıcı yok.
+    @State private var now = Date()
 
     var body: some View {
         VStack(spacing: 0) {
@@ -117,6 +120,25 @@ struct RootView: View {
                 ui.panel = nil
             }
         }
+        .task(id: nextFooterDeadline) {
+            // Süreli ileti düşeceği anda saati ilerlet; sonraki süre için
+            // kimlik değişir ve görev yeniden kurulur.
+            guard let deadline = nextFooterDeadline else { return }
+            let delay = deadline.timeIntervalSinceNow
+            if delay > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            }
+            guard !Task.isCancelled else { return }
+            now = Date()
+        }
+    }
+
+    /// Alt çubuktaki süreli iletilerden ilk düşecek olanın zamanı.
+    private var nextFooterDeadline: Date? {
+        [store.undoBuffer.expiry]
+            .compactMap { $0 }
+            .filter { $0 > now }
+            .min()
     }
 
     private func syncScreens() {
@@ -216,6 +238,16 @@ struct RootView: View {
                           systemImage: "hourglass")
                         .foregroundStyle(.orange)
                         .help("Uygulama Accessibility sorularına yanıt vermedi (donmuş ya da hata ayıklayıcıda). Yanıt verince otomatik olarak yeniden listelenir.")
+                } else if let entry = store.undoBuffer.entry, store.undoBuffer.isVisible(at: now) {
+                    HStack(spacing: 4) {
+                        Label(entry.label, systemImage: "arrow.uturn.backward")
+                        Text("·")
+                        Button("Geri al") { store.undo() }
+                            .buttonStyle(.link)
+                            .controlSize(.small)
+                            .keyboardShortcut("z", modifiers: .command)
+                            .help("Son işlemi geri al (⌘Z)")
+                    }
                 } else if let action = router.status.lastAction {
                     Label(action, systemImage: "arrow.turn.down.right")
                 } else {
