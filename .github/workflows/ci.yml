@@ -14,17 +14,17 @@ concurrency:
 
 jobs:
   build:
-    name: Swift derlemesi ve testler
+    name: Swift build and tests
     runs-on: macos-15
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Swift paketi derlemesi
+      - name: Build Swift package
         run: swift build --package-path app -c release
 
-      - name: Birim testleri
+      - name: Unit tests
         run: swift test --package-path app
 
-      - name: .app paketi
+      - name: Build .app bundle
         run: ./scripts/build-app.sh release

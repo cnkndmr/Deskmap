@@ -35,10 +35,10 @@ DMG="$DIST_DIR/$APP_NAME-$VERSION.dmg"
 info() { printf '\033[0;34m==>\033[0m %s\n' "$1"; }
 ok()   { printf '\033[0;32m  ✓\033[0m %s\n' "$1"; }
 
-case "$FORMAT" in zip|dmg|both) ;; *) echo "FORMAT zip, dmg ya da both olmalı." >&2; exit 1;; esac
+case "$FORMAT" in zip|dmg|both) ;; *) echo "FORMAT must be zip, dmg or both." >&2; exit 1;; esac
 
 if [[ -n "$NOTARY_PROFILE" && "$SIGN_IDENTITY" == "-" ]]; then
-  echo "Noter için SIGN_IDENTITY (Developer ID Application) gerekir." >&2
+  echo "Notarization requires SIGN_IDENTITY (a Developer ID Application identity)." >&2
   exit 1
 fi
 
@@ -46,19 +46,19 @@ fi
 VERSION="$VERSION" UNIVERSAL=1 SIGN_IDENTITY="$SIGN_IDENTITY" \
   "$PROJECT_DIR/scripts/build-app.sh" release
 
-info "İmza doğrulanıyor"
+info "Verifying signature"
 codesign --verify --deep --strict "$APP_BUNDLE"
 ok "codesign OK ($(codesign -dv "$APP_BUNDLE" 2>&1 | sed -n 's/^Authority=//p' | head -1 || true))"
 
 # 2. Noter (yalnızca Developer ID ile).
 if [[ -n "$NOTARY_PROFILE" ]]; then
-  info "Noter için gönderiliyor ($NOTARY_PROFILE)"
+  info "Submitting for notarization ($NOTARY_PROFILE)"
   NOTARY_ZIP="$(mktemp -d)/$APP_NAME.zip"
   ditto -c -k --keepParent "$APP_BUNDLE" "$NOTARY_ZIP"
   xcrun notarytool submit "$NOTARY_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
   xcrun stapler staple "$APP_BUNDLE"
   rm -f "$NOTARY_ZIP"
-  ok "Noter onayı zımbalandı"
+  ok "Notarization ticket stapled"
 fi
 
 # 3. Paketle.
@@ -66,13 +66,13 @@ mkdir -p "$DIST_DIR"
 rm -f "$ZIP" "$DMG"
 
 if [[ "$FORMAT" == "zip" || "$FORMAT" == "both" ]]; then
-  info "ZIP oluşturuluyor"
+  info "Creating ZIP"
   ditto -c -k --keepParent "$APP_BUNDLE" "$ZIP"
   ok "$ZIP"
 fi
 
 if [[ "$FORMAT" == "dmg" || "$FORMAT" == "both" ]]; then
-  info "DMG oluşturuluyor"
+  info "Creating DMG"
   STAGE="$(mktemp -d)"
   cp -R "$APP_BUNDLE" "$STAGE/"
   ln -s /Applications "$STAGE/Applications"
@@ -90,9 +90,9 @@ fi
 
 cat <<NEXT
 
-Dağıtım paketi hazır (build/dist):
+Distribution package ready (build/dist):
 $(ls -lh "$DIST_DIR" | awk 'NR>1 {print "  " $5 "\t" $9}')
 
-Mimariler: $(lipo -archs "$APP_BUNDLE/Contents/MacOS/$APP_NAME")
-İmza:      $([[ "$SIGN_IDENTITY" == "-" ]] && echo "ad-hoc (alıcı sağ tık › Open ile açmalı)" || echo "$SIGN_IDENTITY")
+Architectures: $(lipo -archs "$APP_BUNDLE/Contents/MacOS/$APP_NAME")
+Signature:     $([[ "$SIGN_IDENTITY" == "-" ]] && echo "ad-hoc (recipients must right-click › Open the first time)" || echo "$SIGN_IDENTITY")
 NEXT

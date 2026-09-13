@@ -5,15 +5,15 @@ PROJECT := SpaceRouter
 .PHONY: help app run check test concurrency-check dist clean
 
 help:
-	@echo "make app        Menü çubuğu uygulamasını derle (build/SpaceRouter.app)"
-	@echo "make run        Derleyip çalıştır"
-	@echo "make check      Debug derlemesi"
-	@echo "make test       Birim testleri (swift test)"
+	@echo "make app        Build the menu bar app (build/SpaceRouter.app)"
+	@echo "make run        Build and open it"
+	@echo "make check      Debug build"
+	@echo "make test       Unit tests (swift test)"
 	@echo "make concurrency-check"
-	@echo "                Sıkı eşzamanlılık uyarıları (-strict-concurrency=complete; yalnızca rapor)"
-	@echo "make dist       Gönderilebilir paket: evrensel derleme + imza + zip (build/dist)"
+	@echo "                Strict concurrency warnings (-strict-concurrency=complete; report only)"
+	@echo "make dist       Distributable package: universal build + signing + zip (build/dist)"
 	@echo "                FORMAT=dmg|both  VERSION=x.y.z  SIGN_IDENTITY=...  NOTARY_PROFILE=..."
-	@echo "make clean      Derleme çıktılarını sil"
+	@echo "make clean      Delete build output"
 
 app:
 	@./scripts/build-app.sh release
@@ -36,12 +36,12 @@ concurrency-check:
 	    -Xswiftc -strict-concurrency=complete > app/.build/strict.log 2>&1 \
 	    || { cat app/.build/strict.log; exit 1; }
 	@grep -E ': warning: ' app/.build/strict.log | sort -u \
-	    || echo "Sıkı eşzamanlılık uyarısı yok."
-	@echo "Uyarı sayısı: $$(grep -E ': warning: ' app/.build/strict.log | sort -u | wc -l | tr -d ' ')"
+	    || echo "No strict concurrency warnings."
+	@echo "Warning count: $$(grep -E ': warning: ' app/.build/strict.log | sort -u | wc -l | tr -d ' ')"
 
 dist:
 	@./scripts/make-dist.sh
 
 clean:
 	@rm -rf build app/.build
-	@echo "Temizlendi."
+	@echo "Cleaned."

@@ -28,34 +28,34 @@ info() { printf '\033[0;34m==>\033[0m %s\n' "$1"; }
 ok()   { printf '\033[0;32m  ✓\033[0m %s\n' "$1"; }
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "Bu script yalnızca macOS üzerinde çalışır." >&2
+  echo "This script only runs on macOS." >&2
   exit 1
 fi
 
 if ! command -v swift >/dev/null 2>&1; then
-  echo "swift bulunamadı. Xcode Command Line Tools kurun:" >&2
+  echo "swift not found. Install the Xcode Command Line Tools:" >&2
   echo "  xcode-select --install" >&2
   exit 1
 fi
 
 if [[ "$UNIVERSAL" == "1" ]]; then
-  info "Swift paketi derleniyor ($CONFIGURATION, evrensel arm64+x86_64)"
+  info "Building Swift package ($CONFIGURATION, universal arm64+x86_64)"
   swift build --package-path "$PROJECT_DIR/app" -c "$CONFIGURATION" \
     --arch arm64 --arch x86_64
   BINARY="$(swift build --package-path "$PROJECT_DIR/app" -c "$CONFIGURATION" \
     --arch arm64 --arch x86_64 --show-bin-path)/$APP_NAME"
 else
-  info "Swift paketi derleniyor ($CONFIGURATION)"
+  info "Building Swift package ($CONFIGURATION)"
   swift build --package-path "$PROJECT_DIR/app" -c "$CONFIGURATION"
   BINARY="$PROJECT_DIR/app/.build/$CONFIGURATION/$APP_NAME"
 fi
 if [[ ! -f "$BINARY" ]]; then
-  echo "Derleme çıktısı bulunamadı: $BINARY" >&2
+  echo "Build output not found: $BINARY" >&2
   exit 1
 fi
-ok "İkili dosya hazır ($(lipo -archs "$BINARY" 2>/dev/null || echo '?'))"
+ok "Binary ready ($(lipo -archs "$BINARY" 2>/dev/null || echo '?'))"
 
-info ".app paketi oluşturuluyor"
+info "Creating .app bundle"
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_BUNDLE/Contents/MacOS" "$APP_BUNDLE/Contents/Resources"
 cp "$BINARY" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
@@ -64,7 +64,7 @@ cp "$BINARY" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 RESOURCES_DIR="$PROJECT_DIR/app/Resources"
 cp "$RESOURCES_DIR/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/"
 cp "$RESOURCES_DIR/MenuBarIcon.png" "$RESOURCES_DIR/MenuBarIcon@2x.png" "$APP_BUNDLE/Contents/Resources/"
-ok "Simgeler kopyalandı"
+ok "Icons copied"
 
 # Yerelleştirmeler: anahtarlar kaynakta İngilizce; tr.lproj Türkçe çeviriyi taşır,
 # en.lproj boştur ama paketin İngilizce yerelleştirmeyi bildirmesi için gerekir.
@@ -72,7 +72,7 @@ for lproj in "$RESOURCES_DIR"/*.lproj; do
   plutil -lint -s "$lproj"/*.strings
   cp -R "$lproj" "$APP_BUNDLE/Contents/Resources/"
 done
-ok "Yerelleştirmeler kopyalandı ($(cd "$RESOURCES_DIR" && ls -d *.lproj | sed 's/\.lproj//' | tr '\n' ' '))"
+ok "Localizations copied ($(cd "$RESOURCES_DIR" && ls -d *.lproj | sed 's/\.lproj//' | tr '\n' ' '))"
 
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -114,30 +114,30 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 </dict>
 </plist>
 PLIST
-ok "Info.plist yazıldı"
+ok "Info.plist written"
 
 if [[ "$SIGN_IDENTITY" == "-" ]]; then
-  info "Ad-hoc imzalanıyor"
+  info "Signing ad-hoc"
   codesign --force --sign - "$APP_BUNDLE" >/dev/null 2>&1 \
-    && ok "İmzalandı (ad-hoc)" \
-    || echo "  ! İmzalama atlandı (zorunlu değil)"
+    && ok "Signed (ad-hoc)" \
+    || echo "  ! Signing skipped (optional)"
 else
-  info "İmzalanıyor: $SIGN_IDENTITY"
+  info "Signing: $SIGN_IDENTITY"
   codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP_BUNDLE"
-  ok "İmzalandı"
+  ok "Signed"
 fi
 
 cat <<NEXT
 
-Hazır:  $APP_BUNDLE
+Ready:  $APP_BUNDLE
 
-Çalıştırmak için:
+To run it:
   open "$APP_BUNDLE"
 
-Kalıcı kurulum için:
+For a permanent install:
   cp -R "$APP_BUNDLE" /Applications/
 
-İlk açılışta Erişilebilirlik izni isteyecektir:
+On first launch it asks for Accessibility permission:
   System Settings > Privacy & Security > Accessibility
 
 NEXT
