@@ -187,15 +187,16 @@ struct RootView: View {
             .help(store.document.enabled ? "Yönlendirme açık" : "Yönlendirme duraklatıldı")
 
             Picker("", selection: $mode) {
-                ForEach(Mode.allCases) { candidate in
+                ForEach(Array(Mode.allCases.enumerated()), id: \.element) { index, candidate in
                     Image(systemName: candidate.symbol)
-                        .help(candidate.title)
+                        .help("\(candidate.title) (⌘\(index + 1))")
                         .tag(candidate)
                 }
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             .frame(width: 110)
+            .background(modeShortcuts)
 
             if mode == screens.mode {
                 Text("şu an")
@@ -221,8 +222,24 @@ struct RootView: View {
                 Image(systemName: "arrow.clockwise")
             }
             .buttonStyle(.borderless)
-            .help("Pinli pencereleri şimdi yerleştir")
+            .keyboardShortcut("r", modifiers: .command)
+            .help("Pinli pencereleri şimdi yerleştir (⌘R)")
         }
+    }
+
+    /// ⌘1 / ⌘2 seçicideki sırayla modu seçer. Görünmez, boyutsuz düğmeler;
+    /// pencere önde olduğu sürece kısayollar çalışır.
+    private var modeShortcuts: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(Mode.allCases.enumerated()), id: \.element) { index, candidate in
+                Button("") { mode = candidate }
+                    .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
+            }
+        }
+        .buttonStyle(.plain)
+        .opacity(0)
+        .frame(width: 0, height: 0)
+        .accessibilityHidden(true)
     }
 
     // MARK: - Alt çubuk
