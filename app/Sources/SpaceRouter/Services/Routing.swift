@@ -28,8 +28,17 @@ enum Routing {
         if let pinned = sessionPins[windowID] {
             return Match(destination: pinned, ruleID: sessionRuleID, rule: nil)
         }
+        // Başlık en fazla bir kez küçültülür (yalnızca başlığa bakan bir
+        // kural sırası gelirse); `Rule.matches` kararı aynı.
+        var loweredTitle: String?
+        func lowered() -> String {
+            if let loweredTitle { return loweredTitle }
+            let value = title.lowercased()
+            loweredTitle = value
+            return value
+        }
         guard let rule = rules.bySpecificity.first(where: {
-            $0[mode] != nil && $0.matches(bundleID: bundleID, appName: appName, title: title)
+            $0[mode] != nil && $0.matches(bundleID: bundleID, appName: appName, loweredTitle: lowered())
         }), let destination = rule[mode] else { return nil }
         return Match(destination: destination, ruleID: rule.id, rule: rule)
     }
