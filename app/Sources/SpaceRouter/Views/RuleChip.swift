@@ -30,8 +30,12 @@ struct RuleChip: View {
                 .font(.caption)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            if let layout = rule[mode]?.layout {
-                LayoutGlyph(layout: layout, size: CGSize(width: 14, height: 10))
+            if let destination = rule[mode] {
+                if let real = MissingDesktopBadge.clamped(for: destination,
+                                                          desktopCounts: ui.desktopCounts) {
+                    MissingDesktopBadge(wanted: destination.desktop, real: real)
+                }
+                LayoutGlyph(layout: destination.layout, size: CGSize(width: 14, height: 10))
                     .foregroundStyle(.secondary)
             }
         }

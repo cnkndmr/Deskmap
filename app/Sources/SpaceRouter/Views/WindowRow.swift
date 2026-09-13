@@ -33,9 +33,16 @@ struct WindowRow: View {
         if sessionPin != nil { return ui.panel == .session(window.id) }
         return pinnedRule.map { ui.panel == .rule($0.id) } ?? false
     }
-    /// Satırda gösterilen düzen: oturum pini varsa onun, yoksa kuralın.
-    private var pinnedLayout: WindowLayout? {
-        sessionPin?.layout ?? pinnedRule?[mode]?.layout
+    /// Satırda gösterilen hedef: oturum pini varsa onun, yoksa kuralın.
+    private var pinnedDestination: Destination? {
+        sessionPin ?? pinnedRule?[mode]
+    }
+    private var pinnedLayout: WindowLayout? { pinnedDestination?.layout }
+    /// Hedef masaüstü bu ekranda yoksa router'ın kırptığı sayı.
+    private var clampedDesktop: Int? {
+        pinnedDestination.flatMap {
+            MissingDesktopBadge.clamped(for: $0, desktopCounts: ui.desktopCounts)
+        }
     }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .window(window.id) }
 
@@ -60,6 +67,10 @@ struct WindowRow: View {
                 .truncationMode(.middle)
 
             Spacer(minLength: 4)
+
+            if let destination = pinnedDestination, let real = clampedDesktop {
+                MissingDesktopBadge(wanted: destination.desktop, real: real)
+            }
 
             if let layout = pinnedLayout {
                 LayoutGlyph(layout: layout, size: CGSize(width: 14, height: 10))

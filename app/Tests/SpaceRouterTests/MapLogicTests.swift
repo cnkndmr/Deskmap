@@ -3,7 +3,7 @@ import Foundation
 import Testing
 @testable import SpaceRouter
 
-/// Ekran haritasının saf kararları: gölgede kalan kurallar.
+/// Ekran haritasının saf kararları: gölgede kalan kurallar, eksik masaüstü rozeti.
 struct MapLogicTests {
 
     private let external = Destination(screen: "external", desktop: 2)
@@ -87,5 +87,26 @@ struct MapLogicTests {
             rules: [code("x", tokens: [], docked: builtin)], windows: [],
             sessionPins: [:], mode: .docked)
         #expect(noWindows == ScreenMapView.RuleShadows())
+    }
+
+    // MARK: Eksik masaüstü rozeti
+
+    @Test func badgeOnlyWhenTargetExceedsRealCountOnConnectedScreen() {
+        #expect(MissingDesktopBadge.clamped(wanted: 5, realCount: 3) == 3)
+        #expect(MissingDesktopBadge.clamped(wanted: 3, realCount: 3) == nil)
+        #expect(MissingDesktopBadge.clamped(wanted: 2, realCount: 3) == nil)
+        // Ekran bağlı değil (sayı bilinmiyor) ya da hiç masaüstü okunamadı: rozet yok.
+        #expect(MissingDesktopBadge.clamped(wanted: 5, realCount: nil) == nil)
+        #expect(MissingDesktopBadge.clamped(wanted: 5, realCount: 0) == nil)
+    }
+
+    @Test func badgeLooksUpDestinationScreen() {
+        let counts = ["builtin": 2, "external": 4]
+        #expect(MissingDesktopBadge.clamped(
+            for: Destination(screen: "builtin", desktop: 3), desktopCounts: counts) == 2)
+        #expect(MissingDesktopBadge.clamped(
+            for: Destination(screen: "external", desktop: 3), desktopCounts: counts) == nil)
+        #expect(MissingDesktopBadge.clamped(
+            for: Destination(screen: "external-2", desktop: 9), desktopCounts: counts) == nil)
     }
 }
