@@ -261,6 +261,9 @@ struct RootView: View {
 
     // MARK: - Alt çubuk
 
+    /// Soldaki durum metni, sağda (varsa) geri alma bağlantısı ve düğmeler.
+    /// Geri alma durum metninden bağımsızdır: hata ya da yanıt vermeyen
+    /// uygulama iletisi onu gizlemez; yer darsa önce durum metni kısalır.
     private var footer: some View {
         HStack(spacing: 10) {
             Group {
@@ -272,16 +275,6 @@ struct RootView: View {
                           systemImage: "hourglass")
                         .foregroundStyle(.orange)
                         .help("Uygulama Accessibility sorularına yanıt vermedi (donmuş ya da hata ayıklayıcıda). Yanıt verince otomatik olarak yeniden listelenir.")
-                } else if let entry = store.undoBuffer.entry, store.undoBuffer.isVisible(at: now) {
-                    HStack(spacing: 4) {
-                        Label(entry.label, systemImage: "arrow.uturn.backward")
-                        Text("·")
-                        Button("Geri al") { store.undo() }
-                            .buttonStyle(.link)
-                            .controlSize(.small)
-                            .keyboardShortcut("z", modifiers: .command)
-                            .help("Son işlemi geri al (⌘Z)")
-                    }
                 } else if let action = recentAction {
                     Label(action, systemImage: "arrow.turn.down.right")
                 } else if !SkyLight.shared.isAvailable {
@@ -299,11 +292,26 @@ struct RootView: View {
 
             Spacer()
 
+            if let entry = store.undoBuffer.entry, store.undoBuffer.isVisible(at: now) {
+                Button {
+                    undo()
+                } label: {
+                    Label("\(entry.label) · Geri al", systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.link)
+                .controlSize(.small)
+                .keyboardShortcut("z", modifiers: .command)
+                .lineLimit(1)
+                .layoutPriority(1)
+                .help("Son işlemi geri al (⌘Z)")
+            }
+
             Toggle("Girişte başlat", isOn: Binding(
                 get: { loginStatus == .enabled || loginStatus == .requiresApproval },
                 set: { setLaunchAtLogin($0) }))
                 .toggleStyle(.checkbox)
                 .controlSize(.small)
+                .layoutPriority(1)
                 .help(launchAtLoginHelp)
 
             if loginStatus == .requiresApproval {
@@ -321,10 +329,21 @@ struct RootView: View {
                 Image(systemName: "xmark.circle")
             }
             .buttonStyle(.borderless)
+            .layoutPriority(1)
             .help("Space Router'dan çık")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+    }
+
+    /// ⌘Z / "Geri al": odak bir metin alanındaysa (profil adı, yüzde
+    /// kutusu) geri alma o metnin geri almasıdır, belgeye dokunulmaz.
+    private func undo() {
+        if let editor = NSApp.keyWindow?.firstResponder as? NSTextView {
+            if let manager = editor.undoManager, manager.canUndo { manager.undo() }
+            return
+        }
+        store.undo()
     }
 
     // MARK: - Girişte başlat
