@@ -58,6 +58,48 @@ gidiyor, uygulama kısa süre görünüp kayboluyordu; ayar kapatılınca düzel
 Kalıcı kurulum: `cp -R build/SpaceRouter.app /Applications/` ve menüden
 **Girişte başlat**.
 
+## Otomasyon
+
+Uygulama `spacerouter://` URL şemasını tanır. Shortcuts, Raycast,
+Hammerspoon, Keyboard Maestro ya da terminal, bir URL açarak komut verir;
+uygulama kapalıysa macOS önce onu başlatır.
+
+| URL | Etkisi |
+|---|---|
+| `spacerouter://reapply` | Pinli pencereleri şimdi yerleştir (menüdeki ↻ ile aynı) |
+| `spacerouter://pause` | Yönlendirmeyi duraklat |
+| `spacerouter://resume` | Yönlendirmeyi sürdür |
+| `spacerouter://toggle` | Duraklat / sürdür |
+| `spacerouter://profile/<ad>` | Adı verilen profile geç (büyük/küçük harf önemsiz) |
+| `spacerouter://profile?name=<ad>` | Aynı; adında `/` olan profiller için |
+| `spacerouter://next-profile` | Sıradaki profile geç, sondan başa döner |
+
+Boşluk ve Türkçe karakterler yüzde kodlanır: `Ofis Masası` →
+`spacerouter://profile/Ofis%20Masas%C4%B1`. Bilinmeyen komut ya da
+profil, uygulamanın alt çubuğunda kırmızı bir hata olarak görünür; başka
+bildirim yoktur.
+
+Terminal:
+
+```
+open "spacerouter://profile/Ofis"
+open "spacerouter://reapply"
+```
+
+Shortcuts: **Open URLs** (URL'leri Aç) eylemine `spacerouter://profile/Ev`
+yazın; kısayola klavye kısayolu ya da Focus otomasyonu bağlayın.
+
+Hammerspoon:
+
+```lua
+hs.hotkey.bind({"cmd", "alt"}, "1", function()
+  hs.urlevent.openURL("spacerouter://profile/Ofis")
+end)
+```
+
+Raycast: **Quicklinks** ile `spacerouter://toggle` gibi bir bağlantı
+oluşturun.
+
 ## Nasıl çalışır
 
 ```
@@ -67,6 +109,7 @@ app/Sources/SpaceRouter/
 │   ├── Accessibility.swift   Pencere listesi, başlık, çerçeve (AX API)
 │   ├── SkyLight.swift        Space okuma/taşıma (özel SkyLight çağrıları)
 │   ├── ScreenService.swift   Bağlı ekranlar, dock durumu
+│   ├── URLCommands.swift     spacerouter:// komutları (ayrıştırma + çalıştırma)
 │   └── Router.swift          2 sn'de bir tarama, taşıma ve düzen
 └── Views/      Ekran haritası, sürüklenebilir çipler, pencere seçici
 ```

@@ -1,7 +1,10 @@
+import AppKit
 import SwiftUI
 
 @main
 struct SpaceRouterApp: App {
+
+    @NSApplicationDelegateAdaptor private var delegate: AppDelegate
 
     @StateObject private var store: Store
     @StateObject private var screens: ScreenService
@@ -10,11 +13,10 @@ struct SpaceRouterApp: App {
     @StateObject private var ui = UIState()
 
     init() {
-        let store = Store()
-        let screens = ScreenService()
-        _store = StateObject(wrappedValue: store)
-        _screens = StateObject(wrappedValue: screens)
-        _router = StateObject(wrappedValue: Router(store: store, screens: screens))
+        let model = AppModel.shared
+        _store = StateObject(wrappedValue: model.store)
+        _screens = StateObject(wrappedValue: model.screens)
+        _router = StateObject(wrappedValue: model.router)
     }
 
     var body: some Scene {
@@ -29,6 +31,41 @@ struct SpaceRouterApp: App {
             MenuBarLabel(paused: !store.document.enabled)
         }
         .menuBarExtraStyle(.window)
+    }
+}
+
+/// Uygulamanın çekirdek nesneleri: Store, ekranlar ve Router. Bir kez
+/// yaratılır; hem SwiftUI `App` (StateObject olarak sahiplenir) hem de
+/// `AppDelegate` (URL komutları) aynı örnekleri kullanır. Tek pencereli
+/// menü çubuğu uygulamasında ikinci bir sahne ya da örnek olmadığı için
+/// paylaşılan tekil, App'in delegate'e elden vermesinden daha sade ve
+/// StateObject anlamını bozmaz (App.init içinde yalnızca sarılır).
+@MainActor
+final class AppModel {
+
+    static let shared = AppModel()
+
+    let store: Store
+    let screens: ScreenService
+    let router: Router
+
+    private init() {
+        store = Store()
+        screens = ScreenService()
+        router = Router(store: store, screens: screens)
+    }
+}
+
+/// `spacerouter://` URL'lerini alır. LSUIElement menü çubuğu uygulamasında
+/// SwiftUI `.onOpenURL` güvenilir değil (sahne pencere değil); AppKit
+/// delegate'i Launch Services'ten gelen URL'leri her durumda alır,
+/// uygulama URL ile soğuk başlatılsa bile.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        let model = AppModel.shared
+        URLCommands.handle(urls, store: model.store, router: model.router)
     }
 }
 

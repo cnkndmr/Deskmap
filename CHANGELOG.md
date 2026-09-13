@@ -6,6 +6,13 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 
 ### Eklendi
 
+- `spacerouter://` URL şeması: `reapply`, `pause`, `resume`, `toggle`,
+  `profile/<ad>` (ya da `profile?name=<ad>`), `next-profile`. Shortcuts
+  "Open URLs", Raycast, Hammerspoon `hs.urlevent.openURL` ve terminalde
+  `open` ile kullanılır. URL'ler AppKit delegate'i (`application(_:open:)`)
+  üzerinden alınır; ayrıştırma saf `URLCommand.parse` işlevinde
+  (`Services/URLCommands.swift`). Bilinmeyen komut/profil alt çubukta
+  hata olarak gösterilir. README'de "Otomasyon" bölümü.
 - `make dist`: evrensel (arm64 + x86_64) derleme, imza, isteğe bağlı noter ve
   `build/dist/*.zip` / `.dmg` paketi (`scripts/make-dist.sh`,
   Finder için `scripts/make-dist.command`). `build-app.sh` artık `VERSION`,

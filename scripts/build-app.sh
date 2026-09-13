@@ -84,6 +84,18 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <!-- Menü çubuğu uygulaması: Dock'ta simge gösterme. -->
     <key>LSUIElement</key>               <true/>
     <key>NSHighResolutionCapable</key>   <true/>
+    <!-- Otomasyon: spacerouter://reapply, pause, resume, toggle, profile/<ad>, next-profile -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>    <string>Space Router</string>
+            <key>CFBundleTypeRole</key>   <string>Viewer</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>spacerouter</string>
+            </array>
+        </dict>
+    </array>
 </dict>
 </plist>
 PLIST
