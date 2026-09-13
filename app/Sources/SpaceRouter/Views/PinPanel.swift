@@ -63,6 +63,7 @@ struct PinPanel: View {
                 }
                 .buttonStyle(.borderless)
                 .help("Vazgeç (Esc)")
+                .accessibilityLabel("Vazgeç")
             }
 
             Picker("", selection: $kind) {

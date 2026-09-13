@@ -92,11 +92,8 @@ struct WindowRow: View {
                     .frame(width: 18, height: 18)
             }
             .buttonStyle(.plain)
-            .help(sessionPin != nil
-                  ? "Geçici pin (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın."
-                  : (isPinned
-                     ? "Pinli: \(pinnedRule?.title ?? ""). Kaldırmak için tıklayın."
-                     : "Bu masaüstüne pinle"))
+            .help(pinButtonHelp)
+            .accessibilityLabel(pinButtonHelp)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
@@ -125,6 +122,15 @@ struct WindowRow: View {
         .gesture(dragGesture, including: isGhost ? .none : .all)
         .help(isPinned ? "Tıklayarak düzeni değiştir, sürükleyerek pinin hedefini değiştir"
                        : "Sürükleyerek taşı (pinlenmez); sabitlemek için pin'e tıkla")
+    }
+
+    private var pinButtonHelp: String {
+        if sessionPin != nil {
+            return "Geçici pin (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın."
+        }
+        return isPinned
+            ? "Pinli: \(pinnedRule?.title ?? ""). Kaldırmak için tıklayın."
+            : "Bu masaüstüne pinle"
     }
 
     private func togglePin() {

@@ -34,6 +34,7 @@ struct LayoutEditor: View {
                         }
                         .buttonStyle(.plain)
                         .help(preset.label)
+                        .accessibilityLabel(preset.label)
                     }
                 }
 

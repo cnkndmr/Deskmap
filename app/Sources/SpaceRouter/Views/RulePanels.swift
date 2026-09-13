@@ -38,6 +38,7 @@ struct PinPanelHeader<Trailing: View>: View {
             .buttonStyle(.borderless)
             .keyboardShortcut(.cancelAction)
             .help("Kapat (Esc)")
+            .accessibilityLabel("Kapat")
         }
     }
 }

@@ -32,6 +32,7 @@ struct ProfileBar: View {
                     }
                     .buttonStyle(.plain)
                     .help("Yeni boş profil")
+                    .accessibilityLabel("Yeni boş profil")
                 }
                 .padding(.vertical, 1)
             }
@@ -44,6 +45,7 @@ struct ProfileBar: View {
             }
             .buttonStyle(.borderless)
             .help("Profili dosyadan içe aktar (.spacerouter.json)")
+            .accessibilityLabel("Profili dosyadan içe aktar")
         }
         .font(.caption)
     }
@@ -110,6 +112,7 @@ struct ProfilePanel: View {
                     .buttonStyle(.borderless)
                     .keyboardShortcut(.cancelAction)
                     .help("Kapat (Esc)")
+                    .accessibilityLabel("Kapat")
                 }
 
                 HStack(spacing: 8) {

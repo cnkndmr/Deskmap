@@ -200,11 +200,13 @@ struct RootView: View {
             .controlSize(.small)
             .labelsHidden()
             .help(store.document.enabled ? "Yönlendirme açık" : "Yönlendirme duraklatıldı")
+            .accessibilityLabel(store.document.enabled ? "Yönlendirme açık" : "Yönlendirme duraklatıldı")
 
             Picker("", selection: $mode) {
                 ForEach(Array(Mode.allCases.enumerated()), id: \.element) { index, candidate in
                     Image(systemName: candidate.symbol)
                         .help("\(candidate.title) (⌘\(index + 1))")
+                        .accessibilityLabel(candidate.title)
                         .tag(candidate)
                 }
             }
@@ -241,6 +243,7 @@ struct RootView: View {
             .buttonStyle(.borderless)
             .keyboardShortcut("r", modifiers: .command)
             .help("Pinli pencereleri şimdi yerleştir (⌘R)")
+            .accessibilityLabel("Pinli pencereleri şimdi yerleştir")
         }
     }
 
@@ -331,6 +334,7 @@ struct RootView: View {
             .buttonStyle(.borderless)
             .layoutPriority(1)
             .help("Space Router'dan çık")
+            .accessibilityLabel("Space Router'dan çık")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
