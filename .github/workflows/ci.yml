@@ -5,9 +5,16 @@ on:
     branches: [ main ]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
-    name: Swift derlemesi
+    name: Swift derlemesi ve testler
     runs-on: macos-15
 
     steps:
@@ -15,6 +22,9 @@ jobs:
 
       - name: Swift paketi derlemesi
         run: swift build --package-path app -c release
+
+      - name: Birim testleri
+        run: swift test --package-path app
 
       - name: .app paketi
         run: ./scripts/build-app.sh release
