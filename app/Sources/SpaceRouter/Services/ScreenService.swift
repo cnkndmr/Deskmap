@@ -55,7 +55,10 @@ final class ScreenService: ObservableObject {
     /// Ekran değişimi yatıştıktan sonra tetiklenir.
     let settled = PassthroughSubject<Void, Never>()
 
-    private var observer: NSObjectProtocol?
+    // nonisolated(unsafe): yalnızca init'te (ana aktör) atanır, deinit'te
+    // kaldırılır; gözlemci belirteci Sendable olmadığı için deinit erişimi
+    // başka türlü sıkı eşzamanlılık uyarısı verir.
+    nonisolated(unsafe) private var observer: NSObjectProtocol?
     private var settleTask: Task<Void, Never>?
 
     init() {

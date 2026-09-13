@@ -9,7 +9,11 @@ import ObjectiveC
 ///
 /// Tüm işlevler `dlsym` ile çalışma anında çözülür; bulunamayan bir
 /// simge uygulamayı çökertmez, ilgili işlem sessizce atlanır.
-final class SkyLight {
+///
+/// `Sendable`: bütün saklanan alanlar `let` (bağlantı kimliği, işlev
+/// işaretçileri, kullanılabilirlik); nesne yaratıldıktan sonra değişmez,
+/// Router'ın arka plan kuyruğundan ve ana aktörden aynı anda okunabilir.
+final class SkyLight: Sendable {
 
     static let shared = SkyLight()
 

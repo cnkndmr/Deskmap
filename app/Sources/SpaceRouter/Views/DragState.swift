@@ -13,7 +13,7 @@ struct DropTargetFrame: Equatable {
 
 /// Alt görünümler kendi çerçevelerini harita koordinat uzayında bildirir.
 struct DropTargetPreference: PreferenceKey {
-    static var defaultValue: [DropTargetFrame] = []
+    static let defaultValue: [DropTargetFrame] = []
     static func reduce(value: inout [DropTargetFrame], nextValue: () -> [DropTargetFrame]) {
         value.append(contentsOf: nextValue())
     }
