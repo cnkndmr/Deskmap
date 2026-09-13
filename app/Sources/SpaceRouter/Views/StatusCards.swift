@@ -98,3 +98,49 @@ struct PermissionCard: View {
         .background(RoundedRectangle(cornerRadius: 10).fill(.orange.opacity(0.12)))
     }
 }
+
+// MARK: - İlk adımlar kartı
+
+/// İlk kullanım: izin var ama aktif profilde pin ve geçici pin yok. Üç
+/// adım; ilk pinle kendiliğinden kaybolur, kayıt tutulmaz (yeni boş
+/// profilde yeniden görünmesi de istenen davranış).
+struct FirstStepsCard: View {
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Başlarken")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            step(1, "pin",
+                 "Aşağıda bir pencere satırındaki pin düğmesine tıklayın.")
+            step(2, "textformat",
+                 "Başlığın bu pencereyi tanımlayan parçasını seçin; pencere artık o masaüstünde kalır.")
+            step(3, "arrow.up.and.down.and.arrow.left.and.right",
+                 "Bir satırı başka masaüstüne sürüklemek pencereyi bir kez taşır, pinlemez. "
+                 + "Üstteki laptop / monitör düğmesi diğer kurulum içindir; ikisi ayrı ayarlanır.")
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.primary.opacity(0.04)))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(.quaternary, lineWidth: 1))
+    }
+
+    private func step(_ number: Int, _ symbol: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text("\(number)")
+                .font(.caption2.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 16, height: 16)
+                .background(Circle().fill(Color.accentColor))
+            Image(systemName: symbol)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 14)
+                .padding(.top, 2)
+            Text(text)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}

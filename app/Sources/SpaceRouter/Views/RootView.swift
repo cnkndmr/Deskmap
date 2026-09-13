@@ -49,6 +49,10 @@ struct RootView: View {
                     if !settingChecks.allSatisfy(\.ok) || !store.document.setupNoticeDismissed {
                         SetupCard(checks: settingChecks)
                     }
+                    if permission.isTrusted && store.document.rules.isEmpty
+                        && router.sessionPins.isEmpty {
+                        FirstStepsCard()
+                    }
                     ScreenMapView(mode: mode)
                 }
                 .padding(14)
