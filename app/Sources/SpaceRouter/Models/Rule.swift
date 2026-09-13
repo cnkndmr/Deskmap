@@ -221,6 +221,34 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     }
 }
 
+// MARK: - Hoşgörülü dizi çözümleme
+
+/// Öğelerinden biri okunamayan dizi: bozuk öğe atlanır, kalanlar okunur.
+/// Tek bir bozuk kural (`"desktop": "x"` gibi) bütün `rules.json`'ı
+/// okunmaz kılmasın; atlanan sayısı `droppedCount` ile kullanıcıya bildirilir.
+struct LossyArray<Element: Decodable>: Decodable {
+    var elements: [Element] = []
+    var droppedCount = 0
+
+    init(from decoder: Decoder) throws {
+        var c = try decoder.unkeyedContainer()
+        while !c.isAtEnd {
+            if let element = try? c.decode(Element.self) {
+                elements.append(element)
+            } else {
+                // Başarısız çözümleme imleci ilerletmez; öğeyi boş okuyup geç.
+                _ = try? c.decode(Skip.self)
+                droppedCount += 1
+            }
+        }
+    }
+
+    /// Her JSON değerini okumadan kabul eder; yalnızca imleci ilerletir.
+    private struct Skip: Decodable {
+        init(from decoder: Decoder) throws {}
+    }
+}
+
 // MARK: - Eşleştirme
 
 extension Array where Element == Rule {

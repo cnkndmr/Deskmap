@@ -168,7 +168,7 @@ final class Router: ObservableObject {
     /// Masaüstü sıralaması değişince bu ekrandaki oturum pinlerinin masaüstü
     /// numaraları da kurallarla aynı haritaya göre kayar (moddan bağımsız).
     func moveDesktop(on screen: String, from: Int, to: Int, count: Int) {
-        guard let mapping = Store.desktopMapping(from: from, to: to, count: count)
+        guard let mapping = Document.desktopMapping(from: from, to: to, count: count)
         else { return }
         var changed = false
         for (id, record) in sessionRecords
@@ -284,7 +284,8 @@ final class Router: ObservableObject {
         }
 
         // Duraklatılmışken kural uygulanmaz ama pencereler yine listelenir.
-        let rules = store.document.enabled ? store.document.rules.bySpecificity : []
+        // Özgüllük sıralamasını `Routing.select` yapar.
+        let rules = store.document.enabled ? store.document.rules : []
         let sessionPins = store.document.enabled ? self.sessionPins : [:]
         // Duraklatılmışken de geçici pinli pencereler listelenir ve yaşam
         // denetimi sürer.
@@ -362,12 +363,7 @@ final class Router: ObservableObject {
         var needsFollowUp = false
     }
 
-    /// Uygulama düzeni bu kadar denemeden sonra da kabul etmezse bırakılır
-    /// (ör. en küçük boyut kısıtı olan pencereler). Çerçeve artık pencere
-    /// görünürken verildiği için az deneme yeter.
-    nonisolated private static let maxAttempts = 6
-    /// İlk denemeler hızlı ardışık; sonrası olaylara ve zamanlayıcıya kalır.
-    nonisolated private static let quickAttempts = 4
+    /// Düzen deneme sınırları `Routing.maxAttempts` / `Routing.quickAttempts`.
     /// Masaüstü taşıması bu kadar denemeden sonra da tutmazsa (macOS
     /// taşımayı reddediyor / özel API çalışmıyor) o pencere için bırakılır;
     /// pencere hedefe varınca ya da bellek sıfırlanınca sayaç silinir.
@@ -400,21 +396,14 @@ final class Router: ObservableObject {
         }
 
         for window in windows {
-            // Oturum pini (pencere kimliği) kalıcı kuraldan önce gelir.
-            let destination: Destination
-            let ruleID: String
-            if let pinned = sessionPins[window.id] {
-                destination = pinned
-                ruleID = "session"
-            } else if let rule = rules.first(where: {
-                // Arayüzle aynı seçim: bu modda hedefi olan ilk (en özgül)
-                // eşleşen kural; hedefi olmayan daha özgül kural engellemez.
-                $0[mode] != nil && $0.matches(bundleID: window.bundleID,
-                                              appName: window.appName, title: window.title)
-            }), let ruled = rule[mode] {
-                destination = ruled
-                ruleID = rule.id
-            } else { continue }
+            // Arayüzle aynı seçim: oturum pini, yoksa bu modda hedefi olan
+            // en özgül eşleşen kural.
+            guard let match = Routing.select(
+                rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
+                bundleID: window.bundleID, appName: window.appName, title: window.title)
+            else { continue }
+            let destination = match.destination
+            let ruleID = match.ruleID
 
             guard let screen = screens.first(where: { $0.id == destination.screen })
             else { continue }
@@ -467,18 +456,10 @@ final class Router: ObservableObject {
                     }
                 }
 
-                if placed {
-                    outcome.applied.insert(key)
-                    outcome.attempts[key] = nil
-                } else {
-                    let count = (outcome.attempts[key] ?? 0) + 1
-                    outcome.attempts[key] = count
-                    if count >= Self.maxAttempts {
-                        outcome.applied.insert(key)
-                        outcome.attempts[key] = nil
-                    } else if count <= Self.quickAttempts {
-                        outcome.needsFollowUp = true
-                    }
+                if Routing.recordLayoutAttempt(
+                    key: key, placed: placed,
+                    applied: &outcome.applied, attempts: &outcome.attempts) {
+                    outcome.needsFollowUp = true
                 }
             }
 
@@ -490,7 +471,7 @@ final class Router: ObservableObject {
                 if count <= Self.maxMoveAttempts {
                     outcome.attempts[moveKey] = count
                     sky.move(window: window.id, to: target.id)
-                    if count <= Self.quickAttempts { outcome.needsFollowUp = true }
+                    if count <= Routing.quickAttempts { outcome.needsFollowUp = true }
                     outcome.lastAction = "\(window.appName) → \(desktopLabel)"
                 }
             } else if onTarget {

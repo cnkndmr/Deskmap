@@ -7,7 +7,7 @@
 #   ./scripts/build-app.sh debug      # debug
 #
 # Ortam değişkenleri:
-#   VERSION=0.3.1          Info.plist sürümü (varsayılan: aşağıdaki VERSION)
+#   VERSION=0.3.1          Info.plist sürümü (varsayılan: depo kökündeki VERSION dosyası)
 #   UNIVERSAL=1            arm64 + x86_64 evrensel ikili (dağıtım için)
 #   SIGN_IDENTITY="..."    codesign kimliği (varsayılan "-" = ad-hoc)
 #
@@ -17,7 +17,7 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${1:-release}"
 APP_NAME="SpaceRouter"
 BUNDLE_ID="com.spacerouter.app"
-VERSION="${VERSION:-0.3.0}"
+VERSION="${VERSION:-$(cat "$PROJECT_DIR/VERSION")}"
 UNIVERSAL="${UNIVERSAL:-0}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 

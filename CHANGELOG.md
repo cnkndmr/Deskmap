@@ -16,10 +16,25 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 - Tek kopya koruması: aynı bundle kimliğiyle çalışan başka bir Space Router
   varsa yenisi Router yaratılmadan çıkar (iki yönlendirici aynı pencereleri
   çekiştirmesin).
+- Birim testleri (`make test`, Swift Testing): `Rule` eşleştirme ve başlık
+  parçalama, `WindowLayout`, koordinat dönüşümü, `rules.json` şema geçişleri
+  (v1/v2/v3), `Document` pin/profil işlemleri, dışa/içe aktarma ve
+  `Routing` hedef seçimi. CI ve `.githooks/pre-commit` testleri de çalıştırır.
+- Kökte `VERSION` dosyası; `build-app.sh` ve `make-dist.sh` sürümü oradan okur
+  (`VERSION=` ortam değişkeni yine önceliklidir).
 - `make dist`: evrensel (arm64 + x86_64) derleme, imza, isteğe bağlı noter ve
   `build/dist/*.zip` / `.dmg` paketi (`scripts/make-dist.sh`,
   Finder için `scripts/make-dist.command`). `build-app.sh` artık `VERSION`,
   `UNIVERSAL` ve `SIGN_IDENTITY` ortam değişkenlerini tanır; sürüm 0.3.0.
+
+### Değişti
+
+- Kural ve profil mantığı (`pin`, `unpin`, `moveDesktop`, profil geçişi/kopya/
+  silme, dışa/içe aktarma) `Document` üzerinde saf işlemler oldu; `Store`
+  yalnızca çağırıp yayınlar ve kaydeder. Davranış aynı.
+- Hedef seçimi tek yerde (`Routing.select`): Router, pencere satırı ve harita
+  aynı kuralı seçer (oturum pini, yoksa bu modda hedefi olan en özgül kural).
+  Düzen deneme sayımı da `Routing`'e taşındı.
 
 ### Düzeltildi
 
@@ -29,6 +44,13 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   açar, register/unregister hataları alt çubukta gösterilir (eskiden
   `try?` ile yutuluyordu). Uygulama /Applications dışındaysa ipucu hangi
   kopyanın kaydedileceğini söyler.
+- `rules.json` içinde tek bir bozuk kural (ör. `"desktop": "x"`) bütün
+  dosyayı okunmaz kılıyordu; artık yalnızca o kural atlanır, alt çubukta
+  "N kural okunamadı" görünür ve dosya önce `rules.json.bak`'a yedeklenir.
+  Profil içe aktarma da aynı hoşgörüyle okur.
+- Daha yeni bir Space Router sürümünün yazdığı `rules.json` (`version` > 3)
+  eski sürümce ezilmiyor: dosya okunur, kayıt kapatılır ve alt çubukta
+  uyarı gösterilir.
 - Router, bu modda hedefi olmayan daha özgül bir kural yüzünden pencereyi
   atlıyordu; artık arayüzle aynı seçimi yapar (bu modda hedefi olan ilk
   eşleşen kural).

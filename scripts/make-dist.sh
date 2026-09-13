@@ -7,7 +7,7 @@
 #   make dist                                    # ad-hoc imza, zip
 #   FORMAT=dmg make dist                         # zip yerine dmg
 #   FORMAT=both make dist                        # ikisi de
-#   VERSION=0.3.1 make dist                      # sürüm numarası
+#   VERSION=0.3.1 make dist                      # sürüm numarası (varsayılan: kökteki VERSION dosyası)
 #   SIGN_IDENTITY="Developer ID Application: Ad (TEAMID)" \
 #   NOTARY_PROFILE=notary make dist              # Developer ID + noter + staple
 #
@@ -21,7 +21,7 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_NAME="SpaceRouter"
-VERSION="${VERSION:-0.3.0}"
+VERSION="${VERSION:-$(cat "$PROJECT_DIR/VERSION")}"
 FORMAT="${FORMAT:-zip}"                 # zip | dmg | both
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-}"

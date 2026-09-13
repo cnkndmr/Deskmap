@@ -1,0 +1,248 @@
+import Foundation
+import Testing
+@testable import SpaceRouter
+
+/// `Document` üzerindeki kural ve profil işlemleri (Store bunları çağırır).
+struct DocumentOperationsTests {
+
+    private let external2 = Destination(screen: "external", desktop: 2, layout: .leftHalf)
+    private let builtin1 = Destination(screen: "builtin", desktop: 1)
+
+    private func rule(_ id: String, tokens: [String] = ["A"],
+                      docked: Destination? = nil, undocked: Destination? = nil) -> Rule {
+        Rule(id: id, appName: "Code", bundleID: "com.microsoft.VSCode", tokens: tokens,
+             docked: docked, undocked: undocked)
+    }
+
+    // MARK: Masaüstü haritası
+
+    @Test func desktopMappingCases() {
+        // 1 → 3 (3 satır): 2→1, 3→2, 1→3
+        #expect(Document.desktopMapping(from: 1, to: 3, count: 3) == [1: 3, 2: 1, 3: 2])
+        // 3 → 1: 1→2, 2→3, 3→1
+        #expect(Document.desktopMapping(from: 3, to: 1, count: 3) == [1: 2, 2: 3, 3: 1])
+        // Komşu takas.
+        #expect(Document.desktopMapping(from: 2, to: 3, count: 4) == [1: 1, 2: 3, 3: 2, 4: 4])
+        // Hedef listeden büyükse toplam genişler.
+        #expect(Document.desktopMapping(from: 1, to: 4, count: 2) == [1: 4, 2: 1, 3: 2, 4: 3])
+        // Geçersiz taşımalar.
+        #expect(Document.desktopMapping(from: 2, to: 2, count: 3) == nil)
+        #expect(Document.desktopMapping(from: 0, to: 1, count: 3) == nil)
+        #expect(Document.desktopMapping(from: 1, to: 0, count: 3) == nil)
+    }
+
+    @Test func moveDesktopShiftsOnlyMatchingScreenAndMode() {
+        var doc = Document()
+        doc.rules = [
+            rule("a", docked: Destination(screen: "external", desktop: 1)),
+            rule("b", tokens: ["B"], docked: Destination(screen: "external", desktop: 3)),
+            rule("c", tokens: ["C"], docked: Destination(screen: "builtin", desktop: 1),
+                 undocked: Destination(screen: "external", desktop: 1)),
+        ]
+        doc.moveDesktop(on: "external", from: 1, to: 3, count: 3, mode: .docked)
+        #expect(doc.rules[0].docked?.desktop == 3)
+        #expect(doc.rules[1].docked?.desktop == 2)
+        #expect(doc.rules[2].docked?.desktop == 1)     // başka ekran
+        #expect(doc.rules[2].undocked?.desktop == 1)   // başka mod
+    }
+
+    // MARK: Adlar ve eşitleme
+
+    @Test func uniqueNameAppendsCounter() {
+        let taken = [Profile(name: "Ad"), Profile(name: "ad (2)"), Profile(name: "Başka")]
+        #expect(Document.uniqueName("Yeni", in: taken) == "Yeni")
+        #expect(Document.uniqueName("  Ad ", in: taken) == "Ad (3)")
+        #expect(Document.uniqueName("başka", in: taken) == "başka (2)")
+        #expect(Document.uniqueName("Ad", in: []) == "Ad")
+    }
+
+    @Test func syncActiveProfileWritesRulesOrRecreatesProfile() {
+        var doc = Document()
+        doc.rules = [rule("a")]
+        doc.syncActiveProfile()
+        #expect(doc.activeProfile?.rules == doc.rules)
+
+        // Aktif profil kayıp: kurallar çakışmayan adla yeni profile yazılır.
+        doc.activeProfileID = "gone"
+        doc.syncActiveProfile()
+        #expect(doc.profiles.count == 2)
+        #expect(doc.profiles[1].name == "\(Document.defaultProfileName) (2)")
+        #expect(doc.profiles[1].rules == doc.rules)
+        #expect(doc.activeProfileID == doc.profiles[1].id)
+    }
+
+    // MARK: Pin / unpin
+
+    @Test func pinUpdatesSameKeyRuleAndReturnsItsID() {
+        var doc = Document()
+        doc.rules = [rule("existing", tokens: ["Atlas"], undocked: builtin1)]
+        let draft = Rule(appName: "Visual Studio Code", bundleID: "com.microsoft.VSCode",
+                         tokens: ["atlas"])
+        let id = doc.pin(draft, destination: external2, mode: .docked)
+        #expect(id == "existing")
+        #expect(doc.rules.count == 1)
+        #expect(doc.rules[0].docked == external2)
+        #expect(doc.rules[0].undocked == builtin1)
+        // Yeni anahtar: yeni kural, yalnızca bu modda hedefli.
+        let fresh = Rule(appName: "Safari", bundleID: "com.apple.Safari", tokens: [])
+        let newID = doc.pin(fresh, destination: builtin1, mode: .undocked)
+        #expect(newID == fresh.id)
+        #expect(doc.rules.count == 2)
+        #expect(doc.rules[1].undocked == builtin1)
+        #expect(doc.rules[1].docked == nil)
+    }
+
+    @Test func unpinRemovesRuleOnlyWhenNoDestinationRemains() {
+        var doc = Document()
+        doc.rules = [rule("both", docked: external2, undocked: builtin1),
+                     rule("one", tokens: ["B"], docked: external2)]
+        doc.unpin("both", mode: .docked)
+        #expect(doc.rules.count == 2)
+        #expect(doc.rules[0].docked == nil)
+        #expect(doc.rules[0].undocked == builtin1)
+        doc.unpin("one", mode: .docked)
+        #expect(doc.rules.map(\.id) == ["both"])
+        doc.unpin("missing", mode: .docked)
+        #expect(doc.rules.count == 1)
+    }
+
+    @Test func setDestinationOnlyTouchesGivenMode() {
+        var doc = Document()
+        doc.rules = [rule("r", docked: external2)]
+        doc.setDestination(builtin1, for: "r", mode: .undocked)
+        #expect(doc.rules[0].docked == external2)
+        #expect(doc.rules[0].undocked == builtin1)
+        doc.setDestination(nil, for: "r", mode: .docked)
+        #expect(doc.rules[0].docked == nil)
+        doc.setDestination(builtin1, for: "nope", mode: .docked)
+        #expect(doc.rules.count == 1)
+    }
+
+    // MARK: Profiller
+
+    @Test func switchProfileSyncsCurrentAndLoadsTarget() {
+        var doc = Document()
+        let first = doc.activeProfileID
+        doc.rules = [rule("a")]
+        doc.profiles.append(Profile(id: "p2", name: "İş", rules: [rule("b")]))
+
+        doc.switchProfile(to: "p2")
+        #expect(doc.activeProfileID == "p2")
+        #expect(doc.rules.map(\.id) == ["b"])
+        // Önceki profil son kurallarını aldı.
+        #expect(doc.profiles.first { $0.id == first }?.rules.map(\.id) == ["a"])
+        // Bilinmeyen kimlik ve aynı profil: değişiklik yok.
+        let before = doc
+        doc.switchProfile(to: "nope")
+        doc.switchProfile(to: "p2")
+        #expect(doc == before)
+    }
+
+    @Test func addProfileCopyingRegeneratesRuleIDs() {
+        var doc = Document()
+        doc.rules = [rule("a", docked: external2), rule("b", tokens: ["B"])]
+        let empty = doc.addProfile()
+        #expect(empty.name == "Profil 2")
+        #expect(empty.rules.isEmpty)
+        #expect(doc.activeProfileID == empty.id)
+        #expect(doc.rules.isEmpty)
+
+        doc.switchProfile(to: doc.profiles[0].id)
+        let copy = doc.addProfile(named: "Varsayılan", copyingCurrent: true)
+        #expect(copy.name == "Varsayılan (2)")
+        #expect(copy.rules.count == 2)
+        #expect(Set(copy.rules.map(\.id)).isDisjoint(with: ["a", "b"]))
+        #expect(copy.rules[0].docked == external2)
+        #expect(copy.rules.map(\.tokens) == [["A"], ["B"]])
+        #expect(doc.rules == copy.rules)
+        #expect(doc.profiles.count == 3)
+    }
+
+    @Test func deleteProfileKeepsLastAndSwitchesFromActive() {
+        var doc = Document()
+        let only = doc.activeProfileID
+        doc.deleteProfile(only)
+        #expect(doc.profiles.count == 1)
+
+        doc.rules = [rule("a")]
+        doc.profiles.append(Profile(id: "p2", name: "İş", rules: [rule("b")]))
+        doc.switchProfile(to: "p2")
+        doc.deleteProfile("p2")
+        #expect(doc.profiles.map(\.id) == [only])
+        #expect(doc.activeProfileID == only)
+        #expect(doc.rules.map(\.id) == ["a"])
+
+        // Aktif olmayanı silmek kuralları etkilemez.
+        doc.profiles.append(Profile(id: "p3", name: "Üç"))
+        doc.deleteProfile("p3")
+        #expect(doc.rules.map(\.id) == ["a"])
+        #expect(doc.activeProfileID == only)
+    }
+
+    @Test func renameProfileTrimsAndIgnoresEmpty() {
+        var doc = Document()
+        let id = doc.activeProfileID
+        doc.renameProfile(id, to: "  Ev  ")
+        #expect(doc.activeProfile?.name == "Ev")
+        doc.renameProfile(id, to: "   ")
+        #expect(doc.activeProfile?.name == "Ev")
+        doc.renameProfile("nope", to: "X")
+        #expect(doc.profiles.count == 1)
+    }
+
+    // MARK: Dışa / içe aktarma
+
+    @Test func importRejectsForeignFileWithoutRules() {
+        var doc = Document()
+        let json = Data("{ \"kind\": \"something-else\", \"name\": \"X\" }".utf8)
+        #expect(throws: (any Error).self) { try doc.importProfile(from: json) }
+        #expect(throws: (any Error).self) { try doc.importProfile(from: Data("not json".utf8)) }
+        #expect(doc.profiles.count == 1)
+    }
+
+    @Test func importAcceptsPlainRulesFileAndMergesScreens() throws {
+        var doc = Document()
+        doc.screens = [KnownScreen(id: "builtin", name: "Dahili", aspect: 1.55)]
+        doc.rules = [rule("a")]
+        let json = Data("""
+        { "rules": [ { "id": "a", "appName": "Code", "bundleID": "c", "tokens": ["X"],
+                       "docked": { "screen": "external-2", "desktop": 2 } },
+                     { "id": "bad", "appName": "B", "docked": { "desktop": "x" } } ],
+          "screens": [ { "id": "builtin", "name": "Başka ad", "aspect": 1.6 },
+                       { "id": "external-2", "name": "Dell", "aspect": 1.78 } ] }
+        """.utf8)
+        let profile = try doc.importProfile(from: json)
+        #expect(profile.name == "İçe aktarılan")
+        #expect(profile.rules.count == 1)          // bozuk kural atlandı
+        #expect(profile.rules[0].id != "a")        // kimlik yenilendi
+        #expect(profile.rules[0].tokens == ["X"])
+        #expect(doc.activeProfileID == profile.id)
+        #expect(doc.rules == profile.rules)
+        // Önceki profil kurallarını korudu; bilinen ekran ezilmedi, yeni eklendi.
+        #expect(doc.profiles[0].rules.map(\.id) == ["a"])
+        #expect(doc.screens.map(\.id) == ["builtin", "external-2"])
+        #expect(doc.screens[0].name == "Dahili")
+    }
+
+    @Test func exportImportRoundTripUniquifiesName() throws {
+        var doc = Document()
+        doc.screens = [KnownScreen(id: "external", name: "LG", aspect: 1.78)]
+        doc.rules = [rule("a", docked: external2), rule("b", tokens: ["B", "C"], undocked: builtin1)]
+        let data = try doc.exportData(for: doc.activeProfileID)
+        let text = String(decoding: data, as: UTF8.self)
+        #expect(text.contains("\"kind\" : \"spacerouter-profile\""))
+        #expect(text.contains("\"name\" : \"Varsayılan\""))
+
+        let imported = try doc.importProfile(from: data)
+        #expect(imported.name == "Varsayılan (2)")
+        #expect(imported.rules.count == 2)
+        #expect(imported.rules.map(\.tokens) == [["A"], ["B", "C"]])
+        #expect(imported.rules[0].docked == external2)
+        #expect(imported.rules[1].undocked == builtin1)
+        #expect(Set(imported.rules.map(\.id)).isDisjoint(with: ["a", "b"]))
+        #expect(doc.profiles.count == 2)
+        #expect(doc.screens.count == 1)
+
+        #expect(throws: (any Error).self) { try doc.exportData(for: "nope") }
+    }
+}

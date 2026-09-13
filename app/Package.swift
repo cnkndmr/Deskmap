@@ -10,6 +10,11 @@ let package = Package(
         .executableTarget(
             name: "SpaceRouter",
             path: "Sources/SpaceRouter"
-        )
+        ),
+        .testTarget(
+            name: "SpaceRouterTests",
+            dependencies: ["SpaceRouter"],
+            path: "Tests/SpaceRouterTests"
+        ),
     ]
 )

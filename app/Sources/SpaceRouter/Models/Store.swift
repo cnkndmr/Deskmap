@@ -19,9 +19,10 @@ struct Profile: Codable, Equatable, Identifiable, Hashable {
     var rules: [Rule] = []
 }
 
-/// `rules.json` içeriği.
+/// `rules.json` içeriği. Kural ve profil işlemleri saf değer işlemleridir;
+/// `Store` bunları çağırıp sonucu yayınlar ve diske yazar.
 struct Document: Codable, Equatable {
-    var version: Int = 3
+    var version: Int = Document.currentVersion
     var enabled: Bool = true
     var screens: [KnownScreen] = []
     /// Aktif profilin kuralları (router bunu okur).
@@ -31,6 +32,17 @@ struct Document: Codable, Equatable {
     /// Kurulum hatırlatması (Dock "Assign To" vb.) kullanıcı tarafından
     /// kapatıldı mı? Canlı denetlenen ayarlar bozuksa kart yine görünür.
     var setupNoticeDismissed: Bool = false
+
+    /// Okunan dosyanın `version` alanı (yazılmaz). Bu sürümden yeniyse
+    /// dosya daha yeni bir Space Router'a ait; üzerine yazılmamalı.
+    var fileVersion: Int = Document.currentVersion
+    /// Okunurken atlanan bozuk kural sayısı (yazılmaz).
+    var droppedRuleCount = 0
+
+    /// Bu sürümün yazdığı şema.
+    static let currentVersion = 3
+
+    var isFromNewerVersion: Bool { fileVersion > Self.currentVersion }
 
     init() {
         let profile = Profile(name: Self.defaultProfileName)
@@ -47,10 +59,22 @@ struct Document: Codable, Equatable {
 
     private struct LegacySettings: Decodable { var enabled: Bool? }
 
+    /// Profil kaydı: `Profile` ile aynı zorunlu alanlar, kuralları
+    /// hoşgörülü okunur (bozuk kural atlanır).
+    private struct ProfileRecord: Decodable {
+        var id: String
+        var name: String
+        var rules: LossyArray<Rule>
+    }
+
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        version = 3
-        rules = try c.decodeIfPresent([Rule].self, forKey: .rules) ?? []
+        version = Self.currentVersion
+        // Sayı değilse eski dosya sayılır (alan daha önce hiç okunmuyordu).
+        fileVersion = (try? c.decode(Int.self, forKey: .version)) ?? 1
+        let lossyRules = try c.decodeIfPresent(LossyArray<Rule>.self, forKey: .rules)
+        rules = lossyRules?.elements ?? []
+        droppedRuleCount = lossyRules?.droppedCount ?? 0
 
         if let flag = try c.decodeIfPresent(Bool.self, forKey: .enabled) {
             enabled = flag
@@ -62,7 +86,9 @@ struct Document: Codable, Equatable {
         screens = (try? c.decode([KnownScreen].self, forKey: .screens)) ?? []
 
         // v3 profiller; yoksa (v1/v2) mevcut kurallar "Varsayılan" profil olur.
-        profiles = (try? c.decode([Profile].self, forKey: .profiles)) ?? []
+        let records = (try? c.decode([ProfileRecord].self, forKey: .profiles)) ?? []
+        profiles = records.map { Profile(id: $0.id, name: $0.name, rules: $0.rules.elements) }
+        droppedRuleCount += records.reduce(0) { $0 + $1.rules.droppedCount }
         activeProfileID = try c.decodeIfPresent(String.self, forKey: .activeProfileID) ?? ""
         setupNoticeDismissed = try c.decodeIfPresent(Bool.self, forKey: .setupNoticeDismissed) ?? false
         if profiles.isEmpty {
@@ -111,6 +137,175 @@ struct Document: Codable, Equatable {
         }
         if profiles[i].rules != rules { profiles[i].rules = rules }
     }
+
+    // MARK: - Kurallar
+
+    func rule(_ id: String) -> Rule? {
+        rules.first { $0.id == id }
+    }
+
+    mutating func update(_ rule: Rule) {
+        guard let i = rules.firstIndex(where: { $0.id == rule.id }) else { return }
+        rules[i] = rule
+    }
+
+    /// Bir kuralın verilen moddaki hedefini değiştirir (nil = atanmamış).
+    mutating func setDestination(_ destination: Destination?, for id: String, mode: Mode) {
+        guard var rule = rule(id) else { return }
+        rule[mode] = destination
+        update(rule)
+    }
+
+    /// Pinler: aynı anahtarlı (uygulama + parçalar) kural varsa onun bu
+    /// moddaki hedefi güncellenir, yoksa yeni kural eklenir. Kural kimliği
+    /// döner.
+    @discardableResult
+    mutating func pin(_ draft: Rule, destination: Destination, mode: Mode) -> String {
+        if let existing = rules.first(where: { $0.sameKey(as: draft) }) {
+            setDestination(destination, for: existing.id, mode: mode)
+            return existing.id
+        }
+        var rule = draft
+        rule[mode] = destination
+        rules.append(rule)
+        return rule.id
+    }
+
+    /// Bu moddaki hedefi kaldırır; kuralın hiçbir hedefi kalmazsa silinir.
+    mutating func unpin(_ id: String, mode: Mode) {
+        guard var rule = rule(id) else { return }
+        rule[mode] = nil
+        if rule.docked == nil && rule.undocked == nil {
+            rules.removeAll { $0.id == id }
+        } else {
+            update(rule)
+        }
+    }
+
+    /// Bir ekrandaki masaüstünü listede başka sıraya taşır; o ekranın bu
+    /// moddaki bütün pinlerinin masaüstü numaraları buna göre kayar.
+    /// `count`: listedeki satır sayısı (gerçek + pinlerin kullandığı).
+    mutating func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode) {
+        guard let mapping = Self.desktopMapping(from: from, to: to, count: count)
+        else { return }
+
+        var moved = rules
+        for i in moved.indices {
+            guard var destination = moved[i][mode], destination.screen == screen,
+                  let updated = mapping[destination.desktop] else { continue }
+            destination.desktop = updated
+            moved[i][mode] = destination
+        }
+        if moved != rules { rules = moved }
+    }
+
+    /// Masaüstü `from` listede `to` sırasına taşınınca eski numara → yeni
+    /// numara haritası (kurallar ve oturum pinleri aynı haritayı kullanır).
+    /// Geçersiz taşımada nil.
+    static func desktopMapping(from: Int, to: Int, count: Int) -> [Int: Int]? {
+        guard from != to, from >= 1, to >= 1 else { return nil }
+        let total = max(count, from, to)
+        var order = Array(1...total)
+        order.remove(at: from - 1)
+        order.insert(from, at: min(to, total) - 1)
+        // order[newIndex] = eski numara → eski → yeni haritası
+        var mapping: [Int: Int] = [:]
+        for (index, old) in order.enumerated() { mapping[old] = index + 1 }
+        return mapping
+    }
+
+    // MARK: - Profiller
+
+    var activeProfile: Profile? {
+        profiles.first { $0.id == activeProfileID }
+    }
+
+    /// Başka bir profile geçer: mevcut kurallar aktif profile yazılır,
+    /// hedef profilin kuralları yüklenir.
+    mutating func switchProfile(to id: String) {
+        guard id != activeProfileID,
+              let target = profiles.first(where: { $0.id == id }) else { return }
+        syncActiveProfile()
+        activeProfileID = target.id
+        rules = target.rules
+    }
+
+    /// Yeni profil ekler ve ona geçer. `copyingCurrent`: mevcut pinlerle başla
+    /// (kural kimlikleri yenilenir).
+    @discardableResult
+    mutating func addProfile(named name: String? = nil, copyingCurrent: Bool = false) -> Profile {
+        syncActiveProfile()
+        let profile = Profile(
+            name: Self.uniqueName(name ?? "Profil \(profiles.count + 1)", in: profiles),
+            rules: copyingCurrent ? Self.regeneratingIDs(rules) : [])
+        profiles.append(profile)
+        activeProfileID = profile.id
+        rules = profile.rules
+        return profile
+    }
+
+    mutating func renameProfile(_ id: String, to name: String) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let i = profiles.firstIndex(where: { $0.id == id }) else { return }
+        profiles[i].name = trimmed
+    }
+
+    /// Profili siler; son profil silinemez. Aktif siliniyorsa ilk kalana geçilir.
+    mutating func deleteProfile(_ id: String) {
+        guard profiles.count > 1,
+              let i = profiles.firstIndex(where: { $0.id == id }) else { return }
+        profiles.remove(at: i)
+        if activeProfileID == id, let next = profiles.first {
+            activeProfileID = next.id
+            rules = next.rules
+        }
+    }
+
+    // MARK: - Dışa / içe aktarma
+
+    func exportData(for id: String) throws -> Data {
+        var doc = self
+        doc.syncActiveProfile()
+        guard let profile = doc.profiles.first(where: { $0.id == id }) else {
+            throw NSError(domain: "SpaceRouter", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: "Profil bulunamadı"])
+        }
+        let payload = ProfileExport(name: profile.name, screens: doc.screens,
+                                    rules: profile.rules)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        encoder.dateEncodingStrategy = .iso8601
+        return try encoder.encode(payload)
+    }
+
+    /// Dosyadan profil okur, yeni profil olarak ekler ve ona geçer.
+    /// Kural kimlikleri çakışmasın diye yenilenir.
+    @discardableResult
+    mutating func importProfile(from data: Data) throws -> Profile {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let payload = try decoder.decode(ProfileExport.self, from: data)
+        guard payload.kind == ProfileExport.kind || !payload.rules.isEmpty else {
+            throw NSError(domain: "SpaceRouter", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: "Bu bir Space Router profili değil"])
+        }
+        syncActiveProfile()
+        let profile = Profile(name: Self.uniqueName(payload.name, in: profiles),
+                              rules: Self.regeneratingIDs(payload.rules))
+        profiles.append(profile)
+        activeProfileID = profile.id
+        rules = profile.rules
+        // Dosyadaki ekran adları bilinmeyen rolleri tanıtır (harita için).
+        for screen in payload.screens where !screens.contains(where: { $0.id == screen.id }) {
+            screens.append(screen)
+        }
+        return profile
+    }
+
+    private static func regeneratingIDs(_ rules: [Rule]) -> [Rule] {
+        rules.map { var r = $0; r.id = UUID().uuidString; return r }
+    }
 }
 
 /// Dışa/içe aktarma dosyası (`Ad.spacerouter.json`).
@@ -122,6 +317,8 @@ struct ProfileExport: Codable {
     /// Kuralların hangi ekran rollerine yazıldığını anlamak için.
     var screens: [KnownScreen] = []
     var rules: [Rule]
+    /// Okunurken atlanan bozuk kural sayısı (yazılmaz).
+    var droppedRuleCount = 0
 
     static let kind = "spacerouter-profile"
     static let fileExtension = "spacerouter.json"
@@ -144,11 +341,15 @@ struct ProfileExport: Codable {
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? "İçe aktarılan"
         exportedAt = try c.decodeIfPresent(Date.self, forKey: .exportedAt) ?? Date()
         screens = try c.decodeIfPresent([KnownScreen].self, forKey: .screens) ?? []
-        rules = try c.decodeIfPresent([Rule].self, forKey: .rules) ?? []
+        let lossyRules = try c.decodeIfPresent(LossyArray<Rule>.self, forKey: .rules)
+        rules = lossyRules?.elements ?? []
+        droppedRuleCount = lossyRules?.droppedCount ?? 0
     }
 }
 
 /// Yapılandırmanın tek sahibi. Değişiklikler yarım saniye sonra diske yazılır.
+/// Kural/profil mantığı `Document` üzerindedir; burası yalnızca çağırır,
+/// yayınlar ve kaydeder.
 @MainActor
 final class Store: ObservableObject {
 
@@ -166,6 +367,12 @@ final class Store: ObservableObject {
     static let fileURL = directoryURL.appendingPathComponent("rules.json")
     /// Okunamayan `rules.json` üzerine yazılmadan önce buraya kopyalanır.
     static let backupURL = directoryURL.appendingPathComponent("rules.json.bak")
+
+    /// Dosya daha yeni bir Space Router sürümüne aitse yazma kapalıdır:
+    /// eski sürüm bilmediği alanları silerek dosyayı bozmasın.
+    var isReadOnly: Bool { document.isFromNewerVersion }
+    static let newerVersionMessage =
+        "rules.json daha yeni bir Space Router sürümüne ait; değişiklikler kaydedilmeyecek"
 
     private var cancellables = Set<AnyCancellable>()
     private var terminateObserver: NSObjectProtocol?
@@ -209,18 +416,37 @@ final class Store: ObservableObject {
         do {
             let data = try Data(contentsOf: Self.fileURL)
             document = try JSONDecoder().decode(Document.self, from: data)
-            lastError = nil
+            if document.isFromNewerVersion {
+                lastError = Self.newerVersionMessage
+            } else if document.droppedRuleCount > 0 {
+                // Atlanan kurallar ilk kayıtta dosyadan düşecek; önce yedeğini al.
+                let backedUp = backUpFile()
+                lastError = "\(document.droppedRuleCount) kural okunamadı"
+                    + (backedUp ? " (yedek: rules.json.bak)" : "")
+            } else {
+                lastError = nil
+            }
         } catch {
             // Bozuk dosya ilk değişiklikte ezilecek; önce yedeğini al.
-            let fm = FileManager.default
-            try? fm.removeItem(at: Self.backupURL)
-            let backedUp = (try? fm.copyItem(at: Self.fileURL, to: Self.backupURL)) != nil
+            let backedUp = backUpFile()
             lastError = "rules.json okunamadı: \(error.localizedDescription)"
                 + (backedUp ? " (yedek: rules.json.bak)" : "")
         }
     }
 
+    /// `rules.json`'ı `rules.json.bak` olarak kopyalar; başarıyı döndürür.
+    private func backUpFile() -> Bool {
+        let fm = FileManager.default
+        try? fm.removeItem(at: Self.backupURL)
+        return (try? fm.copyItem(at: Self.fileURL, to: Self.backupURL)) != nil
+    }
+
     func save() {
+        // Yeni sürümün dosyası: dokunma, uyarı alt çubukta kalsın.
+        guard !isReadOnly else {
+            lastError = Self.newerVersionMessage
+            return
+        }
         do {
             try FileManager.default.createDirectory(
                 at: Self.directoryURL, withIntermediateDirectories: true)
@@ -241,9 +467,7 @@ final class Store: ObservableObject {
     }
 
     func update(_ rule: Rule) {
-        guard let i = document.rules.firstIndex(where: { $0.id == rule.id })
-        else { return }
-        document.rules[i] = rule
+        document.update(rule)
     }
 
     func remove(_ id: String) {
@@ -251,14 +475,12 @@ final class Store: ObservableObject {
     }
 
     func rule(_ id: String) -> Rule? {
-        document.rules.first { $0.id == id }
+        document.rule(id)
     }
 
     /// Bir kuralın verilen moddaki hedefini değiştirir (nil = atanmamış).
     func setDestination(_ destination: Destination?, for id: String, mode: Mode) {
-        guard var rule = rule(id) else { return }
-        rule[mode] = destination
-        update(rule)
+        document.setDestination(destination, for: id, mode: mode)
     }
 
     /// Pinler: aynı anahtarlı (uygulama + parçalar) kural varsa onun bu
@@ -266,160 +488,61 @@ final class Store: ObservableObject {
     /// döner.
     @discardableResult
     func pin(_ draft: Rule, destination: Destination, mode: Mode) -> String {
-        if let existing = document.rules.first(where: { $0.sameKey(as: draft) }) {
-            setDestination(destination, for: existing.id, mode: mode)
-            return existing.id
-        }
-        var rule = draft
-        rule[mode] = destination
-        add(rule)
-        return rule.id
+        document.pin(draft, destination: destination, mode: mode)
     }
 
     /// Bu moddaki hedefi kaldırır; kuralın hiçbir hedefi kalmazsa silinir.
     func unpin(_ id: String, mode: Mode) {
-        guard var rule = rule(id) else { return }
-        rule[mode] = nil
-        if rule.docked == nil && rule.undocked == nil {
-            remove(id)
-        } else {
-            update(rule)
-        }
+        document.unpin(id, mode: mode)
     }
 
     /// Bir ekrandaki masaüstünü listede başka sıraya taşır; o ekranın bu
     /// moddaki bütün pinlerinin masaüstü numaraları buna göre kayar.
-    /// `count`: listedeki satır sayısı (gerçek + pinlerin kullandığı).
     func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode) {
-        guard let mapping = Self.desktopMapping(from: from, to: to, count: count)
-        else { return }
-
-        var rules = document.rules
-        for i in rules.indices {
-            guard var destination = rules[i][mode], destination.screen == screen,
-                  let updated = mapping[destination.desktop] else { continue }
-            destination.desktop = updated
-            rules[i][mode] = destination
-        }
-        if rules != document.rules { document.rules = rules }
-    }
-
-    /// Masaüstü `from` listede `to` sırasına taşınınca eski numara → yeni
-    /// numara haritası (kurallar ve oturum pinleri aynı haritayı kullanır).
-    /// Geçersiz taşımada nil.
-    static func desktopMapping(from: Int, to: Int, count: Int) -> [Int: Int]? {
-        guard from != to, from >= 1, to >= 1 else { return nil }
-        let total = max(count, from, to)
-        var order = Array(1...total)
-        order.remove(at: from - 1)
-        order.insert(from, at: min(to, total) - 1)
-        // order[newIndex] = eski numara → eski → yeni haritası
-        var mapping: [Int: Int] = [:]
-        for (index, old) in order.enumerated() { mapping[old] = index + 1 }
-        return mapping
+        document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode)
     }
 
     // MARK: - Profiller
 
     var profiles: [Profile] { document.profiles }
 
-    var activeProfile: Profile? {
-        document.profiles.first { $0.id == document.activeProfileID }
-    }
+    var activeProfile: Profile? { document.activeProfile }
 
-    /// Başka bir profile geçer: mevcut kurallar aktif profile yazılır,
-    /// hedef profilin kuralları yüklenir. Router kural değişimini görüp
-    /// pencereleri yeniden yerleştirir.
+    /// Başka bir profile geçer; Router kural değişimini görüp pencereleri
+    /// yeniden yerleştirir.
     func switchProfile(to id: String) {
-        guard id != document.activeProfileID,
-              let target = document.profiles.first(where: { $0.id == id }) else { return }
-        var doc = document
-        doc.syncActiveProfile()
-        doc.activeProfileID = target.id
-        doc.rules = target.rules
-        document = doc
+        document.switchProfile(to: id)
     }
 
     /// Yeni profil ekler ve ona geçer. `copyingCurrent`: mevcut pinlerle başla.
     @discardableResult
     func addProfile(named name: String? = nil, copyingCurrent: Bool = false) -> Profile {
-        var doc = document
-        doc.syncActiveProfile()
-        let profile = Profile(
-            name: uniqueName(name ?? "Profil \(doc.profiles.count + 1)", in: doc.profiles),
-            rules: copyingCurrent ? doc.rules.map { var r = $0; r.id = UUID().uuidString; return r } : [])
-        doc.profiles.append(profile)
-        doc.activeProfileID = profile.id
-        doc.rules = profile.rules
-        document = doc
-        return profile
+        document.addProfile(named: name, copyingCurrent: copyingCurrent)
     }
 
     func renameProfile(_ id: String, to name: String) {
-        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              let i = document.profiles.firstIndex(where: { $0.id == id }) else { return }
-        document.profiles[i].name = trimmed
+        document.renameProfile(id, to: name)
     }
 
     /// Profili siler; son profil silinemez. Aktif siliniyorsa ilk kalana geçilir.
     func deleteProfile(_ id: String) {
-        guard document.profiles.count > 1,
-              let i = document.profiles.firstIndex(where: { $0.id == id }) else { return }
-        var doc = document
-        doc.profiles.remove(at: i)
-        if doc.activeProfileID == id, let next = doc.profiles.first {
-            doc.activeProfileID = next.id
-            doc.rules = next.rules
-        }
-        document = doc
+        document.deleteProfile(id)
     }
 
     // MARK: - Dışa / içe aktarma
 
     func exportData(for id: String) throws -> Data {
-        var doc = document
-        doc.syncActiveProfile()
-        guard let profile = doc.profiles.first(where: { $0.id == id }) else {
-            throw NSError(domain: "SpaceRouter", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "Profil bulunamadı"])
-        }
-        let payload = ProfileExport(name: profile.name, screens: doc.screens,
-                                    rules: profile.rules)
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-        encoder.dateEncodingStrategy = .iso8601
-        return try encoder.encode(payload)
+        try document.exportData(for: id)
     }
 
-    /// Dosyadan profil okur, yeni profil olarak ekler ve ona geçer.
-    /// Kural kimlikleri çakışmasın diye yenilenir.
+    /// Dosyadan profil okur, yeni profil olarak ekler ve ona geçer. Okuma
+    /// başarısızsa belge yayınlanmaz.
     @discardableResult
     func importProfile(from data: Data) throws -> Profile {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        let payload = try decoder.decode(ProfileExport.self, from: data)
-        guard payload.kind == ProfileExport.kind || !payload.rules.isEmpty else {
-            throw NSError(domain: "SpaceRouter", code: 2,
-                          userInfo: [NSLocalizedDescriptionKey: "Bu bir Space Router profili değil"])
-        }
         var doc = document
-        doc.syncActiveProfile()
-        let rules = payload.rules.map { var r = $0; r.id = UUID().uuidString; return r }
-        let profile = Profile(name: uniqueName(payload.name, in: doc.profiles), rules: rules)
-        doc.profiles.append(profile)
-        doc.activeProfileID = profile.id
-        doc.rules = profile.rules
-        // Dosyadaki ekran adları bilinmeyen rolleri tanıtır (harita için).
-        for screen in payload.screens where !doc.screens.contains(where: { $0.id == screen.id }) {
-            doc.screens.append(screen)
-        }
+        let profile = try doc.importProfile(from: data)
         document = doc
         return profile
-    }
-
-    private func uniqueName(_ name: String, in profiles: [Profile]) -> String {
-        Document.uniqueName(name, in: profiles)
     }
 
     // MARK: - Ekranlar

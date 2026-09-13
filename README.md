@@ -138,9 +138,16 @@ dosyasında tutulur; eski (v1) dosyalar otomatik okunur.
 ```
 make app      # release derleme + .app paketi
 make check    # debug derleme
+make test     # birim testleri (app/Tests/SpaceRouterTests, Swift Testing)
 make dist     # gönderilebilir paket: evrensel derleme + imza + build/dist/*.zip
 make clean
 ```
+
+Testler saf mantığı kapsar: `Rule` eşleştirme ve başlık parçalama,
+`WindowLayout` oranları, `rules.json` şema geçişleri, `Document` üzerindeki
+pin/profil işlemleri ve `Routing` hedef seçimi. Diske ya da pencerelere
+dokunmazlar. `git config core.hooksPath .githooks` ile commit öncesi derleme ve
+testler kendiliğinden çalışır. Sürüm numarası kökteki `VERSION` dosyasından okunur.
 
 ### Dağıtım
 

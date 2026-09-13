@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 #
-# Commit öncesi hızlı doğrulama.
+# Commit öncesi hızlı doğrulama: Swift dosyası değişmişse derle ve testleri çalıştır.
 # Etkinleştirmek için:  git config core.hooksPath .githooks
 #
 set -euo pipefail
 
 if command -v swift >/dev/null 2>&1 && [[ "$(uname -s)" == "Darwin" ]]; then
   if git diff --cached --name-only --diff-filter=ACM | grep -q '\.swift$'; then
-    swift build --package-path "$(git rev-parse --show-toplevel)/app" -c debug
+    PACKAGE="$(git rev-parse --show-toplevel)/app"
+    swift build --package-path "$PACKAGE" -c debug
+    swift test --package-path "$PACKAGE"
   fi
 fi
