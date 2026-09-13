@@ -32,16 +32,21 @@ uyan bir pencere açıksa panelde başlığın parçaları yeniden seçilir ve
 düşen seçim uygulanmaz, panel nedenini söyler.
 
 **Geri alma:** pin kaldırma, profil silme, masaüstü sırası değiştirme,
-sürükleyerek taşıma ve parça düzenleme sonrasında alt çubukta 10 sn
+sürükleyerek taşıma (geçici pinler dahil), var olan pinin hedefini yeniden
+pinleyerek ezme ve parça düzenleme sonrasında alt çubukta 10 sn
 "… · Geri al" görünür; tıklayın ya da ⌘Z basın. Tek seviyedir; onay
-diyaloğu yerine bunu kullanın.
+diyaloğu yerine bunu kullanın. Araya başka bir değişiklik girerse (yeni pin,
+düzen adımı, profil geçişi) kayıt düşer; geri alma yalnızca o işlemi geri
+alır. Geçici pin ekleme ve kaldırma geri alınamaz. Odak bir metin
+alanındayken ⌘Z o metnin geri almasıdır.
 
 **Kısayollar** (pencere öndeyken): ⌘R pinli pencereleri şimdi yerleştir,
 ⌘1 / ⌘2 mod seçici, ⌘Z geri al, Esc açık paneli kapat.
 
 Bir pinin hedef masaüstü o ekranda yoksa (Mission Control'de o kadar
 masaüstü açık değilse) pencere son masaüstüne gider ve satırda turuncu
-"M5→3" rozeti çıkar; masaüstü ekleyin ya da pini sürükleyin. Bir pencereye
+"M5→3" rozeti çıkar (yalnızca şu anki modun haritasında); masaüstü ekleyin
+ya da pini sürükleyin. Bir pencereye
 uyan ama daha özgül bir pine yenilen pin haritada soluk çip olarak durur.
 
 ## Kurulum
@@ -168,8 +173,9 @@ make clean
 
 Testler saf mantığı kapsar: `Rule` eşleştirme ve başlık parçalama,
 `WindowLayout` oranları, `rules.json` şema geçişleri, `Document` üzerindeki
-pin/profil/parça işlemleri, `Routing` hedef seçimi, `UndoBuffer`, gölgede
-kalan kural hesabı ve eksik masaüstü rozeti kararı. Diske ya da pencerelere
+pin/profil/parça işlemleri, `Routing` hedef seçimi, `UndoBuffer` (geçerlilik
+denetimi dahil), masaüstü taşıma haritasının tersi, gölgede kalan kural
+hesabı ve eksik masaüstü rozeti kararı. Diske ya da pencerelere
 dokunmazlar. `git config core.hooksPath .githooks` ile commit öncesi derleme ve
 testler kendiliğinden çalışır. Sürüm numarası kökteki `VERSION` dosyasından okunur.
 

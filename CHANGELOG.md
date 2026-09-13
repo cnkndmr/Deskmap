@@ -7,10 +7,18 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 ### Eklendi
 
 - Tek seviyeli geri alma: pin kaldırma, pin silme, profil silme, masaüstü
-  sırası değiştirme, sürükleyerek hedef değiştirme ve başlık parçası
-  düzenleme öncesinde belge saklanır; alt çubukta 10 sn "<işlem> · Geri al"
-  görünür, ⌘Z de geri alır. Düzen adımları ve profil geçişi kaydedilmez
-  (`Models/UndoBuffer.swift`, `Store.undo()`).
+  sırası değiştirme, sürükleyerek hedef değiştirme, var olan pinin hedefini
+  yeniden pinleyerek ezme ("Pin güncellendi") ve başlık parçası düzenleme
+  sonrasında belge saklanır; alt çubukta 10 sn "<işlem> · Geri al" görünür,
+  ⌘Z de geri alır. Geçici pinin sürüklenmesi ve masaüstü sırasıyla kayan
+  geçici pinler de geri alınır (kayıt, belge dışı durumu geri alan bir eşlik
+  kapanışı taşır). Kayıt işlemden sonraki belgeyi de tutar: araya başka bir
+  değişiklik girerse (yeni pin, düzen adımı, profil geçişi, URL komutu)
+  kayıt düşer, geri alma o değişikliği silmez. Düzen adımları ve profil
+  geçişi kaydedilmez (`Models/UndoBuffer.swift`, `Store.undo()`).
+- Simge düğmeleri ve anahtarların erişilebilirlik etiketi (ipucuyla aynı
+  sözcükler): açık/kapalı anahtarı, mod seçici, yeniden yerleştir, çıkış,
+  pin düğmesi, kapatma düğmeleri, profil ekle / içe aktar, hazır düzenler.
 - Pin bilgi panelinde başlık parçaları yazmadan düzenlenir: pine uyan bir
   pencere açıksa onun başlığı parçalanır, mevcut parçalar işaretli gelir,
   "Tüm pencereler" seçilebilir, "Şu an N pencere uyuyor" canlı gösterilir;
@@ -160,6 +168,21 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   düşürülmez.
 - Harici ekran rol sırası (`external`, `external-2`) aynı `minX` için
   belirsizdi; sıra artık (minX, minY, UUID) ile belirlenir.
+- Geri alma araya giren değişiklikleri siliyordu: kayıt belgenin tamamını
+  geri yüklediği için 10 sn içinde yapılan ama kaydedilmeyen işlemler (yeni
+  pin, düzen adımı, profil geçişi/ekleme/adlandırma/içe aktarma, "Anladım",
+  URL komutları) ⌘Z ile sessizce gidiyordu. Belge kayıttan sonra değişirse
+  kayıt düşer (açık/kapalı ve tanınan ekranlar sayılmaz).
+- Masaüstü sırası geri alınınca geçici pinler eski numarada kalıyordu; şimdi
+  ters taşımayla birlikte dönerler.
+- Eksik masaüstü rozeti diğer modun haritasında yanlış çıkıyordu (masaüstü
+  sayıları bağlı ekranlara ait, router yalnızca şu anki modda kırpar); rozet
+  yalnızca harita şu anki modu gösterirken.
+- Profil adı ya da yüzde kutusunda ⌘Z belgeyi geri alıyordu; odak bir metin
+  alanındayken metnin kendi geri alması çalışır.
+- "Geri al" bağlantısı hata ya da yanıt vermeyen uygulama iletisinin
+  arkasında kalıyordu (⌘Z de bağlanmıyordu); artık alt çubuğun sağında,
+  durum metninden bağımsız ayrı bir öğe. Yer darsa önce durum metni kısalır.
 
 ### Eklendi
 
