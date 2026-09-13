@@ -54,6 +54,13 @@ struct RulePanel: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
 
+    /// Parça düzenleme taslağı: uyan ilk pencerenin başlık bölümleri ve
+    /// seçim. Parçalar kurala aittir, moddan bağımsızdır; bu yüzden diğer
+    /// modda da düzenlenebilir.
+    @State private var segments: [String] = []
+    @State private var chosen: Set<Int> = []
+    @State private var appWide = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             PinPanelHeader(
@@ -69,7 +76,10 @@ struct RulePanel: View {
                     .foregroundStyle(.tertiary)
             }
 
+            tokenSection
+
             if let destination = rule[mode] {
+                Divider()
                 LayoutEditor(layout: Binding(
                     // Her zaman depodaki güncel değeri oku; yakalanan
                     // `destination` bir sonraki çizime kadar eski kalır.
@@ -86,6 +96,104 @@ struct RulePanel: View {
     private var otherModeText: String {
         let other: Mode = mode == .docked ? .undocked : .docked
         return rule[other] == nil ? "\(other.title): pin yok" : "\(other.title): pinli"
+    }
+
+    // MARK: Başlık parçaları
+
+    /// Kurala şu an uyan açık pencereler; ilkinin başlığı seçim kaynağıdır.
+    private var matching: [Router.WindowSnapshot] {
+        ui.windows.filter { rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title) }
+    }
+
+    private var sourceTitle: String? { matching.first?.title }
+
+    private var draftTokens: [String] {
+        TokenPicker.tokens(segments: segments, chosen: chosen, appWide: appWide)
+    }
+
+    private var draftRule: Rule {
+        var draft = rule
+        draft.tokens = draftTokens
+        return draft
+    }
+
+    private var draftMatchCount: Int {
+        ui.windows.filter {
+            draftRule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
+        }.count
+    }
+
+    /// Seçim, kuralın mevcut parçalarından (büyük/küçük harf duyarsız) farklı mı?
+    private var isChanged: Bool { !draftRule.sameKey(as: rule) }
+
+    private var conflict: Rule? {
+        store.document.conflictingRule(ifTokens: draftTokens, for: rule.id)
+    }
+
+    private var canApply: Bool {
+        isChanged && conflict == nil && (appWide || !chosen.isEmpty)
+    }
+
+    @ViewBuilder
+    private var tokenSection: some View {
+        if let title = sourceTitle {
+            VStack(alignment: .leading, spacing: 6) {
+                TokenPicker(segments: segments, chosen: $chosen, appWide: $appWide)
+                HStack(spacing: 8) {
+                    Text(tokenCaption)
+                        .font(.caption2)
+                        .foregroundStyle(conflict != nil ? Color.orange : Color.secondary)
+                        .lineLimit(1)
+                    Spacer()
+                    Button("Uygula") {
+                        store.setTokens(draftTokens, for: rule.id)
+                    }
+                    .controlSize(.small)
+                    .disabled(!canApply)
+                    .help("Seçili parçaları bu pinin başlık parçaları yap")
+                }
+            }
+            .onAppear { reset(title) }
+            .onChange(of: title) { reset($0) }
+            .onChange(of: rule.id) { _ in reset(title) }
+        } else {
+            VStack(alignment: .leading, spacing: 6) {
+                FlowLayout(spacing: 6) {
+                    if rule.isAppWide {
+                        TokenPill("Tüm pencereler", systemImage: "macwindow.on.rectangle", isOn: true)
+                    } else {
+                        ForEach(Array(rule.tokens.enumerated()), id: \.offset) { _, token in
+                            TokenPill(token, isOn: true)
+                        }
+                    }
+                }
+                Text("Parçaları değiştirmek için bu pine uyan bir pencere açık olmalı.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+
+    private var tokenCaption: String {
+        if let conflict {
+            return "Bu parçalarla zaten bir pin var: „\(conflict.title)\""
+        }
+        if appWide {
+            return "Başlığa bakılmaz; \(rule.appName) uygulamasının her penceresi uyar."
+        }
+        if chosen.isEmpty {
+            return "En az bir parça seçin ya da Tüm pencereler."
+        }
+        return draftMatchCount == 1
+            ? "Şu an 1 pencere uyuyor."
+            : "Şu an \(draftMatchCount) pencere uyuyor."
+    }
+
+    /// Uyan pencerenin başlığını böler, kuralın mevcut parçalarını işaretler.
+    private func reset(_ title: String) {
+        segments = Rule.split(title: title)
+        appWide = rule.isAppWide
+        chosen = appWide ? [] : TokenPicker.preselection(segments: segments, tokens: rule.tokens)
     }
 }
 

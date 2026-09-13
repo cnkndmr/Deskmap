@@ -182,6 +182,25 @@ struct Document: Codable, Equatable {
         }
     }
 
+    /// Kuralın parçaları `tokens` olsaydı aynı anahtara (uygulama + parçalar)
+    /// sahip olacak başka bir kural; yoksa nil.
+    func conflictingRule(ifTokens tokens: [String], for id: String) -> Rule? {
+        guard var probe = rule(id) else { return nil }
+        probe.tokens = tokens
+        return rules.first { $0.id != id && $0.sameKey(as: probe) }
+    }
+
+    /// Kuralın başlık parçalarını değiştirir; hedefler ve kimlik korunur.
+    /// Başka bir kuralla anahtar çakışırsa dokunmaz ve false döner.
+    @discardableResult
+    mutating func setTokens(_ tokens: [String], for id: String) -> Bool {
+        guard var rule = rule(id), conflictingRule(ifTokens: tokens, for: id) == nil
+        else { return false }
+        rule.tokens = tokens
+        update(rule)
+        return true
+    }
+
     /// Bir ekrandaki masaüstünü listede başka sıraya taşır; o ekranın bu
     /// moddaki bütün pinlerinin masaüstü numaraları buna göre kayar.
     /// `count`: listedeki satır sayısı (gerçek + pinlerin kullandığı).
@@ -524,6 +543,17 @@ final class Store: ObservableObject {
     @discardableResult
     func pin(_ draft: Rule, destination: Destination, mode: Mode) -> String {
         document.pin(draft, destination: destination, mode: mode)
+    }
+
+    /// Kuralın başlık parçalarını değiştirir (geri alınabilir). Başka bir
+    /// kuralla anahtar çakışırsa dokunmaz ve false döner.
+    @discardableResult
+    func setTokens(_ tokens: [String], for id: String) -> Bool {
+        var changed = false
+        recording("Başlık parçaları değişti") {
+            changed = document.setTokens(tokens, for: id)
+        }
+        return changed
     }
 
     /// Bu moddaki hedefi kaldırır; kuralın hiçbir hedefi kalmazsa silinir.
