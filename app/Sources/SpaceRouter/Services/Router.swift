@@ -73,9 +73,12 @@ final class Router: ObservableObject {
     private let screens: ScreenService
     private let events: WindowEvents
     private let queue = DispatchQueue(label: "spacerouter.router", qos: .utility)
-    private var timer: Timer?
+    // nonisolated(unsafe): ikisi de yalnızca init'te (ana aktör) doldurulur,
+    // deinit'te kapatılır; `Timer` ve gözlemci belirteci Sendable olmadığı
+    // için deinit erişimi başka türlü sıkı eşzamanlılık uyarısı verir.
+    nonisolated(unsafe) private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
-    private var sleepTokens: [NSObjectProtocol] = []
+    nonisolated(unsafe) private var sleepTokens: [NSObjectProtocol] = []
 
     /// (pencere, hedef) çiftleri için düzen bir kez uygulanır; kullanıcı
     /// sonradan pencereyi elle taşırsa yerinden oynatılmaz.
@@ -142,16 +145,19 @@ final class Router: ObservableObject {
         // Ekranlar / sistem uyurken tarama durur (pencere sunucusu ve
         // uygulamalar yanıt vermez, boşuna IPC); uyanınca hemen bir tur.
         let center = NSWorkspace.shared.notificationCenter
+        // `Notification` Sendable değil; ana aktöre yalnızca adı taşınır.
         for name in [NSWorkspace.screensDidSleepNotification, NSWorkspace.willSleepNotification] {
             sleepTokens.append(center.addObserver(forName: name, object: nil, queue: .main) {
                 [weak self] note in
-                Task { @MainActor in self?.setPaused(true, reason: note.name.rawValue) }
+                let reason = note.name.rawValue
+                Task { @MainActor in self?.setPaused(true, reason: reason) }
             })
         }
         for name in [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification] {
             sleepTokens.append(center.addObserver(forName: name, object: nil, queue: .main) {
                 [weak self] note in
-                Task { @MainActor in self?.setPaused(false, reason: note.name.rawValue) }
+                let reason = note.name.rawValue
+                Task { @MainActor in self?.setPaused(false, reason: reason) }
             })
         }
     }

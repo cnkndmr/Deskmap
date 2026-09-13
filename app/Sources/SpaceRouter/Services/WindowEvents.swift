@@ -12,7 +12,10 @@ final class WindowEvents {
     let changed = PassthroughSubject<String, Never>()
 
     private var observers: [pid_t: AXObserver] = [:]
-    private var tokens: [NSObjectProtocol] = []
+    // nonisolated(unsafe): yalnızca init'te (ana aktör) doldurulur, deinit'te
+    // kaldırılır; gözlemci belirteçleri Sendable olmadığı için deinit erişimi
+    // başka türlü sıkı eşzamanlılık uyarısı verir.
+    nonisolated(unsafe) private var tokens: [NSObjectProtocol] = []
 
     /// Gözlemci takılamayan uygulama için bekleme: bir sonraki deneme
     /// zamanı ve o denemede kullanılacak gecikme (2 sn → 30 sn, ikiye

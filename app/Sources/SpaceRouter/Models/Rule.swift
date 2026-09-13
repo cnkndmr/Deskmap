@@ -130,9 +130,20 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     var appName: String
     var bundleID: String
     /// Başlıkta (büyük/küçük harf duyarsız) hepsi geçmesi gereken parçalar.
-    var tokens: [String]
+    var tokens: [String] {
+        didSet { loweredTokens = Self.lowered(tokens) }
+    }
     var docked: Destination?
     var undocked: Destination?
+
+    /// `tokens`'ın küçük harfli kopyası; `matches` her çağrıda yeniden
+    /// küçültmesin (her taramada ve her arayüz çiziminde kural × pencere kez
+    /// çağrılır). `tokens`'tan türetilir; init'ler ve `didSet` eşit tutar.
+    private var loweredTokens: [String]
+
+    private static func lowered(_ tokens: [String]) -> [String] {
+        tokens.map { $0.lowercased() }
+    }
 
     init(
         id: String = UUID().uuidString,
@@ -146,6 +157,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         self.appName = appName
         self.bundleID = bundleID
         self.tokens = tokens
+        self.loweredTokens = Self.lowered(tokens)
         self.docked = docked
         self.undocked = undocked
     }
@@ -181,24 +193,27 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         docked = try c.decodeIfPresent(Destination.self, forKey: .docked)
         undocked = try c.decodeIfPresent(Destination.self, forKey: .undocked)
 
+        let decodedTokens: [String]
         if let name = try c.decodeIfPresent(String.self, forKey: .appName) {
             appName = name
             bundleID = try c.decodeIfPresent(String.self, forKey: .bundleID) ?? ""
-            tokens = try c.decodeIfPresent([String].self, forKey: .tokens) ?? []
-            return
-        }
-
-        // v1: { app: "Safari" | {name, bundleID}, match: {type, value} }
-        if let legacy = try? c.decode(LegacyApp.self, forKey: .app) {
-            appName = legacy.name
-            bundleID = legacy.bundleID ?? ""
+            decodedTokens = try c.decodeIfPresent([String].self, forKey: .tokens) ?? []
         } else {
-            appName = (try? c.decode(String.self, forKey: .app)) ?? ""
-            bundleID = ""
+            // v1: { app: "Safari" | {name, bundleID}, match: {type, value} }
+            if let legacy = try? c.decode(LegacyApp.self, forKey: .app) {
+                appName = legacy.name
+                bundleID = legacy.bundleID ?? ""
+            } else {
+                appName = (try? c.decode(String.self, forKey: .app)) ?? ""
+                bundleID = ""
+            }
+            let match = try? c.decode(LegacyMatch.self, forKey: .match)
+            let value = match?.value ?? ""
+            decodedTokens = value.isEmpty ? [] : [value]
         }
-        let match = try? c.decode(LegacyMatch.self, forKey: .match)
-        let value = match?.value ?? ""
-        tokens = value.isEmpty ? [] : [value]
+        // Init içinde `didSet` çalışmaz; türetilen kopya burada kurulur.
+        tokens = decodedTokens
+        loweredTokens = Self.lowered(decodedTokens)
     }
 
     func encode(to encoder: Encoder) throws {
@@ -259,8 +274,26 @@ extension Array where Element == Rule {
 }
 
 extension Rule {
+    /// Pencere bu kurala uyuyor mu: paket kimliği (yoksa ad, büyük/küçük
+    /// harf duyarsız) ve başlıkta bütün parçalar.
+    ///
+    /// Büyük/küçük harf eşleme `lowercased()` ile yapılır (Unicode küçültme,
+    /// yerelden bağımsız): "İ" → "i̇" (i + birleşen nokta), "I" → "i", "ı"
+    /// olduğu gibi kalır. `range(of:options: .caseInsensitive)` kullanılmaz:
+    /// o, tam katlama uygular ve "ß" ile "SS", "ﬁ" ile "fi" gibi çiftleri de
+    /// eşler; kararlar değişmesin diye küçültme semantiği korunur
+    /// (`RuleTests` Türkçe ve ß örneklerini sabitler).
     func matches(bundleID windowBundle: String, appName windowApp: String,
                  title: String) -> Bool {
+        matches(bundleID: windowBundle, appName: windowApp, loweredTitle: title.lowercased())
+    }
+
+    /// Aynı karar; başlığı küçültmeyi çağırana bırakır ve yalnızca
+    /// gerektiğinde ister (uygulama uymuyorsa ya da kural uygulama
+    /// geneliyse başlığa bakılmaz). `Routing.select` bir pencere için birçok
+    /// kural denerken başlığı böylece bir kez küçültür.
+    func matches(bundleID windowBundle: String, appName windowApp: String,
+                 loweredTitle: @autoclosure () -> String) -> Bool {
         if !bundleID.isEmpty {
             guard bundleID == windowBundle else { return false }
         } else {
@@ -268,18 +301,24 @@ extension Rule {
             else { return false }
         }
         if tokens.isEmpty { return true }
-        let haystack = title.lowercased()
-        return tokens.allSatisfy { haystack.contains($0.lowercased()) }
+        let haystack = loweredTitle()
+        return loweredTokens.allSatisfy { haystack.contains($0) }
     }
 }
 
 // MARK: - Başlık parçalama
 
 extension Rule {
+    /// Başlık ayraçları: " — ", " – ", " - ", " | ", " · ", " • ", " : ".
+    /// Bir kez derlenir (eskiden her `split` çağrısında derleniyordu).
+    // nonisolated(unsafe): `Regex` bu araç zincirinde Sendable işaretli
+    // değil ama değişmez bir değer; `split` yalnızca okur, yazan yok.
+    nonisolated(unsafe) private static let titleSeparator =
+        try! Regex(#"\s*[—–|·•]\s*|\s+[-:]\s+"#)
+
     /// Başlığı yaygın ayraçlardan böler: " — ", " – ", " - ", " | ", " · ", " • ", " : "
     static func split(title: String) -> [String] {
-        let separator = try! Regex(#"\s*[—–|·•]\s*|\s+[-:]\s+"#)
-        let cleaned = title.split(separator: separator)
+        let cleaned = title.split(separator: titleSeparator)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .map { $0.replacingOccurrences(of: #"^[●•*]\s*"#, with: "", options: .regularExpression) }
             .filter { !$0.isEmpty }

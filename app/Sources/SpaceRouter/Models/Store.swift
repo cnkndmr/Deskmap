@@ -406,7 +406,10 @@ final class Store: ObservableObject {
         "rules.json daha yeni bir Space Router sürümüne ait; değişiklikler kaydedilmeyecek"
 
     private var cancellables = Set<AnyCancellable>()
-    private var terminateObserver: NSObjectProtocol?
+    // nonisolated(unsafe): yalnızca init'te (ana aktör) atanır, deinit'te
+    // kaldırılır; gözlemci belirteci Sendable olmadığı için deinit erişimi
+    // başka türlü sıkı eşzamanlılık uyarısı verir.
+    nonisolated(unsafe) private var terminateObserver: NSObjectProtocol?
 
     init() {
         load()

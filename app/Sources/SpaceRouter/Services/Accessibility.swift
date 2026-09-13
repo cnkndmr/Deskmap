@@ -9,7 +9,10 @@ import Combine
 final class AccessibilityPermission: ObservableObject {
 
     @Published private(set) var isTrusted = AXIsProcessTrusted()
-    private var timer: Timer?
+    // nonisolated(unsafe): yalnızca init'te (ana aktör) atanır, deinit'te
+    // geçersiz kılınır; `Timer` Sendable olmadığı için deinit erişimi
+    // başka türlü sıkı eşzamanlılık uyarısı verir.
+    nonisolated(unsafe) private var timer: Timer?
 
     init() {
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
@@ -24,7 +27,7 @@ final class AccessibilityPermission: ObservableObject {
     deinit { timer?.invalidate() }
 
     func request() {
-        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        let options = [AX.trustedCheckOptionPrompt: true]
         _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
 
@@ -53,6 +56,12 @@ struct AXWindow: Identifiable, Hashable {
 /// Accessibility üzerinden pencere okuma ve taşıma.
 enum AX {
 
+    /// `kAXTrustedCheckOptionPrompt` anahtarının değeri. C başlığındaki
+    /// simge Swift'e değişebilir bir genel (`var`) olarak gelir ve sıkı
+    /// eşzamanlılıkta uyarı verir; değeri sabit olduğu için burada yazılır
+    /// (`EngineHelperTests` eşitliğini doğrular).
+    static let trustedCheckOptionPrompt = "AXTrustedCheckOptionPrompt"
+
     // MARK: - Yanıt vermeyen uygulamalar
 
     /// Bir uygulama Accessibility sorularına bu kadar sürede yanıt vermezse
@@ -64,7 +73,9 @@ enum AX {
         let name: String
     }
 
-    private static var backoffs: [pid_t: Backoff] = [:]
+    // nonisolated(unsafe): her erişim `backoffLock` altında yapılır
+    // (isBackedOff / note / pruneBackoffs / unresponsiveApps).
+    nonisolated(unsafe) private static var backoffs: [pid_t: Backoff] = [:]
     private static let backoffLock = NSLock()
     /// Tek bir AX çağrısı bu kadar sürerse uygulama yanıt vermiyor sayılır:
     /// donmuş uygulama ilk çağrıda `timeout` (1 sn) zaman aşımına takılır.

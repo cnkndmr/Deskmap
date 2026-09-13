@@ -31,6 +31,101 @@ struct RuleTests {
                               title: "Router.swift — Atlas"))
     }
 
+    // MARK: Büyük/küçük harf semantiği (lowercased(); değişmesin)
+
+    @Test func turkishDottedAndDotlessIFollowUnicodeLowercasing() {
+        func match(_ token: String, in title: String) -> Bool {
+            Rule(appName: "X", bundleID: "x", tokens: [token])
+                .matches(bundleID: "x", appName: "X", title: title)
+        }
+        // "İ".lowercased() = "i" + U+0307 (birleşen nokta); "i" ile aynı değil.
+        #expect("İ".lowercased().unicodeScalars.map(\.value) == [0x69, 0x307])
+        #expect(!match("istanbul", in: "İstanbul"))
+        #expect(match("İstanbul", in: "İSTANBUL"))
+        #expect(match("İstanbul", in: "İstanbul"))
+        // ASCII "I" → "i"; noktasız "ı" olduğu gibi kalır.
+        #expect(match("istanbul", in: "ISTANBUL"))
+        #expect(!match("İstanbul", in: "ISTANBUL"))
+        #expect(match("i", in: "I"))
+        #expect(!match("ı", in: "I"))
+        #expect(!match("I", in: "ı"))
+        #expect(!match("İ", in: "i"))
+        #expect(!match("ığdır", in: "Iğdır"))
+        // "IĞDIR".lowercased() = "iğdir": noktasız ı ile eşleşmez.
+        #expect(!match("ığdır", in: "IĞDIR"))
+    }
+
+    @Test func caseFoldingPairsAreNotMatchedLikeCaseInsensitiveSearch() {
+        // `.caseInsensitive` arama tam katlama yapar (ß ≈ SS, ﬁ ≈ fi);
+        // küçültme semantiği bunları eşlemez, karar böyle kalmalı.
+        let rule = Rule(appName: "X", bundleID: "x", tokens: ["straße"])
+        #expect(!rule.matches(bundleID: "x", appName: "X", title: "STRASSE"))
+        #expect(rule.matches(bundleID: "x", appName: "X", title: "STRAßE"))
+        let ligature = Rule(appName: "X", bundleID: "x", tokens: ["file"])
+        #expect(!ligature.matches(bundleID: "x", appName: "X", title: "ﬁle"))
+        // Farklı normalleştirme biçimleri yine eşit (Swift String karşılaştırması).
+        let accent = Rule(appName: "X", bundleID: "x", tokens: ["CAFE\u{0301}"])
+        #expect(accent.matches(bundleID: "x", appName: "X", title: "café"))
+    }
+
+    @Test func mutatedTokensMatchWithNewValues() {
+        var rule = Rule(appName: "Code", bundleID: "x", tokens: ["Atlas"])
+        #expect(rule.matches(bundleID: "x", appName: "Code", title: "atlas"))
+        rule.tokens = ["ROUTER"]
+        #expect(!rule.matches(bundleID: "x", appName: "Code", title: "atlas"))
+        #expect(rule.matches(bundleID: "x", appName: "Code", title: "Router.swift"))
+        rule.tokens = []
+        #expect(rule.matches(bundleID: "x", appName: "Code", title: "anything"))
+        rule.tokens.append("Store")
+        #expect(rule.matches(bundleID: "x", appName: "Code", title: "STORE.swift"))
+        #expect(!rule.matches(bundleID: "x", appName: "Code", title: "Router.swift"))
+    }
+
+    @Test func decodedRulesMatchCaseInsensitively() throws {
+        // Çözümleme yolunda da (v2 ve v1) küçük harf kopyası kurulur.
+        let v2 = try JSONDecoder().decode(Rule.self, from: Data("""
+            {"appName":"Code","bundleID":"x","tokens":["Atlas","Store"]}
+            """.utf8))
+        #expect(v2.matches(bundleID: "x", appName: "Code", title: "STORE — atlas"))
+        #expect(!v2.matches(bundleID: "x", appName: "Code", title: "atlas"))
+        let v1 = try JSONDecoder().decode(Rule.self, from: Data("""
+            {"app":"Code","match":{"type":"contains","value":"Atlas"}}
+            """.utf8))
+        #expect(v1.tokens == ["Atlas"])
+        #expect(v1.matches(bundleID: "", appName: "code", title: "atlas"))
+    }
+
+    @Test func lazyTitleOverloadOnlyLowercasesWhenNeeded() {
+        // Çağrılar `#expect` dışında: makro argümanları önceden değerlendirir,
+        // bu da `@autoclosure` tembelliğini bozar.
+        var calls = 0
+        func lowered(_ title: String) -> String { calls += 1; return title.lowercased() }
+        let appWide = Rule(appName: "X", bundleID: "x", tokens: [])
+        let appWideMatched = appWide.matches(bundleID: "x", appName: "X", loweredTitle: lowered("T"))
+        let otherApp = Rule(appName: "Y", bundleID: "y", tokens: ["t"])
+        let otherMatched = otherApp.matches(bundleID: "x", appName: "X", loweredTitle: lowered("T"))
+        #expect(appWideMatched && !otherMatched)
+        #expect(calls == 0)
+        let titled = Rule(appName: "X", bundleID: "x", tokens: ["t"])
+        let titledMatched = titled.matches(bundleID: "x", appName: "X", loweredTitle: lowered("T"))
+        #expect(titledMatched)
+        #expect(calls == 1)
+    }
+
+    @Test func splitIsStableAcrossConcurrentCalls() {
+        // Ayraç deseni paylaşılan bir sabit; eşzamanlı çağrılar aynı sonucu verir.
+        let title = "● Alpha — Beta | Gamma : Delta"
+        let expected = ["Alpha", "Beta", "Gamma", "Delta"]
+        let lock = NSLock()
+        var mismatches = 0
+        DispatchQueue.concurrentPerform(iterations: 200) { _ in
+            if Rule.split(title: title) != expected {
+                lock.lock(); mismatches += 1; lock.unlock()
+            }
+        }
+        #expect(mismatches == 0)
+    }
+
     @Test func appWideRuleIgnoresTitle() {
         let rule = Rule(appName: "Music", bundleID: "com.apple.Music", tokens: [])
         #expect(rule.isAppWide)
