@@ -141,6 +141,7 @@ make check    # debug derleme
 make test     # birim testleri (app/Tests/SpaceRouterTests, Swift Testing)
 make dist     # gönderilebilir paket: evrensel derleme + imza + build/dist/*.zip
 make clean
+make concurrency-check  # sıkı eşzamanlılık uyarıları (Swift 6 hazırlığı; ayar değişmez)
 ```
 
 Testler saf mantığı kapsar: `Rule` eşleştirme ve başlık parçalama,

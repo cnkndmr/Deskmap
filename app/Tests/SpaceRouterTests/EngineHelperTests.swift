@@ -1,3 +1,4 @@
+import ApplicationServices
 import CoreGraphics
 import Foundation
 import Testing
@@ -7,6 +8,14 @@ import Testing
 /// taşıma soğuması, harici ekran sıralaması, space türü haritası.
 /// Hiçbiri pencerelere, SkyLight'a ya da diske dokunmaz.
 struct EngineHelperTests {
+
+    // MARK: Accessibility sabitleri
+
+    @Test func trustedCheckOptionPromptMatchesSystemConstant() {
+        // Sıkı eşzamanlılık için C genelinin yerine yazılan sabit aynı anahtar.
+        #expect(AX.trustedCheckOptionPrompt
+                == kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String)
+    }
 
     // MARK: Backoff kararı
 

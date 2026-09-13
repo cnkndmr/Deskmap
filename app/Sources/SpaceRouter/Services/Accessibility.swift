@@ -26,14 +26,8 @@ final class AccessibilityPermission: ObservableObject {
 
     deinit { timer?.invalidate() }
 
-    /// `kAXTrustedCheckOptionPrompt` anahtarının değeri. C başlığındaki
-    /// simge Swift'e değişebilir bir genel (`var`) olarak gelir ve sıkı
-    /// eşzamanlılıkta uyarı verir; değeri sabit olduğu için burada yazılır
-    /// (`EngineHelperTests` eşitliğini doğrular).
-    static let trustedCheckOptionPrompt = "AXTrustedCheckOptionPrompt"
-
     func request() {
-        let options = [Self.trustedCheckOptionPrompt: true]
+        let options = [AX.trustedCheckOptionPrompt: true]
         _ = AXIsProcessTrustedWithOptions(options as CFDictionary)
     }
 
@@ -61,6 +55,12 @@ struct AXWindow: Identifiable, Hashable {
 
 /// Accessibility üzerinden pencere okuma ve taşıma.
 enum AX {
+
+    /// `kAXTrustedCheckOptionPrompt` anahtarının değeri. C başlığındaki
+    /// simge Swift'e değişebilir bir genel (`var`) olarak gelir ve sıkı
+    /// eşzamanlılıkta uyarı verir; değeri sabit olduğu için burada yazılır
+    /// (`EngineHelperTests` eşitliğini doğrular).
+    static let trustedCheckOptionPrompt = "AXTrustedCheckOptionPrompt"
 
     // MARK: - Yanıt vermeyen uygulamalar
 
