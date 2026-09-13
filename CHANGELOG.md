@@ -36,6 +36,13 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 - Motor yardımcılarının birim testleri (`EngineHelperTests`): backoff kararı,
   masaüstü taşıma soğuması, harici ekran sıralaması, space türü haritası ve
   saf `Router.placement`. Toplam 68 test.
+- `make concurrency-check`: `-strict-concurrency=complete` ile temiz bir
+  derleme yapıp uyarıları listeler (Swift 6 hazırlığı; paket ayarı değişmez,
+  ayrı derleme dizini `app/.build/strict`). README "Geliştirme" bölümünde.
+- `Rule` eşleştirme testleri: Türkçe İ/ı/I/i, ß–SS ve ligatür katlama
+  çiftleri (eşleşmez, `lowercased()` semantiği), çözümlenen (v1/v2) kurallar,
+  değişen `tokens`, tembel başlık küçültme, eşzamanlı `split`; AX izin
+  anahtarı sabiti testi. Toplam 75 test.
 
 ### Değişti
 
@@ -62,6 +69,20 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   tutmazsa yapılır.
 - Masaüstü taşıma sınırı ve soğuma `Routing.maxMoveAttempts` /
   `Routing.moveRetryInterval` (saf `recordMoveAttempt`).
+- Sıkı eşzamanlılık (`-strict-concurrency=complete`) uyarıları servislerde
+  giderildi: 16 → 2 (kalan ikisi `Store.swift` deinit'inde). `SkyLight`
+  `Sendable` (bütün alanlar `let`); `DropTargetPreference.defaultValue`
+  `static let`; AX backoff tablosu kilit altında `nonisolated(unsafe)`;
+  `kAXTrustedCheckOptionPrompt` yerine sabit anahtar; Router / ScreenService /
+  WindowEvents / AccessibilityPermission deinit'inde kapatılan Timer ve
+  gözlemci belirteçleri `nonisolated(unsafe)`; uyku bildirimlerinden ana
+  aktöre yalnızca bildirim adı taşınır. Davranış aynı.
+- `Rule.split` ayraç deseni bir kez derlenir (eskiden her çağrıda);
+  `Rule.matches` parçaların küçük harfli kopyasını saklar (`tokens`
+  değişince yenilenir) ve `Routing.select` başlığı pencere başına en fazla
+  bir kez küçültür. Eşleme kararı aynı: `lowercased()` semantiği korunur,
+  `.caseInsensitive` arama ß/SS ve ligatür çiftlerini de eşlediği için
+  kullanılmadı.
 
 ### Düzeltildi
 
