@@ -43,7 +43,9 @@ struct RootView: View {
     @State private var desktopCounts: [String: Int] = [:]
     /// Gerekli macOS ayarlarının canlı durumu (her taramada yenilenir).
     @State private var settingChecks: [MacSettings.Check] = MacSettings.checks()
-    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
+    /// "Girişte başlat" kaydının gerçek durumu; her taramada ve kayıt
+    /// değişince yeniden okunur (kullanıcı Sistem Ayarları'ndan kapatabilir).
+    @State private var loginStatus: SMAppService.Status = SMAppService.mainApp.status
     /// Sürükleme sırasında gelen tarama sonucu; sürükleme bitince uygulanır.
     @State private var pendingWindows: [Router.WindowSnapshot]?
 
@@ -135,6 +137,7 @@ struct RootView: View {
             // Kullanıcı Sistem Ayarları'nda düzeltince kart kendiliğinden güncellensin.
             let checks = MacSettings.checks()
             if checks != settingChecks { settingChecks = checks }
+            refreshLoginStatus()
         }
         .onChange(of: ui.drag == nil) { idle in
             guard idle, let pending = pendingWindows else { return }
@@ -245,16 +248,21 @@ struct RootView: View {
 
             Spacer()
 
-            Toggle("Girişte başlat", isOn: $launchAtLogin)
+            Toggle("Girişte başlat", isOn: Binding(
+                get: { loginStatus == .enabled || loginStatus == .requiresApproval },
+                set: { setLaunchAtLogin($0) }))
                 .toggleStyle(.checkbox)
                 .controlSize(.small)
-                .onChange(of: launchAtLogin) { enabled in
-                    if enabled {
-                        try? SMAppService.mainApp.register()
-                    } else {
-                        try? SMAppService.mainApp.unregister()
-                    }
-                }
+                .help(launchAtLoginHelp)
+
+            if loginStatus == .requiresApproval {
+                // Kayıt var ama macOS onay bekliyor (Login Items'ta kapalı).
+                Button("Onay gerekli") { SMAppService.openSystemSettingsLoginItems() }
+                    .buttonStyle(.link)
+                    .controlSize(.small)
+                    .foregroundStyle(.orange)
+                    .help("System Settings › General › Login Items'ta Space Router'ı açın")
+            }
 
             Button {
                 NSApplication.shared.terminate(nil)
@@ -266,6 +274,37 @@ struct RootView: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+    }
+
+    // MARK: - Girişte başlat
+
+    /// Bu kopya /Applications dışındaysa (build/ içinden çalışıyorsa)
+    /// girişte bu yol açılır; taşınır ya da silinirse kayıt boşa düşer.
+    private var launchAtLoginHelp: String {
+        let path = Bundle.main.bundleURL.path
+        if path.hasPrefix("/Applications/") {
+            return "macOS oturumu açılınca Space Router başlar"
+        }
+        return "Girişte bu kopya açılır: \(path). Kalıcı kurulum için /Applications'a kopyalayın."
+    }
+
+    private func refreshLoginStatus() {
+        let status = SMAppService.mainApp.status
+        if status != loginStatus { loginStatus = status }
+    }
+
+    private func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        } catch {
+            store.report("Girişte başlatma \(enabled ? "açılamadı" : "kapatılamadı"): \(error.localizedDescription)")
+        }
+        // Gerçek durumu oku: register sonrası .requiresApproval da olabilir.
+        refreshLoginStatus()
     }
 }
 

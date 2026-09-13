@@ -56,7 +56,10 @@ rearrange Spaces" açıkken Dock'tan uygulamaya geçiş önce komşu Space'e
 gidiyor, uygulama kısa süre görünüp kayboluyordu; ayar kapatılınca düzeldi.
 
 Kalıcı kurulum: `cp -R build/SpaceRouter.app /Applications/` ve menüden
-**Girişte başlat**.
+**Girişte başlat**. Uygulama /Applications dışından çalışıyorsa (ör.
+`build/` içinden) "Girişte başlat" o kopyayı kaydeder; onay kutusunun
+ipucu yolu gösterir. macOS onay bekliyorsa yanında **Onay gerekli**
+bağlantısı çıkar, tıklayınca Login Items ayarı açılır.
 
 Aynı anda ikinci bir Space Router açılırsa (ör. `build/` ve
 `/Applications` kopyaları) yenisi hiçbir şey yapmadan kapanır; iki

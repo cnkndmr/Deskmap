@@ -23,6 +23,12 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 
 ### Düzeltildi
 
+- "Girişte başlat" gerçek `SMAppService` durumunu okur: kayıt değişince ve
+  her taramada yenilenir (Sistem Ayarları'ndan kapatılırsa kutu da kapanır),
+  `.requiresApproval` için turuncu "Onay gerekli" bağlantısı Login Items'ı
+  açar, register/unregister hataları alt çubukta gösterilir (eskiden
+  `try?` ile yutuluyordu). Uygulama /Applications dışındaysa ipucu hangi
+  kopyanın kaydedileceğini söyler.
 - Router, bu modda hedefi olmayan daha özgül bir kural yüzünden pencereyi
   atlıyordu; artık arayüzle aynı seçimi yapar (bu modda hedefi olan ilk
   eşleşen kural).
