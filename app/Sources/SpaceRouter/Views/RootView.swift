@@ -21,9 +21,12 @@ struct RootView: View {
     @State private var loginStatus: SMAppService.Status = SMAppService.mainApp.status
     /// Sürükleme sırasında gelen tarama sonucu; sürükleme bitince uygulanır.
     @State private var pendingWindows: [Router.WindowSnapshot]?
-    /// Alt çubuktaki süreli iletiler ("Geri al") için saat; yalnızca bir
-    /// ileti düşeceği anda yenilenir, sürekli zamanlayıcı yok.
+    /// Alt çubuktaki süreli iletiler ("Geri al", son işlem) için saat;
+    /// yalnızca bir ileti düşeceği anda yenilenir, sürekli zamanlayıcı yok.
     @State private var now = Date()
+
+    /// Router'ın son işlemi alt çubukta bu kadar kalır; sonra genel ipucu döner.
+    static let actionFade: TimeInterval = 30
 
     var body: some View {
         VStack(spacing: 0) {
@@ -135,10 +138,18 @@ struct RootView: View {
 
     /// Alt çubuktaki süreli iletilerden ilk düşecek olanın zamanı.
     private var nextFooterDeadline: Date? {
-        [store.undoBuffer.expiry]
+        [store.undoBuffer.expiry,
+         router.status.lastActionAt.map { $0.addingTimeInterval(Self.actionFade) }]
             .compactMap { $0 }
             .filter { $0 > now }
             .min()
+    }
+
+    /// Son işlem hâlâ gösterilecek kadar yeni mi?
+    private var recentAction: String? {
+        guard let action = router.status.lastAction, let at = router.status.lastActionAt,
+              now.timeIntervalSince(at) < Self.actionFade else { return nil }
+        return action
     }
 
     private func syncScreens() {
@@ -206,15 +217,17 @@ struct RootView: View {
 
             Spacer()
 
+            // Seçili moddaki pin sayısı; geçici pinler moddan bağımsız ama
+            // yalnızca şu anki modun haritasında görünür, orada sayılır.
             let pinned = store.document.rules.filter { $0[mode] != nil }.count
-            let session = router.sessionPins.count
+            let session = mode == screens.mode ? router.sessionPins.count : 0
             Text((pinned == 0 ? "pin yok" : "\(pinned) pin")
                  + (session > 0 ? " · \(session) geçici" : ""))
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .help(session > 0
                       ? "\(session) pencere yalnızca bu oturum için pinli (profile yazılmaz)"
-                      : "")
+                      : "\(mode.title) modunda \(pinned) pin")
 
             Button {
                 router.reapplyAll()
@@ -265,8 +278,13 @@ struct RootView: View {
                             .keyboardShortcut("z", modifiers: .command)
                             .help("Son işlemi geri al (⌘Z)")
                     }
-                } else if let action = router.status.lastAction {
+                } else if let action = recentAction {
                     Label(action, systemImage: "arrow.turn.down.right")
+                } else if !SkyLight.shared.isAvailable {
+                    Label("Masaüstü taşıma bu macOS'ta kullanılamıyor; yalnızca ekran ve düzen uygulanır",
+                          systemImage: "rectangle.on.rectangle.slash")
+                        .foregroundStyle(.orange)
+                        .help("SkyLight çağrıları bulunamadı. Pencereler doğru ekrana ve düzene oturtulur ama başka masaüstüne taşınmaz.")
                 } else {
                     Text(store.document.rules.isEmpty
                          ? "Bir pencereyi pinleyin ya da başka masaüstüne sürükleyin."
