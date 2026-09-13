@@ -97,7 +97,7 @@ final class ScreenService: ObservableObject {
         if !isSettling {
             isSettling = true
             settleEpisodeStart = now
-            Log.screens.notice("Ekran değişimi: \(self.screens.count) ekran, yatışma bekleniyor")
+            Log.screens.notice("Display change: \(self.screens.count) display(s), waiting to settle")
         }
         let delay = Self.settleDelay(episodeStart: settleEpisodeStart ?? now, now: now)
         let forced = delay < Self.settleInterval
@@ -109,7 +109,7 @@ final class ScreenService: ObservableObject {
             self.refresh()
             self.isSettling = false
             Log.screens.notice("""
-                Ekranlar yatıştı\(forced ? " (üst sınır)" : "", privacy: .public): \
+                Displays settled\(forced ? " (hard cap)" : "", privacy: .public): \
                 \(self.screens.map(\.id).joined(separator: ", "), privacy: .public)
                 """)
             self.settled.send()

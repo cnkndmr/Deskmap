@@ -119,8 +119,8 @@ final class Router: ObservableObject {
         self.events = WindowEvents()
         let sky = SkyLight.shared
         Log.skylight.notice("""
-            SkyLight \(sky.isAvailable ? "hazır" : "yok", privacy: .public); \
-            masaüstü taşıma yolu: \(sky.movePath, privacy: .public)
+            SkyLight \(sky.isAvailable ? "available" : "unavailable", privacy: .public); \
+            desktop move path: \(sky.movePath, privacy: .public)
             """)
         loadSessionPins()
 
@@ -184,7 +184,7 @@ final class Router: ObservableObject {
         isPaused = paused
         pausedAt = paused ? Date() : nil
         Log.screens.notice("""
-            Tarama \(paused ? "duraklatıldı" : "sürdürülüyor", privacy: .public) (\(reason, privacy: .public))
+            Sweep \(paused ? "paused" : "resumed", privacy: .public) (\(reason, privacy: .public))
             """)
         if !paused { sweep() }
     }
@@ -197,7 +197,7 @@ final class Router: ObservableObject {
                 pausedAt: pausedAt, now: Date(),
                 displayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0)
         else { return }
-        setPaused(false, reason: "zamanlayıcı")
+        setPaused(false, reason: "timer")
     }
 
     /// Duraklatılmış tarama sürdürülmeli mi (saf): ana ekran uyanık ve
@@ -377,11 +377,11 @@ final class Router: ObservableObject {
 
             let appName = window?.appName ?? snapshot?.appName ?? "?"
             Log.routing.info("""
-                Elle taşıma: \(appName, privacy: .public) [\(windowID)] → \
-                \(target.name, privacy: .public) · Masaüstü \(index)
+                Manual move: \(appName, privacy: .public) [\(windowID)] → \
+                \(target.name, privacy: .public) · Desktop \(index)
                 """)
             if !sky.move(window: windowID, to: space.id) {
-                Log.routing.error("Elle taşıma başarısız: SkyLight taşıma yolu yok (pencere \(windowID))")
+                Log.routing.error("Manual move failed: no SkyLight move path (window \(windowID))")
             }
             Task { @MainActor in self?.scheduleFollowUp(after: 200) }
         }
@@ -625,9 +625,9 @@ final class Router: ObservableObject {
                 }
                 if !placed, previousAttempts + 1 >= Routing.maxAttempts {
                     Log.routing.notice("""
-                        Düzen vazgeçildi: \(window.appName, privacy: .public) [\(window.id)] \
-                        '\(window.title, privacy: .private)' \(Routing.maxAttempts) denemede \
-                        \(destination.layout.label, privacy: .public) düzenini almadı
+                        Layout given up: \(window.appName, privacy: .public) [\(window.id)] \
+                        '\(window.title, privacy: .private)' did not take layout \
+                        \(destination.layout.label, privacy: .public) in \(Routing.maxAttempts) attempts
                         """)
                 }
             }
@@ -643,15 +643,15 @@ final class Router: ObservableObject {
                     Log.routing.info("""
                         \(window.appName, privacy: .public) [\(window.id)] \
                         '\(window.title, privacy: .private)' → \(desktopLabel, privacy: .public) \
-                        (deneme \(count)/\(Routing.maxMoveAttempts))
+                        (attempt \(count)/\(Routing.maxMoveAttempts))
                         """)
                     if !moved {
-                        Log.routing.error("SkyLight taşıma yolu yok; pencere \(window.id) taşınamadı")
+                        Log.routing.error("No SkyLight move path; window \(window.id) could not be moved")
                     }
                     if count == Routing.maxMoveAttempts {
                         Log.routing.notice("""
-                            Taşıma son deneme: \(window.appName, privacy: .public) [\(window.id)] \
-                            tutmazsa \(Int(Routing.moveRetryInterval)) sn beklenir
+                            Last move attempt: \(window.appName, privacy: .public) [\(window.id)]; \
+                            if it does not stick, next round in \(Int(Routing.moveRetryInterval)) s
                             """)
                     }
                     if count <= Routing.quickAttempts { outcome.needsFollowUp = true }
@@ -687,8 +687,8 @@ final class Router: ObservableObject {
         for id in expired {
             let record = sessionRecords[id]
             Log.routing.notice("""
-                Oturum pini düştü: \(record?.appName ?? "?", privacy: .public) [\(id)] \
-                '\(record?.title ?? "", privacy: .private)' pencere sunucusunda yok
+                Session pin dropped: \(record?.appName ?? "?", privacy: .public) [\(id)] \
+                '\(record?.title ?? "", privacy: .private)' is no longer in the window server
                 """)
             sessionPins[id] = nil
             sessionRecords[id] = nil

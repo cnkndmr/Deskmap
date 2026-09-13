@@ -126,15 +126,15 @@ enum AX {
             backoffs[pid] = Backoff(until: now.addingTimeInterval(delay), delay: delay, name: name)
             if previous == nil {
                 Log.ax.notice("""
-                    \(name, privacy: .public) (pid \(pid)) yanıt vermiyor: en uzun çağrı \
-                    \(timing.maxCall, format: .fixed(precision: 2)) sn, toplam \
-                    \(timing.total, format: .fixed(precision: 2)) sn; \(delay, format: .fixed(precision: 0)) sn atlanacak
+                    \(name, privacy: .public) (pid \(pid)) not responding: longest call \
+                    \(timing.maxCall, format: .fixed(precision: 2)) s, total \
+                    \(timing.total, format: .fixed(precision: 2)) s; skipping for \(delay, format: .fixed(precision: 0)) s
                     """)
             }
         } else {
             backoffs[pid] = nil
             if previous != nil {
-                Log.ax.notice("\(name, privacy: .public) (pid \(pid)) yeniden yanıt veriyor")
+                Log.ax.notice("\(name, privacy: .public) (pid \(pid)) responding again")
             }
         }
     }

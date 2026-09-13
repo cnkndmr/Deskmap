@@ -152,8 +152,8 @@ final class WindowEvents {
         retries[pid] = Retry(next: now.addingTimeInterval(delay), delay: delay)
         if delay == Self.minRetry {
             Log.ax.info("""
-                \(app.localizedName ?? "?", privacy: .public) (pid \(pid)) için pencere gözlemcisi \
-                takılamadı; \(delay, format: .fixed(precision: 0)) sn sonra yeniden
+                Could not attach window observer to \(app.localizedName ?? "?", privacy: .public) \
+                (pid \(pid)); retrying in \(delay, format: .fixed(precision: 0)) s
                 """)
         }
     }

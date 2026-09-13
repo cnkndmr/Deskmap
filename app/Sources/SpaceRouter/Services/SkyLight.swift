@@ -169,7 +169,7 @@ final class SkyLight: Sendable {
             return "SLSSpaceSetCompatID + SLSSetWindowListWorkspace"
         }
         if moveWindowsToManagedSpace != nil { return "SLSMoveWindowsToManagedSpace" }
-        return "yok"
+        return "none"
     }
 
     /// macOS 12.7 / 13.6 / 14.5 ve sonrası `SLSMoveWindowsToManagedSpace`
