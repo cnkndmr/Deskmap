@@ -4,9 +4,10 @@ import Foundation
 import Testing
 @testable import SpaceRouter
 
-/// Motorun saf yardımcıları: yanıt vermeyen uygulama kararı, masaüstü
-/// taşıma soğuması, harici ekran sıralaması, space türü haritası.
-/// Hiçbiri pencerelere, SkyLight'a ya da diske dokunmaz.
+/// Motorun saf yardımcıları: yanıt vermeyen uygulama kararı, pencere
+/// sunucusu kaydı süzgeci, masaüstü taşıma soğuması, harici ekran
+/// sıralaması, space türü haritası. Hiçbiri pencerelere, SkyLight'a ya da
+/// diske dokunmaz.
 struct EngineHelperTests {
 
     // MARK: Accessibility sabitleri
@@ -50,6 +51,79 @@ struct EngineHelperTests {
         #expect(a == 1 && b == "x")
         #expect(timing.total >= 0)
         #expect(timing.maxCall <= timing.total)
+    }
+
+    // MARK: Pencere sunucusu kaydı süzgeci
+
+    /// `CGWindowListCopyWindowInfo` kaydının taklidi; sayılar gerçekte
+    /// olduğu gibi `NSNumber`. nil verilen anahtar kayıtta bulunmaz.
+    private func serverEntry(
+        number: UInt32? = 7, pid: Int32? = 42, layer: Int? = 0, alpha: Double? = 1,
+        bounds: (width: Double, height: Double)? = (800, 600), name: String? = "Belge"
+    ) -> [String: Any] {
+        var entry: [String: Any] = [:]
+        if let number { entry[kCGWindowNumber as String] = NSNumber(value: number) }
+        if let pid { entry[kCGWindowOwnerPID as String] = NSNumber(value: pid) }
+        if let layer { entry[kCGWindowLayer as String] = NSNumber(value: layer) }
+        if let alpha { entry[kCGWindowAlpha as String] = NSNumber(value: alpha) }
+        if let bounds {
+            entry[kCGWindowBounds as String] = [
+                "X": NSNumber(value: 0), "Y": NSNumber(value: 0),
+                "Width": NSNumber(value: bounds.width), "Height": NSNumber(value: bounds.height),
+            ] as [String: Any]
+        }
+        if let name { entry[kCGWindowName as String] = name }
+        return entry
+    }
+
+    @Test func standardServerEntryIsLiveAndListed() {
+        let entry = serverEntry()
+        let live = AX.liveEntry(from: entry)
+        #expect(live?.id == 7 && live?.pid == 42)
+        let window = AX.serverWindow(from: entry)
+        #expect(window?.id == 7)
+        #expect(window?.pid == 42)
+        #expect(window?.name == "Belge")
+    }
+
+    @Test func nonZeroOrMissingLayerIsLiveButNotListed() {
+        for entry in [serverEntry(layer: 25), serverEntry(layer: -1), serverEntry(layer: nil)] {
+            #expect(AX.liveEntry(from: entry) != nil)
+            #expect(AX.serverWindow(from: entry) == nil)
+        }
+    }
+
+    @Test func transparentWindowIsNotListedButMissingAlphaIs() {
+        #expect(AX.serverWindow(from: serverEntry(alpha: 0)) == nil)
+        #expect(AX.liveEntry(from: serverEntry(alpha: 0)) != nil)
+        #expect(AX.serverWindow(from: serverEntry(alpha: 0.01)) != nil)
+        #expect(AX.serverWindow(from: serverEntry(alpha: nil)) != nil)
+    }
+
+    @Test func tinyWindowIsNotListedButMissingBoundsIs() {
+        #expect(AX.serverWindow(from: serverEntry(bounds: (49, 600))) == nil)
+        #expect(AX.serverWindow(from: serverEntry(bounds: (800, 49))) == nil)
+        #expect(AX.liveEntry(from: serverEntry(bounds: (10, 10))) != nil)
+        // Sınır dâhil: 50 pt geçer.
+        #expect(AX.serverWindow(from: serverEntry(bounds: (50, 50))) != nil)
+        #expect(AX.serverWindow(from: serverEntry(bounds: nil)) != nil)
+    }
+
+    @Test func missingNameBecomesEmpty() {
+        #expect(AX.serverWindow(from: serverEntry(name: nil))?.name == "")
+    }
+
+    @Test func missingNumberOrPIDIsNeitherLiveNorListed() {
+        for entry in [serverEntry(number: nil), serverEntry(pid: nil),
+                      serverEntry(number: nil, pid: nil), [:]] {
+            #expect(AX.liveEntry(from: entry) == nil)
+            #expect(AX.serverWindow(from: entry) == nil)
+        }
+    }
+
+    @Test func setFrameTimeoutIsLongerThanGlobalReadTimeout() {
+        // Yazım yavaş ama çalışan uygulamayı bekler; okumalar 1 sn'de düşer.
+        #expect(AX.setFrameTimeout > 1.0)
     }
 
     // MARK: Masaüstü taşıma soğuması
@@ -110,6 +184,69 @@ struct EngineHelperTests {
                                           attempts: &attempts, lastAttempts: &last) == 1)
         #expect(attempts == ["a": 2, "b": 1])
         #expect(last.keys.sorted() == ["b"])
+    }
+
+    // MARK: Yaşayan pencereler
+
+    @Test func emptyServerListStaysEmptyDespiteAXWindows() {
+        // Sunucu boş döndürdü (geçici hata): AX pencereleri eklenmez ki
+        // budama ve pin düşürme "bilgi yok" diye atlansın.
+        let live = Router.liveWindows(server: [:], ax: [(1, 10), (2, 20)])
+        #expect(live.isEmpty)
+        #expect(Router.liveWindows(server: [:], ax: []).isEmpty)
+    }
+
+    @Test func axOnlyWindowsAreAddedToNonEmptyServerList() {
+        let live = Router.liveWindows(server: [1: 10, 3: 30], ax: [(1, 99), (2, 20)])
+        // Sunucudaki pid korunur, yalnızca sunucuda olmayan eklenir.
+        #expect(live == [1: 10, 2: 20, 3: 30])
+        #expect(Router.liveWindows(server: [5: 50], ax: []) == [5: 50])
+    }
+
+    // MARK: Duraklama emniyeti
+
+    @Test func pauseSafetyDelayIsAFewSeconds() {
+        #expect(Router.pauseSafetyDelay == 5)
+    }
+
+    @Test func stuckPauseResumesOnlyWhenDisplayAwakeAndOldEnough() {
+        let pausedAt = Date(timeIntervalSince1970: 1_000)
+        let early = pausedAt.addingTimeInterval(Router.pauseSafetyDelay - 0.1)
+        let late = pausedAt.addingTimeInterval(Router.pauseSafetyDelay)
+        // Uykuya giriş sırasında bildirim sırasıyla çekişmesin: henüz erken.
+        #expect(!Router.shouldResumeFromPause(pausedAt: pausedAt, now: early, displayAsleep: false))
+        #expect(Router.shouldResumeFromPause(pausedAt: pausedAt, now: late, displayAsleep: false))
+        #expect(Router.shouldResumeFromPause(
+            pausedAt: pausedAt, now: late.addingTimeInterval(3_600), displayAsleep: false))
+        // Ekran gerçekten uyuyorsa ne kadar geçse de sürdürülmez.
+        #expect(!Router.shouldResumeFromPause(
+            pausedAt: pausedAt, now: late.addingTimeInterval(3_600), displayAsleep: true))
+        // Başlangıç bilinmiyorsa karar verilmez.
+        #expect(!Router.shouldResumeFromPause(pausedAt: nil, now: late, displayAsleep: false))
+    }
+
+    // MARK: Ekran yatışması üst sınırı
+
+    @Test func settleConstantsUnchanged() {
+        #expect(ScreenService.settleInterval == 2.5)
+        #expect(ScreenService.settleHardCap == 10)
+    }
+
+    @Test func settleDelayIsFullUntilHardCapApproaches() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        #expect(ScreenService.settleDelay(episodeStart: start, now: start) == 2.5)
+        #expect(ScreenService.settleDelay(episodeStart: start, now: start.addingTimeInterval(6)) == 2.5)
+        #expect(ScreenService.settleDelay(episodeStart: start, now: start.addingTimeInterval(7.5)) == 2.5)
+        // Sınıra 2 sn kaldı: yalnızca o kadar beklenir.
+        #expect(ScreenService.settleDelay(episodeStart: start, now: start.addingTimeInterval(8)) == 2.0)
+    }
+
+    @Test func settleDelayIsZeroAtOrPastHardCap() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        #expect(ScreenService.settleDelay(episodeStart: start, now: start.addingTimeInterval(10)) == 0)
+        #expect(ScreenService.settleDelay(episodeStart: start, now: start.addingTimeInterval(30)) == 0)
+        // Saat geri gitse de negatif bekleme yok, normal süre.
+        #expect(ScreenService.settleDelay(episodeStart: start, now: start.addingTimeInterval(-5)) == 2.5)
     }
 
     // MARK: Harici ekran sırası
