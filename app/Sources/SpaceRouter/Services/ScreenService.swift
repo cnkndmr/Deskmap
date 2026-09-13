@@ -47,6 +47,10 @@ struct ScreenInfo: Identifiable, Equatable, Hashable {
 final class ScreenService: ObservableObject {
 
     @Published private(set) var screens: [ScreenInfo] = []
+    /// Ekran değişiminden yatışmaya kadar true. Bu sürede macOS ekranları
+    /// yeniden düzenler; Router listelemeyi sürdürür ama hiçbir pencereyi
+    /// taşımaz (yarım düzenlenmiş ekrana göre yanlış yere yerleşmesin).
+    @Published private(set) var isSettling = false
 
     /// Ekran değişimi yatıştıktan sonra tetiklenir.
     let settled = PassthroughSubject<Void, Never>()
@@ -77,29 +81,53 @@ final class ScreenService: ObservableObject {
 
     private func screensChanged() {
         refresh()
+        if !isSettling {
+            isSettling = true
+            Log.screens.notice("Ekran değişimi: \(self.screens.count) ekran, yatışma bekleniyor")
+        }
         settleTask?.cancel()
         settleTask = Task { [weak self] in
             // Monitör takılınca macOS birkaç saniye boyunca yeniden düzenler.
             try? await Task.sleep(nanoseconds: 2_500_000_000)
-            guard !Task.isCancelled else { return }
-            self?.refresh()
-            self?.settled.send()
+            guard !Task.isCancelled, let self else { return }
+            self.refresh()
+            self.isSettling = false
+            Log.screens.notice("""
+                Ekranlar yatıştı: \(self.screens.map(\.id).joined(separator: ", "), privacy: .public)
+                """)
+            self.settled.send()
         }
+    }
+
+    /// Harici ekranların rol sırası (`external`, `external-2` …): soldan
+    /// sağa; aynı sütundaysa yukarıdan aşağı (Cocoa'da küçük minY alttadır,
+    /// yine de sabit bir sıra verir); ikisi de eşitse UUID. Böylece aynı
+    /// yerleşim her açılışta aynı rolleri üretir.
+    nonisolated static func externalOrder(
+        _ a: (minX: CGFloat, minY: CGFloat, uuid: String),
+        _ b: (minX: CGFloat, minY: CGFloat, uuid: String)
+    ) -> Bool {
+        if a.minX != b.minX { return a.minX < b.minX }
+        if a.minY != b.minY { return a.minY < b.minY }
+        return a.uuid < b.uuid
     }
 
     static func detect() -> [ScreenInfo] {
         var builtin: [NSScreen] = []
-        var externals: [NSScreen] = []
+        var externals: [(screen: NSScreen, uuid: String?)] = []
 
         for screen in NSScreen.screens {
             guard let displayID = ScreenInfo.displayID(of: screen) else { continue }
             if CGDisplayIsBuiltin(displayID) != 0 {
                 builtin.append(screen)
             } else {
-                externals.append(screen)
+                externals.append((screen, ScreenInfo.uuid(of: screen)))
             }
         }
-        externals.sort { $0.frame.minX < $1.frame.minX }
+        externals.sort {
+            externalOrder(($0.screen.frame.minX, $0.screen.frame.minY, $0.uuid ?? ""),
+                          ($1.screen.frame.minX, $1.screen.frame.minY, $1.uuid ?? ""))
+        }
 
         var result: [ScreenInfo] = []
         if let screen = builtin.first, let uuid = ScreenInfo.uuid(of: screen) {
@@ -108,8 +136,9 @@ final class ScreenService: ObservableObject {
                 isBuiltin: true, frame: screen.frame,
                 visibleFrame: screen.visibleFrame))
         }
-        for (index, screen) in externals.enumerated() {
-            guard let uuid = ScreenInfo.uuid(of: screen) else { continue }
+        for (index, external) in externals.enumerated() {
+            guard let uuid = external.uuid else { continue }
+            let screen = external.screen
             result.append(ScreenInfo(
                 id: index == 0 ? "external" : "external-\(index + 1)",
                 uuid: uuid, name: screen.localizedName, isBuiltin: false,

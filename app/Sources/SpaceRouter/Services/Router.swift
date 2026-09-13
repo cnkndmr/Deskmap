@@ -75,15 +75,22 @@ final class Router: ObservableObject {
     private let queue = DispatchQueue(label: "spacerouter.router", qos: .utility)
     private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
+    private var sleepTokens: [NSObjectProtocol] = []
 
     /// (pencere, hedef) çiftleri için düzen bir kez uygulanır; kullanıcı
     /// sonradan pencereyi elle taşırsa yerinden oynatılmaz.
     private var applied: Set<String> = []
-    /// (pencere, hedef) başına kaç kez düzen denendi; uygulama kabul
-    /// etmezse belirli sayıdan sonra vazgeçilir.
+    /// (pencere, hedef) başına kaç kez düzen / masaüstü taşıması denendi;
+    /// uygulama kabul etmezse belirli sayıdan sonra vazgeçilir.
     private var attempts: [String: Int] = [:]
+    /// Masaüstü taşıması anahtarı başına son deneme zamanı; sınıra varılmış
+    /// taşıma bir süre sonra yeniden tur alır (`Routing.recordMoveAttempt`).
+    /// `attempts` ile birlikte budanır.
+    private var lastAttempts: [String: Date] = [:]
     private var isSweeping = false
     private var sweepRequested = false
+    /// Ekranlar ya da sistem uyurken tarama yapılmaz; uyanınca hemen taranır.
+    private var isPaused = false
     /// Tarama sürerken gelen "düzen belleğini unut" istekleri: tarama
     /// bitince sonucun üstüne uygulanır; yoksa taramanın döndürdüğü eski
     /// küme bu istekleri ezerdi (ör. "Yeniden yerleştir" düğmesi).
@@ -95,14 +102,25 @@ final class Router: ObservableObject {
         self.store = store
         self.screens = screens
         self.events = WindowEvents()
+        // Ayrıca ayarlanmamış bütün AX öğeleri için varsayılan yanıt süresi
+        // (yoksa ~6 sn; donmuş bir uygulama taramayı o kadar bekletirdi).
+        AX.setGlobalTimeout(1.0)
+        let sky = SkyLight.shared
+        Log.skylight.notice("""
+            SkyLight \(sky.isAvailable ? "hazır" : "yok", privacy: .public); \
+            masaüstü taşıma yolu: \(sky.movePath, privacy: .public)
+            """)
         loadSessionPins()
 
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+        let timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.events.refresh()
                 self?.sweep()
             }
         }
+        // Sistem zamanlayıcıları gruplayabilsin (güç tüketimi); 2 sn ± 0,5 sn yeter.
+        timer.tolerance = 0.5
+        self.timer = timer
 
         // Pencere olayları: art arda gelenleri tek taramada topla.
         events.changed
@@ -120,17 +138,44 @@ final class Router: ObservableObject {
             .dropFirst()
             .sink { [weak self] _ in self?.reapplyAll() }
             .store(in: &cancellables)
+
+        // Ekranlar / sistem uyurken tarama durur (pencere sunucusu ve
+        // uygulamalar yanıt vermez, boşuna IPC); uyanınca hemen bir tur.
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.screensDidSleepNotification, NSWorkspace.willSleepNotification] {
+            sleepTokens.append(center.addObserver(forName: name, object: nil, queue: .main) {
+                [weak self] note in
+                Task { @MainActor in self?.setPaused(true, reason: note.name.rawValue) }
+            })
+        }
+        for name in [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification] {
+            sleepTokens.append(center.addObserver(forName: name, object: nil, queue: .main) {
+                [weak self] note in
+                Task { @MainActor in self?.setPaused(false, reason: note.name.rawValue) }
+            })
+        }
     }
 
     deinit {
         timer?.invalidate()
         followUp?.cancel()
+        for token in sleepTokens { NSWorkspace.shared.notificationCenter.removeObserver(token) }
+    }
+
+    private func setPaused(_ paused: Bool, reason: String) {
+        guard paused != isPaused else { return }
+        isPaused = paused
+        Log.screens.notice("""
+            Tarama \(paused ? "duraklatıldı" : "sürdürülüyor", privacy: .public) (\(reason, privacy: .public))
+            """)
+        if !paused { sweep() }
     }
 
     /// Düzen belleğini sıfırlayıp bütün pencereleri yeniden yerleştirir.
     func reapplyAll() {
         applied.removeAll()
         attempts.removeAll()
+        lastAttempts.removeAll()
         if isSweeping { invalidateAll = true }
         sweep()
     }
@@ -223,6 +268,7 @@ final class Router: ObservableObject {
         let prefix = "\(windowID)|"
         applied = applied.filter { !$0.hasPrefix(prefix) }
         attempts = attempts.filter { !$0.key.hasPrefix(prefix) }
+        lastAttempts = lastAttempts.filter { !$0.key.hasPrefix(prefix) }
         if isSweeping { invalidatedPrefixes.insert(prefix) }
     }
 
@@ -244,6 +290,9 @@ final class Router: ObservableObject {
     /// uygulanmadığından o durumda yalnızca masaüstü değişir).
     func moveWindow(_ windowID: CGWindowID, to placement: Placement) {
         let connected = screens.screens
+        // Son taramadaki pid ile AX öğesi doğrudan üretilir; bütün
+        // uygulamaları yeniden taramak yalnızca bu yol tutmazsa gerekir.
+        let snapshot = windows.first { $0.id == windowID }
         queue.async { [weak self] in
             let sky = SkyLight.shared
             guard sky.isAvailable,
@@ -253,10 +302,27 @@ final class Router: ObservableObject {
                   !display.desktops.isEmpty
             else { return }
             let desktops = display.desktops
-            let space = desktops[min(placement.desktop, desktops.count) - 1]
+            let index = min(placement.desktop, desktops.count)
+            let space = desktops[index - 1]
 
-            if let window = AX.allWindows().first(where: { $0.id == windowID }),
-               let frame = AX.frame(of: window),
+            var window: AXWindow?
+            var frame: CGRect?
+            if let snapshot, let element = AX.element(pid: snapshot.pid, windowID: windowID) {
+                AXUIElementSetMessagingTimeout(element, 1.0)
+                let direct = AXWindow(
+                    id: windowID, pid: snapshot.pid, appName: snapshot.appName,
+                    bundleID: snapshot.bundleID, title: snapshot.title, element: element)
+                if let directFrame = AX.frame(of: direct) {
+                    window = direct
+                    frame = directFrame
+                }
+            }
+            if frame == nil, let scanned = AX.allWindows().first(where: { $0.id == windowID }) {
+                window = scanned
+                frame = AX.frame(of: scanned)
+            }
+
+            if let window, let frame,
                let source = connected.first(where: { screen in
                    Coordinates.axRect(fromCocoa: screen.frame, screens: connected)
                        .contains(CGPoint(x: frame.midX, y: frame.midY))
@@ -268,7 +334,14 @@ final class Router: ObservableObject {
                 AX.setFrame(layout.rect(in: targetArea), of: window)
             }
 
-            sky.move(window: windowID, to: space.id)
+            let appName = window?.appName ?? snapshot?.appName ?? "?"
+            Log.routing.info("""
+                Elle taşıma: \(appName, privacy: .public) [\(windowID)] → \
+                \(target.name, privacy: .public) · Masaüstü \(index)
+                """)
+            if !sky.move(window: windowID, to: space.id) {
+                Log.routing.error("Elle taşıma başarısız: SkyLight taşıma yolu yok (pencere \(windowID))")
+            }
             Task { @MainActor in self?.scheduleFollowUp(after: 200) }
         }
     }
@@ -276,7 +349,7 @@ final class Router: ObservableObject {
     // MARK: - Tarama
 
     private func sweep() {
-        guard AXIsProcessTrusted() else { return }
+        guard AXIsProcessTrusted(), !isPaused else { return }
         if isSweeping {
             // Tarama sürerken gelen olay kaybolmasın; bitince bir tur daha.
             sweepRequested = true
@@ -284,9 +357,12 @@ final class Router: ObservableObject {
         }
 
         // Duraklatılmışken kural uygulanmaz ama pencereler yine listelenir.
+        // Ekran değişimi yatışırken de öyle: yarım düzenlenmiş ekranlara
+        // göre taşıma yapılmaz; yatışınca `settled` → `reapplyAll`.
         // Özgüllük sıralamasını `Routing.select` yapar.
-        let rules = store.document.enabled ? store.document.rules : []
-        let sessionPins = store.document.enabled ? self.sessionPins : [:]
+        let routing = store.document.enabled && !screens.isSettling
+        let rules = routing ? store.document.rules : []
+        let sessionPins = routing ? self.sessionPins : [:]
         // Duraklatılmışken de geçici pinli pencereler listelenir ve yaşam
         // denetimi sürer.
         let sessionIDs = Set(self.sessionPins.keys)
@@ -294,26 +370,32 @@ final class Router: ObservableObject {
         let connected = screens.screens
         let applied = self.applied
         let attempts = self.attempts
+        let lastAttempts = self.lastAttempts
         isSweeping = true
         sweepRequested = false
 
         queue.async { [weak self] in
             let outcome = Self.route(rules: rules, sessionPins: sessionPins,
                                      sessionIDs: sessionIDs, mode: mode, screens: connected,
-                                     applied: applied, attempts: attempts)
+                                     applied: applied, attempts: attempts,
+                                     lastAttempts: lastAttempts)
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
                 var applied = outcome.applied
                 var attempts = outcome.attempts
+                var lastAttempts = outcome.lastAttempts
                 if self.invalidateAll {
                     applied = []
                     attempts = [:]
+                    lastAttempts = [:]
                 } else if !self.invalidatedPrefixes.isEmpty {
                     let prefixes = self.invalidatedPrefixes
                     applied = applied.filter { key in
                         !prefixes.contains { key.hasPrefix($0) } }
                     attempts = attempts.filter { entry in
+                        !prefixes.contains { entry.key.hasPrefix($0) } }
+                    lastAttempts = lastAttempts.filter { entry in
                         !prefixes.contains { entry.key.hasPrefix($0) } }
                 }
                 self.invalidateAll = false
@@ -328,9 +410,11 @@ final class Router: ObservableObject {
                     }
                     applied = applied.filter(isLive)
                     attempts = attempts.filter { isLive($0.key) }
+                    lastAttempts = lastAttempts.filter { isLive($0.key) }
                 }
                 self.applied = applied
                 self.attempts = attempts
+                self.lastAttempts = lastAttempts
                 if outcome.snapshots != self.windows { self.windows = outcome.snapshots }
                 self.expireSessionPins(live: outcome.liveWindows)
                 if outcome.needsFollowUp || self.sweepRequested {
@@ -351,6 +435,7 @@ final class Router: ObservableObject {
     private struct Outcome {
         var applied: Set<String>
         var attempts: [String: Int]
+        var lastAttempts: [String: Date]
         var snapshots: [WindowSnapshot] = []
         /// Pencere sunucusunun bildiği pencere numaraları → pid (oturum
         /// pinlerinin yaşayıp yaşamadığı buradan anlaşılır).
@@ -363,38 +448,73 @@ final class Router: ObservableObject {
         var needsFollowUp = false
     }
 
-    /// Düzen deneme sınırları `Routing.maxAttempts` / `Routing.quickAttempts`.
-    /// Masaüstü taşıması bu kadar denemeden sonra da tutmazsa (macOS
-    /// taşımayı reddediyor / özel API çalışmıyor) o pencere için bırakılır;
-    /// pencere hedefe varınca ya da bellek sıfırlanınca sayaç silinir.
-    nonisolated private static let maxMoveAttempts = 6
+    /// Bir pencerenin taramada bir kez okunan durumu; anlık görüntü,
+    /// yerleşim ve yönlendirme aynı okumayı kullanır (pencere başına
+    /// space, çerçeve ve simge durumu için tekrar IPC yapılmaz).
+    struct WindowState {
+        /// Bulunduğu space kimlikleri (SkyLight yoksa boş).
+        let spaces: [UInt64]
+        /// Space'lerden biri normal masaüstü değil (tam ekran uygulama).
+        let isFullscreen: Bool
+        let frame: CGRect?
+        let isMinimized: Bool
+    }
 
+    /// Düzen deneme sınırları `Routing.maxAttempts` / `Routing.quickAttempts`;
+    /// masaüstü taşıması `Routing.maxMoveAttempts` / `Routing.moveRetryInterval`.
     nonisolated private static func route(
         rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
-        mode: Mode, screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int]
+        mode: Mode, screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int],
+        lastAttempts: [String: Date]
     ) -> Outcome {
-        var outcome = Outcome(applied: applied, attempts: attempts)
+        var outcome = Outcome(applied: applied, attempts: attempts, lastAttempts: lastAttempts)
         let sky = SkyLight.shared
         let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(screens))
         let visibleSpaces = Set(displays.map(\.current))
-        let windows = AX.allWindows(alwaysInclude: sessionIDs)
+        // Space türleri ekran listesinden; listede olmayan kimlik için IPC.
+        let spaceTypes = SkyLight.spaceTypes(of: displays)
+        func spaceType(_ id: UInt64) -> Int { spaceTypes[id] ?? sky.type(of: id) }
+        // Pencere sunucusu taramada bir kez okunur: 2. aşama listeleme ve
+        // yaşam denetimi aynı sonuçtan türer.
+        let server = AX.windowServerList()
+        let windows = AX.allWindows(alwaysInclude: sessionIDs, server: server)
         outcome.unresponsive = AX.unresponsiveApps()
         // Oturum pinlerinin yaşam denetimi ve kapalı pencere kayıtlarının
-        // budanması için her taramada okunur.
-        outcome.liveWindows = AX.liveWindowIDs()
+        // budanması için. Sunucu listesi AX listesinden önce okunduğu için
+        // AX'in gördüğü (yani yaşayan) pencereler de eklenir.
+        var live = server.live
+        for window in windows where live[window.id] == nil { live[window.id] = window.pid }
+        outcome.liveWindows = live
 
-        outcome.snapshots = windows.map { window in
-            WindowSnapshot(
-                id: window.id, pid: window.pid, appName: window.appName, bundleID: window.bundleID,
-                title: window.title,
-                placement: Self.placement(of: window, displays: displays, screens: screens),
+        // Pencere başına durum bir kez okunur.
+        var states: [CGWindowID: WindowState] = [:]
+        for window in windows {
+            let spaces = sky.spaces(of: window.id)
+            states[window.id] = WindowState(
+                spaces: spaces,
+                isFullscreen: spaces.contains { spaceType($0) != 0 },
                 frame: AX.frame(of: window),
                 isMinimized: AX.isMinimized(window))
+        }
+        func windowState(_ window: AXWindow) -> WindowState {
+            states[window.id] ?? WindowState(spaces: [], isFullscreen: false,
+                                             frame: nil, isMinimized: false)
+        }
+
+        outcome.snapshots = windows.map { window in
+            let state = windowState(window)
+            return WindowSnapshot(
+                id: window.id, pid: window.pid, appName: window.appName, bundleID: window.bundleID,
+                title: window.title,
+                placement: Self.placement(of: state, displays: displays, screens: screens),
+                frame: state.frame,
+                isMinimized: state.isMinimized)
         }.sorted {
             let a = $0.appName.localizedCaseInsensitiveCompare($1.appName)
             return a == .orderedSame ? $0.id < $1.id : a == .orderedAscending
         }
 
+        let now = Date()
         for window in windows {
             // Arayüzle aynı seçim: oturum pini, yoksa bu modda hedefi olan
             // en özgül eşleşen kural.
@@ -410,11 +530,12 @@ final class Router: ObservableObject {
 
             outcome.routed += 1
             let key = "\(window.id)|\(ruleID)|\(mode.rawValue)|\(destination.hashValue)"
+            let state = windowState(window)
 
             let targetFrame = Coordinates.axRect(
                 fromCocoa: destination.layout.rect(in: screen.visibleFrame),
                 screens: screens)
-            var needsLayout = !outcome.applied.contains(key) && !AX.isMinimized(window)
+            var needsLayout = !outcome.applied.contains(key) && !state.isMinimized
 
             // Hedef masaüstü ve pencerenin şu anki space durumu.
             var target: SkyLight.Space?
@@ -427,9 +548,9 @@ final class Router: ObservableObject {
                 let desktops = display.desktops
                 let index = min(destination.desktop, desktops.count)
                 let space = desktops[index - 1]
-                let current = sky.spaces(of: window.id)
+                let current = state.spaces
                 // Tam ekran uygulamaya ait pencerelere dokunulmaz.
-                if current.contains(where: { sky.type(of: $0) != 0 }) { continue }
+                if state.isFullscreen { continue }
                 target = space
                 onTarget = current.contains(space.id)
                 isVisible = current.isEmpty || current.contains(where: visibleSpaces.contains)
@@ -447,19 +568,28 @@ final class Router: ObservableObject {
 
             var placed = false
             if needsLayout {
-                if let frame = AX.frame(of: window), Coordinates.close(frame, targetFrame) {
+                if let frame = state.frame, Coordinates.close(frame, targetFrame) {
                     placed = true
                 } else {
                     AX.setFrame(targetFrame, of: window)
+                    // Uygulama çerçeveyi kabul etti mi? Bu okuma gerekli.
                     if let after = AX.frame(of: window), Coordinates.close(after, targetFrame) {
                         placed = true
                     }
                 }
 
+                let previousAttempts = outcome.attempts[key] ?? 0
                 if Routing.recordLayoutAttempt(
                     key: key, placed: placed,
                     applied: &outcome.applied, attempts: &outcome.attempts) {
                     outcome.needsFollowUp = true
+                }
+                if !placed, previousAttempts + 1 >= Routing.maxAttempts {
+                    Log.routing.notice("""
+                        Düzen vazgeçildi: \(window.appName, privacy: .public) [\(window.id)] \
+                        '\(window.title, privacy: .private)' \(Routing.maxAttempts) denemede \
+                        \(destination.layout.label, privacy: .public) düzenini almadı
+                        """)
                 }
             }
 
@@ -467,15 +597,30 @@ final class Router: ObservableObject {
             // masaüstüler arası taşıma çerçeveyi korur.
             let moveKey = "\(window.id)|move|\(ruleID)|\(mode.rawValue)|\(destination.hashValue)"
             if let target, !onTarget {
-                let count = (outcome.attempts[moveKey] ?? 0) + 1
-                if count <= Self.maxMoveAttempts {
-                    outcome.attempts[moveKey] = count
-                    sky.move(window: window.id, to: target.id)
+                if let count = Routing.recordMoveAttempt(
+                    key: moveKey, now: now,
+                    attempts: &outcome.attempts, lastAttempts: &outcome.lastAttempts) {
+                    let moved = sky.move(window: window.id, to: target.id)
+                    Log.routing.info("""
+                        \(window.appName, privacy: .public) [\(window.id)] \
+                        '\(window.title, privacy: .private)' → \(desktopLabel, privacy: .public) \
+                        (deneme \(count)/\(Routing.maxMoveAttempts))
+                        """)
+                    if !moved {
+                        Log.routing.error("SkyLight taşıma yolu yok; pencere \(window.id) taşınamadı")
+                    }
+                    if count == Routing.maxMoveAttempts {
+                        Log.routing.notice("""
+                            Taşıma son deneme: \(window.appName, privacy: .public) [\(window.id)] \
+                            tutmazsa \(Int(Routing.moveRetryInterval)) sn beklenir
+                            """)
+                    }
                     if count <= Routing.quickAttempts { outcome.needsFollowUp = true }
                     outcome.lastAction = "\(window.appName) → \(desktopLabel)"
                 }
             } else if onTarget {
                 outcome.attempts[moveKey] = nil
+                outcome.lastAttempts[moveKey] = nil
             }
         }
         return outcome
@@ -484,9 +629,10 @@ final class Router: ObservableObject {
     /// Pencere sunucusunda artık olmayan (kapanmış) pencerelerin oturum
     /// pinlerini birkaç tarama sonra düşürür. AX listesinde görünmemek
     /// yeterli değildir: başka masaüstündeki pencere AX'te eksik çıkabilir
-    /// ama sunucuda durur; pin de durur.
+    /// ama sunucuda durur; pin de durur. Sunucu hiç pencere döndürmediyse
+    /// (geçici hata) hiçbir pin düşürülmez.
     private func expireSessionPins(live: [CGWindowID: pid_t]) {
-        guard !sessionPins.isEmpty else { return }
+        guard !sessionPins.isEmpty, !live.isEmpty else { return }
         var expired: [CGWindowID] = []
         for id in sessionPins.keys {
             let alive = live[id] != nil
@@ -500,6 +646,11 @@ final class Router: ObservableObject {
             }
         }
         for id in expired {
+            let record = sessionRecords[id]
+            Log.routing.notice("""
+                Oturum pini düştü: \(record?.appName ?? "?", privacy: .public) [\(id)] \
+                '\(record?.title ?? "", privacy: .private)' pencere sunucusunda yok
+                """)
             sessionPins[id] = nil
             sessionRecords[id] = nil
             sessionMisses[id] = nil
@@ -515,14 +666,14 @@ final class Router: ObservableObject {
     }
 
     /// Pencerenin şu an bulunduğu ekran ve masaüstü sırası. Tam ekran
-    /// (ya da başka özel) bir space'teyse nil.
+    /// (ya da başka özel) bir space'teyse nil. Saf: taramada bir kez
+    /// okunan `WindowState` ile çalışır, IPC yapmaz.
     nonisolated static func placement(
-        of window: AXWindow, displays: [SkyLight.DisplaySpaces], screens: [ScreenInfo]
+        of state: WindowState, displays: [SkyLight.DisplaySpaces], screens: [ScreenInfo]
     ) -> Placement? {
-        let sky = SkyLight.shared
-        let spaces = sky.spaces(of: window.id)
+        let spaces = state.spaces
         if !spaces.isEmpty {
-            if spaces.contains(where: { sky.type(of: $0) != 0 }) { return nil }
+            if state.isFullscreen { return nil }
             for display in displays {
                 guard let screen = screens.first(where: { $0.uuid == display.displayUUID })
                 else { continue }
@@ -532,7 +683,7 @@ final class Router: ObservableObject {
             }
         }
         // Space bilgisi yoksa pencere çerçevesinden ekranı bul.
-        if let frame = AX.frame(of: window) {
+        if let frame = state.frame {
             let center = CGPoint(x: frame.midX, y: frame.midY)
             for screen in screens {
                 let axFrame = Coordinates.axRect(fromCocoa: screen.frame, screens: screens)

@@ -14,6 +14,20 @@ final class WindowEvents {
     private var observers: [pid_t: AXObserver] = [:]
     private var tokens: [NSObjectProtocol] = []
 
+    /// Gözlemci takılamayan uygulama için bekleme: bir sonraki deneme
+    /// zamanı ve o denemede kullanılacak gecikme (2 sn → 30 sn, ikiye
+    /// katlanır). Uygulama açılınca/etkinleşince/kapanınca silinir.
+    private struct Retry {
+        var next: Date
+        var delay: TimeInterval
+    }
+    private var retries: [pid_t: Retry] = [:]
+    private static let minRetry: TimeInterval = 2
+    private static let maxRetry: TimeInterval = 30
+    /// Bu uygulamaya yapılan AX çağrılarının yanıt süresi; kayıt ana
+    /// iş parçacığında yapıldığı için donmuş uygulama arayüzü kilitlemesin.
+    private static let messagingTimeout: Float = 1.0
+
     private static let appNotifications: [String] = [
         kAXWindowCreatedNotification,
         kAXFocusedWindowChangedNotification,
@@ -31,7 +45,10 @@ final class WindowEvents {
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             Task { @MainActor in
                 guard let self else { return }
-                if let app { self.watch(app) }
+                if let app {
+                    self.retries[app.processIdentifier] = nil
+                    self.watch(app)
+                }
                 self.changed.send("launch")
             }
         })
@@ -42,15 +59,25 @@ final class WindowEvents {
         ) { [weak self] note in
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             Task { @MainActor in
-                if let app { self?.unwatch(app.processIdentifier) }
+                if let app {
+                    self?.retries[app.processIdentifier] = nil
+                    self?.unwatch(app.processIdentifier)
+                }
             }
         })
 
         tokens.append(center.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification,
             object: nil, queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.changed.send("activate") }
+        ) { [weak self] note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            Task { @MainActor in
+                guard let self else { return }
+                // Etkinleşen uygulama artık yanıt veriyordur; beklemeyi kaldır,
+                // kaydı zamanlayıcının `refresh()` turu yapar.
+                if let app { self.retries[app.processIdentifier] = nil }
+                self.changed.send("activate")
+            }
         })
 
         tokens.append(center.addObserver(
@@ -79,21 +106,27 @@ final class WindowEvents {
         let pid = app.processIdentifier
         guard app.activationPolicy == .regular,
               pid != ProcessInfo.processInfo.processIdentifier,
-              observers[pid] == nil else { return }
+              observers[pid] == nil,
+              // Açılışı bitmemiş uygulama AX'e henüz yanıt vermez; zamanlayıcı
+              // bir sonraki turda yeniden dener.
+              app.isFinishedLaunching else { return }
+        let now = Date()
+        if let retry = retries[pid], retry.next > now { return }
 
         var observer: AXObserver?
         guard AXObserverCreate(pid, WindowEvents.callback, &observer) == .success,
-              let observer else { return }
+              let observer else { deferRetry(pid, app: app, now: now); return }
 
         let refcon = Unmanaged.passUnretained(self).toOpaque()
         let appElement = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(appElement, Self.messagingTimeout)
         var added = false
         for name in Self.appNotifications {
             if AXObserverAddNotification(observer, appElement, name as CFString, refcon) == .success {
                 added = true
             }
         }
-        guard added else { return }
+        guard added else { deferRetry(pid, app: app, now: now); return }
 
         // Başlık değişimi pencere öğesine bağlanır; mevcut pencereler için de tak.
         var raw: CFTypeRef?
@@ -107,6 +140,19 @@ final class WindowEvents {
 
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
         observers[pid] = observer
+        retries[pid] = nil
+    }
+
+    /// Kayıt başarısız: bu uygulama artan aralıkla (2 → 30 sn) sonra denenir.
+    private func deferRetry(_ pid: pid_t, app: NSRunningApplication, now: Date) {
+        let delay = min((retries[pid]?.delay).map { $0 * 2 } ?? Self.minRetry, Self.maxRetry)
+        retries[pid] = Retry(next: now.addingTimeInterval(delay), delay: delay)
+        if delay == Self.minRetry {
+            Log.ax.info("""
+                \(app.localizedName ?? "?", privacy: .public) (pid \(pid)) için pencere gözlemcisi \
+                takılamadı; \(delay, format: .fixed(precision: 0)) sn sonra yeniden
+                """)
+        }
     }
 
     private func unwatch(_ pid: pid_t) {

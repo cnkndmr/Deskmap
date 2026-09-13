@@ -52,6 +52,16 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   `build/dist/*.zip` / `.dmg` paketi (`scripts/make-dist.sh`,
   Finder için `scripts/make-dist.command`). `build-app.sh` artık `VERSION`,
   `UNIVERSAL` ve `SIGN_IDENTITY` ortam değişkenlerini tanır; sürüm 0.3.0.
+- Birleşik günlük (`Services/Log.swift`, `os.Logger`, alt sistem
+  `com.spacerouter.app`; kategoriler `routing`, `skylight`, `ax`, `screens`).
+  Açılışta SkyLight durumu ve masaüstü taşıma yolu; her masaüstü taşıması,
+  taşıma/düzen vazgeçmesi, yanıt vermeyen uygulama backoff başlangıcı/bitişi,
+  ekran yatışması, uyku duraklatma/sürdürme ve oturum pini düşmesi yazılır.
+  Pencere başlıkları gizli (`.private`); tarama başına kayıt yok. İzlemek için
+  `log stream --predicate 'subsystem == "com.spacerouter.app"' --level info`.
+- Motor yardımcılarının birim testleri (`EngineHelperTests`): backoff kararı,
+  masaüstü taşıma soğuması, harici ekran sıralaması, space türü haritası ve
+  saf `Router.placement`. Toplam 68 test.
 
 ### Değişti
 
@@ -68,6 +78,23 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
 - Hedef seçimi tek yerde (`Routing.select`): Router, pencere satırı ve harita
   aynı kuralı seçer (oturum pini, yoksa bu modda hedefi olan en özgül kural).
   Düzen deneme sayımı da `Routing`'e taşındı.
+- Tarama başına IPC azaltıldı, listelenen pencere kümesi ve kararlar aynı:
+  pencere sunucusu (`CGWindowListCopyWindowInfo`) taramada bir kez okunur
+  (2. aşama listeleme ve yaşam denetimi aynı sonuçtan türer); space türleri
+  `displaySpaces` sonucundan haritalanır (pencere başına `SLSSpaceGetType`
+  yerine, haritada olmayan kimlik için IPC'ye düşer); pencere başına space,
+  çerçeve ve simge durumu bir kez okunup anlık görüntü, yerleşim ve
+  yönlendirmede paylaşılır (eskiden yönlendirilen pencere için 2–3 kez).
+- Tarama zamanlayıcısına 0,5 sn tolerans (sistem zamanlayıcıları gruplar).
+- Ekranlar ya da sistem uyurken tarama durur (`screensDidSleep` /
+  `willSleep`), uyanınca hemen bir tur yapılır.
+- Ekran değişimi yatışırken (2,5 sn) pencereler listelenir ama taşınmaz;
+  `ScreenService.isSettling`. Yatışınca eskisi gibi hepsi yeniden yerleştirilir.
+- Elle taşıma (haritada sürükleme) AX öğesini son taramadaki pid ile
+  doğrudan üretir; bütün uygulamaları yeniden taramak yalnızca bu yol
+  tutmazsa yapılır.
+- Masaüstü taşıma sınırı ve soğuma `Routing.maxMoveAttempts` /
+  `Routing.moveRetryInterval` (saf `recordMoveAttempt`).
 
 ### Düzeltildi
 
@@ -115,6 +142,24 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   için bulunduğun masaüstüne uğratılmıyor (o masaüstünde yabancı pencere
   belirip kayboluyor, Dock'tan uygulamaya geçişte macOS yanlış Space'e
   gidiyordu). Düzen, o masaüstüne ilk geçişte verilir.
+- Yanıt vermeyen uygulama backoff'u yanlış tetikleniyordu: çok pencereli ama
+  yanıt veren uygulamalar (VS Code, Chrome gibi Electron/tarayıcılar)
+  toplam süre 0,7 sn'yi aşınca "yanıt vermiyor" sayılıp atlanıyordu. Artık
+  ölçüt tek bir AX çağrısının ≥ 0,5 sn sürmesi (donmuş uygulama ilk çağrıda
+  1 sn zaman aşımına takılır) ya da emniyet için toplamın ≥ 4 sn olması.
+  Süreç geneli AX yanıt süresi açılışta 1 sn'ye çekildi; `kAXWindows` ile
+  gelen pencere öğeleri ~6 sn varsayılanı kullanmıyor.
+- Pencere olayı gözlemcisi ana iş parçacığını kilitleyebiliyordu: uygulama
+  öğesine 1 sn yanıt süresi verilir, açılışı bitmemiş uygulamalar atlanır,
+  kaydı başarısız olan uygulama artan aralıkla (2 → 30 sn) yeniden denenir;
+  uygulama açılınca/etkinleşince/kapanınca bekleme silinir.
+- Masaüstü taşımasından vazgeçme kalıcıydı (6 denemeden sonra "Yeniden
+  yerleştir"e kadar bir daha denenmiyordu); artık son denemeden 60 sn sonra
+  yeni bir deneme turu açılır.
+- Pencere sunucusu boş liste döndürürse (geçici hata) oturum pinleri
+  düşürülmez.
+- Harici ekran rol sırası (`external`, `external-2`) aynı `minX` için
+  belirsizdi; sıra artık (minX, minY, UUID) ile belirlenir.
 
 ### Eklendi
 

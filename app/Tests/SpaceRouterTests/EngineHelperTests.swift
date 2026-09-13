@@ -1,0 +1,210 @@
+import CoreGraphics
+import Foundation
+import Testing
+@testable import SpaceRouter
+
+/// Motorun saf yardımcıları: yanıt vermeyen uygulama kararı, masaüstü
+/// taşıma soğuması, harici ekran sıralaması, space türü haritası.
+/// Hiçbiri pencerelere, SkyLight'a ya da diske dokunmaz.
+struct EngineHelperTests {
+
+    // MARK: Backoff kararı
+
+    @Test func backoffThresholdsUnchanged() {
+        #expect(AX.slowCallThreshold == 0.5)
+        #expect(AX.slowTotalThreshold == 4)
+    }
+
+    @Test func singleSlowCallMarksUnresponsive() {
+        // Donmuş uygulama ilk çağrıda 1 sn zaman aşımına takılır.
+        #expect(AX.isUnresponsive(maxSingleCall: 1.0, total: 1.0))
+        #expect(AX.isUnresponsive(maxSingleCall: 0.5, total: 0.5))
+        #expect(!AX.isUnresponsive(maxSingleCall: 0.49, total: 0.49))
+    }
+
+    @Test func busyButResponsiveAppIsNotUnresponsive() {
+        // Çok pencereli Electron/tarayıcı: toplam 2 sn ama tek çağrı kısa.
+        #expect(!AX.isUnresponsive(maxSingleCall: 0.05, total: 2.0))
+        #expect(!AX.isUnresponsive(maxSingleCall: 0.2, total: 3.99))
+    }
+
+    @Test func totalSafetyNetStillApplies() {
+        #expect(AX.isUnresponsive(maxSingleCall: 0.01, total: 4.0))
+        #expect(AX.isUnresponsive(maxSingleCall: 0.01, total: 12))
+        #expect(!AX.isUnresponsive(maxSingleCall: 0, total: 0))
+    }
+
+    @Test func appTimingTracksTotalAndMax() {
+        var timing = AX.AppTiming()
+        let a: Int = timing.measure { 1 }
+        let b: String = timing.measure { "x" }
+        #expect(a == 1 && b == "x")
+        #expect(timing.total >= 0)
+        #expect(timing.maxCall <= timing.total)
+    }
+
+    // MARK: Masaüstü taşıma soğuması
+
+    @Test func moveAttemptConstantsUnchanged() {
+        #expect(Routing.maxMoveAttempts == 6)
+        #expect(Routing.moveRetryInterval == 60)
+    }
+
+    @Test func moveAttemptsCountUpThenGiveUp() {
+        var attempts: [String: Int] = [:]
+        var last: [String: Date] = [:]
+        let now = Date(timeIntervalSince1970: 1_000)
+        var results: [Int?] = []
+        for i in 0..<(Routing.maxMoveAttempts + 2) {
+            results.append(Routing.recordMoveAttempt(
+                key: "m", now: now.addingTimeInterval(Double(i)),
+                attempts: &attempts, lastAttempts: &last))
+        }
+        #expect(results == [1, 2, 3, 4, 5, 6, nil, nil])
+        #expect(attempts["m"] == Routing.maxMoveAttempts)
+        // Vazgeçilen denemeler zaman damgasını yenilemez.
+        #expect(last["m"] == now.addingTimeInterval(5))
+    }
+
+    @Test func moveAttemptsResumeAfterCooldown() {
+        var attempts: [String: Int] = ["m": Routing.maxMoveAttempts]
+        let lastTry = Date(timeIntervalSince1970: 1_000)
+        var last: [String: Date] = ["m": lastTry]
+
+        let tooSoon = lastTry.addingTimeInterval(Routing.moveRetryInterval - 1)
+        #expect(Routing.recordMoveAttempt(key: "m", now: tooSoon,
+                                          attempts: &attempts, lastAttempts: &last) == nil)
+        #expect(attempts["m"] == Routing.maxMoveAttempts)
+        #expect(last["m"] == lastTry)
+
+        let later = lastTry.addingTimeInterval(Routing.moveRetryInterval)
+        #expect(Routing.recordMoveAttempt(key: "m", now: later,
+                                          attempts: &attempts, lastAttempts: &last) == 1)
+        #expect(attempts["m"] == 1)
+        #expect(last["m"] == later)
+    }
+
+    @Test func moveAttemptAtLimitWithoutTimestampStaysGivenUp() {
+        // Eski kayıt (zaman damgası yok): soğuma ölçülemez, yeni tur açılmaz.
+        var attempts: [String: Int] = ["m": Routing.maxMoveAttempts]
+        var last: [String: Date] = [:]
+        #expect(Routing.recordMoveAttempt(key: "m", now: Date(),
+                                          attempts: &attempts, lastAttempts: &last) == nil)
+        #expect(last.isEmpty)
+    }
+
+    @Test func moveAttemptKeysAreIndependent() {
+        var attempts: [String: Int] = ["a": 2]
+        var last: [String: Date] = [:]
+        let now = Date()
+        #expect(Routing.recordMoveAttempt(key: "b", now: now,
+                                          attempts: &attempts, lastAttempts: &last) == 1)
+        #expect(attempts == ["a": 2, "b": 1])
+        #expect(last.keys.sorted() == ["b"])
+    }
+
+    // MARK: Harici ekran sırası
+
+    private typealias Key = (minX: CGFloat, minY: CGFloat, uuid: String)
+
+    @Test func externalsOrderedLeftToRight() {
+        let left: Key = (-2560, 0, "B")
+        let right: Key = (1920, 0, "A")
+        #expect(ScreenService.externalOrder(left, right))
+        #expect(!ScreenService.externalOrder(right, left))
+    }
+
+    @Test func sameColumnBreaksTieByMinYThenUUID() {
+        let lower: Key = (1920, -1440, "Z")
+        let upper: Key = (1920, 0, "A")
+        #expect(ScreenService.externalOrder(lower, upper))
+        #expect(!ScreenService.externalOrder(upper, lower))
+
+        let a: Key = (1920, 0, "AAAA")
+        let b: Key = (1920, 0, "BBBB")
+        #expect(ScreenService.externalOrder(a, b))
+        #expect(!ScreenService.externalOrder(b, a))
+        // Strict weak ordering: eşit anahtarlar iki yönde de false.
+        #expect(!ScreenService.externalOrder(a, a))
+    }
+
+    @Test func externalOrderIsDeterministicRegardlessOfInput() {
+        let keys: [Key] = [(1920, 0, "B"), (1920, 0, "A"), (-1000, 5, "C"), (1920, -100, "D")]
+        let sorted = keys.sorted(by: ScreenService.externalOrder)
+        let reversed = keys.reversed().sorted(by: ScreenService.externalOrder)
+        #expect(sorted.map(\.uuid) == ["C", "D", "A", "B"])
+        #expect(sorted.map(\.uuid) == reversed.map(\.uuid))
+    }
+
+    // MARK: Space türü haritası
+
+    @Test func spaceTypesCollectedFromAllDisplays() {
+        let displays = [
+            SkyLight.DisplaySpaces(displayUUID: "A", current: 1, spaces: [
+                SkyLight.Space(id: 1, type: 0), SkyLight.Space(id: 2, type: 4),
+            ]),
+            SkyLight.DisplaySpaces(displayUUID: "B", current: 10, spaces: [
+                SkyLight.Space(id: 10, type: 0),
+            ]),
+        ]
+        let types = SkyLight.spaceTypes(of: displays)
+        #expect(types == [1: 0, 2: 4, 10: 0])
+        // Haritada olmayan kimlik için çağıran `type(of:)` IPC'sine düşer.
+        #expect(types[99] == nil)
+        #expect(SkyLight.spaceTypes(of: []).isEmpty)
+    }
+
+    @Test func spaceTypesKeepFirstOnDuplicateID() {
+        let displays = [
+            SkyLight.DisplaySpaces(displayUUID: "A", current: 1,
+                                   spaces: [SkyLight.Space(id: 1, type: 0)]),
+            SkyLight.DisplaySpaces(displayUUID: "B", current: 1,
+                                   spaces: [SkyLight.Space(id: 1, type: 4)]),
+        ]
+        #expect(SkyLight.spaceTypes(of: displays) == [1: 0])
+    }
+
+    // MARK: Yerleşim (saf, tek okunan durumla)
+
+    private func screen(_ id: String, uuid: String, frame: CGRect) -> ScreenInfo {
+        ScreenInfo(id: id, uuid: uuid, name: id, isBuiltin: id == "builtin",
+                   frame: frame, visibleFrame: frame)
+    }
+
+    @Test func placementFromSpacesThenFrameThenFirstScreen() {
+        let builtin = screen("builtin", uuid: "B", frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
+        let external = screen("external", uuid: "E", frame: CGRect(x: 1920, y: 0, width: 2560, height: 1440))
+        let displays = [
+            SkyLight.DisplaySpaces(displayUUID: "B", current: 1, spaces: [
+                SkyLight.Space(id: 1, type: 0), SkyLight.Space(id: 2, type: 0),
+            ]),
+            SkyLight.DisplaySpaces(displayUUID: "E", current: 20, spaces: [
+                SkyLight.Space(id: 20, type: 0), SkyLight.Space(id: 21, type: 4),
+                SkyLight.Space(id: 22, type: 0),
+            ]),
+        ]
+        let screens = [builtin, external]
+
+        // Space biliniyor: masaüstü sırası yalnızca normal masaüstülere göre.
+        let onExternal = Router.WindowState(spaces: [22], isFullscreen: false, frame: nil, isMinimized: false)
+        #expect(Router.placement(of: onExternal, displays: displays, screens: screens)
+                == Router.Placement(screen: "external", desktop: 2))
+
+        // Tam ekran: yerleşim yok.
+        let fullscreen = Router.WindowState(spaces: [21], isFullscreen: true, frame: nil, isMinimized: false)
+        #expect(Router.placement(of: fullscreen, displays: displays, screens: screens) == nil)
+
+        // Space bilgisi yok: çerçevenin merkezinden ekran (AX koordinatları).
+        let byFrame = Router.WindowState(
+            spaces: [], isFullscreen: false,
+            frame: CGRect(x: 2000, y: 100, width: 800, height: 600), isMinimized: false)
+        #expect(Router.placement(of: byFrame, displays: displays, screens: screens)
+                == Router.Placement(screen: "external", desktop: 1))
+
+        // Hiçbir bilgi yok: ilk ekran, masaüstü 1.
+        let unknown = Router.WindowState(spaces: [], isFullscreen: false, frame: nil, isMinimized: false)
+        #expect(Router.placement(of: unknown, displays: displays, screens: screens)
+                == Router.Placement(screen: "builtin", desktop: 1))
+        #expect(Router.placement(of: unknown, displays: displays, screens: []) == nil)
+    }
+}
