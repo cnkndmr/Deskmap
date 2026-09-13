@@ -43,6 +43,11 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   çiftleri (eşleşmez, `lowercased()` semantiği), çözümlenen (v1/v2) kurallar,
   değişen `tokens`, tembel başlık küçültme, eşzamanlı `split`; AX izin
   anahtarı sabiti testi. Toplam 75 test.
+- Motor yardımcı testleri genişledi: pencere sunucusu kaydı süzgeci
+  (`AX.serverWindow` / `AX.liveEntry`; katman, alpha, boyut, ad, numara/pid
+  eksik durumları), yaşayan pencere birleştirmesi (`Router.liveWindows`),
+  duraklama emniyeti (`Router.shouldResumeFromPause`) ve yatışma üst sınırı
+  (`ScreenService.settleDelay`). Toplam 89 test.
 
 ### Değişti
 
@@ -83,6 +88,20 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   bir kez küçültür. Eşleme kararı aynı: `lowercased()` semantiği korunur,
   `.caseInsensitive` arama ß/SS ve ligatür çiftlerini de eşlediği için
   kullanılmadı.
+- Aynı `minX`'te üst üste duran harici ekranlar artık `minY`, sonra UUID
+  sırasıyla dizilir. Böyle bir yerleşimde `external` / `external-2` rolleri
+  güncellemeden sonra bir kez yer değiştirebilir; kuralları o ekranlar için
+  bir kez yeniden sürüklemek yeter, sonrası her açılışta aynı kalır.
+- Ekran yatışması artık en geç 10 sn'de biter: değişimler hiç durmazsa
+  (titrek kablo, sürekli bildirim) 2,5 sn'lik bekleme her seferinde
+  sıfırlanıyor ve yönlendirme sonsuza dek kapalı kalabiliyordu. Bölümün
+  başından 10 sn sonra yatışma zorla biter (günlükte "üst sınır"),
+  yeniden yerleştirme yapılır (`ScreenService.settleDelay`).
+- Çerçeve yazımı (`AX.setFrame`) pencere öğesine 3 sn yanıt süresi verir:
+  yavaş ama çalışan uygulama (büyük belge, yoğun tarayıcı) boyutu yine
+  uygular. Okumalar süreç geneli 1 sn'de kalır; donmuş uygulama zaten
+  `setFrame`'e gelmeden backoff'a alınır. Yazım sonrası doğrulama okuması
+  değişmedi.
 
 ### Düzeltildi
 
@@ -142,6 +161,18 @@ Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmışt
   düşürülmez.
 - Harici ekran rol sırası (`external`, `external-2`) aynı `minX` için
   belirsizdi; sıra artık (minX, minY, UUID) ile belirlenir.
+- "Sunucu boşsa pin düşürme" koruması boşa çıkıyordu: yaşayan pencere
+  listesine AX'in gördüğü pencereler her durumda ekleniyordu, bu yüzden
+  sunucu boş dönse de liste dolu sayılıp oturum pinleri ve düzen/deneme
+  kayıtları budanabiliyordu. Artık sunucu boş döndüyse liste boş kalır
+  (`Router.liveWindows`), AX pencereleri yalnızca dolu listeye eklenir.
+- Uyanma bildirimi kaçınca (ör. `willSleep` sonrası uyku iptal oldu)
+  tarama sonsuza dek duraklı kalabiliyordu. Zamanlayıcı her turda bakar:
+  ana ekran uyanıksa ve duraklama 5 sn'den eskiyse tarama sürdürülür
+  (günlükte "zamanlayıcı"). Uykuya girerken bildirim sırasıyla çekişmez.
+- Süreç geneli 1 sn AX yanıt süresi `WindowEvents`'ten sonra ayarlanıyordu;
+  ilk gözlemci kayıt turu pencere öğelerine ~6 sn varsayılanla soruyordu.
+  Artık önce ayarlanır.
 
 ### Eklendi
 
