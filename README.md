@@ -162,3 +162,15 @@ Developer ID hesabıyla Gatekeeper'sız dağıtım için:
 xcrun notarytool store-credentials notary --apple-id ... --team-id ... --password <app-specific>
 SIGN_IDENTITY="Developer ID Application: Ad (TEAMID)" NOTARY_PROFILE=notary make dist
 ```
+
+### Günlük
+
+Motor `os.Logger` ile seyrek günlük yazar (alt sistem `com.spacerouter.app`;
+kategoriler `routing`, `skylight`, `ax`, `screens`): açılışta SkyLight
+durumu ve masaüstü taşıma yolu, her masaüstü taşıması, vazgeçmeler, yanıt
+vermeyen uygulama backoff'u, ekran yatışması, uyku/uyanma ve oturum pini
+düşmesi. Pencere başlıkları gizlidir. Terminalden izlemek için:
+
+```
+log stream --predicate 'subsystem == "com.spacerouter.app"' --level info
+```
