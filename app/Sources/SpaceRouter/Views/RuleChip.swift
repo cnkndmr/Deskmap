@@ -10,6 +10,9 @@ struct RuleChip: View {
     let rule: Rule
     let mode: Mode
     var isGhost = false
+    /// Penceresi açık ama bu kuralı geçen kuralın kimliği (gölgede kalan
+    /// pin); çip soluk çizilir, ipucu nedenini söyler.
+    var shadowedBy: String?
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
@@ -39,10 +42,21 @@ struct RuleChip: View {
         .overlay(Capsule().strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.15),
                                         lineWidth: 1))
         .contentShape(Capsule())
-        .opacity(isBeingDragged ? 0.35 : 1)
+        .opacity(isBeingDragged ? 0.35 : (shadowedBy == nil ? 1 : 0.5))
         .onTapGesture { ui.toggle(.rule(rule.id)) }
         .gesture(dragGesture, including: isGhost ? .none : .all)
-        .help("\(rule.appName): \(rule.title)\nPenceresi şu an açık değil. Sürükleyerek taşı.")
+        .help(helpText)
+    }
+
+    private var helpText: String {
+        let base = "\(rule.appName): \(rule.title)"
+        guard let shadowedBy else {
+            return base + "\nPenceresi şu an açık değil. Sürükleyerek taşı."
+        }
+        let winner = shadowedBy == Routing.sessionRuleID
+            ? "geçici pin"
+            : "„\(store.rule(shadowedBy)?.title ?? "")\" pini"
+        return base + "\nBu pencereye önce \(winner) uyuyor; bu pin devreye girmiyor."
     }
 
     private var dragGesture: some Gesture {

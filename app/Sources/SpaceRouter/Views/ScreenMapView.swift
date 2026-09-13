@@ -16,6 +16,12 @@ struct ScreenMapView: View {
     private var isLive: Bool { mode == screens.mode }
 
     var body: some View {
+        // Bir pencereye uyduğu hâlde daha özgül bir kurala (ya da geçici
+        // pine) yenilen kurallar; bir kez hesaplanır, satırlara dağıtılır.
+        let shadowed = isLive
+            ? Self.shadows(rules: store.document.rules, windows: ui.windows,
+                           sessionPins: router.sessionPins, mode: mode).shadowedBy
+            : [:]
         VStack(spacing: 12) {
             ForEach(store.screens(for: mode)) { screen in
                 ScreenCard(
@@ -24,7 +30,8 @@ struct ScreenMapView: View {
                     isLive: isLive,
                     isConnected: screens.screens.contains { $0.id == screen.id },
                     tileCount: tileCount(for: screen),
-                    realCount: ui.desktopCounts[screen.id])
+                    realCount: ui.desktopCounts[screen.id],
+                    shadowed: shadowed)
             }
 
             UnassignedTray(mode: mode)
@@ -78,6 +85,44 @@ struct ScreenMapView: View {
         let real = ui.desktopCounts[screen.id] ?? 0
         return max(real, used, live, session, 1)
     }
+
+    // MARK: - Gölgede kalan kurallar
+
+    /// Canlı pencerelere göre kuralların durumu.
+    struct RuleShadows: Equatable {
+        /// En az bir pencerede geçerli hedef olan kural kimlikleri
+        /// (geçici pin için `Routing.sessionRuleID`).
+        var winners: Set<String> = []
+        /// Bir pencereye uyduğu hâlde hiçbir pencerede kazanamayan kural →
+        /// onu geçen kuralın kimliği (ilk görülen pencereye göre).
+        var shadowedBy: [String: String] = [:]
+    }
+
+    /// Her pencere için Router ile aynı seçimi yapar (`Routing.select`);
+    /// seçilmeyen ama uyan kurallar gölgede sayılır. Böylece "penceresi
+    /// açık ama kazanamayan" pin haritada kaybolmaz.
+    static func shadows(
+        rules: [Rule], windows: [Router.WindowSnapshot],
+        sessionPins: [CGWindowID: Destination], mode: Mode
+    ) -> RuleShadows {
+        var result = RuleShadows()
+        for window in windows {
+            guard let match = Routing.select(
+                rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
+                bundleID: window.bundleID, appName: window.appName, title: window.title)
+            else { continue }
+            result.winners.insert(match.ruleID)
+            for rule in rules
+            where rule.id != match.ruleID && rule[mode] != nil
+                && rule.matches(bundleID: window.bundleID, appName: window.appName,
+                                title: window.title) {
+                if result.shadowedBy[rule.id] == nil { result.shadowedBy[rule.id] = match.ruleID }
+            }
+        }
+        // Başka bir pencerede kazanan kural gölgede değildir (o satırda görünür).
+        result.shadowedBy = result.shadowedBy.filter { !result.winners.contains($0.key) }
+        return result
+    }
 }
 
 // MARK: - Ekran kartı
@@ -90,6 +135,8 @@ private struct ScreenCard: View {
     let isConnected: Bool
     let tileCount: Int
     let realCount: Int?
+    /// Gölgede kalan kural → onu geçen kural (ScreenMapView.shadows).
+    let shadowed: [String: String]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -109,7 +156,7 @@ private struct ScreenCard: View {
                 DesktopRow(
                     screen: screen, desktop: desktop, mode: mode, isLive: isLive,
                     exists: realCount.map { desktop <= $0 } ?? true,
-                    rowCount: tileCount)
+                    rowCount: tileCount, shadowed: shadowed)
             }
             GhostRow(screen: screen, desktop: tileCount + 1, mode: mode)
         }
@@ -137,6 +184,8 @@ private struct DesktopRow: View {
     let exists: Bool
     /// Bu ekran kartındaki satır sayısı (sıralama için).
     let rowCount: Int
+    /// Gölgede kalan kural → onu geçen kural; soluk çip olarak gösterilir.
+    let shadowed: [String: String]
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
@@ -187,13 +236,16 @@ private struct DesktopRow: View {
         return result
     }
 
-    /// Hedefi burası olan ama şu an açık penceresi olmayan pinler.
+    /// Hedefi burası olan ama şu an açık penceresi olmayan pinler; canlı
+    /// modda ayrıca penceresi olduğu hâlde başka kurala yenilen (gölgede)
+    /// pinler, yoksa haritada hiç görünmezlerdi.
     private var orphanRules: [Rule] {
         store.document.rules.filter { rule in
             guard let destination = rule[mode],
                   destination.screen == screen.id, destination.desktop == desktop
             else { return false }
             guard isLive else { return true }
+            if shadowed[rule.id] != nil { return true }
             return !ui.windows.contains {
                 rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
             }
@@ -229,7 +281,7 @@ private struct DesktopRow: View {
                     if !orphanRules.isEmpty {
                         FlowLayout(spacing: 6) {
                             ForEach(orphanRules) { rule in
-                                RuleChip(rule: rule, mode: mode)
+                                RuleChip(rule: rule, mode: mode, shadowedBy: shadowed[rule.id])
                             }
                         }
                         .padding(.top, groups.isEmpty ? 0 : 2)
