@@ -64,4 +64,33 @@ enum Routing {
         }
         return count <= quickAttempts
     }
+
+    // MARK: - Masaüstü taşıma denemeleri
+
+    /// Masaüstü taşıması bu kadar denemeden sonra da tutmazsa (macOS
+    /// taşımayı reddediyor / özel API çalışmıyor) o pencere için bir süre
+    /// bırakılır; pencere hedefe varınca ya da bellek sıfırlanınca sayaç silinir.
+    static let maxMoveAttempts = 6
+    /// Vazgeçilen taşıma bu kadar süre sonra yeniden bir deneme turu alır
+    /// (kalıcı vazgeçme yok: macOS'un geçici reddi sonsuza kadar sürmesin).
+    static let moveRetryInterval: TimeInterval = 60
+
+    /// Bir masaüstü taşıması denenmeli mi? Deneniyorsa sayaç artar, zaman
+    /// damgası yenilenir ve deneme sırası döner (1...`maxMoveAttempts`).
+    /// Sınıra varılmışsa nil; ancak son denemeden bu yana
+    /// `moveRetryInterval` geçtiyse sayaç sıfırlanıp yeni tur başlar.
+    static func recordMoveAttempt(
+        key: String, now: Date, attempts: inout [String: Int], lastAttempts: inout [String: Date]
+    ) -> Int? {
+        var count = attempts[key] ?? 0
+        if count >= maxMoveAttempts {
+            guard let last = lastAttempts[key],
+                  now.timeIntervalSince(last) >= moveRetryInterval else { return nil }
+            count = 0
+        }
+        count += 1
+        attempts[key] = count
+        lastAttempts[key] = now
+        return count
+    }
 }
