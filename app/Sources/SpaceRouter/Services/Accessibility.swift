@@ -352,22 +352,37 @@ enum AX {
         var windows: [ServerWindow] = []
         var live: [CGWindowID: pid_t] = [:]
         for entry in list {
-            guard let number = entry[kCGWindowNumber as String] as? UInt32,
-                  let pid = entry[kCGWindowOwnerPID as String] as? Int32
-            else { continue }
+            guard let (number, pid) = liveEntry(from: entry) else { continue }
             live[number] = pid
-
-            guard let layer = entry[kCGWindowLayer as String] as? Int, layer == 0 else { continue }
-            if let alpha = entry[kCGWindowAlpha as String] as? Double, alpha == 0 { continue }
-            if let bounds = entry[kCGWindowBounds as String] as? [String: Any],
-               let w = bounds["Width"] as? Double, let h = bounds["Height"] as? Double,
-               w < 50 || h < 50 {
-                continue
-            }
-            let name = entry[kCGWindowName as String] as? String ?? ""
-            windows.append(ServerWindow(id: number, pid: pid, name: name))
+            if let window = serverWindow(from: entry) { windows.append(window) }
         }
         return WindowServerList(windows: windows, live: live)
+    }
+
+    /// Sunucu kaydından pencere numarası ve sahip pid (saf); biri yoksa nil.
+    /// `WindowServerList.live` için: katman/boyut süzgeci uygulanmaz.
+    static func liveEntry(from entry: [String: Any]) -> (id: CGWindowID, pid: pid_t)? {
+        guard let number = entry[kCGWindowNumber as String] as? UInt32,
+              let pid = entry[kCGWindowOwnerPID as String] as? Int32
+        else { return nil }
+        return (number, pid)
+    }
+
+    /// Sunucu kaydını 2. aşama listelemesi için süzer (saf): numara ve pid
+    /// zorunlu; katman 0 olmalı (yoksa ya da farklıysa elenir); alpha 0 ya
+    /// da genişlik/yükseklik 50 pt'den küçükse elenir (alpha ya da sınırlar
+    /// yoksa geçer); ad yoksa boş.
+    static func serverWindow(from entry: [String: Any]) -> ServerWindow? {
+        guard let (number, pid) = liveEntry(from: entry) else { return nil }
+        guard let layer = entry[kCGWindowLayer as String] as? Int, layer == 0 else { return nil }
+        if let alpha = entry[kCGWindowAlpha as String] as? Double, alpha == 0 { return nil }
+        if let bounds = entry[kCGWindowBounds as String] as? [String: Any],
+           let w = bounds["Width"] as? Double, let h = bounds["Height"] as? Double,
+           w < 50 || h < 50 {
+            return nil
+        }
+        let name = entry[kCGWindowName as String] as? String ?? ""
+        return ServerWindow(id: number, pid: pid, name: name)
     }
 
     /// Pencere sunucusunun şu an bildiği bütün pencere numaraları → sahip
@@ -394,6 +409,13 @@ enum AX {
         return CGRect(origin: origin, size: size)
     }
 
+    /// Çerçeve yazımı için öğe başına yanıt süresi. Okumalar süreç geneli
+    /// 1 sn ile hızlı düşer (donmuş uygulama ilk çağrıda takılır ve
+    /// `setFrame`'e gelmeden backoff'a alınır); yazım ise yavaş ama çalışan
+    /// bir uygulamanın (büyük belge, yoğun tarayıcı) yeniden çizimi
+    /// bitirmesini beklemeli, yoksa boyut hiç uygulanmaz.
+    static let setFrameTimeout: Float = 3.0
+
     /// Pencereyi verilen çerçeveye (sol üst köşe tabanlı) taşır.
     static func setFrame(_ frame: CGRect, of window: AXWindow) {
         var origin = frame.origin
@@ -401,6 +423,10 @@ enum AX {
         guard let positionValue = AXValueCreate(.cgPoint, &origin),
               let sizeValue = AXValueCreate(.cgSize, &size) else { return }
 
+        // Yazımlar için daha uzun süre; ardından sıfırlanır ki yazım sonrası
+        // çerçeve okuması yine süreç geneli süreyle (1 sn) çalışsın.
+        AXUIElementSetMessagingTimeout(window.element, setFrameTimeout)
+        defer { AXUIElementSetMessagingTimeout(window.element, 0) }
         // Boyutu iki kez vermek, ekran sınırına takılan pencereler için gerekir.
         AXUIElementSetAttributeValue(window.element, kAXSizeAttribute as CFString, sizeValue)
         AXUIElementSetAttributeValue(window.element, kAXPositionAttribute as CFString, positionValue)

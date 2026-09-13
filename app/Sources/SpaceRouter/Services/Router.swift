@@ -94,6 +94,13 @@ final class Router: ObservableObject {
     private var sweepRequested = false
     /// Ekranlar ya da sistem uyurken tarama yapılmaz; uyanınca hemen taranır.
     private var isPaused = false
+    /// Duraklamanın başladığı an (emniyet sürdürmesi için).
+    private var pausedAt: Date?
+    /// Uyanma bildirimi gelmezse (ör. `willSleep` sonrası uyku iptal oldu)
+    /// zamanlayıcı, ana ekran uyanıksa ve duraklama bu kadar eskiyse taramayı
+    /// kendisi sürdürür. Uykuya girerken bildirim sırasıyla çekişmesin diye
+    /// birkaç saniye.
+    nonisolated static let pauseSafetyDelay: TimeInterval = 5
     /// Tarama sürerken gelen "düzen belleğini unut" istekleri: tarama
     /// bitince sonucun üstüne uygulanır; yoksa taramanın döndürdüğü eski
     /// küme bu istekleri ezerdi (ör. "Yeniden yerleştir" düğmesi).
@@ -104,10 +111,12 @@ final class Router: ObservableObject {
     init(store: Store, screens: ScreenService) {
         self.store = store
         self.screens = screens
-        self.events = WindowEvents()
         // Ayrıca ayarlanmamış bütün AX öğeleri için varsayılan yanıt süresi
         // (yoksa ~6 sn; donmuş bir uygulama taramayı o kadar bekletirdi).
+        // WindowEvents'ten önce: ilk gözlemci kayıt turu pencere öğelerine
+        // bu süreyle sorar.
         AX.setGlobalTimeout(1.0)
+        self.events = WindowEvents()
         let sky = SkyLight.shared
         Log.skylight.notice("""
             SkyLight \(sky.isAvailable ? "hazır" : "yok", privacy: .public); \
@@ -117,8 +126,10 @@ final class Router: ObservableObject {
 
         let timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in
-                self?.events.refresh()
-                self?.sweep()
+                guard let self else { return }
+                self.events.refresh()
+                self.resumeIfStuckPaused()
+                self.sweep()
             }
         }
         // Sistem zamanlayıcıları gruplayabilsin (güç tüketimi); 2 sn ± 0,5 sn yeter.
@@ -171,10 +182,31 @@ final class Router: ObservableObject {
     private func setPaused(_ paused: Bool, reason: String) {
         guard paused != isPaused else { return }
         isPaused = paused
+        pausedAt = paused ? Date() : nil
         Log.screens.notice("""
             Tarama \(paused ? "duraklatıldı" : "sürdürülüyor", privacy: .public) (\(reason, privacy: .public))
             """)
         if !paused { sweep() }
+    }
+
+    /// Emniyet: uyanma bildirimi kaçtıysa duraklama sonsuza dek sürmesin.
+    /// Zamanlayıcı her turda bakar; karar saf `shouldResumeFromPause`.
+    private func resumeIfStuckPaused() {
+        guard isPaused,
+              Self.shouldResumeFromPause(
+                pausedAt: pausedAt, now: Date(),
+                displayAsleep: CGDisplayIsAsleep(CGMainDisplayID()) != 0)
+        else { return }
+        setPaused(false, reason: "zamanlayıcı")
+    }
+
+    /// Duraklatılmış tarama sürdürülmeli mi (saf): ana ekran uyanık ve
+    /// duraklama `pauseSafetyDelay`'den eski. Başlangıç bilinmiyorsa hayır.
+    nonisolated static func shouldResumeFromPause(
+        pausedAt: Date?, now: Date, displayAsleep: Bool
+    ) -> Bool {
+        guard let pausedAt, !displayAsleep else { return false }
+        return now.timeIntervalSince(pausedAt) >= pauseSafetyDelay
     }
 
     /// Düzen belleğini sıfırlayıp bütün pencereleri yeniden yerleştirir.
@@ -489,11 +521,9 @@ final class Router: ObservableObject {
         let windows = AX.allWindows(alwaysInclude: sessionIDs, server: server)
         outcome.unresponsive = AX.unresponsiveApps()
         // Oturum pinlerinin yaşam denetimi ve kapalı pencere kayıtlarının
-        // budanması için. Sunucu listesi AX listesinden önce okunduğu için
-        // AX'in gördüğü (yani yaşayan) pencereler de eklenir.
-        var live = server.live
-        for window in windows where live[window.id] == nil { live[window.id] = window.pid }
-        outcome.liveWindows = live
+        // budanması için.
+        outcome.liveWindows = Self.liveWindows(
+            server: server.live, ax: windows.map { ($0.id, $0.pid) })
 
         // Pencere başına durum bir kez okunur.
         var states: [CGWindowID: WindowState] = [:]
@@ -669,6 +699,21 @@ final class Router: ObservableObject {
     }
 
     // MARK: - Yardımcılar
+
+    /// Yaşayan pencereler (saf): pencere sunucusu listesi esas alınır;
+    /// sunucu listesi AX listesinden önce okunduğu için AX'in gördüğü (yani
+    /// yaşayan) ama sunucuda henüz olmayan pencereler eklenir. Sunucu boş
+    /// döndürdüyse (geçici hata) sonuç da boş kalır: çağıranlar boş listeyi
+    /// "bilgi yok" sayıp budama ve pin düşürmeyi atlar; AX pencereleriyle
+    /// doldurulsaydı o koruma boşa çıkardı.
+    nonisolated static func liveWindows(
+        server: [CGWindowID: pid_t], ax: [(id: CGWindowID, pid: pid_t)]
+    ) -> [CGWindowID: pid_t] {
+        guard !server.isEmpty else { return [:] }
+        var live = server
+        for window in ax where live[window.id] == nil { live[window.id] = window.pid }
+        return live
+    }
 
     nonisolated static func primaryUUID(_ screens: [ScreenInfo]) -> String? {
         (screens.first { $0.frame.origin == .zero } ?? screens.first)?.uuid
