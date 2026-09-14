@@ -1,297 +1,316 @@
-# Değişiklik günlüğü
+# Changelog
 
-Biçim [Keep a Changelog](https://keepachangelog.com/tr/1.1.0/) esas alınmıştır.
+All notable changes to this project are documented here. The format is based
+on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The version
+number comes from the `VERSION` file.
 
-## [Yayınlanmadı]
+## [Unreleased]
 
-### Eklendi
+`VERSION` already says 0.3.0; this section becomes 0.3.0 when it is tagged.
 
-- Tek seviyeli geri alma: pin kaldırma, pin silme, profil silme, masaüstü
-  sırası değiştirme, sürükleyerek hedef değiştirme, var olan pinin hedefini
-  yeniden pinleyerek ezme ("Pin güncellendi") ve başlık parçası düzenleme
-  sonrasında belge saklanır; alt çubukta 10 sn "<işlem> · Geri al" görünür,
-  ⌘Z de geri alır. Geçici pinin sürüklenmesi ve masaüstü sırasıyla kayan
-  geçici pinler de geri alınır (kayıt, belge dışı durumu geri alan bir eşlik
-  kapanışı taşır). Kayıt işlemden sonraki belgeyi de tutar: araya başka bir
-  değişiklik girerse (yeni pin, düzen adımı, profil geçişi, URL komutu)
-  kayıt düşer, geri alma o değişikliği silmez. Düzen adımları ve profil
-  geçişi kaydedilmez (`Models/UndoBuffer.swift`, `Store.undo()`).
-- Simge düğmeleri ve anahtarların erişilebilirlik etiketi (ipucuyla aynı
-  sözcükler): açık/kapalı anahtarı, mod seçici, yeniden yerleştir, çıkış,
-  pin düğmesi, kapatma düğmeleri, profil ekle / içe aktar, hazır düzenler.
-- Pin bilgi panelinde başlık parçaları yazmadan düzenlenir: pine uyan bir
-  pencere açıksa onun başlığı parçalanır, mevcut parçalar işaretli gelir,
-  "Tüm pencereler" seçilebilir, "Şu an N pencere uyuyor" canlı gösterilir;
-  "Uygula" ile yazılır. Başka bir pinle aynı anahtara düşen seçim
-  uygulanmaz, turuncu açıklama çıkar. Uyan pencere yoksa parçalar salt
-  okunur (`TokenPicker`, `Document.setTokens`).
-- Gölgede kalan pinler: bir pencereye uyduğu hâlde daha özgül bir pine ya
-  da geçici pine yenilen kural haritada soluk çip olarak, hedef
-  masaüstünde görünür; ipucu hangi pinin önce uyduğunu söyler
-  (`ScreenMapView.shadows`).
-- Eksik masaüstü rozeti: pinin hedef masaüstü bağlı ekranda yoksa (router
-  sonuncuya kırpıyor) pencere satırında ve çipte turuncu "M5→3" rozeti;
-  ipucu Mission Control'de masaüstü eklemeyi ya da pini sürüklemeyi önerir.
-- Klavye kısayolları (pencere öndeyken): ⌘R yeniden yerleştir, ⌘1 / ⌘2 mod
-  seçici (Monitör bağlı / Sadece laptop), ⌘Z geri al, Esc açık alt paneli
-  kapatır. İpuçları kısayolu söyler.
-- İlk kullanım kartı: Erişilebilirlik izni var ama aktif profilde pin ve
-  geçici pin yokken haritanın üstünde üç adım; ilk pinle kaybolur.
-- Alt çubuk: SkyLight çağrıları yoksa turuncu "Masaüstü taşıma bu macOS'ta
-  kullanılamıyor; yalnızca ekran ve düzen uygulanır" (hata ve yanıt vermeyen
-  uygulama iletilerinin altında). Router'ın son işlemi 30 sn sonra solar.
-- `spacerouter://` URL şeması: `reapply`, `pause`, `resume`, `toggle`,
-  `profile/<ad>` (ya da `profile?name=<ad>`), `next-profile`. Shortcuts
-  "Open URLs", Raycast, Hammerspoon `hs.urlevent.openURL` ve terminalde
-  `open` ile kullanılır. URL'ler AppKit delegate'i (`application(_:open:)`)
-  üzerinden alınır; ayrıştırma saf `URLCommand.parse` işlevinde
-  (`Services/URLCommands.swift`). Bilinmeyen komut/profil alt çubukta
-  hata olarak gösterilir. README'de "Otomasyon" bölümü.
-- Tek kopya koruması: aynı bundle kimliğiyle çalışan başka bir Space Router
-  varsa yenisi Router yaratılmadan çıkar (iki yönlendirici aynı pencereleri
-  çekiştirmesin).
-- Birim testleri (`make test`, Swift Testing): `Rule` eşleştirme ve başlık
-  parçalama, `WindowLayout`, koordinat dönüşümü, `rules.json` şema geçişleri
-  (v1/v2/v3), `Document` pin/profil işlemleri, dışa/içe aktarma ve
-  `Routing` hedef seçimi. CI ve `.githooks/pre-commit` testleri de çalıştırır.
-- Kökte `VERSION` dosyası; `build-app.sh` ve `make-dist.sh` sürümü oradan okur
-  (`VERSION=` ortam değişkeni yine önceliklidir).
-- `make dist`: evrensel (arm64 + x86_64) derleme, imza, isteğe bağlı noter ve
-  `build/dist/*.zip` / `.dmg` paketi (`scripts/make-dist.sh`,
-  Finder için `scripts/make-dist.command`). `build-app.sh` artık `VERSION`,
-  `UNIVERSAL` ve `SIGN_IDENTITY` ortam değişkenlerini tanır; sürüm 0.3.0.
-- Birleşik günlük (`Services/Log.swift`, `os.Logger`, alt sistem
-  `com.spacerouter.app`; kategoriler `routing`, `skylight`, `ax`, `screens`).
-  Açılışta SkyLight durumu ve masaüstü taşıma yolu; her masaüstü taşıması,
-  taşıma/düzen vazgeçmesi, yanıt vermeyen uygulama backoff başlangıcı/bitişi,
-  ekran yatışması, uyku duraklatma/sürdürme ve oturum pini düşmesi yazılır.
-  Pencere başlıkları gizli (`.private`); tarama başına kayıt yok. İzlemek için
+### Added
+
+- English user interface with a Turkish translation. All user-facing text
+  (window, cards, panels, tooltips, VoiceOver labels, footer errors, undo
+  labels, file dialogs) goes through `L("…")` with English keys; the Turkish
+  table is `app/Resources/tr.lproj/Localizable.strings`. The app follows the
+  macOS language order and falls back to English. `build-app.sh` copies the
+  `.lproj` folders and declares `CFBundleDevelopmentRegion = en` and
+  `CFBundleLocalizations = [en, tr]`. `LocalizationTests` check that every
+  key is translated, no translation is stale or duplicated, and format
+  specifiers match.
+- Documentation: README rewritten in English (install, required macOS
+  settings, quick start, pins/profiles/modes, URL scheme, shortcuts,
+  troubleshooting, architecture, development, limitations) and
+  `docs/architecture.md` (sweep steps, retry limits, data formats,
+  localization, tests).
+- One-level undo. After unpinning, deleting a profile, reordering desktops,
+  dragging a pin to another target, re-pinning over an existing target ("Pin
+  updated"), or editing title parts, the footer shows "*action* · Undo" for
+  10 s; ⌘Z works too. Dragging a temporary pin, and temporary pins shifted by
+  a desktop reorder, are undone as well (the entry carries a closure for
+  state outside the document). The entry also stores the document after the
+  action: if anything else changes it in between (a new pin, a layout step, a
+  profile switch, a URL command), the entry is dropped so undo can't erase
+  that change. Layout steps and profile switches are not recorded
+  (`Models/UndoBuffer.swift`, `Store.undo()`).
+- Accessibility labels for icon buttons and switches, using the same words as
+  their tooltips: on/off switch, mode selector, re-apply, quit, pin button,
+  close buttons, add/import profile, layout presets.
+- Title parts can be edited in the pin panel without typing: if a window
+  matching the pin is open, its title is split, the current parts are
+  preselected, "All windows" can be chosen, and the number of matching
+  windows updates live; **Apply** saves. A selection that would give the same
+  key as another pin is refused with an orange explanation. Without a
+  matching window the parts are read-only (`TokenPicker`, `Document.setTokens`).
+- Shadowed pins: a pin that matches a window but loses to a more specific pin
+  or a temporary pin is shown as a faded chip on its target desktop; the
+  tooltip says which pin matches first (`ScreenMapView.shadows`).
+- Missing-desktop badge: if a pin's target desktop doesn't exist on the
+  connected display (the router clamps to the last one), the row and chip
+  show an orange "D5→3" badge ("M5→3" in Turkish); the tooltip suggests adding
+  a desktop in Mission Control or dragging the pin.
+- Keyboard shortcuts while the window is focused: ⌘R re-apply, ⌘1 / ⌘2 mode
+  selector (Monitor connected / Laptop only), ⌘Z undo, Esc closes the open
+  bottom panel. Tooltips mention the shortcut.
+- Getting Started card: three steps above the map while Accessibility is
+  granted and the active profile has no pins or temporary pins; disappears
+  with the first pin.
+- Footer: if the SkyLight calls are missing, an orange "Moving windows between
+  desktops is not available on this macOS; only display and layout are
+  applied" (below errors and unresponsive-app messages). The router's last
+  action fades after 30 s.
+- `spacerouter://` URL scheme: `reapply`, `pause`, `resume`, `toggle`,
+  `profile/<name>` (or `profile?name=<name>`), `next-profile`. Works with
+  Shortcuts "Open URLs", Raycast, Hammerspoon `hs.urlevent.openURL` and `open`
+  in a terminal. URLs arrive through the AppKit delegate
+  (`application(_:open:)`); parsing is the pure `URLCommand.parse`
+  (`Services/URLCommands.swift`). Unknown commands or profiles show an error
+  in the footer.
+- Single-instance guard: if another Space Router with the same bundle ID is
+  running, the new one quits before creating a router, so two routers never
+  fight over the same windows.
+- macOS settings card: "Automatically rearrange Spaces", "switch to a Space
+  with open windows", "Group windows by application" and "Displays have
+  separate Spaces" are checked live; while one is wrong the card can't be
+  dismissed, and "Open Desktop & Dock" opens the right pane. The Dock "Assign
+  To: None" reminder is hidden with "Got It" (`setupNoticeDismissed`).
+- Unit tests (`make test`, Swift Testing): rule matching and title
+  splitting (Turkish İ/ı/I/i, ß–SS and ligature pairs don't match:
+  `lowercased()` semantics), `WindowLayout`, coordinate conversion,
+  `rules.json` schema migrations (v1/v2/v3), document operations on pins and
+  profiles, export/import, `Routing` target selection, engine helpers
+  (backoff decision, move cooldown, external display order, space-type map,
+  `Router.placement`, window server filters `AX.serverWindow` /
+  `AX.liveEntry`, `Router.liveWindows`, `Router.shouldResumeFromPause`,
+  `ScreenService.settleDelay`), undo, map logic and localization. 122 tests.
+  CI and `.githooks/pre-commit` run them.
+- `VERSION` file at the repository root; `build-app.sh` and `make-dist.sh`
+  read it (the `VERSION` environment variable still wins).
+- `make dist`: universal (arm64 + x86_64) build, signing, optional
+  notarization and a `build/dist/*.zip` / `.dmg` package
+  (`scripts/make-dist.sh`, `scripts/make-dist.command` for Finder).
+  `build-app.sh` accepts `VERSION`, `UNIVERSAL` and `SIGN_IDENTITY`.
+- Unified logging (`Services/Log.swift`, `os.Logger`, subsystem
+  `com.spacerouter.app`, categories `routing`, `skylight`, `ax`, `screens`):
+  SkyLight status and move path at launch; every desktop move, layout/move
+  give-ups, unresponsive-app backoff start/end, display settling, sleep
+  pause/resume and temporary-pin expiry. Window titles are private; nothing
+  is logged per sweep. Watch with
   `log stream --predicate 'subsystem == "com.spacerouter.app"' --level info`.
-- Motor yardımcılarının birim testleri (`EngineHelperTests`): backoff kararı,
-  masaüstü taşıma soğuması, harici ekran sıralaması, space türü haritası ve
-  saf `Router.placement`. Toplam 68 test.
-- `make concurrency-check`: `-strict-concurrency=complete` ile temiz bir
-  derleme yapıp uyarıları listeler (Swift 6 hazırlığı; paket ayarı değişmez,
-  ayrı derleme dizini `app/.build/strict`). README "Geliştirme" bölümünde.
-- `Rule` eşleştirme testleri: Türkçe İ/ı/I/i, ß–SS ve ligatür katlama
-  çiftleri (eşleşmez, `lowercased()` semantiği), çözümlenen (v1/v2) kurallar,
-  değişen `tokens`, tembel başlık küçültme, eşzamanlı `split`; AX izin
-  anahtarı sabiti testi. Toplam 75 test.
-- Motor yardımcı testleri genişledi: pencere sunucusu kaydı süzgeci
-  (`AX.serverWindow` / `AX.liveEntry`; katman, alpha, boyut, ad, numara/pid
-  eksik durumları), yaşayan pencere birleştirmesi (`Router.liveWindows`),
-  duraklama emniyeti (`Router.shouldResumeFromPause`) ve yatışma üst sınırı
-  (`ScreenService.settleDelay`). Toplam 89 test.
+- `make concurrency-check`: a clean build with `-strict-concurrency=complete`
+  that lists the warnings (Swift 6 preparation; package settings unchanged,
+  separate build directory `app/.build/strict`).
+- `scripts/build-and-run.command`: double-click in Finder to quit the running
+  Space Router, build and reopen it; output goes to `build/last-build.log`.
 
-### Değişti
+### Changed
 
-- Alt panel durumu tek değer (`UIState.panel: BottomPanel?` — pin taslağı,
-  pin bilgisi, geçici pin, profil); aynı anda tek panel açık kalır.
-  `RootView.swift` (894 satır) UIState / RootView / PinPanel / RulePanels /
-  LayoutEditor / StatusCards / TokenPicker dosyalarına bölündü; dört kopya
-  panel çerçevesi tek `bottomPanelChrome()` oldu. Davranış aynı.
-- Üst çubuktaki "N pin" seçili modu sayar; "· M geçici" yalnızca seçili
-  mod şu anki mod iken gösterilir (geçici pinler yalnızca orada listelenir).
-- Kural ve profil mantığı (`pin`, `unpin`, `moveDesktop`, profil geçişi/kopya/
-  silme, dışa/içe aktarma) `Document` üzerinde saf işlemler oldu; `Store`
-  yalnızca çağırıp yayınlar ve kaydeder. Davranış aynı.
-- Hedef seçimi tek yerde (`Routing.select`): Router, pencere satırı ve harita
-  aynı kuralı seçer (oturum pini, yoksa bu modda hedefi olan en özgül kural).
-  Düzen deneme sayımı da `Routing`'e taşındı.
-- Tarama başına IPC azaltıldı, listelenen pencere kümesi ve kararlar aynı:
-  pencere sunucusu (`CGWindowListCopyWindowInfo`) taramada bir kez okunur
-  (2. aşama listeleme ve yaşam denetimi aynı sonuçtan türer); space türleri
-  `displaySpaces` sonucundan haritalanır (pencere başına `SLSSpaceGetType`
-  yerine, haritada olmayan kimlik için IPC'ye düşer); pencere başına space,
-  çerçeve ve simge durumu bir kez okunup anlık görüntü, yerleşim ve
-  yönlendirmede paylaşılır (eskiden yönlendirilen pencere için 2–3 kez).
-- Tarama zamanlayıcısına 0,5 sn tolerans (sistem zamanlayıcıları gruplar).
-- Ekranlar ya da sistem uyurken tarama durur (`screensDidSleep` /
-  `willSleep`), uyanınca hemen bir tur yapılır.
-- Ekran değişimi yatışırken (2,5 sn) pencereler listelenir ama taşınmaz;
-  `ScreenService.isSettling`. Yatışınca eskisi gibi hepsi yeniden yerleştirilir.
-- Elle taşıma (haritada sürükleme) AX öğesini son taramadaki pid ile
-  doğrudan üretir; bütün uygulamaları yeniden taramak yalnızca bu yol
-  tutmazsa yapılır.
-- Masaüstü taşıma sınırı ve soğuma `Routing.maxMoveAttempts` /
-  `Routing.moveRetryInterval` (saf `recordMoveAttempt`).
-- Sıkı eşzamanlılık (`-strict-concurrency=complete`) uyarıları servislerde
-  giderildi: 16 → 2 (kalan ikisi `Store.swift` deinit'inde). `SkyLight`
-  `Sendable` (bütün alanlar `let`); `DropTargetPreference.defaultValue`
-  `static let`; AX backoff tablosu kilit altında `nonisolated(unsafe)`;
-  `kAXTrustedCheckOptionPrompt` yerine sabit anahtar; Router / ScreenService /
-  WindowEvents / AccessibilityPermission deinit'inde kapatılan Timer ve
-  gözlemci belirteçleri `nonisolated(unsafe)`; uyku bildirimlerinden ana
-  aktöre yalnızca bildirim adı taşınır. Davranış aynı.
-- `Rule.split` ayraç deseni bir kez derlenir (eskiden her çağrıda);
-  `Rule.matches` parçaların küçük harfli kopyasını saklar (`tokens`
-  değişince yenilenir) ve `Routing.select` başlığı pencere başına en fazla
-  bir kez küçültür. Eşleme kararı aynı: `lowercased()` semantiği korunur,
-  `.caseInsensitive` arama ß/SS ve ligatür çiftlerini de eşlediği için
-  kullanılmadı.
-- Aynı `minX`'te üst üste duran harici ekranlar artık `minY`, sonra UUID
-  sırasıyla dizilir. Böyle bir yerleşimde `external` / `external-2` rolleri
-  güncellemeden sonra bir kez yer değiştirebilir; kuralları o ekranlar için
-  bir kez yeniden sürüklemek yeter, sonrası her açılışta aynı kalır.
-- Ekran yatışması artık en geç 10 sn'de biter: değişimler hiç durmazsa
-  (titrek kablo, sürekli bildirim) 2,5 sn'lik bekleme her seferinde
-  sıfırlanıyor ve yönlendirme sonsuza dek kapalı kalabiliyordu. Bölümün
-  başından 10 sn sonra yatışma zorla biter (günlükte "üst sınır"),
-  yeniden yerleştirme yapılır (`ScreenService.settleDelay`).
-- Çerçeve yazımı (`AX.setFrame`) pencere öğesine 3 sn yanıt süresi verir:
-  yavaş ama çalışan uygulama (büyük belge, yoğun tarayıcı) boyutu yine
-  uygular. Okumalar süreç geneli 1 sn'de kalır; donmuş uygulama zaten
-  `setFrame`'e gelmeden backoff'a alınır. Yazım sonrası doğrulama okuması
-  değişmedi.
+- Log messages, `make help`, build script output and CI step names are in
+  English. Code comments stay in Turkish. The CI job is now called "Swift
+  build and tests".
+- The layout editor's margin labels column is wider (24 → 42 pt) so the
+  English labels fit.
+- A new document's first profile is named after the UI language ("Default" /
+  "Varsayılan"); existing profile names are user data and never change.
+- Bottom panel state is a single value (`UIState.panel: BottomPanel?`: pin
+  draft, pin info, temporary pin, profile), so only one panel is open at a
+  time. `RootView.swift` (894 lines) was split into UIState / RootView /
+  PinPanel / RulePanels / LayoutEditor / StatusCards / TokenPicker; four
+  copies of the panel frame became one `bottomPanelChrome()`. Same behaviour.
+- The "N pins" counter in the toolbar counts the selected mode; "· M
+  temporary" is shown only when the selected mode is the current one
+  (temporary pins are only listed there).
+- Rule and profile logic (`pin`, `unpin`, `moveDesktop`, profile switch /
+  copy / delete, export/import) are pure operations on `Document`; `Store`
+  only calls them, publishes and saves. Same behaviour.
+- Target selection lives in one place (`Routing.select`): the router, the
+  window rows and the map pick the same rule (temporary pin, otherwise the
+  most specific rule with a target in this mode). Layout attempt counting
+  moved to `Routing` too.
+- Fewer IPC calls per sweep, with the same window set and decisions: the
+  window server (`CGWindowListCopyWindowInfo`) is read once per sweep (the
+  stage-2 list and the liveness check share it); space types come from the
+  `displaySpaces` result (instead of `SLSSpaceGetType` per window, falling
+  back to IPC for unknown IDs); each window's spaces, frame and minimized
+  state are read once and shared by the snapshot, placement and routing
+  (previously 2–3 times for routed windows).
+- The sweep timer has a 0.5 s tolerance (lets the system coalesce timers).
+- Sweeps stop while the displays or the system sleep (`screensDidSleep` /
+  `willSleep`) and run once right after waking.
+- While a display change settles (2.5 s), windows are listed but not moved
+  (`ScreenService.isSettling`); after settling, everything is placed again.
+- A manual move (dragging on the map) builds the AX element directly from the
+  last sweep's pid; rescanning all apps happens only if that fails.
+- The desktop move limit and cooldown are `Routing.maxMoveAttempts` /
+  `Routing.moveRetryInterval` (pure `recordMoveAttempt`).
+- Strict concurrency (`-strict-concurrency=complete`) warnings fixed: 16 → 0.
+  `SkyLight` is `Sendable` (all stored properties are `let`);
+  `DropTargetPreference.defaultValue` is `static let`; the AX backoff table is
+  `nonisolated(unsafe)` behind a lock; a constant key replaces
+  `kAXTrustedCheckOptionPrompt`; timers and observer tokens released in
+  `deinit` (Router, ScreenService, WindowEvents, AccessibilityPermission,
+  Store) are `nonisolated(unsafe)`; only the notification name crosses to the
+  main actor from sleep notifications. Same behaviour.
+- `Rule.split` compiles its separator pattern once (previously on every
+  call); `Rule.matches` keeps a lowercased copy of the tokens (refreshed when
+  `tokens` changes) and `Routing.select` lowercases a title at most once per
+  window. Matching decisions are unchanged: `lowercased()` semantics are kept;
+  `.caseInsensitive` search was not used because it would also match ß/SS and
+  ligature pairs.
+- External displays with the same `minX` are ordered by `minY`, then UUID.
+  With such an arrangement the `external` / `external-2` roles may swap once
+  after updating; dragging the affected pins once fixes it, and the order
+  stays stable afterwards.
+- Display settling now ends after at most 10 s: if changes never stopped
+  (flaky cable, constant notifications), the 2.5 s wait kept restarting and
+  routing could stay off forever. 10 s after the first change settling is
+  forced (logged as "hard cap") and windows are placed again
+  (`ScreenService.settleDelay`).
+- Frame writes (`AX.setFrame`) give the window element a 3 s timeout, so slow
+  but working apps (large documents, busy browsers) still get resized. Reads
+  keep the process-wide 1 s timeout; a frozen app is put on backoff before it
+  reaches `setFrame`. The verification read after the write is unchanged.
 
-### Düzeltildi
+### Fixed
 
-- Geçici pin paneli açıkken aktif profil çipine tıklamak hiçbir şey
-  yapmıyordu (`closePanels()` oturum seçimini temizlemiyor, if-else zinciri
-  profil panelini gizliyordu); tek panel değeriyle ortadan kalktı. Kuralı
-  silinen ya da profil değişince kaybolan pin paneli kendiliğinden kapanır.
-- Bir pencereye uyan ama daha özgül bir kurala yenilen pin haritada hiç
-  görünmüyordu (satırda kazanan gösteriliyor, çip olarak da gizleniyordu).
-- "Girişte başlat" gerçek `SMAppService` durumunu okur: kayıt değişince ve
-  her taramada yenilenir (Sistem Ayarları'ndan kapatılırsa kutu da kapanır),
-  `.requiresApproval` için turuncu "Onay gerekli" bağlantısı Login Items'ı
-  açar, register/unregister hataları alt çubukta gösterilir (eskiden
-  `try?` ile yutuluyordu). Uygulama /Applications dışındaysa ipucu hangi
-  kopyanın kaydedileceğini söyler.
-- `rules.json` içinde tek bir bozuk kural (ör. `"desktop": "x"`) bütün
-  dosyayı okunmaz kılıyordu; artık yalnızca o kural atlanır, alt çubukta
-  "N kural okunamadı" görünür ve dosya önce `rules.json.bak`'a yedeklenir.
-  Profil içe aktarma da aynı hoşgörüyle okur.
-- Daha yeni bir Space Router sürümünün yazdığı `rules.json` (`version` > 3)
-  eski sürümce ezilmiyor: dosya okunur, kayıt kapatılır ve alt çubukta
-  uyarı gösterilir.
-- Router, bu modda hedefi olmayan daha özgül bir kural yüzünden pencereyi
-  atlıyordu; artık arayüzle aynı seçimi yapar (bu modda hedefi olan ilk
-  eşleşen kural).
-- "Yeniden yerleştir" (ve düzen belleğini sıfırlayan diğer işlemler)
-  tarama sürerken basılınca etkisiz kalıyordu.
-- Masaüstü taşıması tutmayan pencere için sonsuz 200 ms döngüsü; artık
-  6 denemeden sonra bırakılır, pencere hedefe varınca sayaç sıfırlanır.
-- Hedef ekranda tam ekran uygulama görünürken pencere tam ekran space'e
-  "hop" ettirilmiyor.
-- Çıkışta bekleyen (400 ms gecikmeli) kayıt diske yazılır.
-- Okunamayan `rules.json` üzerine yazılmadan önce `rules.json.bak`'a
-  yedeklenir.
-- Kapanmış pencerelerin düzen/deneme kayıtları her taramada budanır
-  (uzun süre açık kalınca bellek büyümüyor).
-- Monitör takılıp çıkarılınca mod seçici gerçek modu izler; Mission
-  Control'de eklenen/silinen masaüstü haritaya anında yansır.
-- Accessibility'ye yanıt vermeyen (donmuş) uygulama artan sürelerle
-  (2–30 sn) atlanır, alt çubukta "X yanıt vermiyor" gösterilir; böylece
-  bir uygulama bütün taramayı bekletmez.
-- Bozuk dosyada aktif profil bulunamayınca üretilen "Varsayılan" profil
-  adı çakışırsa "Varsayılan (2)" olur.
-- "Hop" kaldırıldı: görünmeyen masaüstündeki pinli pencere artık düzen
-  için bulunduğun masaüstüne uğratılmıyor (o masaüstünde yabancı pencere
-  belirip kayboluyor, Dock'tan uygulamaya geçişte macOS yanlış Space'e
-  gidiyordu). Düzen, o masaüstüne ilk geçişte verilir.
-- Yanıt vermeyen uygulama backoff'u yanlış tetikleniyordu: çok pencereli ama
-  yanıt veren uygulamalar (VS Code, Chrome gibi Electron/tarayıcılar)
-  toplam süre 0,7 sn'yi aşınca "yanıt vermiyor" sayılıp atlanıyordu. Artık
-  ölçüt tek bir AX çağrısının ≥ 0,5 sn sürmesi (donmuş uygulama ilk çağrıda
-  1 sn zaman aşımına takılır) ya da emniyet için toplamın ≥ 4 sn olması.
-  Süreç geneli AX yanıt süresi açılışta 1 sn'ye çekildi; `kAXWindows` ile
-  gelen pencere öğeleri ~6 sn varsayılanı kullanmıyor.
-- Pencere olayı gözlemcisi ana iş parçacığını kilitleyebiliyordu: uygulama
-  öğesine 1 sn yanıt süresi verilir, açılışı bitmemiş uygulamalar atlanır,
-  kaydı başarısız olan uygulama artan aralıkla (2 → 30 sn) yeniden denenir;
-  uygulama açılınca/etkinleşince/kapanınca bekleme silinir.
-- Masaüstü taşımasından vazgeçme kalıcıydı (6 denemeden sonra "Yeniden
-  yerleştir"e kadar bir daha denenmiyordu); artık son denemeden 60 sn sonra
-  yeni bir deneme turu açılır.
-- Pencere sunucusu boş liste döndürürse (geçici hata) oturum pinleri
-  düşürülmez.
-- Harici ekran rol sırası (`external`, `external-2`) aynı `minX` için
-  belirsizdi; sıra artık (minX, minY, UUID) ile belirlenir.
-- Geri alma araya giren değişiklikleri siliyordu: kayıt belgenin tamamını
-  geri yüklediği için 10 sn içinde yapılan ama kaydedilmeyen işlemler (yeni
-  pin, düzen adımı, profil geçişi/ekleme/adlandırma/içe aktarma, "Anladım",
-  URL komutları) ⌘Z ile sessizce gidiyordu. Belge kayıttan sonra değişirse
-  kayıt düşer (açık/kapalı ve tanınan ekranlar sayılmaz).
-- Masaüstü sırası geri alınınca geçici pinler eski numarada kalıyordu; şimdi
-  ters taşımayla birlikte dönerler.
-- Eksik masaüstü rozeti diğer modun haritasında yanlış çıkıyordu (masaüstü
-  sayıları bağlı ekranlara ait, router yalnızca şu anki modda kırpar); rozet
-  yalnızca harita şu anki modu gösterirken.
-- Profil adı ya da yüzde kutusunda ⌘Z belgeyi geri alıyordu; odak bir metin
-  alanındayken metnin kendi geri alması çalışır.
-- "Geri al" bağlantısı hata ya da yanıt vermeyen uygulama iletisinin
-  arkasında kalıyordu (⌘Z de bağlanmıyordu); artık alt çubuğun sağında,
-  durum metninden bağımsız ayrı bir öğe. Yer darsa önce durum metni kısalır.
-- "Sunucu boşsa pin düşürme" koruması boşa çıkıyordu: yaşayan pencere
-  listesine AX'in gördüğü pencereler her durumda ekleniyordu, bu yüzden
-  sunucu boş dönse de liste dolu sayılıp oturum pinleri ve düzen/deneme
-  kayıtları budanabiliyordu. Artık sunucu boş döndüyse liste boş kalır
-  (`Router.liveWindows`), AX pencereleri yalnızca dolu listeye eklenir.
-- Uyanma bildirimi kaçınca (ör. `willSleep` sonrası uyku iptal oldu)
-  tarama sonsuza dek duraklı kalabiliyordu. Zamanlayıcı her turda bakar:
-  ana ekran uyanıksa ve duraklama 5 sn'den eskiyse tarama sürdürülür
-  (günlükte "zamanlayıcı"). Uykuya girerken bildirim sırasıyla çekişmez.
-- Süreç geneli 1 sn AX yanıt süresi `WindowEvents`'ten sonra ayarlanıyordu;
-  ilk gözlemci kayıt turu pencere öğelerine ~6 sn varsayılanla soruyordu.
-  Artık önce ayarlanır.
-
-### Eklendi
-
-- macOS ayarları kartı: "Automatically rearrange Spaces", "switch to a
-  Space with open windows", "Group windows by application", "Displays have
-  separate Spaces" canlı denetlenir; yanlış olan varsa kart kapanmaz,
-  "Desktop & Dock'u aç" düğmesi ilgili bölmeyi açar. Dock "Assign To: None"
-  hatırlatması "Anladım" ile gizlenir (`setupNoticeDismissed`). README'de
-  "Gerekli macOS ayarları" bölümü.
-- `scripts/build-and-run.command`: Finder'dan çift tıklayınca çalışan
-  Space Router'ı kapatır, derler, yeniden açar; çıktı `build/last-build.log`.
+- Clicking the active profile chip while the temporary pin panel was open did
+  nothing (`closePanels()` didn't clear the session selection and an if-else
+  chain hid the profile panel); gone with the single panel value. A pin panel
+  whose rule was deleted, or disappeared with a profile switch, closes itself.
+- A pin that matched a window but lost to a more specific rule was not shown
+  on the map at all (the row showed the winner and the chip was hidden).
+- "Launch at login" reads the real `SMAppService` status: it refreshes when
+  the registration changes and on every sweep (turning it off in System
+  Settings unchecks the box); `.requiresApproval` shows an orange "Approval
+  needed" link that opens Login Items; register/unregister errors appear in
+  the footer (previously swallowed by `try?`). When the app runs outside
+  /Applications, the tooltip says which copy will be registered.
+- A single broken rule in `rules.json` (e.g. `"desktop": "x"`) made the whole
+  file unreadable; now only that rule is skipped, the footer shows "N rules
+  could not be read", and the file is first backed up to `rules.json.bak`.
+  Profile import is equally lenient.
+- A `rules.json` written by a newer Space Router (`version` > 3) is no longer
+  overwritten by an older one: the file is read, saving is disabled and the
+  footer shows a warning.
+- The router skipped a window because of a more specific rule that had no
+  target in this mode; it now makes the same choice as the UI (the first
+  matching rule with a target in this mode).
+- "Re-apply" (and other actions that clear the layout memory) had no effect
+  when pressed during a sweep.
+- Endless 200 ms loop for a window whose desktop move didn't stick; it now
+  gives up after 6 attempts, and the counter resets when the window arrives.
+- With a full-screen app visible on the target display, windows are no longer
+  "hopped" into the full-screen space.
+- A pending (400 ms delayed) save is written on quit.
+- An unreadable `rules.json` is backed up to `rules.json.bak` before it is
+  overwritten.
+- Layout and attempt records of closed windows are pruned every sweep (memory
+  no longer grows over long sessions).
+- After plugging or unplugging a monitor the mode selector follows the real
+  mode; desktops added or removed in Mission Control show up on the map
+  immediately.
+- An app that doesn't answer Accessibility (frozen) is skipped for increasing
+  periods (2–30 s) and the footer shows "X not responding", so one app can't
+  stall the whole sweep.
+- If the active profile can't be found in a broken file, the generated default
+  profile gets a unique name ("Default (2)").
+- The "hop" was removed: a pinned window on a hidden desktop is no longer
+  brought through the current desktop to get its layout (a foreign window
+  flashed on the current desktop, and switching to the app from the Dock went
+  to the wrong Space). The layout is applied the first time you visit that
+  desktop.
+- The unresponsive-app backoff triggered wrongly: responsive apps with many
+  windows (VS Code, Chrome and other Electron apps and browsers) were skipped
+  once their total AX time exceeded 0.7 s. The criterion is now a single AX
+  call of ≥ 0.5 s (a frozen app hits the 1 s timeout on its first call), or a
+  total of ≥ 4 s as a safety net. The process-wide AX timeout is set to 1 s
+  at launch, so window elements from `kAXWindows` no longer use the ~6 s
+  default.
+- The window event observer could block the main thread: the app element gets
+  a 1 s timeout, apps that haven't finished launching are skipped, and an app
+  whose registration fails is retried with increasing intervals (2 → 30 s);
+  the wait is cleared when the app launches, activates or quits.
+- Giving up on a desktop move was permanent (after 6 attempts it was never
+  tried again until "Re-apply"); now a new round starts 60 s after the last
+  attempt.
+- Temporary pins are not dropped when the window server returns an empty list
+  (a transient failure).
+- The external display role order (`external`, `external-2`) was ambiguous
+  for the same `minX`; it is now determined by (minX, minY, UUID).
+- Undo erased changes made in between: the entry restored the whole document,
+  so unrecorded actions within the 10 s (a new pin, a layout step, profile
+  switch/add/rename/import, "Got It", URL commands) were silently lost with
+  ⌘Z. The entry is dropped if the document changes after it was recorded (the
+  on/off switch and recognized displays don't count).
+- Undoing a desktop reorder left temporary pins on their new numbers; they now
+  move back with the reverse mapping.
+- The missing-desktop badge showed up wrongly on the other mode's map (desktop
+  counts belong to the connected displays and the router only clamps in the
+  current mode); the badge is shown only while the map shows the current mode.
+- ⌘Z in the profile name or percent fields undid the document; with the
+  focus in a text field, the text field's own undo runs.
+- The "Undo" link was hidden behind error and unresponsive-app messages (and
+  ⌘Z was not bound); it is now a separate item on the right of the footer.
+  When space is short, the status text is truncated first.
+- The "don't drop pins if the window server is empty" guard didn't work: the
+  windows seen by AX were always added to the live window list, so it was
+  never empty and temporary pins and layout/attempt records could be pruned.
+  Now the list stays empty if the server returned nothing
+  (`Router.liveWindows`); AX windows are only added to a non-empty list.
+- If the wake notification was missed (e.g. sleep was cancelled after
+  `willSleep`), sweeps could stay paused forever. The timer now checks every
+  round: if the main display is awake and the pause is older than 5 s,
+  sweeping resumes (logged with reason "timer"). It doesn't race the
+  notification order when going to sleep.
+- The process-wide 1 s AX timeout was set after `WindowEvents` was created, so
+  the first observer registration round asked window elements with the ~6 s
+  default. It is now set first.
 
 ## [0.2.0] — 2026-09-02
 
-Baştan sadeleştirme: tek uygulama, görsel arayüz.
+A rewrite for simplicity: one app, a visual interface.
 
-### Değişti
+### Changed
 
-- Hammerspoon motoru kaldırıldı. Pencere okuma/taşıma Accessibility
-  API'si, Space taşıma ise SkyLight'ın özel çağrılarıyla (Hammerspoon ve
-  yabai'nin kullandıklarının aynısı) doğrudan uygulama içinde yapılır.
-  macOS 12.7 – 26.x arası yöntem farkları sürüme göre seçilir.
-- Kural editörü, ayarlar ve ekran sekmeleri yerine tek bir ekran
-  haritası: ekranlar ve masaüstleri kutu olarak çizilir, kurallar çip
-  olarak sürüklenir. Düzen çipe tıklanarak görsel olarak seçilir.
-- Kural ekleme: açık pencereler listesinden seçim, ardından başlığın
-  parçalarını tıklayarak işaretleme. Metin girişi yok.
-- Ayarlar kaldırıldı: gecikmeler, log seviyesi, sabitleme, bildirim,
-  takip. Yalnızca açık/kapalı ve "Girişte başlat" kaldı.
-- `rules.json` v2 şeması (`appName`, `bundleID`, `tokens`, `docked`,
-  `undocked`). v1 dosyalar otomatik okunur.
-- Ekranlar UUID yerine role göre tanımlanır: `builtin`, `external`,
-  `external-2`…
+- The Hammerspoon engine was removed. Windows are read and moved through the
+  Accessibility API, and Spaces are handled with SkyLight's private calls
+  (the same ones Hammerspoon and yabai use), directly inside the app.
+  Differences between macOS 12.7 and 26.x are handled per version.
+- Instead of a rule editor, settings and display tabs: a single display map.
+  Displays and desktops are drawn as boxes and rules are dragged as chips. A
+  layout is picked visually by clicking a chip.
+- Adding a rule: pick from the list of open windows, then mark parts of the
+  title by clicking them. No text entry.
+- Settings were removed: delays, log level, pinning, notifications, follow
+  mode. Only the on/off switch and "Launch at login" remain.
+- `rules.json` schema v2 (`appName`, `bundleID`, `tokens`, `docked`,
+  `undocked`). v1 files are read automatically.
+- Displays are identified by role instead of UUID: `builtin`, `external`,
+  `external-2`, …
 
-### Kaldırıldı
+### Removed
 
-- `engine/`, `install.sh`, `uninstall.sh`, `check.sh`, Lua testleri,
-  `config/`, `docs/`.
+- `engine/`, `install.sh`, `uninstall.sh`, `check.sh`, Lua tests, `config/`,
+  `docs/`.
 
 ## [0.1.2] — 2026-09-02
 
-### Eklendi
+### Added
 
-- Motor kendi kaynak dizinini izler; `.lua` değişince Hammerspoon
-  kendini yeniden yükler.
+- The engine watches its own source directory; Hammerspoon reloads itself
+  when a `.lua` file changes.
 
 ## [0.1.1] — 2026-09-02
 
-### Düzeltildi
+### Fixed
 
-- `hs.urlevent` geri çağrısı, pencere filtresi kilitlenmesi, yer tutucu
-  ekran UUID'leri.
+- `hs.urlevent` callback, window filter lock-up, placeholder display UUIDs.
 
-### Eklendi
+### Added
 
-- Masaüstü sabitleme, UUID normalizasyonu, ekran kaydı onarımı.
+- Desktop pinning, UUID normalization, display registry repair.
 
 ## [0.1.0] — 2026-09-02
 
-İlk sürüm: Hammerspoon motoru + SwiftUI kural editörü.
+First release: Hammerspoon engine + SwiftUI rule editor.
