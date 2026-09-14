@@ -1,0 +1,259 @@
+# Space Router architecture
+
+This document describes how the app is put together: the main types, what
+happens during a sweep, the retry limits, the data files, and how
+localization works. The [README](../README.md) covers usage.
+
+## Overview
+
+Space Router is a SwiftUI `MenuBarExtra` app (`LSUIElement`, no Dock icon)
+built as a Swift package (`app/Package.swift`, macOS 13+) and wrapped into an
+`.app` by `scripts/build-app.sh`. There is no Xcode project.
+
+```
+main actor
+  rules.json <-> Store ----- document -----> Views (RootView, ScreenMapView, panels)
+                   ^                               |
+                   +------ pins, profiles ---------+  (user actions)
+                   |
+                 Router <--- ScreenService (displays, settle)
+                   |    <--- WindowEvents  (AX observers, NSWorkspace notifications)
+                   v
+background queue
+  sweep: SkyLight (desktops) + AX (windows) -> Routing.select -> layout + desktop move
+```
+
+- `AppModel` creates the three core objects once (`Store`, `ScreenService`,
+  `Router`). The SwiftUI `App` owns them as `StateObject`s and `AppDelegate`
+  uses the same instances to run URL commands.
+- `SingleInstance.exitIfAlreadyRunning()` runs before the router is created:
+  if another process with the same bundle ID is running, the new one exits.
+
+## Main types
+
+| Type | File | Role |
+|---|---|---|
+| `Rule` | `Models/Rule.swift` | A pin: `appName`, `bundleID`, `tokens` (title parts), and an optional `Destination` per `Mode`. Matching and title splitting live here. |
+| `Destination` | `Models/Rule.swift` | Display role (`builtin`, `external`, `external-2`, …), desktop number (1-based) and `WindowLayout`. |
+| `WindowLayout` | `Models/Rule.swift` | Fractions (`x`, `y`, `w`, `h`, 0…1) of the display's usable area; presets such as `leftHalf`. |
+| `Mode` | `Models/Rule.swift` | `docked` (an external display is connected) or `undocked`. |
+| `Document` | `Models/Store.swift` | Contents of `rules.json`: rules of the active profile, all profiles, known displays, the on/off switch. All rule and profile operations are pure `mutating` functions on it. |
+| `Store` | `Models/Store.swift` | `ObservableObject` that owns the `Document`, saves it (debounced 400 ms, flushed on quit), reports errors to the footer and records undo entries. |
+| `UndoBuffer` | `Models/UndoBuffer.swift` | One undo entry: the document before and after an action, plus an optional closure for state outside the document (temporary pins). Dropped when the document changes in any other way. |
+| `Router` | `Services/Router.swift` | The engine. Sweeps, temporary pins (`sessionPins`), manual one-off moves. |
+| `Routing` | `Services/Routing.swift` | Pure helpers: `select` picks a window's target (used by both the engine and the UI), plus layout and move retry accounting. |
+| `AX` | `Services/Accessibility.swift` | Window enumeration, frames, `setFrame`, backoff for unresponsive apps. `AccessibilityPermission` polls the trust state. |
+| `SkyLight` | `Services/SkyLight.swift` | Private Spaces API: desktops per display, spaces of a window, moving a window to a space. |
+| `ScreenService` | `Services/ScreenService.swift` | Connected displays with roles; `isSettling` while displays are being rearranged. |
+| `WindowEvents` | `Services/WindowEvents.swift` | AX observers per app and workspace notifications; publishes a signal that triggers a sweep. |
+| `URLCommand` / `URLCommands` | `Services/URLCommands.swift` | Pure parser for `spacerouter://` URLs and the code that runs them. |
+| `MacSettings` | `Services/MacSettings.swift` | Reads Dock/Spaces preferences for the setup card. |
+| `UIState` | `Views/UIState.swift` | View state: the single open bottom panel (`BottomPanel`), drag state, window snapshot, desktop counts. |
+
+## The sweep
+
+A sweep is triggered by:
+
+- a repeating 2 s timer (0.5 s tolerance),
+- window events, debounced by 80 ms: window created, focused window changed,
+  window deminiaturized, title changed, app launched or activated, active
+  Space changed,
+- a change to the active rules (new pin, profile switch, …),
+- displays settling after a change,
+- ⌘R / ↻ / `spacerouter://reapply`, which also clears the layout memory.
+
+It does nothing without Accessibility permission, and it pauses while the
+displays or the system sleep (resuming right after wake; a safety check in
+the timer resumes it if the wake notification was missed). If a sweep is
+already running, one more is queued.
+
+Steps, on the router's background queue:
+
+1. **Displays and desktops**: `SkyLight.displaySpaces` returns each display's
+   spaces and the visible one. Space types come from this list (0 = normal
+   desktop, other = full screen).
+2. **Window server list**: `CGWindowListCopyWindowInfo` is read once. It
+   serves two purposes: the stage-2 window list below, and the "is this
+   window still alive" check for temporary pins.
+3. **Windows (Accessibility)**:
+   - Stage 1: each regular app's own `kAXWindows` list (reliable for the
+     visible desktop).
+   - Stage 2: windows the app didn't list (other desktops or displays) are
+     taken from the window server list (layer 0, not transparent, at least
+     50 pt) and turned into AX elements with `_AXUIElementCreateWithRemoteToken`.
+   - Floating panels, system dialogs and unknown subroles are skipped.
+   - Each app's AX call durations are measured. A single call of 0.5 s or
+     more, or 4 s in total, puts the app on a backoff (2 s, doubling up to
+     30 s); the footer lists it as not responding.
+4. **Per-window state**: spaces, full-screen flag, frame and minimized state
+   are read once and shared by the UI snapshot and the routing below.
+5. **Routing**, for each window:
+   - `Routing.select`: a temporary pin wins; otherwise the most specific
+     matching rule (most title parts) **that has a target in the current
+     mode**.
+   - Skip if the target display isn't connected, or the window is in a
+     full-screen space.
+   - The desktop number is clamped to the display's desktop count.
+   - **Layout** (only if the window is on a visible desktop and not
+     minimized, and this window/target pair hasn't been laid out yet): set the
+     frame, read it back, and accept it within 4 pt. Up to 6 attempts; the
+     first 4 schedule a quick follow-up sweep (200 ms). Frame writes get a 3 s
+     AX timeout; reads use the process-wide 1 s timeout.
+   - **Desktop**: if the window isn't on the target space, move it with
+     SkyLight. Up to 6 attempts; after that, a new round starts 60 s after the
+     last attempt. The counter resets once the window arrives.
+6. **Back on the main actor**: layout and attempt records of closed windows
+   are pruned; temporary pins whose window has been missing from the window
+   server for 3 consecutive sweeps are dropped; the UI snapshot and the
+   footer status (last action, unresponsive apps) are published.
+
+If the window server returns an empty list (a transient failure), nothing is
+pruned and no temporary pin is dropped.
+
+### Display changes
+
+On `didChangeScreenParametersNotification`, `ScreenService` marks the
+displays as settling. Sweeps keep listing windows but move nothing. After
+2.5 s without further changes, or at the latest 10 s after the first change,
+the displays count as settled and every window is placed again.
+
+External display roles are assigned by position: sorted by `minX`, then
+`minY`, then UUID. The built-in display is always `builtin`.
+
+### Moving windows between desktops
+
+`SkyLight.move(window:to:)` tries, in order:
+
+1. `SLSBridgedMoveWindowsToManagedSpaceOperation` with the non-exported
+   `SLSPerformAsynchronousBridgedWindowManagementOperation` (macOS 26.4+),
+   found through the Mach-O symbol table (`MachOSymbols`).
+2. `SLSSpaceSetCompatID` + `SLSSetWindowListWorkspace` (macOS 12.7, 13.6,
+   14.5 and later).
+3. `SLSMoveWindowsToManagedSpace` (older versions).
+
+The chosen path is logged once at launch (`skylight` category).
+
+## Data files
+
+All files live in `~/Library/Application Support/SpaceRouter/`.
+
+### rules.json (schema version 3)
+
+```json
+{
+  "version": 3,
+  "enabled": true,
+  "activeProfileID": "…",
+  "setupNoticeDismissed": false,
+  "screens": [
+    { "id": "builtin",  "name": "Built-in Retina Display", "aspect": 1.54 },
+    { "id": "external", "name": "External Monitor",               "aspect": 1.78 }
+  ],
+  "rules": [
+    {
+      "id": "…",
+      "appName": "Code",
+      "bundleID": "com.microsoft.VSCode",
+      "tokens": ["SpaceRouter"],
+      "docked":   { "screen": "external", "desktop": 2,
+                    "layout": { "x": 0, "y": 0, "w": 0.5, "h": 1 } },
+      "undocked": { "screen": "builtin",  "desktop": 1,
+                    "layout": { "x": 0, "y": 0, "w": 1,   "h": 1 } }
+    }
+  ],
+  "profiles": [ { "id": "…", "name": "Default", "rules": [ … ] } ]
+}
+```
+
+- `rules` is the active profile's rule list; it is also written into that
+  profile's entry in `profiles`.
+- `tokens: []` means "all windows of the app".
+- Reading is lenient: a single broken rule is skipped (the file is copied to
+  `rules.json.bak` first and the footer shows how many were skipped).
+- v1 files (`app` / `match` fields) and v2 files (no profiles) are migrated
+  on read; their rules become one profile.
+- A file whose `version` is higher than 3 was written by a newer Space Router:
+  it is read, but never overwritten.
+- The keys above are a stable format; a new UI language doesn't change them.
+  Profile names are user data and are kept as typed.
+
+### session-pins.json
+
+A list of temporary pins: `windowID`, `pid`, `bundleID`, `appName`, `title`,
+`destination`. At launch only entries whose window ID still exists in the
+window server with the same process ID are restored.
+
+### Profile export (`<name>.spacerouter.json`)
+
+```json
+{ "kind": "spacerouter-profile", "version": 1, "name": "Office",
+  "exportedAt": "2026-09-14T10:00:00Z", "screens": [ … ], "rules": [ … ] }
+```
+
+On import, rule IDs are regenerated, the name is made unique (`Office (2)`),
+and unknown display roles from `screens` are added to the map. A plain
+`rules.json`-style file with a `rules` array is accepted too.
+
+## URL scheme
+
+`URLCommand.parse` is a pure function (unit-tested): the scheme must be
+`spacerouter`; the command comes from the host (`spacerouter://reapply`) or
+from the first path component (`spacerouter:reapply`), case-insensitively.
+`profile` takes the name from the `name` query item or from the rest of the
+path (percent-decoded). URLs arrive through
+`NSApplicationDelegate.application(_:open:)`, which works for a menu bar app
+even on a cold start.
+
+## Localization
+
+- `Localization.swift` defines `L(_ key: String)` and
+  `L(_ key: String, _ arguments: CVarArg...)`. The key is the English text.
+  Lookup uses `Bundle.main`'s `Localizable` table; without a table (tests,
+  `swift run`) the key itself, English, is returned.
+- `app/Resources/tr.lproj/Localizable.strings` holds the Turkish text;
+  `app/Resources/en.lproj/Localizable.strings` is intentionally empty so that
+  the bundle declares English. `build-app.sh` copies every `*.lproj` folder
+  into the app, and `Info.plist` declares `CFBundleDevelopmentRegion = en`
+  and `CFBundleLocalizations = [en, tr]`.
+- Rules for keys, enforced by `LocalizationTests`:
+  - a key is a single string literal, with no `+` and no `\(...)`;
+  - variable parts use format specifiers (`%@`, `%ld`); a translation that
+    reorders them uses positional specifiers (`%1$@`, `%2$ld`);
+  - every key has a Turkish entry, every Turkish entry is used, no key is
+    duplicated, and the specifiers of key and translation match.
+- Plurals are handled in code (`n == 1 ? L("1 pin") : L("%ld pins", n)`).
+- Not localized on purpose: the names of macOS settings on the setup card
+  (they must match what System Settings shows in English), log messages, and
+  data keys.
+
+To add a language, create `app/Resources/<code>.lproj/Localizable.strings`,
+add the code to `CFBundleLocalizations` in `scripts/build-app.sh`, and extend
+`LocalizationTests` to check the new table.
+
+## Logging
+
+`Log` (`Services/Log.swift`) defines four `os.Logger` categories under the
+subsystem `com.spacerouter.app`: `routing` (moves, give-ups, temporary pin
+expiry), `skylight` (availability and move path), `ax` (unresponsive apps,
+observer registration), `screens` (display changes, sleep/wake). Nothing is
+logged per sweep. Window titles are logged as `.private`.
+
+## Tests
+
+`app/Tests/SpaceRouterTests` (Swift Testing):
+
+| Suite | Covers |
+|---|---|
+| `RuleTests` | Matching (bundle ID vs. name, Unicode case rules incl. Turkish İ/ı and ß), specificity order, title splitting, `sameKey`, per-mode targets |
+| `LayoutTests` | `WindowLayout` fractions, clamping, labels, Cocoa → AX coordinate conversion, frame tolerance |
+| `DocumentCodableTests` | `rules.json` v1/v2/v3 decoding, destination defaults, skipped broken rules, newer-version detection |
+| `DocumentOperationsTests` | Desktop mapping and its inverse, desktop reordering, pin/unpin, profiles, import/export |
+| `RoutingTests` | `Routing.select` and layout retry accounting |
+| `EngineHelperTests` | Backoff decision, AX timeouts, window server filters, move retries and cooldown, live-window merge, pause safety, settle cap, external display order, space types, `Router.placement` |
+| `UndoBufferTests` | Recording, visibility window, validity checks, companion closure |
+| `MapLogicTests` | Shadowed pins, missing-desktop badge |
+| `TokenEditingTests` | `Document.setTokens` (identity, key collisions) and token picker helpers |
+| `LocalizationTests` | Key/translation consistency (see above) |
+
+The tests never create a `Store` or `Router`, so they never touch
+`rules.json` or real windows.

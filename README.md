@@ -1,207 +1,519 @@
 # Space Router
 
-Pencere başlığında görünen **workspace adına** göre pencereleri doğru
-monitöre, doğru macOS masaüstüne (Space) ve doğru düzene yerleştiren
-menü çubuğu uygulaması. Tek bir `.app`; Hammerspoon veya başka bir
-yardımcı program gerekmez.
+A macOS menu bar app that keeps windows on the right display, the right
+desktop (Space) and in the right layout, based on what their **window title**
+says. Pin a VS Code workspace to desktop 2 of your external monitor, a Safari
+tab group to the left half of desktop 1, an Obsidian vault to the laptop
+screen: Space Router puts each window back where it belongs whenever it
+opens, and again when you plug in or unplug a monitor.
 
-Uygulamadan bağımsızdır: Safari Tab Group, VS Code workspace, Obsidian
-vault, iTerm profili — başlıkta ad gösteren her pencere.
+It is a single `.app` with no helper program (no Hammerspoon, no yabai). It
+works with any app that shows a workspace, project or document name in its
+window title: Safari tab groups, VS Code workspaces, Obsidian vaults, terminal
+profiles, and so on.
 
-## Nasıl kullanılır
+<!--
+  Screenshot placeholder: capture the menu bar window (map with a few pinned
+  windows), save it as docs/images/screenshot.png and replace this comment with
+  ![Space Router menu bar window](docs/images/screenshot.png)
+-->
+> *Screenshot: to be added (`docs/images/screenshot.png`).*
 
-1. Menü çubuğundaki simgeye tıklayın. Harita, ekranları ve masaüstlerini
-   açık pencerelerle gösterir. Bir pencere satırındaki **pin** düğmesine
-   basın.
-2. Başlığın hangi parçasının bu pencereyi tanımladığını işaretleyin
-   (ör. dosya adı değil, proje adı). "Tüm pencereler" uygulamanın her
-   penceresini pinler; "Sadece bu pencere" başlığa bakmadan yalnızca o
-   pencereyi, bu oturum için tutar.
-3. Pinli satırı ya da çipi haritada başka ekranın başka masaüstüne
-   **sürükleyin**; tıklayıp düzeni (sol yarı, tam, orta…) seçin. Pinsiz bir
-   satırı sürüklemek pencereyi bir kez taşır, pin yazmaz.
-4. Üstteki laptop / monitör düğmesiyle (⌘1 / ⌘2) diğer duruma geçip aynı
-   şeyi orası için yapın; iki kurulum birbirinden bağımsızdır. Monitör
-   takıldığında veya çıkarıldığında pencereler otomatik yeniden yerleşir.
+- [Requirements](#requirements)
+- [Install](#install)
+- [Required macOS settings](#required-macos-settings)
+- [Quick start](#quick-start)
+- [How it works](#how-it-works)
+- [Automation (URL scheme)](#automation-url-scheme)
+- [Keyboard shortcuts](#keyboard-shortcuts)
+- [Troubleshooting](#troubleshooting)
+- [Architecture](#architecture)
+- [Development](#development)
+- [Limitations](#limitations)
 
-Bir çipi alttaki tepsiye bırakmak o durumda pencereyi serbest bırakır.
+## Requirements
 
-**Parçaları sonradan değiştirmek:** pinli satıra ya da çipe tıklayın; pine
-uyan bir pencere açıksa panelde başlığın parçaları yeniden seçilir ve
-**Uygula** ile yazılır. Başka bir pinle aynı uygulama + aynı parçalara
-düşen seçim uygulanmaz, panel nedenini söyler.
+- macOS 13 Ventura or later.
+- To build: Xcode Command Line Tools (`xcode-select --install`) with Swift 5.9
+  or later. Xcode itself is not required.
+- To run the tests: a Swift 6 toolchain (Xcode 16 or its Command Line Tools),
+  because the tests use Swift Testing.
 
-**Geri alma:** pin kaldırma, profil silme, masaüstü sırası değiştirme,
-sürükleyerek taşıma (geçici pinler dahil), var olan pinin hedefini yeniden
-pinleyerek ezme ve parça düzenleme sonrasında alt çubukta 10 sn
-"… · Geri al" görünür; tıklayın ya da ⌘Z basın. Tek seviyedir; onay
-diyaloğu yerine bunu kullanın. Araya başka bir değişiklik girerse (yeni pin,
-düzen adımı, profil geçişi) kayıt düşer; geri alma yalnızca o işlemi geri
-alır. Geçici pin ekleme ve kaldırma geri alınamaz. Odak bir metin
-alanındayken ⌘Z o metnin geri almasıdır.
+## Install
 
-**Kısayollar** (pencere öndeyken): ⌘R pinli pencereleri şimdi yerleştir,
-⌘1 / ⌘2 mod seçici, ⌘Z geri al, Esc açık paneli kapat.
-
-Bir pinin hedef masaüstü o ekranda yoksa (Mission Control'de o kadar
-masaüstü açık değilse) pencere son masaüstüne gider ve satırda turuncu
-"M5→3" rozeti çıkar (yalnızca şu anki modun haritasında); masaüstü ekleyin
-ya da pini sürükleyin. Bir pencereye
-uyan ama daha özgül bir pine yenilen pin haritada soluk çip olarak durur.
-
-## Kurulum
-
-```
-xcode-select --install     # bir kez
-make run                   # derler, build/SpaceRouter.app'i açar
+```sh
+git clone <this repository> SpaceRouter
+cd SpaceRouter
+make app                      # release build → build/SpaceRouter.app
+open build/SpaceRouter.app    # or: make run (builds and opens)
 ```
 
-İlk açılışta **Erişilebilirlik** izni ister (System Settings › Privacy &
-Security › Accessibility). İzin verildikten sonra uygulamayı yeniden
-başlatmak gerekebilir.
+For a permanent install, copy the app to `/Applications` and turn on
+**Launch at login** in the app's footer:
 
-### Gerekli macOS ayarları (bunlar yapılmazsa uygulama düzgün çalışmaz)
+```sh
+cp -R build/SpaceRouter.app /Applications/
+```
 
-Uygulama açılınca bu ayarları kendisi denetler ve yanlış olanı turuncu
-kartla gösterir; kart ayar düzelene kadar kapanmaz.
+**Launch at login** registers whichever copy is running. If you run it from
+`build/`, the checkbox tooltip shows that path; move the app to
+`/Applications` first if you want a stable login item. If macOS wants you to
+confirm the login item, an orange **Approval needed** link appears next to
+the checkbox and opens System Settings › General › Login Items.
 
-**System Settings › Desktop & Dock › Mission Control** bölümü:
+### Accessibility permission
 
-| Ayar | Olması gereken | Neden |
+Space Router reads and moves other apps' windows through the Accessibility
+API, so it needs permission once:
+
+1. On first launch the window shows **Accessibility permission required**.
+   Click **Grant Access**.
+2. macOS shows its prompt and opens System Settings › Privacy & Security ›
+   Accessibility. Turn on **SpaceRouter**.
+3. The app checks the permission every 2 seconds and starts routing on its
+   own. If it doesn't, quit it (✕ in the footer) and open it again.
+
+The app is ad-hoc signed by default. macOS ties the permission to the code
+signature, so **every rebuild needs the permission granted again**; see
+[Troubleshooting](#accessibility-stops-working-after-a-rebuild).
+
+Only one copy runs at a time: if a second Space Router starts (for example a
+`build/` copy while the `/Applications` copy is running), it quits right
+away, so two routers never fight over the same windows.
+
+### Language
+
+The interface is in English and has a Turkish translation. The app uses the
+first language in your preferred-language list (System Settings › General ›
+Language & Region) that it supports, so Turkish appears only when Turkish is
+listed before English (or English isn't listed at all). To force a language
+for Space Router alone:
+
+```sh
+defaults write com.spacerouter.app AppleLanguages -array en   # or: tr
+defaults delete com.spacerouter.app AppleLanguages            # back to the system order
+```
+
+Quit and reopen the app after changing it.
+
+## Required macOS settings
+
+Space Router checks these settings live and shows an orange **macOS settings
+need fixing** card until they are right. The card has an **Open Desktop &
+Dock** button.
+
+**System Settings › Desktop & Dock › Mission Control:**
+
+| Setting | Must be | Why |
 |---|---|---|
-| Automatically rearrange Spaces based on most recent use | **Kapalı** | Açıkken macOS masaüstü sırasını değiştirir: Dock'tan başka masaüstündeki uygulamaya geçiş komşu Space'e gider, pencere belirip kaybolur, pinlerin masaüstü numaraları kayar. |
-| When switching to an application, switch to a Space with open windows | **Açık** | Kapalıyken Dock'a tıklamak masaüstü değiştirmez. |
-| Group windows by application | Kapalı (önerilir) | Mission Control sırası ile masaüstü numaraları uyuşmayabilir. |
-| Displays have separate Spaces | **Açık** | Kapalıyken harici ekranın masaüstleri görülemez. |
+| Automatically rearrange Spaces based on most recent use | **Off** | When on, macOS reorders your desktops: switching to an app from the Dock lands on a neighbouring Space, the window flashes and disappears, and pins end up on the wrong desktop numbers. |
+| When switching to an application, switch to a Space with open windows | **On** | When off, clicking an app in the Dock does not switch desktops. |
+| Group windows by application | Off (recommended) | When on, the Mission Control order may not match desktop numbers. |
+| Displays have separate Spaces | **On** | When off, Space Router cannot see the external display's desktops. |
 
-**Dock simgesi › sağ tık › Options › Assign To → None.** Pinlediğin
-uygulamalarda "This Desktop" / "All Desktops" seçili olmamalı; macOS
-pencereyi kendi atadığı Space'e çeker ve Space Router'ın taşımasıyla
-çelişir.
+**Dock icon › right-click › Options › Assign To → None** for every app you
+pin. With "This Desktop" or "All Desktops", macOS pulls the window to the
+Space it assigned, which conflicts with Space Router's moves. This one cannot
+be checked automatically; the card reminds you, and **Got It** hides the
+reminder (the card comes back if one of the live-checked settings changes).
 
-Bu liste 3 Eylül 2026'da yaşanan bir sorundan çıktı: "Automatically
-rearrange Spaces" açıkken Dock'tan uygulamaya geçiş önce komşu Space'e
-gidiyor, uygulama kısa süre görünüp kayboluyordu; ayar kapatılınca düzeldi.
+## Quick start
 
-Kalıcı kurulum: `cp -R build/SpaceRouter.app /Applications/` ve menüden
-**Girişte başlat**. Uygulama /Applications dışından çalışıyorsa (ör.
-`build/` içinden) "Girişte başlat" o kopyayı kaydeder; onay kutusunun
-ipucu yolu gösterir. macOS onay bekliyorsa yanında **Onay gerekli**
-bağlantısı çıkar, tıklayınca Login Items ayarı açılır.
+1. Click the menu bar icon. The window shows a **map**: one card per display,
+   one row per desktop, with the windows currently on each desktop.
+2. On a window row, click the **pin** button. A panel opens at the bottom.
+3. Choose which part of the title identifies the window, for example the
+   project name rather than the file name. The panel shows how many open
+   windows match right now. Pick a layout if you want one (the default is
+   the window's current position and size).
+4. Click **Pin** (or press Return). From now on, every window of that app
+   whose title contains that part goes to this desktop, in this layout.
+5. To pin the window to a different desktop, drag its row or chip onto
+   another desktop row on the map.
+6. Switch the mode selector at the top (laptop / monitor, ⌘1 / ⌘2) and repeat
+   for the other setup. The two setups are independent.
 
-Aynı anda ikinci bir Space Router açılırsa (ör. `build/` ve
-`/Applications` kopyaları) yenisi hiçbir şey yapmadan kapanır; iki
-yönlendirici aynı pencereleri çekiştirmesin.
+A **Getting Started** card with these steps is shown while the active profile
+has no pins.
 
-## Otomasyon
+## How it works
 
-Uygulama `spacerouter://` URL şemasını tanır. Shortcuts, Raycast,
-Hammerspoon, Keyboard Maestro ya da terminal, bir URL açarak komut verir;
-uygulama kapalıysa macOS önce onu başlatır.
+### Pins (rules)
 
-| URL | Etkisi |
+A pin says: *windows of this app whose title contains these parts go to this
+display, this desktop, in this layout*.
+
+- **App**: matched by bundle identifier (or by app name for old rules without
+  one).
+- **Title parts**: the title is split at common separators (` — `, ` – `,
+  ` | `, ` · `, ` • `, and ` - ` / ` : ` with spaces around them; a leading
+  "unsaved" dot is ignored). A window matches when its title contains **all**
+  selected parts, ignoring case. By default the last part that isn't the app
+  name is selected, because the workspace name is usually at the end.
+- **All windows**: pins every window of the app, regardless of title (also
+  used automatically for windows without a title).
+- **More specific wins**: when several pins match a window, the one with more
+  title parts is used. A pin that matches an open window but loses to a more
+  specific pin (or to a temporary pin) is shown as a faded chip; its tooltip
+  says which pin matches first.
+- If you pin with the same app and the same parts as an existing pin, the
+  existing pin is updated instead of creating a second one.
+
+What Space Router enforces:
+
+- **Desktop**: a pinned window is kept on its desktop. If it ends up
+  elsewhere, it is moved back.
+- **Layout**: applied once per window and target. After that you can resize
+  the window freely; the layout is applied again when you press ⌘R (↻), when
+  pins change, or after a display change. Windows on a desktop you are not
+  looking at get their layout when you switch to that desktop.
+- Windows of full-screen apps are never touched. Windows without a pin are
+  never moved by the engine.
+
+Click a pinned row or a chip to open its panel: change the layout, **Unpin**,
+or change the title parts (this needs a window matching the pin to be open;
+**Apply** refuses a selection that would duplicate another pin's app and
+parts).
+
+### Temporary pins
+
+In the pin panel, **This window only** pins one specific window instead of a
+title. Use it for apps whose windows all have the same title. A temporary pin
+follows the window's ID: it ends when the window closes or its app restarts,
+and it is not saved to the profile. It survives a Space Router restart as long
+as the window is still open. Temporary pins have an orange icon and take
+precedence over normal pins.
+
+### Two modes: monitor connected / laptop only
+
+Each pin has a separate target for each mode:
+
+- **Monitor connected**: at least one external display is attached.
+- **Laptop only**: only the built-in display.
+
+The mode selector shows the current mode ("now") by default; you can switch it
+to edit the other setup. Live windows are listed only for the current mode;
+the other mode shows its pins as chips. When a monitor is plugged in or
+unplugged, Space Router waits for the displays to settle (2.5 s, at most
+10 s) and then places every pinned window again.
+
+Displays are identified by role, not by serial number: `builtin`, `external`,
+`external-2`, … External displays are numbered left to right; displays stacked
+in the same column are ordered by vertical position (the lower one first),
+then by UUID. A pin whose display isn't connected is skipped.
+
+### Desktops
+
+- **Missing desktops**: macOS has no public way to create desktops, so pins
+  can only use desktops that exist in Mission Control. If a pin targets
+  desktop 5 but the display has only 3, the window goes to the last one and
+  the row shows an orange **D5→3** badge (**M5→3** in Turkish). Add desktops
+  in Mission Control or drag the pin elsewhere. Rows for desktops that don't
+  exist yet are drawn dashed; the **+ Desktop N** row at the bottom of each
+  display lets you pin to the next number.
+- **Reordering**: drag a desktop's label ("Desktop 2") up or down. All pins
+  on that display in this mode (and temporary pins) are renumbered to match,
+  and the windows are moved.
+- **Unpinned windows**: dragging an unpinned row to another desktop moves the
+  window once; nothing is saved.
+- **Tray**: the dashed area at the bottom lists pins that have no target in
+  this mode. Dropping a chip or pinned row there removes its target for this
+  mode (a pin with no target in either mode is deleted).
+
+### Profiles
+
+A profile is a named set of pins; the chips under the toolbar list them with
+their pin count.
+
+- Click a profile to switch to it. Windows are placed again right away.
+- Click the active profile to rename, **Duplicate**, **Export** or **Delete**
+  it (the last profile cannot be deleted).
+- **+** creates an empty profile. The import button reads a
+  `.spacerouter.json` file exported earlier; a plain `rules.json` also works.
+- Profiles can be switched from Shortcuts, Raycast and others via the
+  [URL scheme](#automation-url-scheme).
+
+### Undo
+
+There are no confirmation dialogs. After these actions the footer shows
+"*action* · Undo" for 10 seconds; click it or press ⌘Z:
+
+- unpinning (**Pin removed**), dragging a pin to another desktop (**Pin
+  moved**), re-pinning over an existing target (**Pin updated**), editing
+  title parts, reordering desktops, deleting a profile, dragging a temporary
+  pin.
+
+Undo is one level deep and restores only that action. Any other change in
+between (a new pin, a layout step, a profile switch, a URL command) cancels
+the pending undo so it can't wipe that change. Not undoable: adding a pin,
+layout edits, adding, renaming, importing or switching profiles, and adding or
+removing temporary pins. While the cursor is in a text field, ⌘Z undoes the
+text edit.
+
+### Pausing
+
+The switch at the top left pauses routing (the menu bar icon changes to a
+pause symbol). Windows are still listed, but nothing is moved. Pausing is
+saved and survives restarts.
+
+### Where data lives
+
+| File | Contents |
 |---|---|
-| `spacerouter://reapply` | Pinli pencereleri şimdi yerleştir (menüdeki ↻ ile aynı) |
-| `spacerouter://pause` | Yönlendirmeyi duraklat |
-| `spacerouter://resume` | Yönlendirmeyi sürdür |
-| `spacerouter://toggle` | Duraklat / sürdür |
-| `spacerouter://profile/<ad>` | Adı verilen profile geç (büyük/küçük harf önemsiz) |
-| `spacerouter://profile?name=<ad>` | Aynı; adında `/` olan profiller için |
-| `spacerouter://next-profile` | Sıradaki profile geç, sondan başa döner |
+| `~/Library/Application Support/SpaceRouter/rules.json` | Pins, profiles, known displays, the on/off switch. Written 0.4 s after a change and on quit. |
+| `~/Library/Application Support/SpaceRouter/rules.json.bak` | Copy of an unreadable or partly unreadable `rules.json`, made before it is overwritten. |
+| `~/Library/Application Support/SpaceRouter/session-pins.json` | Temporary pins (window ID + process ID). |
+| `<name>.spacerouter.json` | An exported profile. |
 
-Boşluk ve Türkçe karakterler yüzde kodlanır: `Ofis Masası` →
-`spacerouter://profile/Ofis%20Masas%C4%B1`. Bilinmeyen komut ya da
-profil, uygulamanın alt çubuğunda kırmızı bir hata olarak görünür; başka
-bildirim yoktur.
+See [docs/architecture.md](docs/architecture.md#data-files) for the formats.
 
-Terminal:
+## Automation (URL scheme)
 
-```
-open "spacerouter://profile/Ofis"
+Space Router handles `spacerouter://` URLs, so Shortcuts, Raycast,
+Hammerspoon, Keyboard Maestro or a terminal can control it. If the app isn't
+running, macOS starts it first.
+
+| URL | Effect |
+|---|---|
+| `spacerouter://reapply` | Place pinned windows now (same as ↻ / ⌘R) |
+| `spacerouter://pause` | Pause routing |
+| `spacerouter://resume` | Resume routing |
+| `spacerouter://toggle` | Pause / resume |
+| `spacerouter://profile/<name>` | Switch to the named profile (exact match first, then case-insensitive) |
+| `spacerouter://profile?name=<name>` | Same; use this for names containing `/` |
+| `spacerouter://next-profile` | Switch to the next profile, wrapping around (`next` and `nextprofile` also work) |
+
+Command names are case-insensitive, and `spacerouter:reapply` (without `//`)
+works too. Spaces and non-ASCII characters must be percent-encoded:
+`Office Desk` → `spacerouter://profile/Office%20Desk`. An unknown command or
+profile shows a red error in the app's footer; there is no other
+notification.
+
+```sh
+open "spacerouter://profile/Office"
 open "spacerouter://reapply"
 ```
 
-Shortcuts: **Open URLs** (URL'leri Aç) eylemine `spacerouter://profile/Ev`
-yazın; kısayola klavye kısayolu ya da Focus otomasyonu bağlayın.
+- **Shortcuts**: add an **Open URLs** action with `spacerouter://profile/Home`,
+  then attach a keyboard shortcut or a Focus automation.
+- **Raycast**: create a **Quicklink** such as `spacerouter://toggle`.
+- **Hammerspoon**:
 
-Hammerspoon:
+  ```lua
+  hs.hotkey.bind({"cmd", "alt"}, "1", function()
+    hs.urlevent.openURL("spacerouter://profile/Office")
+  end)
+  ```
 
-```lua
-hs.hotkey.bind({"cmd", "alt"}, "1", function()
-  hs.urlevent.openURL("spacerouter://profile/Ofis")
-end)
+## Keyboard shortcuts
+
+These work while the Space Router window is open and focused.
+
+| Keys | Action |
+|---|---|
+| ⌘R | Place pinned windows now |
+| ⌘1 / ⌘2 | Show the *Monitor connected* / *Laptop only* setup |
+| ⌘Z | Undo the last action (while the "· Undo" link is visible) |
+| Return | Confirm the pin panel (**Pin**) |
+| Esc | Close the open panel at the bottom |
+
+## Troubleshooting
+
+### Accessibility stops working after a rebuild
+
+Symptoms: the permission card keeps coming back, or SpaceRouter looks enabled
+in System Settings but nothing moves. Each build is ad-hoc signed with a new
+signature, and macOS keeps the permission for the old one.
+
+1. Quit Space Router.
+2. In System Settings › Privacy & Security › Accessibility, select
+   **SpaceRouter** and remove it with **−** (turning it off and on again is
+   often not enough). Alternatively, from a terminal:
+   `tccutil reset Accessibility com.spacerouter.app`.
+3. Open the new build and grant the permission again.
+
+Signing with a stable identity (`SIGN_IDENTITY=... make app`, see
+[Distribution](#distribution)) avoids this.
+
+### Windows land on the wrong desktop or flash and disappear
+
+Check the macOS settings card: "Automatically rearrange Spaces based on most
+recent use" must be off, and the app's Dock **Assign To** must be **None**.
+See [Required macOS settings](#required-macos-settings).
+
+### A pin doesn't take effect
+
+- Faded chip: another, more specific pin (or a temporary pin) matches the
+  window first; hover over the chip to see which one.
+- The pin's display isn't connected in the current mode, or the pin has no
+  target in this mode (it's in the tray).
+- **D5→3** badge: the target desktop doesn't exist; add desktops in Mission
+  Control.
+- The window belongs to a full-screen app.
+- Routing is paused (switch at the top left, pause icon in the menu bar).
+
+### "Moving windows between desktops is not available on this macOS"
+
+The private SkyLight functions for moving windows between Spaces were not
+found on this macOS version. Windows are still placed on the right display and
+in the right layout, but not moved between desktops.
+
+### "*App* not responding; skipped for now"
+
+An app did not answer Accessibility requests (it is frozen or stopped in a
+debugger). Space Router skips it for 2 s, doubling up to 30 s, so one app
+can't stall the others. It is picked up again automatically once it responds.
+
+### Errors about rules.json
+
+- "*N* rules could not be read": broken entries were skipped; the original
+  file was saved as `rules.json.bak` first.
+- "rules.json belongs to a newer version of Space Router": a newer version
+  wrote this file. The older version reads it but won't overwrite it; changes
+  are not saved.
+
+### External display roles swapped
+
+If two external displays share the same left edge, their roles (`external`,
+`external-2`) are ordered by vertical position (the lower display first).
+After an update that changed this order, drag the affected pins once; the
+order stays the same afterwards.
+
+### Reading the log
+
+The engine logs sparingly (moves, give-ups, unresponsive apps, display
+changes, sleep/wake) to the unified log. Window titles are redacted.
+
+```sh
+log stream --predicate 'subsystem == "com.spacerouter.app"' --level info
 ```
 
-Raycast: **Quicklinks** ile `spacerouter://toggle` gibi bir bağlantı
-oluşturun.
+Categories: `routing`, `skylight`, `ax`, `screens`. At launch the `skylight`
+category reports whether SkyLight is available and which desktop move method
+this macOS uses.
 
-## Nasıl çalışır
+## Architecture
 
 ```
 app/Sources/SpaceRouter/
-├── Models/     Rule, Destination, WindowLayout ve rules.json deposu
+├── SpaceRouterApp.swift      App entry: MenuBarExtra, AppModel, URL delegate, single instance
+├── Localization.swift        L(): English keys, Turkish table in app/Resources/tr.lproj
+├── Models/
+│   ├── Rule.swift            Rule (pin), Destination, WindowLayout, Mode, title splitting
+│   ├── Store.swift           Document (rules.json, pure operations), Profile, Store (publishes, saves)
+│   └── UndoBuffer.swift      One-level undo
 ├── Services/
-│   ├── Accessibility.swift   Pencere listesi, başlık, çerçeve (AX API)
-│   ├── SkyLight.swift        Space okuma/taşıma (özel SkyLight çağrıları)
-│   ├── ScreenService.swift   Bağlı ekranlar, dock durumu
-│   ├── URLCommands.swift     spacerouter:// komutları (ayrıştırma + çalıştırma)
-│   └── Router.swift          2 sn'de bir tarama, taşıma ve düzen
-└── Views/      Ekran haritası, sürüklenebilir çipler, pin ve profil panelleri
+│   ├── Router.swift          The engine: sweeps, moves, layouts, temporary pins
+│   ├── Routing.swift         Pure target selection and retry accounting
+│   ├── Accessibility.swift   Window list, titles, frames (AX API), unresponsive-app backoff
+│   ├── SkyLight.swift        Reading and moving Spaces (private SkyLight calls)
+│   ├── ScreenService.swift   Connected displays, roles, settle delay
+│   ├── WindowEvents.swift    AX observers and workspace notifications that trigger sweeps
+│   ├── URLCommands.swift     spacerouter:// parsing and execution
+│   ├── MacSettings.swift     Live check of the required macOS settings
+│   └── Log.swift             os.Logger categories
+└── Views/                    Map, window rows, chips, pin/profile panels, status cards
 ```
 
-macOS'ta bir pencereyi başka bir Space'e taşımanın resmî bir API'si yok.
-`SkyLight.swift`, Hammerspoon ve yabai'nin kullandığı özel çağrıları
-(`SLSMoveWindowsToManagedSpace`, `SLSSpaceSetCompatID` +
-`SLSSetWindowListWorkspace`, macOS 26.4+ için
-`SLSBridgedMoveWindowsToManagedSpaceOperation`) `dlsym` ile çalışma
-anında çözer; sürüme göre uygun olanı seçer. Bir simge bulunamazsa
-uygulama çökmez, yalnızca Space taşıma atlanır ve pencere yine ekran ve
-düzene oturtulur.
+The **Router** sweeps every 2 seconds and right after window events (new
+window, title change, focus change, desktop switch). A sweep runs on a
+background queue: it reads the displays' desktops (SkyLight), the window
+server list and each app's windows (Accessibility), picks each window's
+target with `Routing.select` (the same function the UI uses), then applies the
+layout and moves the window to its desktop. The results go back to the main
+actor, where SwiftUI shows them.
 
-Kurallar `~/Library/Application Support/SpaceRouter/rules.json`
-dosyasında tutulur; eski (v1) dosyalar otomatik okunur.
+There is no public API for moving a window to another Space.
+`SkyLight.swift` resolves the private calls also used by Hammerspoon and
+yabai at runtime with `dlsym` (`SLSMoveWindowsToManagedSpace`,
+`SLSSpaceSetCompatID` + `SLSSetWindowListWorkspace`, and
+`SLSBridgedMoveWindowsToManagedSpaceOperation` on macOS 26.4+) and picks the
+one that fits the macOS version. If a symbol is missing, the app doesn't
+crash: it skips the desktop move and still places the window on the right
+display and in the right layout.
 
-## Geliştirme
+More detail (sweep steps, retry limits, data formats, localization):
+[docs/architecture.md](docs/architecture.md).
 
+## Development
+
+```sh
+make check              # debug build
+make test               # unit tests (Swift Testing)
+make concurrency-check  # build with -strict-concurrency=complete and list warnings (report only)
+make app                # release build + .app bundle in build/
+make run                # make app, then open it
+make dist               # distributable package (see below)
+make clean              # delete build/ and app/.build/
 ```
-make app      # release derleme + .app paketi
-make check    # debug derleme
-make test     # birim testleri (app/Tests/SpaceRouterTests, Swift Testing)
-make dist     # gönderilebilir paket: evrensel derleme + imza + build/dist/*.zip
-make clean
-make concurrency-check  # sıkı eşzamanlılık uyarıları (Swift 6 hazırlığı; ayar değişmez)
+
+The tests (`app/Tests/SpaceRouterTests`, 122 tests in 10 suites) cover pure
+logic only: rule matching (including Turkish İ/ı case rules) and title
+splitting, layouts and coordinates, `rules.json` schema migrations, document
+operations on pins and profiles, import/export, target selection, retry and
+backoff helpers, undo validity, map logic, and localization consistency.
+They never touch the disk or real windows.
+
+Enable the pre-commit hook to build and test before every commit that
+touches Swift files:
+
+```sh
+git config core.hooksPath .githooks
 ```
 
-Testler saf mantığı kapsar: `Rule` eşleştirme ve başlık parçalama,
-`WindowLayout` oranları, `rules.json` şema geçişleri, `Document` üzerindeki
-pin/profil/parça işlemleri, `Routing` hedef seçimi, `UndoBuffer` (geçerlilik
-denetimi dahil), masaüstü taşıma haritasının tersi, gölgede kalan kural
-hesabı ve eksik masaüstü rozeti kararı. Diske ya da pencerelere
-dokunmazlar. `git config core.hooksPath .githooks` ile commit öncesi derleme ve
-testler kendiliğinden çalışır. Sürüm numarası kökteki `VERSION` dosyasından okunur.
+CI (`.github/workflows/ci.yml`) builds, tests and packages the app on every
+push to `main` and on pull requests. The version number comes from the
+`VERSION` file.
 
-### Dağıtım
+`scripts/build-and-run.command` (double-click in Finder) quits the running
+Space Router, builds and opens the new copy, and writes the output to
+`build/last-build.log`.
 
-`make dist` arm64 + x86_64 evrensel bir `SpaceRouter.app` üretir ve
-`build/dist/SpaceRouter-<sürüm>.zip` olarak paketler (`FORMAT=dmg` ya da
-`FORMAT=both` ile DMG; `VERSION=0.3.1` ile sürüm). Varsayılan imza ad-hoc'tur:
-alıcı uygulamayı ilk kez **sağ tık › Open** ile açmalı ya da
-`xattr -dr com.apple.quarantine /Applications/SpaceRouter.app` çalıştırmalıdır.
-Developer ID hesabıyla Gatekeeper'sız dağıtım için:
+### Localization
 
-```
+User-facing text goes through `L("English text")` or
+`L("Format %@ with %ld", value, count)`. The English string is the key; the
+Turkish translation lives in `app/Resources/tr.lproj/Localizable.strings`.
+`LocalizationTests` fails if a key has no Turkish entry, if a Turkish entry is
+unused, or if format specifiers don't match. See
+[docs/architecture.md](docs/architecture.md#localization).
+
+### Distribution
+
+`make dist` builds a universal (arm64 + x86_64) `SpaceRouter.app` and packs it
+as `build/dist/SpaceRouter-<version>.zip` (`FORMAT=dmg` or `FORMAT=both` for
+a DMG; `VERSION=0.3.1` overrides the version). The default signature is
+ad-hoc: recipients must open the app the first time with **right-click ›
+Open**, or run `xattr -dr com.apple.quarantine /Applications/SpaceRouter.app`.
+To distribute without Gatekeeper warnings, use a Developer ID and notarize:
+
+```sh
 xcrun notarytool store-credentials notary --apple-id ... --team-id ... --password <app-specific>
-SIGN_IDENTITY="Developer ID Application: Ad (TEAMID)" NOTARY_PROFILE=notary make dist
+SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary make dist
 ```
 
-### Günlük
+`scripts/make-dist.command` runs `make dist` from Finder.
 
-Motor `os.Logger` ile seyrek günlük yazar (alt sistem `com.spacerouter.app`;
-kategoriler `routing`, `skylight`, `ax`, `screens`): açılışta SkyLight
-durumu ve masaüstü taşıma yolu, her masaüstü taşıması, vazgeçmeler, yanıt
-vermeyen uygulama backoff'u, ekran yatışması, uyku/uyanma ve oturum pini
-düşmesi. Pencere başlıkları gizlidir. Terminalden izlemek için:
+## Limitations
 
-```
-log stream --predicate 'subsystem == "com.spacerouter.app"' --level info
-```
+- **Private APIs.** Moving windows between Spaces and finding windows on
+  other desktops rely on private SkyLight and Accessibility functions. A macOS
+  update can break them; the app then falls back to display and layout only.
+- **Desktops must exist.** Space Router can't create desktops; add them in
+  Mission Control. Pins beyond the last desktop go to the last one.
+- **Titles must identify the window.** Apps that don't show a workspace or
+  document name in the title can only be pinned app-wide or with temporary
+  pins.
+- **Full-screen windows** are left alone.
+- **Two setups only**: monitor connected / laptop only. External displays are
+  identified by position (left to right), not by model or serial number.
+- **Not instant.** Placement happens on window events and at least every
+  2 seconds, with a few retries for apps that resize slowly.
+- **One-level undo**, visible for 10 seconds.
+- **Ad-hoc signing** by default, so the Accessibility permission must be
+  granted again after each rebuild.
+- **Languages**: English and Turkish.
+
+## License
+
+MIT; see [LICENSE](LICENSE).
