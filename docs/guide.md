@@ -26,7 +26,7 @@ This guide takes about ten minutes. You need macOS 13 or later.
 4. Back in the app, turn on **Launch at login** in the footer so it is there
    after every restart.
 
-![The map: displays, desktops and the windows on them](images/01-map.png)
+![The map: displays, desktops and the windows on them](images/en/01-map.png)
 
 ## 2. Fix four macOS settings (once)
 
@@ -44,7 +44,7 @@ One more, which macOS won't let any app check: for every app you are going
 to pin, right-click its Dock icon › **Options › Assign To → None**. If macOS
 has assigned the app to a desktop itself, it will fight over the window.
 
-![The settings card tells you exactly which setting is wrong](images/05-setup.png)
+![The settings card tells you exactly which setting is wrong](images/en/05-setup.png)
 
 ## 3. Pin your first window
 
@@ -54,7 +54,7 @@ has assigned the app to a desktop itself, it will fight over the window.
 3. Find your window in the list and click its **pin** button. A panel opens
    at the bottom.
 
-![Choosing which part of the title identifies the window](images/02-pin.png)
+![Choosing which part of the title identifies the window](images/en/02-pin.png)
 
 4. The panel splits the window's title into parts and asks which part
    identifies this window. For `acme-web — VS Code`, pick **acme-web**: the
@@ -94,7 +94,7 @@ Click a pinned row or chip and pick a layout: **Full**, **Left half**,
 or **Center**. The default is "wherever the window is now", and you can set
 a gap to leave from the edges.
 
-![Layouts: full, halves, 70/30, centred](images/03-layout.png)
+![Layouts: full, halves, 70/30, centred](images/en/03-layout.png)
 
 The layout is applied once per window. After that, resize it however you
 like — the app won't keep snapping it back. Press **⌘R** (or the ↻ button)
@@ -121,7 +121,7 @@ the bottom. It stays in the other setup.
 A profile is a whole set of pins with a name. The chips under the toolbar
 switch between them instantly.
 
-![Profiles with their pin counts](images/04-profiles.png)
+![Profiles with their pin counts](images/en/04-profiles.png)
 
 - **+** makes an empty profile; click the active one to rename, duplicate,
   export or delete it.

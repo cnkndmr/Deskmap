@@ -12,12 +12,10 @@ works with any app that shows a workspace, project or document name in its
 window title: Safari tab groups, VS Code workspaces, Obsidian vaults, terminal
 profiles, and so on.
 
-<!--
-  Screenshot placeholder: capture the menu bar window (map with a few pinned
-  windows), save it as docs/images/screenshot.png and replace this comment with
-  ![Space Router menu bar window](docs/images/screenshot.png)
--->
-> *Screenshot: to be added (`docs/images/screenshot.png`).*
+![The menu bar window: one card per display, one row per desktop, pinned windows in place](docs/images/en/01-map.png)
+
+*The screenshots come from the app itself, rendered with demo data:
+`SpaceRouter --shots <dir>` (see `app/Sources/SpaceRouter/Demo/`).*
 
 **New here?** The [user guide](docs/guide.md) — [Türkçe kılavuz](docs/kilavuz.md) —
 walks through setup and your first pin in ten minutes. This README is the

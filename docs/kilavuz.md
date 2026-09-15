@@ -25,7 +25,7 @@ Bu kılavuz on dakika sürer. macOS 13 ya da üstü gerekir.
 4. Uygulamaya dön, alt çubuktaki **Girişte başlat**'ı aç ki her açılışta
    orada olsun.
 
-![Harita: ekranlar, masaüstleri ve üzerlerindeki pencereler](images/01-map.png)
+![Harita: ekranlar, masaüstleri ve üzerlerindeki pencereler](images/tr/01-map.png)
 
 ## 2. Dört macOS ayarını düzelt (bir kez)
 
@@ -44,7 +44,7 @@ pinleyeceğin her uygulamanın Dock simgesine sağ tık › **Options › Assign
 None**. macOS uygulamayı kendi bir masaüstüne atadıysa pencere için
 çekişirler.
 
-![Ayar kartı hangi ayarın bozuk olduğunu tek tek söyler](images/05-setup.png)
+![Ayar kartı hangi ayarın bozuk olduğunu tek tek söyler](images/tr/05-setup.png)
 
 ## 3. İlk pinini koy
 
@@ -54,7 +54,7 @@ None**. macOS uygulamayı kendi bir masaüstüne atadıysa pencere için
    vardır.
 3. Pencereni listede bul ve **pin** düğmesine bas. Altta bir panel açılır.
 
-![Başlığın hangi parçası bu pencereyi tanımlıyor?](images/02-pin.png)
+![Başlığın hangi parçası bu pencereyi tanımlıyor?](images/tr/02-pin.png)
 
 4. Panel pencerenin başlığını parçalara ayırır ve hangisinin bu pencereyi
    tanımladığını sorar. `acme-web — VS Code` için **acme-web**'i seç: proje
@@ -92,7 +92,7 @@ yarı**, **Sol %70** / **Sağ %30**, **Üst yarı**, **Alt yarı**, **Orta**.
 Varsayılan "pencere şu an neredeyse orada"; kenarlardan bırakılacak boşluğu
 da verebilirsin.
 
-![Düzenler: tam, yarımlar, %70/%30, orta](images/03-layout.png)
+![Düzenler: tam, yarımlar, %70/%30, orta](images/tr/03-layout.png)
 
 Düzen her pencereye bir kez uygulanır. Sonrasında istediğin gibi boyutlandır,
 uygulama geri zıplatmaz. Her şeyin baştan yerleşmesini istersen **⌘R** (ya da
@@ -118,7 +118,7 @@ sürükle. Öteki kurulumda kalmaya devam eder.
 Profil, adı olan bir pin takımı. Araç çubuğunun altındaki çipler anında
 geçiş yapar.
 
-![Profiller ve pin sayıları](images/04-profiles.png)
+![Profiller ve pin sayıları](images/tr/04-profiles.png)
 
 - **+** boş profil açar; etkin profile tıklayınca adını değiştir, çoğalt, dışa
   aktar ya da sil.
