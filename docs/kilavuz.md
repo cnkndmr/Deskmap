@@ -87,10 +87,12 @@ Satırı (ya da çipi) başka bir masaüstü satırına sürükle — istediğin
 
 ## 5. Boyutunu ver
 
-Pinli satıra ya da çipe tıkla ve bir düzen seç: tam ekran, sol yarı, sağ
-üçte bir... Varsayılan "pencere şu an neredeyse orada".
+Pinli satıra ya da çipe tıkla ve bir düzen seç: **Tam**, **Sol yarı**, **Sağ
+yarı**, **Sol %70** / **Sağ %30**, **Üst yarı**, **Alt yarı**, **Orta**.
+Varsayılan "pencere şu an neredeyse orada"; kenarlardan bırakılacak boşluğu
+da verebilirsin.
 
-![Düzenler: yarımlar, üçte birler, çeyrekler, tam](images/03-layout.png)
+![Düzenler: tam, yarımlar, %70/%30, orta](images/03-layout.png)
 
 Düzen her pencereye bir kez uygulanır. Sonrasında istediğin gibi boyutlandır,
 uygulama geri zıplatmaz. Her şeyin baştan yerleşmesini istersen **⌘R** (ya da

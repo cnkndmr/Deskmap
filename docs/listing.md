@@ -37,8 +37,8 @@ it back every time — when it opens, when you dock, when you come back.
 > **Two setups, one app.** Laptop alone and laptop plus monitor get separate
 > targets. Plug the monitor in and everything rearranges itself.
 >
-> **Layouts.** Halves, thirds, quarters, full screen — applied once, then
-> the window is yours to resize.
+> **Layouts.** Full, halves, 70/30, centred — applied once, then the window
+> is yours to resize.
 >
 > **Profiles.** Desk, café, presentation. Switch with one click, or from
 > Shortcuts, Raycast or a Focus automation.
@@ -97,8 +97,8 @@ seferinde geri koyar — açılınca, monitörü takınca, sen dönünce.
 > **İki kurulum, tek uygulama.** Tek başına laptop ve monitörlü laptop ayrı
 > hedefler alır. Monitörü tak, her şey kendi yerine gider.
 >
-> **Düzenler.** Yarım, üçte bir, çeyrek, tam ekran — bir kez uygulanır,
-> sonrası sana kalmış.
+> **Düzenler.** Tam, yarım, %70/%30, orta — bir kez uygulanır, sonrası sana
+> kalmış.
 >
 > **Profiller.** Masa, kafe, sunum. Tek tıkla ya da Shortcuts, Raycast, Focus
 > otomasyonundan geç.
@@ -125,6 +125,6 @@ for the web page:
 |---|---|---|---|
 | 1 | Map with pinned windows | Every display, every desktop, one screen | Bütün ekranlar, bütün masaüstleri, tek ekranda |
 | 2 | Pin panel with title parts | Pin by what the title says | Başlığın söylediğine göre pinle |
-| 3 | Layout picker | Halves, thirds, full — once | Yarım, üçte bir, tam — bir kez |
+| 3 | Layout picker | Full, halves, 70/30 — applied once | Tam, yarım, %70/%30 — bir kez |
 | 4 | Profiles | Desk, café, presentation | Masa, kafe, sunum |
 | 5 | Settings card / missing desktop badge | It tells you what's wrong | Neyin bozuk olduğunu söyler |

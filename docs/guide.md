@@ -89,10 +89,12 @@ is how you say "no, this one lives on the monitor, desktop 3".
 
 ## 5. Give it a size
 
-Click a pinned row or chip and pick a layout: full screen, left half, right
-third, and so on. The default is "wherever the window is now".
+Click a pinned row or chip and pick a layout: **Full**, **Left half**,
+**Right half**, **Left 70%** / **Right 30%**, **Top half**, **Bottom half**
+or **Center**. The default is "wherever the window is now", and you can set
+a gap to leave from the edges.
 
-![Layouts: halves, thirds, quarters, full](images/03-layout.png)
+![Layouts: full, halves, 70/30, centred](images/03-layout.png)
 
 The layout is applied once per window. After that, resize it however you
 like — the app won't keep snapping it back. Press **⌘R** (or the ↻ button)
