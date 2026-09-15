@@ -19,6 +19,10 @@ profiles, and so on.
 -->
 > *Screenshot: to be added (`docs/images/screenshot.png`).*
 
+**New here?** The [user guide](docs/guide.md) — [Türkçe kılavuz](docs/kilavuz.md) —
+walks through setup and your first pin in ten minutes. This README is the
+reference: every rule, every setting, every failure mode.
+
 - [Requirements](#requirements)
 - [Install](#install)
 - [Required macOS settings](#required-macos-settings)
@@ -42,7 +46,7 @@ profiles, and so on.
 ## Install
 
 ```sh
-git clone <this repository> SpaceRouter
+git clone https://github.com/cnkndmr/SpaceRouter.git SpaceRouter
 cd SpaceRouter
 make app                      # release build → build/SpaceRouter.app
 open build/SpaceRouter.app    # or: make run (builds and opens)

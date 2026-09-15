@@ -41,7 +41,7 @@
 "Desktop order changed" = "Masaüstü sırası değişti";
 "Profile deleted: %@" = "Profil silindi: %@";
 "Built-in display" = "Dahili ekran";
-"External display" = "Harici monitör";
+"External display" = "Harici ekran";
 
 /* Services/URLCommands.swift */
 "Unknown URL command: %@" = "Bilinmeyen URL komutu: %@";
@@ -52,7 +52,7 @@
 "Must be ON. When off, clicking an app in the Dock does not switch desktops." = "AÇIK olmalı. Kapalıyken Dock'a tıklamak masaüstü değiştirmez.";
 "OFF is recommended. When on, the Mission Control order may not match desktop numbers." = "KAPALI önerilir; açıkken Mission Control sırası ile masaüstü numaraları uyuşmayabilir.";
 "Must be ON. When off, Space Router cannot see the external display's desktops." = "AÇIK olmalı. Kapalıyken Space Router harici ekranın masaüstlerini göremez.";
-"For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Space Router's moves." = "Pinlediğin uygulamaların Dock simgesinde sağ tık › Options › Assign To \"None\" olmalı. \"This Desktop\" / \"All Desktops\" seçiliyse macOS pencereyi kendi atadığı Space'e çeker; Space Router'ın taşımasıyla çelişir.";
+"For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Space Router's moves." = "Pinlediğiniz uygulamaların Dock simgesinde sağ tık › Options › Assign To \"None\" olmalı. \"This Desktop\" / \"All Desktops\" seçiliyse macOS pencereyi kendi atadığı Space'e çeker; Space Router'ın taşımasıyla çelişir.";
 "Settings: System Settings › Desktop & Dock › Mission Control section." = "Ayarlar: System Settings › Desktop & Dock › Mission Control bölümü.";
 
 /* Services/Router.swift */
@@ -92,7 +92,7 @@
 /* Views/ScreenMapView.swift: harita */
 "Desktop %ld" = "Masaüstü %ld";
 "not connected" = "bağlı değil";
-"Drag to move this desktop (with its pins) up or down" = "Sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı taşı";
+"Drag to move this desktop (with its pins) up or down" = "Sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı taşıyın";
 "empty" = "boş";
 "doesn't exist yet" = "henüz yok";
 "%ld windows" = "%ld pencere";
@@ -125,7 +125,7 @@
 "Use the selected parts as this pin's title parts" = "Seçili parçaları bu pinin başlık parçaları yap";
 "All windows" = "Tüm pencereler";
 "To change the parts, a window matching this pin must be open." = "Parçaları değiştirmek için bu pine uyan bir pencere açık olmalı.";
-"A pin with these parts already exists: “%@”" = "Bu parçalarla zaten bir pin var: „%@\"";
+"A pin with these parts already exists: “%@”" = "Bu parçalarla zaten bir pin var: “%@”";
 "Select at least one part, or All windows." = "En az bir parça seçin ya da Tüm pencereler.";
 "%ld windows match right now." = "Şu an %ld pencere uyuyor.";
 "Temporary · window #%ld" = "Geçici · pencere #%ld";
@@ -136,7 +136,7 @@
 "New empty profile" = "Yeni boş profil";
 "Import a profile from a file (.spacerouter.json)" = "Profili dosyadan içe aktar (.spacerouter.json)";
 "Import a profile from a file" = "Profili dosyadan içe aktar";
-"Active profile: click to rename, duplicate, export or delete" = "Aktif profil — ad, kopya, dışa aktar, sil için tıkla";
+"Active profile: click to rename, duplicate, export or delete" = "Aktif profil: ad değiştirme, kopyalama, dışa aktarma ve silme için tıklayın";
 "Switch to this profile (1 pin)" = "Bu profile geç (1 pin)";
 "Switch to this profile (%ld pins)" = "Bu profile geç (%ld pin)";
 "Profile name" = "Profil adı";
@@ -158,8 +158,8 @@
 /* Views/WindowRow.swift: pencere satırı */
 "Minimized" = "Simge durumunda";
 "Layout: %@" = "Düzen: %@";
-"Click to change the layout; drag to change the pin's target" = "Tıklayarak düzeni değiştir, sürükleyerek pinin hedefini değiştir";
-"Drag to move (does not pin); click the pin to keep it here" = "Sürükleyerek taşı (pinlenmez); sabitlemek için pin'e tıkla";
+"Click to change the layout; drag to change the pin's target" = "Tıklayarak düzeni, sürükleyerek pinin hedefini değiştirin";
+"Drag to move (does not pin); click the pin to keep it here" = "Sürükleyerek taşıyın (pinlenmez); sabitlemek için pin düğmesine tıklayın";
 "Temporary pin (this window only, this session). Click to remove." = "Geçici pin (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın.";
 "Pinned: %@. Click to remove." = "Pinli: %@. Kaldırmak için tıklayın.";
 "Pin to this desktop" = "Bu masaüstüne pinle";
@@ -182,9 +182,9 @@
 "Dragging a row to another desktop moves the window once without pinning it. The laptop / monitor switch at the top is for the other setup; the two are configured separately." = "Bir satırı başka masaüstüne sürüklemek pencereyi bir kez taşır, pinlemez. Üstteki laptop / monitör düğmesi diğer kurulum içindir; ikisi ayrı ayarlanır.";
 
 /* Views/RuleChip.swift: pin çipi ipucu */
-"Its window is not open right now. Drag to move." = "Penceresi şu an açık değil. Sürükleyerek taşı.";
+"Its window is not open right now. Drag to move." = "Penceresi şu an açık değil. Sürükleyerek taşıyın.";
 "a temporary pin" = "geçici pin";
-"the “%@” pin" = "„%@\" pini";
+"the “%@” pin" = "“%@” pini";
 "This window is matched first by %@; this pin does not take effect." = "Bu pencereye önce %@ uyuyor; bu pin devreye girmiyor.";
 
 /* Views/LayoutEditor.swift: kenar boşlukları */
@@ -196,4 +196,4 @@
 
 /* Views/MissingDesktopBadge.swift: eksik masaüstü rozeti (D = Desktop, M = Masaüstü) */
 "D%ld→%ld" = "M%ld→%ld";
-"Desktops on this display: %ld. Add desktops in Mission Control or drag the pin to another desktop." = "Bu ekranda yalnızca %ld masaüstü var; Mission Control'de masaüstü ekleyin ya da pini başka masaüstüne sürükleyin";
+"Desktops on this display: %ld. Add desktops in Mission Control or drag the pin to another desktop." = "Bu ekranda yalnızca %ld masaüstü var; Mission Control'de masaüstü ekleyin ya da pini başka masaüstüne sürükleyin.";
