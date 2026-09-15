@@ -21,7 +21,10 @@ profiles, and so on.
 
 **New here?** The [user guide](docs/guide.md) — [Türkçe kılavuz](docs/kilavuz.md) —
 walks through setup and your first pin in ten minutes. This README is the
-reference: every rule, every setting, every failure mode.
+reference: every rule, every setting, every failure mode. See also
+[privacy](docs/privacy.md) (nothing is collected or sent) and
+[distribution](docs/distribution.md) (how signed builds are made, and why
+the Mac App Store isn't an option).
 
 - [Requirements](#requirements)
 - [Install](#install)
