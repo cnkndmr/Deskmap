@@ -24,6 +24,26 @@ number comes from the `VERSION` file.
   troubleshooting, architecture, development, limitations) and
   `docs/architecture.md` (sweep steps, retry limits, data formats,
   localization, tests).
+- User guide in both languages: `docs/guide.md` and `docs/kilavuz.md` take a
+  new user from install to the first pin in ten minutes, with screenshots;
+  `docs/site/index.html` is the same guide as one page with an EN/TR switch
+  that also swaps the screenshots.
+- `docs/privacy.md` (nothing is collected, sent or logged — window titles
+  never reach the log), `docs/distribution.md` (why the Mac App Store is
+  closed to this app: the sandbox blocks the Accessibility write API and
+  moving windows between Spaces needs private SkyLight calls; Developer ID
+  and notarization instead) and `docs/naming.md` (the name is taken by an
+  unrelated macOS product; candidates checked against the store catalogue).
+- Screenshot mode: `SpaceRouter --shots <dir>` renders the real interface with
+  demo data — fabricated displays, profiles, pins and windows — and writes
+  PNGs, without touching `rules.json`, the Accessibility permission or a
+  running copy (`app/Sources/SpaceRouter/Demo/`). Run it with
+  `-AppleLanguages "(tr)"` for the Turkish set.
+- Bundle metadata for distribution: `LSApplicationCategoryType`
+  (productivity) and `NSHumanReadableCopyright`. The displayed name is the
+  `DISPLAY_NAME` variable in `build-app.sh`, and `BUILD_ROOT` can point the
+  build somewhere other than `build/` (useful while a copy is running from
+  there).
 - One-level undo. After unpinning, deleting a profile, reordering desktops,
   dragging a pin to another target, re-pinning over an existing target ("Pin
   updated"), or editing title parts, the footer shows "*action* · Undo" for
