@@ -439,6 +439,14 @@ final class Store: ObservableObject {
         }
     }
 
+    /// Shots modu (`--shots`): dosyaya hiç dokunmaz. Kayıt zamanlayıcısı
+    /// (`$document` sink'i) ve çıkışta yazan `willTerminate` gözlemcisi
+    /// kurulmaz; `document` dışarıdan sabit verilir. Üretim `init()`'i
+    /// değişmez.
+    init(demo document: Document) {
+        self.document = document
+    }
+
     /// Bekleyen değişiklikleri hemen diske yazar.
     func flush() {
         document.syncActiveProfile()

@@ -24,6 +24,12 @@ final class AccessibilityPermission: ObservableObject {
         }
     }
 
+    /// Shots modu (`--shots`): izin zamanlayıcısı kurulmaz; durum dışarıdan
+    /// sabit verilir. Üretim `init()`'i değişmez.
+    init(demoTrusted trusted: Bool) {
+        isTrusted = trusted
+    }
+
     deinit { timer?.invalidate() }
 
     func request() {

@@ -1,7 +1,21 @@
 import AppKit
 import SwiftUI
 
+/// Gerçek giriş noktası. `--shots <dizin>` varsa (bkz. `Shots.swift`) normal
+/// uygulama hiç başlamaz: `AppModel`, `SingleInstance` ve dolayısıyla
+/// `Store`/`ScreenService`/`Router`'ın disk/tarama yapan üretim yolu
+/// çalışmaz. Yoksa `SpaceRouterApp.main()` (SwiftUI'nin `App` için ürettiği
+/// varsayılan giriş) üretim yolunu değişmeden çalıştırır.
 @main
+enum AppEntry {
+    static func main() {
+        if let options = Shots.parseOptions(CommandLine.arguments) {
+            MainActor.assumeIsolated { Shots.run(options) }
+        }
+        SpaceRouterApp.main()
+    }
+}
+
 struct SpaceRouterApp: App {
 
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate

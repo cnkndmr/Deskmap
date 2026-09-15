@@ -173,6 +173,21 @@ final class Router: ObservableObject {
         }
     }
 
+    /// Shots modu (`--shots`): tarama yok, zamanlayıcı kurulmaz, AX/SkyLight
+    /// çağrılmaz, oturum pinleri diskten okunmaz. `windows`, `sessionPins`,
+    /// `status` dışarıdan sabit verilir; bunların dışındaki bütün alanlar
+    /// bildirimlerindeki varsayılanı korur (boş/nil). Üretim `init()`'i
+    /// değişmez.
+    init(store: Store, screens: ScreenService, demoWindows: [WindowSnapshot],
+         demoSessionPins: [CGWindowID: Destination] = [:], demoStatus: Status = Status()) {
+        self.store = store
+        self.screens = screens
+        self.events = WindowEvents(demo: true)
+        self.windows = demoWindows
+        self.sessionPins = demoSessionPins
+        self.status = demoStatus
+    }
+
     deinit {
         timer?.invalidate()
         followUp?.cancel()

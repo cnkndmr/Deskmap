@@ -93,6 +93,10 @@ final class WindowEvents {
         refresh()
     }
 
+    /// Shots modu (`--shots`): hiçbir gözlemci eklenmez, `refresh()`
+    /// çağrılmaz. Üretim `init()`'i değişmez.
+    init(demo: Bool) {}
+
     deinit {
         for token in tokens { NSWorkspace.shared.notificationCenter.removeObserver(token) }
     }

@@ -80,6 +80,13 @@ final class ScreenService: ObservableObject {
         }
     }
 
+    /// Shots modu (`--shots`): `NSScreen` gözlemcisi eklenmez, `refresh()`
+    /// çağrılmaz. Ekran listesi dışarıdan sabit verilir. Üretim `init()`'i
+    /// değişmez.
+    init(demo screens: [ScreenInfo]) {
+        self.screens = screens
+    }
+
     deinit {
         if let observer { NotificationCenter.default.removeObserver(observer) }
     }
