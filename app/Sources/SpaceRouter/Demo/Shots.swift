@@ -70,7 +70,7 @@ enum Shots {
                 .environmentObject(ui))
         hosting.frame = NSRect(origin: .zero, size: size)
 
-        let window = NSWindow(
+        let window = ShotsWindow(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -78,6 +78,17 @@ enum Shots {
 
         try? FileManager.default.createDirectory(
             atPath: options.directory, withIntermediateDirectories: true)
+
+        // Pencere yalnızca `orderFrontRegardless` ile önde ama "key" ve
+        // uygulama "aktif" değilse AppKit vurgu renkli denetimleri (bu
+        // anahtar dahil) pasif pencere görünümüyle grileştirir — offscreen
+        // `cacheDisplay`'in asıl sorunu buydu. `activate` + `makeKeyAndOrderFront`
+        // gerçek (aktif) rengi yakalar. Menü çubuğu yardımcı süreci (Dock
+        // simgesi yok, `SingleInstance`/`AppModel` hiç çalışmadı) olduğu için
+        // kısa süre önde/aktif olması zararsız; bakımcının canlı kopyası (ayrı
+        // süreç, ayrı pencere) etkilenmez. Kareler bitince pencere kapatılır.
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
 
         // İlk düzen turu: onAppear / onReceive bir kez çalışsın.
         pump(0.3)
@@ -112,14 +123,14 @@ enum Shots {
         capture("01-map")
 
         // 02 — yeni pin: pinsiz bir pencere için pin paneli (TokenPicker).
-        if let target = world.windows.first(where: { $0.id == DemoData.unpinnedSlackWindowID }) {
+        if let target = world.windows.first(where: { $0.id == DemoData.unpinnedMessagesWindowID }) {
             ui.panel = .pin(PinDraft(
                 window: target, target: Router.Placement(screen: "builtin", desktop: 2)))
         }
         capture("02-pin")
 
         // 03 — düzen seçici: var olan bir pini düzenleme paneli.
-        ui.panel = .rule(DemoData.slackRuleID)
+        ui.panel = .rule(DemoData.messagesRuleID)
         capture("03-layout")
 
         // 04 — profiller: profil paneli, iki profil görünür.
@@ -135,6 +146,7 @@ enum Shots {
         store.remove(DemoData.extraRuleID)
         capture("05-setup")
 
+        window.orderOut(nil)
         exit(0)
     }
 
@@ -144,6 +156,15 @@ enum Shots {
     private static func pump(_ seconds: TimeInterval) {
         RunLoop.main.run(until: Date().addingTimeInterval(seconds))
     }
+}
+
+/// Sade `NSWindow`, `.borderless` maskesiyle varsayılan olarak asla "key"
+/// olamaz (`canBecomeKey` false döner); bu yüzden `makeKeyAndOrderFront`
+/// sessizce işe yaramaz ve vurgu renkli denetimler (üstteki açma/kapama
+/// anahtarı gibi) pasif pencere görünümüyle grileşir. Yalnızca bunu açar;
+/// üretim yolunda kullanılmaz.
+private final class ShotsWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
 }
 
 /// Shots modunda `RootView`'ı saran görünüm. `.regularMaterial` gerçek bir

@@ -16,14 +16,14 @@ enum DemoData {
 
     // MARK: - Shots.swift'in belirli kural/pencereleri seçmesi için sabit kimlikler
 
-    /// "acme-web — Slack" penceresini pinleyen kural (RulePanel / düzen
+    /// "acme-web — Messages" penceresini pinleyen kural (RulePanel / düzen
     /// seçici karesi bunu açar).
-    static let slackRuleID = "demo-rule-slack"
+    static let messagesRuleID = "demo-rule-messages"
     /// Yalnızca "Geri al" çubuğunu sergilemek için var; son karadan hemen
     /// önce silinir.
     static let extraRuleID = "demo-rule-safari-docs"
     /// Hiçbir kuralla eşleşmeyen canlı pencere (yeni pin karesi bunu kullanır).
-    static let unpinnedSlackWindowID: CGWindowID = 9
+    static let unpinnedMessagesWindowID: CGWindowID = 9
 
     // MARK: - Ekranlar
 
@@ -45,12 +45,14 @@ enum DemoData {
 
         // MARK: "Desk" (aktif profil)
 
-        let figma = Rule(
-            appName: "Figma", bundleID: "com.figma.Desktop", tokens: ["Design Review"],
+        // Figma/Slack yerine her Mac'te kurulu gelen sistem uygulamaları:
+        // gerçek ikon çıksın, "app.dashed" yer tutucusu görünmesin.
+        let reminders = Rule(
+            appName: "Reminders", bundleID: "com.apple.reminders", tokens: ["Design Review"],
             docked: Destination(screen: "external", desktop: 1, layout: .full))
 
-        let slack = Rule(
-            id: slackRuleID, appName: "Slack", bundleID: "com.tinyspeck.slackmacgap",
+        let messages = Rule(
+            id: messagesRuleID, appName: "Messages", bundleID: "com.apple.MobileSMS",
             tokens: ["acme-web"],
             docked: Destination(screen: "external", desktop: 2, layout: .rightHalf))
 
@@ -84,14 +86,14 @@ enum DemoData {
             id: extraRuleID, appName: "Safari", bundleID: "com.apple.Safari", tokens: ["Docs"],
             docked: Destination(screen: "builtin", desktop: 2, layout: .topHalf))
 
-        let deskRules = [figma, slack, mail, terminal, safariGitHub, vscode, obsidian, safariDocs]
+        let deskRules = [reminders, messages, mail, terminal, safariGitHub, vscode, obsidian, safariDocs]
 
         // MARK: "Café" (ikinci profil; canlı penceresi yok)
 
         let cafeRules = [
             Rule(appName: "Safari", bundleID: "com.apple.Safari", tokens: [],
                 docked: Destination(screen: "builtin", desktop: 1, layout: .full)),
-            Rule(appName: "Slack", bundleID: "com.tinyspeck.slackmacgap", tokens: [],
+            Rule(appName: "Messages", bundleID: "com.apple.MobileSMS", tokens: [],
                 docked: Destination(screen: "builtin", desktop: 2, layout: .full)),
         ]
 
@@ -111,10 +113,10 @@ enum DemoData {
         // MARK: Canlı pencereler
 
         let windows: [Router.WindowSnapshot] = [
-            window(1, pid: 5101, app: "Figma", bundle: "com.figma.Desktop",
-                  title: "Design Review — Figma", screen: "external", desktop: 1),
-            window(2, pid: 5102, app: "Slack", bundle: "com.tinyspeck.slackmacgap",
-                  title: "acme-web — Slack", screen: "external", desktop: 2),
+            window(1, pid: 5101, app: "Reminders", bundle: "com.apple.reminders",
+                  title: "Design Review — Reminders", screen: "external", desktop: 1),
+            window(2, pid: 5102, app: "Messages", bundle: "com.apple.MobileSMS",
+                  title: "acme-web — Messages", screen: "external", desktop: 2),
             window(3, pid: 5103, app: "Mail", bundle: "com.apple.mail",
                   title: "Release notes — Mail", screen: "external", desktop: 2),
             window(4, pid: 5104, app: "Terminal", bundle: "com.apple.Terminal",
@@ -128,8 +130,8 @@ enum DemoData {
             window(8, pid: 5108, app: "Safari", bundle: "com.apple.Safari",
                   title: "Docs — Safari", screen: "builtin", desktop: 2),
             // Pinsiz canlı pencereler (hiçbir kuralla eşleşmez).
-            window(unpinnedSlackWindowID, pid: 5109, app: "Slack",
-                  bundle: "com.tinyspeck.slackmacgap", title: "general — Slack",
+            window(unpinnedMessagesWindowID, pid: 5109, app: "Messages",
+                  bundle: "com.apple.MobileSMS", title: "general — Messages",
                   screen: "builtin", desktop: 2),
             window(10, pid: 5110, app: "Mail", bundle: "com.apple.mail",
                   title: "Inbox — Mail", screen: "builtin", desktop: 3),

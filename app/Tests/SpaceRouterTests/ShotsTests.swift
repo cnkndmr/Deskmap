@@ -74,27 +74,27 @@ struct ShotsTests {
 
     @Test func referencedRuleAndWindowIDsExist() {
         let world = DemoData.make()
-        #expect(world.document.rules.contains { $0.id == DemoData.slackRuleID })
+        #expect(world.document.rules.contains { $0.id == DemoData.messagesRuleID })
         #expect(world.document.rules.contains { $0.id == DemoData.extraRuleID })
-        #expect(world.windows.contains { $0.id == DemoData.unpinnedSlackWindowID })
+        #expect(world.windows.contains { $0.id == DemoData.unpinnedMessagesWindowID })
     }
 
     @Test func pinnedWindowResolvesThroughRouting() {
         let world = DemoData.make()
-        guard let figma = world.windows.first(where: { $0.appName == "Figma" }) else {
-            Issue.record("Demo dünyasında Figma penceresi yok")
+        guard let reminders = world.windows.first(where: { $0.appName == "Reminders" }) else {
+            Issue.record("Demo dünyasında Reminders penceresi yok")
             return
         }
         let match = Routing.select(
             rules: world.document.rules, sessionPins: [:], mode: .docked,
-            windowID: figma.id, bundleID: figma.bundleID, appName: figma.appName,
-            title: figma.title)
+            windowID: reminders.id, bundleID: reminders.bundleID, appName: reminders.appName,
+            title: reminders.title)
         #expect(match?.destination.screen == "external")
     }
 
     @Test func unpinnedWindowDoesNotResolve() {
         let world = DemoData.make()
-        guard let window = world.windows.first(where: { $0.id == DemoData.unpinnedSlackWindowID })
+        guard let window = world.windows.first(where: { $0.id == DemoData.unpinnedMessagesWindowID })
         else {
             Issue.record("Pinsiz demo penceresi yok")
             return

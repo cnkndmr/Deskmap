@@ -16,12 +16,20 @@ set -euo pipefail
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${1:-release}"
 APP_NAME="SpaceRouter"
+# The name people see: menu bar, Login Items, the Accessibility list. A rename
+# changes this one value; the bundle id, the URL scheme and the Application
+# Support folder keep their current names so existing installs keep working
+# (see docs/naming.md).
+DISPLAY_NAME="${DISPLAY_NAME:-Space Router}"
 BUNDLE_ID="com.spacerouter.app"
+COPYRIGHT="${COPYRIGHT:-© 2026 Can Kandemir. MIT licensed.}"
 VERSION="${VERSION:-$(cat "$PROJECT_DIR/VERSION")}"
 UNIVERSAL="${UNIVERSAL:-0}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 
-BUILD_ROOT="$PROJECT_DIR/build"
+# Where the .app is assembled. Overridable so a verification build can be made
+# without touching a copy that is currently running from build/.
+BUILD_ROOT="${BUILD_ROOT:-$PROJECT_DIR/build}"
 APP_BUNDLE="$BUILD_ROOT/$APP_NAME.app"
 
 info() { printf '\033[0;34m==>\033[0m %s\n' "$1"; }
@@ -81,7 +89,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>              <string>$APP_NAME</string>
-    <key>CFBundleDisplayName</key>       <string>Space Router</string>
+    <key>CFBundleDisplayName</key>       <string>$DISPLAY_NAME</string>
     <key>CFBundleIdentifier</key>        <string>$BUNDLE_ID</string>
     <key>CFBundleExecutable</key>        <string>$APP_NAME</string>
     <key>CFBundlePackageType</key>       <string>APPL</string>
@@ -89,6 +97,8 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
     <key>CFBundleVersion</key>           <string>$VERSION</string>
     <key>LSMinimumSystemVersion</key>    <string>13.0</string>
+    <key>LSApplicationCategoryType</key> <string>public.app-category.productivity</string>
+    <key>NSHumanReadableCopyright</key>  <string>$COPYRIGHT</string>
     <!-- Dil: İngilizce varsayılan; Türkçe tercih edenlere tr.lproj. -->
     <key>CFBundleDevelopmentRegion</key> <string>en</string>
     <key>CFBundleLocalizations</key>
