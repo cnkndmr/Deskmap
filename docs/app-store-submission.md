@@ -32,9 +32,12 @@ whether the store is possible at all is in
 Mac App Store apps must be sandboxed, and the sandbox breaks the two things
 this app does:
 
-- `AXUIElementSetAttributeValue` — how a window's position and size are set —
-  does not work inside the sandbox even with the Accessibility permission
-  granted. No layouts, no placing a window on a display.
+- The Accessibility API cannot reach other apps from inside the sandbox, even
+  with the permission granted. Measured on this Mac: a sandboxed probe with
+  `AXIsProcessTrusted() == true` fails to read Finder's window list with
+  −25204, where the unsandboxed build reads and moves the window
+  ([appstore/probe/README.md](../appstore/probe/README.md)). No window list,
+  no layouts, no placing a window on a display.
 - Moving a window to another Space has no public API. `Services/SkyLight.swift`
   resolves private `SLS…` functions at runtime, which App Review guideline
   2.5.1 forbids. Resolving them through `dlsym` hides nothing and is not a

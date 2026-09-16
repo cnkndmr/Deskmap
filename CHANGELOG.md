@@ -6,7 +6,16 @@ number comes from the `VERSION` file.
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- `appstore/probe/`: a two-build probe (sandboxed and not) that measures
+  whether the Accessibility API works inside the App Sandbox. Result on
+  macOS 26.6.2: with the permission granted, the sandboxed build still cannot
+  read another app's windows (−25204), so a Mac App Store edition of Deskmap
+  cannot place windows. `docs/distribution.md` and
+  `docs/app-store-submission.md` now cite the measurement. The unfinished
+  store edition (an `APPSTORE` compile flag without private API) waits on the
+  `deskmap-appstore` branch.
 
 ## [0.4.0] — 2026-09-16
 

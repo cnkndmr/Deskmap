@@ -22,6 +22,13 @@ how this app sets a window's position and size — does not work even after
 the user grants Accessibility permission. Without it there is no layout,
 no "put this window on the left half".
 
+Measured, not assumed: on 16 September 2026 (macOS 26.6.2) a sandboxed probe
+app with the Accessibility permission granted — `AXIsProcessTrusted()`
+returned true — could not even *read* Finder's windows
+(`kAXErrorCannotComplete`, −25204), while the same binary without the sandbox
+read, moved and restored the window. Details and the tool to repeat it:
+[appstore/probe/README.md](../appstore/probe/README.md).
+
 Magnet, Moom and BetterSnapTool are on the store while doing similar work
 because they shipped before sandboxing became mandatory and kept a legacy
 exemption. A new submission does not get that exemption, so their presence
