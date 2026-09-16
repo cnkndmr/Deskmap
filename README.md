@@ -17,7 +17,8 @@ profiles, and so on.
 *The screenshots come from the app itself, rendered with demo data:
 `Deskmap --shots <dir>` (see `app/Sources/Deskmap/Demo/`).*
 
-**New here?** The [user guide](docs/guide.md) — [Türkçe kılavuz](docs/kilavuz.md) —
+**New here?** The [user guide](docs/guide.md) — [Türkçe kılavuz](docs/kilavuz.md),
+or [both on one page](https://example.com) —
 walks through setup and your first pin in ten minutes. This README is the
 reference: every rule, every setting, every failure mode. See also
 [privacy](docs/privacy.md) (nothing is collected or sent) and
