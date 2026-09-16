@@ -6,7 +6,13 @@ number comes from the `VERSION` file.
 
 ## [Unreleased]
 
-`VERSION` already says 0.3.0; this section becomes 0.3.0 when it is tagged.
+Nothing yet.
+
+## [0.4.0] — 2026-09-16
+
+The release that made the app something you can hand to someone else: it
+speaks English, it has a guide and screenshots, and it has a name that says
+what it does.
 
 ### Added
 

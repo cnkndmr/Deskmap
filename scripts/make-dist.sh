@@ -26,7 +26,10 @@ FORMAT="${FORMAT:-zip}"                 # zip | dmg | both
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-}"
 
-BUILD_ROOT="$PROJECT_DIR/build"
+# Overridable, like in build-app.sh, so a release can be packaged while a copy
+# is running from build/ (which the build step deletes).
+BUILD_ROOT="${BUILD_ROOT:-$PROJECT_DIR/build}"
+export BUILD_ROOT
 APP_BUNDLE="$BUILD_ROOT/$APP_NAME.app"
 DIST_DIR="$BUILD_ROOT/dist"
 ZIP="$DIST_DIR/$APP_NAME-$VERSION.zip"
