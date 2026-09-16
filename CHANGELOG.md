@@ -146,6 +146,15 @@ what it does.
   Two things do need a hand: the Accessibility permission has to be granted
   again (new identifier, new signature) and **Launch at login** has to be
   switched back on. See [docs/naming.md](docs/naming.md).
+- Store and landing-page screenshots: `swift scripts/make-store-shots.swift`
+  puts the real captures on a backdrop with one line of copy and writes
+  2880×1800 and 1280×800 frames in both languages (`docs/store/`, generated,
+  not checked in). The raw captures are 1120×1280, which App Store Connect
+  does not accept.
+- `app/Resources/PrivacyInfo.xcprivacy`: no data collected, no tracking, one
+  required-reason API (user defaults). Copied into the bundle by
+  `build-app.sh`, and [docs/app-store-submission.md](docs/app-store-submission.md)
+  lists what else a submission would need.
 - New icon: a map marker whose head is a window. It is drawn in code
   (`scripts/make-icons.swift`, one command to regenerate every size and the
   `.icns`), and the sizes below 64 px drop the title bar and its dots, which

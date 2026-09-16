@@ -17,6 +17,9 @@ Package.resolved
 build/
 *.app/
 
+# Üretilen mağaza kareleri (kaynak: docs/images + scripts/make-store-shots.swift)
+docs/store/
+
 # Editör
 .vscode/
 .idea/

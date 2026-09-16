@@ -81,6 +81,11 @@ for lproj in "$RESOURCES_DIR"/*.lproj; do
 done
 ok "Localizations copied ($(cd "$RESOURCES_DIR" && ls -d *.lproj | sed 's/\.lproj//' | tr '\n' ' '))"
 
+# Privacy manifest: required for App Store submission, harmless otherwise.
+plutil -lint -s "$RESOURCES_DIR/PrivacyInfo.xcprivacy"
+cp "$RESOURCES_DIR/PrivacyInfo.xcprivacy" "$APP_BUNDLE/Contents/Resources/"
+ok "Privacy manifest copied"
+
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
