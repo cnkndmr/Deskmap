@@ -13,9 +13,17 @@ number comes from the `VERSION` file.
   macOS 26.6.2: with the permission granted, the sandboxed build still cannot
   read another app's windows (−25204), so a Mac App Store edition of Deskmap
   cannot place windows. `docs/distribution.md` and
-  `docs/app-store-submission.md` now cite the measurement. The unfinished
+  `appstore/submission.md` now cite the measurement. The unfinished
   store edition (an `APPSTORE` compile flag without private API) waits on the
   `deskmap-appstore` branch.
+
+### Changed
+
+- App Store material lives in one folder, `appstore/`: the submission
+  checklist (was `docs/app-store-submission.md`), the listing copy (was
+  `docs/listing.md`), the screenshot script (was
+  `scripts/make-store-shots.swift`) with its output in
+  `appstore/screenshots/`, and the sandbox probe.
 
 ## [0.4.0] — 2026-09-16
 

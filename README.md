@@ -24,7 +24,7 @@ reference: every rule, every setting, every failure mode. See also
 [privacy](docs/privacy.md) (nothing is collected or sent),
 [distribution](docs/distribution.md) (how signed builds are made, and why
 the Mac App Store isn't an option) and
-[the store checklist](docs/app-store-submission.md) (what is ready anyway,
+[the App Store folder](appstore/submission.md) (what is ready anyway,
 and what a submission would need).
 
 - [Requirements](#requirements)

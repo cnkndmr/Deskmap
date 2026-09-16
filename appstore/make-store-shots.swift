@@ -2,10 +2,10 @@
 //
 // Builds store/landing-page screenshots from the raw interface captures:
 //
-//   swift scripts/make-store-shots.swift
+//   swift appstore/make-store-shots.swift
 //
 // Reads docs/images/{en,tr}/*.png (produced by `Deskmap --shots`) and writes
-// docs/store/{en,tr}/ at the two sizes App Store Connect accepts for macOS,
+// appstore/screenshots/{en,tr}/ at the two sizes App Store Connect accepts for macOS,
 // 2880×1800 and 1280×800 — the raw captures are 1120×1280 and would be
 // rejected outright.
 //
@@ -148,7 +148,7 @@ func loadImage(_ url: URL) -> CGImage {
 
 for language in ["en", "tr"] {
     let input = root.appendingPathComponent("docs/images/\(language)")
-    let output = root.appendingPathComponent("docs/store/\(language)")
+    let output = root.appendingPathComponent("appstore/screenshots/\(language)")
     try! FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
     print("==> \(language)")
 
@@ -160,7 +160,7 @@ for language in ["en", "tr"] {
             let data = draw(shot: shot, caption: caption, width: width, height: height)
             let url = output.appendingPathComponent("\(frame.file)\(suffix).png")
             try! data.write(to: url, options: .atomic)
-            print("  ✓ docs/store/\(language)/\(frame.file)\(suffix).png")
+            print("  ✓ appstore/screenshots/\(language)/\(frame.file)\(suffix).png")
         }
     }
 }
