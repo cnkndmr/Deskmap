@@ -1,10 +1,10 @@
-# Space Router
+# Deskmap
 
 A macOS menu bar app that keeps windows on the right display, the right
 desktop (Space) and in the right layout, based on what their **window title**
 says. Pin a VS Code workspace to desktop 2 of your external monitor, a Safari
 tab group to the left half of desktop 1, an Obsidian vault to the laptop
-screen: Space Router puts each window back where it belongs whenever it
+screen: Deskmap puts each window back where it belongs whenever it
 opens, and again when you plug in or unplug a monitor.
 
 It is a single `.app` with no helper program (no Hammerspoon, no yabai). It
@@ -15,7 +15,7 @@ profiles, and so on.
 ![The menu bar window: one card per display, one row per desktop, pinned windows in place](docs/images/en/01-map.png)
 
 *The screenshots come from the app itself, rendered with demo data:
-`SpaceRouter --shots <dir>` (see `app/Sources/SpaceRouter/Demo/`).*
+`Deskmap --shots <dir>` (see `app/Sources/Deskmap/Demo/`).*
 
 **New here?** The [user guide](docs/guide.md) — [Türkçe kılavuz](docs/kilavuz.md) —
 walks through setup and your first pin in ten minutes. This README is the
@@ -47,17 +47,17 @@ the Mac App Store isn't an option).
 ## Install
 
 ```sh
-git clone https://github.com/cnkndmr/SpaceRouter.git SpaceRouter
-cd SpaceRouter
-make app                      # release build → build/SpaceRouter.app
-open build/SpaceRouter.app    # or: make run (builds and opens)
+git clone https://github.com/cnkndmr/Deskmap.git Deskmap
+cd Deskmap
+make app                      # release build → build/Deskmap.app
+open build/Deskmap.app    # or: make run (builds and opens)
 ```
 
 For a permanent install, copy the app to `/Applications` and turn on
 **Launch at login** in the app's footer:
 
 ```sh
-cp -R build/SpaceRouter.app /Applications/
+cp -R build/Deskmap.app /Applications/
 ```
 
 **Launch at login** registers whichever copy is running. If you run it from
@@ -66,15 +66,27 @@ cp -R build/SpaceRouter.app /Applications/
 confirm the login item, an orange **Approval needed** link appears next to
 the checkbox and opens System Settings › General › Login Items.
 
+### Coming from Space Router
+
+Deskmap is the same app under a new name (see
+[docs/naming.md](docs/naming.md)). Your pins come with you: on first launch
+`rules.json`, `rules.json.bak` and `session-pins.json` are copied from
+`~/Library/Application Support/SpaceRouter/` into the new folder — copied, so
+the old one stays where it is. `spacerouter://` URLs still work, and so do
+`.spacerouter.json` profile exports.
+
+Two things macOS ties to the old identity, so each needs doing once: grant the
+**Accessibility** permission again, and switch **Launch at login** back on.
+
 ### Accessibility permission
 
-Space Router reads and moves other apps' windows through the Accessibility
+Deskmap reads and moves other apps' windows through the Accessibility
 API, so it needs permission once:
 
 1. On first launch the window shows **Accessibility permission required**.
    Click **Grant Access**.
 2. macOS shows its prompt and opens System Settings › Privacy & Security ›
-   Accessibility. Turn on **SpaceRouter**.
+   Accessibility. Turn on **Deskmap**.
 3. The app checks the permission every 2 seconds and starts routing on its
    own. If it doesn't, quit it (✕ in the footer) and open it again.
 
@@ -82,7 +94,7 @@ The app is ad-hoc signed by default. macOS ties the permission to the code
 signature, so **every rebuild needs the permission granted again**; see
 [Troubleshooting](#accessibility-stops-working-after-a-rebuild).
 
-Only one copy runs at a time: if a second Space Router starts (for example a
+Only one copy runs at a time: if a second Deskmap starts (for example a
 `build/` copy while the `/Applications` copy is running), it quits right
 away, so two routers never fight over the same windows.
 
@@ -92,18 +104,18 @@ The interface is in English and has a Turkish translation. The app uses the
 first language in your preferred-language list (System Settings › General ›
 Language & Region) that it supports, so Turkish appears only when Turkish is
 listed before English (or English isn't listed at all). To force a language
-for Space Router alone:
+for Deskmap alone:
 
 ```sh
-defaults write com.spacerouter.app AppleLanguages -array en   # or: tr
-defaults delete com.spacerouter.app AppleLanguages            # back to the system order
+defaults write com.deskmap.app AppleLanguages -array en   # or: tr
+defaults delete com.deskmap.app AppleLanguages            # back to the system order
 ```
 
 Quit and reopen the app after changing it.
 
 ## Required macOS settings
 
-Space Router checks these settings live and shows an orange **macOS settings
+Deskmap checks these settings live and shows an orange **macOS settings
 need fixing** card until they are right. The card has an **Open Desktop &
 Dock** button.
 
@@ -114,11 +126,11 @@ Dock** button.
 | Automatically rearrange Spaces based on most recent use | **Off** | When on, macOS reorders your desktops: switching to an app from the Dock lands on a neighbouring Space, the window flashes and disappears, and pins end up on the wrong desktop numbers. |
 | When switching to an application, switch to a Space with open windows | **On** | When off, clicking an app in the Dock does not switch desktops. |
 | Group windows by application | Off (recommended) | When on, the Mission Control order may not match desktop numbers. |
-| Displays have separate Spaces | **On** | When off, Space Router cannot see the external display's desktops. |
+| Displays have separate Spaces | **On** | When off, Deskmap cannot see the external display's desktops. |
 
 **Dock icon › right-click › Options › Assign To → None** for every app you
 pin. With "This Desktop" or "All Desktops", macOS pulls the window to the
-Space it assigned, which conflicts with Space Router's moves. This one cannot
+Space it assigned, which conflicts with Deskmap's moves. This one cannot
 be checked automatically; the card reminds you, and **Got It** hides the
 reminder (the card comes back if one of the live-checked settings changes).
 
@@ -164,7 +176,7 @@ display, this desktop, in this layout*.
 - If you pin with the same app and the same parts as an existing pin, the
   existing pin is updated instead of creating a second one.
 
-What Space Router enforces:
+What Deskmap enforces:
 
 - **Desktop**: a pinned window is kept on its desktop. If it ends up
   elsewhere, it is moved back.
@@ -185,7 +197,7 @@ parts).
 In the pin panel, **This window only** pins one specific window instead of a
 title. Use it for apps whose windows all have the same title. A temporary pin
 follows the window's ID: it ends when the window closes or its app restarts,
-and it is not saved to the profile. It survives a Space Router restart as long
+and it is not saved to the profile. It survives a Deskmap restart as long
 as the window is still open. Temporary pins have an orange icon and take
 precedence over normal pins.
 
@@ -199,7 +211,7 @@ Each pin has a separate target for each mode:
 The mode selector shows the current mode ("now") by default; you can switch it
 to edit the other setup. Live windows are listed only for the current mode;
 the other mode shows its pins as chips. When a monitor is plugged in or
-unplugged, Space Router waits for the displays to settle (2.5 s, at most
+unplugged, Deskmap waits for the displays to settle (2.5 s, at most
 10 s) and then places every pinned window again.
 
 Displays are identified by role, not by serial number: `builtin`, `external`,
@@ -234,7 +246,7 @@ their pin count.
 - Click the active profile to rename, **Duplicate**, **Export** or **Delete**
   it (the last profile cannot be deleted).
 - **+** creates an empty profile. The import button reads a
-  `.spacerouter.json` file exported earlier; a plain `rules.json` also works.
+  `.deskmap.json` file exported earlier; a plain `rules.json` also works.
 - Profiles can be switched from Shortcuts, Raycast and others via the
   [URL scheme](#automation-url-scheme).
 
@@ -265,54 +277,54 @@ saved and survives restarts.
 
 | File | Contents |
 |---|---|
-| `~/Library/Application Support/SpaceRouter/rules.json` | Pins, profiles, known displays, the on/off switch. Written 0.4 s after a change and on quit. |
-| `~/Library/Application Support/SpaceRouter/rules.json.bak` | Copy of an unreadable or partly unreadable `rules.json`, made before it is overwritten. |
-| `~/Library/Application Support/SpaceRouter/session-pins.json` | Temporary pins (window ID + process ID). |
-| `<name>.spacerouter.json` | An exported profile. |
+| `~/Library/Application Support/Deskmap/rules.json` | Pins, profiles, known displays, the on/off switch. Written 0.4 s after a change and on quit. |
+| `~/Library/Application Support/Deskmap/rules.json.bak` | Copy of an unreadable or partly unreadable `rules.json`, made before it is overwritten. |
+| `~/Library/Application Support/Deskmap/session-pins.json` | Temporary pins (window ID + process ID). |
+| `<name>.deskmap.json` | An exported profile. |
 
 See [docs/architecture.md](docs/architecture.md#data-files) for the formats.
 
 ## Automation (URL scheme)
 
-Space Router handles `spacerouter://` URLs, so Shortcuts, Raycast,
+Deskmap handles `deskmap://` URLs, so Shortcuts, Raycast,
 Hammerspoon, Keyboard Maestro or a terminal can control it. If the app isn't
 running, macOS starts it first.
 
 | URL | Effect |
 |---|---|
-| `spacerouter://reapply` | Place pinned windows now (same as ↻ / ⌘R) |
-| `spacerouter://pause` | Pause routing |
-| `spacerouter://resume` | Resume routing |
-| `spacerouter://toggle` | Pause / resume |
-| `spacerouter://profile/<name>` | Switch to the named profile (exact match first, then case-insensitive) |
-| `spacerouter://profile?name=<name>` | Same; use this for names containing `/` |
-| `spacerouter://next-profile` | Switch to the next profile, wrapping around (`next` and `nextprofile` also work) |
+| `deskmap://reapply` | Place pinned windows now (same as ↻ / ⌘R) |
+| `deskmap://pause` | Pause routing |
+| `deskmap://resume` | Resume routing |
+| `deskmap://toggle` | Pause / resume |
+| `deskmap://profile/<name>` | Switch to the named profile (exact match first, then case-insensitive) |
+| `deskmap://profile?name=<name>` | Same; use this for names containing `/` |
+| `deskmap://next-profile` | Switch to the next profile, wrapping around (`next` and `nextprofile` also work) |
 
-Command names are case-insensitive, and `spacerouter:reapply` (without `//`)
+Command names are case-insensitive, and `deskmap:reapply` (without `//`)
 works too. Spaces and non-ASCII characters must be percent-encoded:
-`Office Desk` → `spacerouter://profile/Office%20Desk`. An unknown command or
+`Office Desk` → `deskmap://profile/Office%20Desk`. An unknown command or
 profile shows a red error in the app's footer; there is no other
 notification.
 
 ```sh
-open "spacerouter://profile/Office"
-open "spacerouter://reapply"
+open "deskmap://profile/Office"
+open "deskmap://reapply"
 ```
 
-- **Shortcuts**: add an **Open URLs** action with `spacerouter://profile/Home`,
+- **Shortcuts**: add an **Open URLs** action with `deskmap://profile/Home`,
   then attach a keyboard shortcut or a Focus automation.
-- **Raycast**: create a **Quicklink** such as `spacerouter://toggle`.
+- **Raycast**: create a **Quicklink** such as `deskmap://toggle`.
 - **Hammerspoon**:
 
   ```lua
   hs.hotkey.bind({"cmd", "alt"}, "1", function()
-    hs.urlevent.openURL("spacerouter://profile/Office")
+    hs.urlevent.openURL("deskmap://profile/Office")
   end)
   ```
 
 ## Keyboard shortcuts
 
-These work while the Space Router window is open and focused.
+These work while the Deskmap window is open and focused.
 
 | Keys | Action |
 |---|---|
@@ -326,15 +338,15 @@ These work while the Space Router window is open and focused.
 
 ### Accessibility stops working after a rebuild
 
-Symptoms: the permission card keeps coming back, or SpaceRouter looks enabled
+Symptoms: the permission card keeps coming back, or Deskmap looks enabled
 in System Settings but nothing moves. Each build is ad-hoc signed with a new
 signature, and macOS keeps the permission for the old one.
 
-1. Quit Space Router.
+1. Quit Deskmap.
 2. In System Settings › Privacy & Security › Accessibility, select
-   **SpaceRouter** and remove it with **−** (turning it off and on again is
+   **Deskmap** and remove it with **−** (turning it off and on again is
    often not enough). Alternatively, from a terminal:
-   `tccutil reset Accessibility com.spacerouter.app`.
+   `tccutil reset Accessibility com.deskmap.app`.
 3. Open the new build and grant the permission again.
 
 Signing with a stable identity (`SIGN_IDENTITY=... make app`, see
@@ -366,14 +378,14 @@ in the right layout, but not moved between desktops.
 ### "*App* not responding; skipped for now"
 
 An app did not answer Accessibility requests (it is frozen or stopped in a
-debugger). Space Router skips it for 2 s, doubling up to 30 s, so one app
+debugger). Deskmap skips it for 2 s, doubling up to 30 s, so one app
 can't stall the others. It is picked up again automatically once it responds.
 
 ### Errors about rules.json
 
 - "*N* rules could not be read": broken entries were skipped; the original
   file was saved as `rules.json.bak` first.
-- "rules.json belongs to a newer version of Space Router": a newer version
+- "rules.json belongs to a newer version of Deskmap": a newer version
   wrote this file. The older version reads it but won't overwrite it; changes
   are not saved.
 
@@ -390,7 +402,7 @@ The engine logs sparingly (moves, give-ups, unresponsive apps, display
 changes, sleep/wake) to the unified log. Window titles are redacted.
 
 ```sh
-log stream --predicate 'subsystem == "com.spacerouter.app"' --level info
+log stream --predicate 'subsystem == "com.deskmap.app"' --level info
 ```
 
 Categories: `routing`, `skylight`, `ax`, `screens`. At launch the `skylight`
@@ -400,8 +412,8 @@ this macOS uses.
 ## Architecture
 
 ```
-app/Sources/SpaceRouter/
-├── SpaceRouterApp.swift      App entry: MenuBarExtra, AppModel, URL delegate, single instance
+app/Sources/Deskmap/
+├── DeskmapApp.swift      App entry: MenuBarExtra, AppModel, URL delegate, single instance
 ├── Localization.swift        L(): English keys, Turkish table in app/Resources/tr.lproj
 ├── Models/
 │   ├── Rule.swift            Rule (pin), Destination, WindowLayout, Mode, title splitting
@@ -414,7 +426,7 @@ app/Sources/SpaceRouter/
 │   ├── SkyLight.swift        Reading and moving Spaces (private SkyLight calls)
 │   ├── ScreenService.swift   Connected displays, roles, settle delay
 │   ├── WindowEvents.swift    AX observers and workspace notifications that trigger sweeps
-│   ├── URLCommands.swift     spacerouter:// parsing and execution
+│   ├── URLCommands.swift     deskmap:// parsing and execution
 │   ├── MacSettings.swift     Live check of the required macOS settings
 │   └── Log.swift             os.Logger categories
 └── Views/                    Map, window rows, chips, pin/profile panels, status cards
@@ -452,7 +464,7 @@ make dist               # distributable package (see below)
 make clean              # delete build/ and app/.build/
 ```
 
-The tests (`app/Tests/SpaceRouterTests`, 122 tests in 10 suites) cover pure
+The tests (`app/Tests/DeskmapTests`, 122 tests in 10 suites) cover pure
 logic only: rule matching (including Turkish İ/ı case rules) and title
 splitting, layouts and coordinates, `rules.json` schema migrations, document
 operations on pins and profiles, import/export, target selection, retry and
@@ -471,7 +483,7 @@ push to `main` and on pull requests. The version number comes from the
 `VERSION` file.
 
 `scripts/build-and-run.command` (double-click in Finder) quits the running
-Space Router, builds and opens the new copy, and writes the output to
+Deskmap, builds and opens the new copy, and writes the output to
 `build/last-build.log`.
 
 ### Localization
@@ -485,11 +497,11 @@ unused, or if format specifiers don't match. See
 
 ### Distribution
 
-`make dist` builds a universal (arm64 + x86_64) `SpaceRouter.app` and packs it
-as `build/dist/SpaceRouter-<version>.zip` (`FORMAT=dmg` or `FORMAT=both` for
+`make dist` builds a universal (arm64 + x86_64) `Deskmap.app` and packs it
+as `build/dist/Deskmap-<version>.zip` (`FORMAT=dmg` or `FORMAT=both` for
 a DMG; `VERSION=0.3.1` overrides the version). The default signature is
 ad-hoc: recipients must open the app the first time with **right-click ›
-Open**, or run `xattr -dr com.apple.quarantine /Applications/SpaceRouter.app`.
+Open**, or run `xattr -dr com.apple.quarantine /Applications/Deskmap.app`.
 To distribute without Gatekeeper warnings, use a Developer ID and notarize:
 
 ```sh
@@ -504,7 +516,7 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
 - **Private APIs.** Moving windows between Spaces and finding windows on
   other desktops rely on private SkyLight and Accessibility functions. A macOS
   update can break them; the app then falls back to display and layout only.
-- **Desktops must exist.** Space Router can't create desktops; add them in
+- **Desktops must exist.** Deskmap can't create desktops; add them in
   Mission Control. Pins beyond the last desktop go to the last one.
 - **Titles must identify the window.** Apps that don't show a workspace or
   document name in the title can only be pinned app-wide or with temporary

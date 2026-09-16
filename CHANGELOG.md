@@ -34,10 +34,10 @@ number comes from the `VERSION` file.
   moving windows between Spaces needs private SkyLight calls; Developer ID
   and notarization instead) and `docs/naming.md` (the name is taken by an
   unrelated macOS product; candidates checked against the store catalogue).
-- Screenshot mode: `SpaceRouter --shots <dir>` renders the real interface with
+- Screenshot mode: `Deskmap --shots <dir>` renders the real interface with
   demo data — fabricated displays, profiles, pins and windows — and writes
   PNGs, without touching `rules.json`, the Accessibility permission or a
-  running copy (`app/Sources/SpaceRouter/Demo/`). Run it with
+  running copy (`app/Sources/Deskmap/Demo/`). Run it with
   `-AppleLanguages "(tr)"` for the Turkish set.
 - Bundle metadata for distribution: `LSApplicationCategoryType`
   (productivity) and `NSHumanReadableCopyright`. The displayed name is the
@@ -80,14 +80,14 @@ number comes from the `VERSION` file.
   desktops is not available on this macOS; only display and layout are
   applied" (below errors and unresponsive-app messages). The router's last
   action fades after 30 s.
-- `spacerouter://` URL scheme: `reapply`, `pause`, `resume`, `toggle`,
+- `deskmap://` URL scheme: `reapply`, `pause`, `resume`, `toggle`,
   `profile/<name>` (or `profile?name=<name>`), `next-profile`. Works with
   Shortcuts "Open URLs", Raycast, Hammerspoon `hs.urlevent.openURL` and `open`
   in a terminal. URLs arrive through the AppKit delegate
   (`application(_:open:)`); parsing is the pure `URLCommand.parse`
   (`Services/URLCommands.swift`). Unknown commands or profiles show an error
   in the footer.
-- Single-instance guard: if another Space Router with the same bundle ID is
+- Single-instance guard: if another Deskmap with the same bundle ID is
   running, the new one quits before creating a router, so two routers never
   fight over the same windows.
 - macOS settings card: "Automatically rearrange Spaces", "switch to a Space
@@ -112,20 +112,39 @@ number comes from the `VERSION` file.
   (`scripts/make-dist.sh`, `scripts/make-dist.command` for Finder).
   `build-app.sh` accepts `VERSION`, `UNIVERSAL` and `SIGN_IDENTITY`.
 - Unified logging (`Services/Log.swift`, `os.Logger`, subsystem
-  `com.spacerouter.app`, categories `routing`, `skylight`, `ax`, `screens`):
+  `com.deskmap.app`, categories `routing`, `skylight`, `ax`, `screens`):
   SkyLight status and move path at launch; every desktop move, layout/move
   give-ups, unresponsive-app backoff start/end, display settling, sleep
   pause/resume and temporary-pin expiry. Window titles are private; nothing
   is logged per sweep. Watch with
-  `log stream --predicate 'subsystem == "com.spacerouter.app"' --level info`.
+  `log stream --predicate 'subsystem == "com.deskmap.app"' --level info`.
 - `make concurrency-check`: a clean build with `-strict-concurrency=complete`
   that lists the warnings (Swift 6 preparation; package settings unchanged,
   separate build directory `app/.build/strict`).
 - `scripts/build-and-run.command`: double-click in Finder to quit the running
-  Space Router, build and reopen it; output goes to `build/last-build.log`.
+  Deskmap, build and reopen it; output goes to `build/last-build.log`.
 
 ### Changed
 
+- **The app is now called Deskmap.** The old name described the mechanism,
+  not the job, and it belonged to an unrelated macOS product already
+  (spacerouter.org ships a "SpaceRouter Proxy.app"). The rename goes all the
+  way down: Swift module and target, bundle identifier `com.deskmap.app`,
+  logger subsystem, `Deskmap.app`, the `deskmap://` URL scheme, the
+  `~/Library/Application Support/Deskmap/` folder and `.deskmap.json`
+  profile exports. Nothing an existing user set up breaks:
+  `spacerouter://` URLs are still accepted, old `.spacerouter.json` exports
+  and `spacerouter-profile` files still import, and on first launch
+  `rules.json`, `rules.json.bak` and `session-pins.json` are copied out of
+  the old folder — copied, not moved, so the old one is left untouched.
+  Two things do need a hand: the Accessibility permission has to be granted
+  again (new identifier, new signature) and **Launch at login** has to be
+  switched back on. See [docs/naming.md](docs/naming.md).
+- New icon: a map marker whose head is a window. It is drawn in code
+  (`scripts/make-icons.swift`, one command to regenerate every size and the
+  `.icns`), and the sizes below 64 px drop the title bar and its dots, which
+  at that size are only smudges. The menu bar template is the same marker as
+  a single silhouette with the window cut out of it.
 - Log messages, `make help`, build script output and CI step names are in
   English. Code comments stay in Turkish. The CI job is now called "Swift
   build and tests".
@@ -210,7 +229,7 @@ number comes from the `VERSION` file.
   file unreadable; now only that rule is skipped, the footer shows "N rules
   could not be read", and the file is first backed up to `rules.json.bak`.
   Profile import is equally lenient.
-- A `rules.json` written by a newer Space Router (`version` > 3) is no longer
+- A `rules.json` written by a newer Deskmap (`version` > 3) is no longer
   overwritten by an older one: the file is read, saving is disabled and the
   footer shows a warning.
 - The router skipped a window because of a more specific rule that had no

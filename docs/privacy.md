@@ -26,8 +26,8 @@ What it writes stays on the Mac, in your own Application Support folder:
 
 | File | Contents |
 |---|---|
-| `~/Library/Application Support/SpaceRouter/rules.json` | your pins, profiles and known displays |
-| `~/Library/Application Support/SpaceRouter/session-pins.json` | temporary pins (window and process IDs) |
+| `~/Library/Application Support/Deskmap/rules.json` | your pins, profiles and known displays |
+| `~/Library/Application Support/Deskmap/session-pins.json` | temporary pins (window and process IDs) |
 
 Both are plain JSON you can read, edit or delete. Deleting them resets the
 app; deleting the app leaves nothing else behind.
@@ -35,7 +35,7 @@ app; deleting the app leaves nothing else behind.
 ## Logs
 
 The app writes sparse entries to the macOS unified log (subsystem
-`com.spacerouter.app`): desktop moves, give-ups, unresponsive apps, display
+`com.deskmap.app`): desktop moves, give-ups, unresponsive apps, display
 changes, sleep and wake. App names and display names appear in the clear so
 the log is useful; **window titles are never logged**. These entries stay on
 your Mac like every other system log and are not collected by anyone.
@@ -57,6 +57,6 @@ Uygulama hiçbir veri toplamaz, hiçbir şey göndermez; içinde ağ kodu yoktur
 Erişilebilirlik izniyle yalnızca açık pencerelerin uygulaması, başlığı,
 konumu ve bulunduğu ekran/masaüstü bilgisini okur; pencere içeriğine,
 belgelerine, tuş vuruşlarına bakmaz. Yazdığı tek şey kendi
-`~/Library/Application Support/SpaceRouter/` klasöründeki iki JSON
+`~/Library/Application Support/Deskmap/` klasöründeki iki JSON
 dosyasıdır. macOS sistem günlüğüne seyrek satır yazar; **pencere başlıkları
 günlüğe yazılmaz**. Tek istediği izin Erişilebilirlik'tir.

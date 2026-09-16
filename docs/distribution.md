@@ -71,7 +71,7 @@ staples the ticket and verifies the result.
 
 Until then `make dist` produces an ad-hoc signed zip: the receiver must
 right-click › Open once, or run
-`xattr -dr com.apple.quarantine /Applications/SpaceRouter.app`.
+`xattr -dr com.apple.quarantine /Applications/Deskmap.app`.
 
 ### One caveat about Accessibility permission
 

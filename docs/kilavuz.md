@@ -1,6 +1,6 @@
 # Kullanım kılavuzu
 
-Space Router her pencereni doğru ekrana, doğru masaüstüne, doğru boyutta
+Deskmap her pencereni doğru ekrana, doğru masaüstüne, doğru boyutta
 koyar — ve sen bir daha söylemeden koymaya devam eder.
 
 Bir kez söylüyorsun: *"başlığında `acme-web` geçen pencere, monitörde,
@@ -13,12 +13,12 @@ Bu kılavuz on dakika sürer. macOS 13 ya da üstü gerekir.
 
 ## 1. Kur ve izni ver
 
-1. **SpaceRouter.app**'i Uygulamalar klasörüne kopyala ve aç. Dock'ta simgesi
+1. **Deskmap.app**'i Uygulamalar klasörüne kopyala ve aç. Dock'ta simgesi
    yok; menü çubuğunda yaşar.
 2. Menü çubuğundaki simgeye tıkla. İlk gördüğün **Erişilebilirlik izni
    gerekli** kartı olacak → **İzin ver**'e bas.
 3. macOS, Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik'i açar.
-   **SpaceRouter**'ı aç.
+   **Deskmap**'ı aç.
 
    Bu izin pencere başlıklarını görmek ve pencereleri taşımak için gerekli.
    Başka bir şeye bakmaz: ağ yok, dosyalarına erişim yok, pencere içeriği yok.
@@ -122,7 +122,7 @@ geçiş yapar.
 
 - **+** boş profil açar; etkin profile tıklayınca adını değiştir, çoğalt, dışa
   aktar ya da sil.
-- Dışa aktarma `.spacerouter.json` dosyası yazar — kurulumunu başka Mac'e
+- Dışa aktarma `.deskmap.json` dosyası yazar — kurulumunu başka Mac'e
   taşımanın ya da paylaşmanın yolu.
 
 ## 8. Fikrini değiştirdiğinde
@@ -137,13 +137,13 @@ geçiş yapar.
 
 ## 9. Tek tuşla kurulum (isteğe bağlı)
 
-Uygulama `spacerouter://` bağlantılarını yanıtlar; URL açabilen her şey onu
+Uygulama `deskmap://` bağlantılarını yanıtlar; URL açabilen her şey onu
 sürebilir:
 
 ```sh
-open "spacerouter://profile/Kafe"   # profil değiştir
-open "spacerouter://reapply"        # her şeyi şimdi yerleştir
-open "spacerouter://toggle"         # duraklat / sürdür
+open "deskmap://profile/Kafe"   # profil değiştir
+open "deskmap://reapply"        # her şeyi şimdi yerleştir
+open "deskmap://toggle"         # duraklat / sürdür
 ```
 
 Birini bir Shortcut'a koy, klavye kısayolu bağla; ya da macOS Focus

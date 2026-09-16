@@ -1,6 +1,6 @@
 # User guide
 
-Space Router puts each of your windows on the right display, on the right
+Deskmap puts each of your windows on the right display, on the right
 desktop, in the right size — and keeps putting it back, without you asking
 again.
 
@@ -14,12 +14,12 @@ This guide takes about ten minutes. You need macOS 13 or later.
 
 ## 1. Install and give permission
 
-1. Copy **SpaceRouter.app** to your Applications folder and open it. It has
+1. Copy **Deskmap.app** to your Applications folder and open it. It has
    no Dock icon; it lives in the menu bar.
 2. Click the menu bar icon. The first thing you see is **Accessibility
    permission required** → click **Grant Access**.
 3. macOS opens System Settings › Privacy & Security › Accessibility. Turn
-   **SpaceRouter** on.
+   **Deskmap** on.
 
    The app needs this to see window titles and to move windows. It reads
    nothing else: no network, no files of yours, no window contents.
@@ -125,7 +125,7 @@ switch between them instantly.
 
 - **+** makes an empty profile; click the active one to rename, duplicate,
   export or delete it.
-- Export writes a `.spacerouter.json` file — that's how you carry your setup
+- Export writes a `.deskmap.json` file — that's how you carry your setup
   to another Mac, or share it.
 
 ## 8. When you change your mind
@@ -139,13 +139,13 @@ switch between them instantly.
 
 ## 9. One-key setups (optional)
 
-The app answers `spacerouter://` links, so anything that can open a URL can
+The app answers `deskmap://` links, so anything that can open a URL can
 drive it:
 
 ```sh
-open "spacerouter://profile/Café"   # switch profile
-open "spacerouter://reapply"        # place everything now
-open "spacerouter://toggle"         # pause / resume
+open "deskmap://profile/Café"   # switch profile
+open "deskmap://reapply"        # place everything now
+open "deskmap://toggle"         # pause / resume
 ```
 
 Put one in a Shortcut and give it a keyboard shortcut, or trigger it from a

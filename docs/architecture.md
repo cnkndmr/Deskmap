@@ -1,4 +1,4 @@
-# Space Router architecture
+# Deskmap architecture
 
 This document describes how the app is put together: the main types, what
 happens during a sweep, the retry limits, the data files, and how
@@ -6,7 +6,7 @@ localization works. The [README](../README.md) covers usage.
 
 ## Overview
 
-Space Router is a SwiftUI `MenuBarExtra` app (`LSUIElement`, no Dock icon)
+Deskmap is a SwiftUI `MenuBarExtra` app (`LSUIElement`, no Dock icon)
 built as a Swift package (`app/Package.swift`, macOS 13+) and wrapped into an
 `.app` by `scripts/build-app.sh`. There is no Xcode project.
 
@@ -46,7 +46,7 @@ background queue
 | `SkyLight` | `Services/SkyLight.swift` | Private Spaces API: desktops per display, spaces of a window, moving a window to a space. |
 | `ScreenService` | `Services/ScreenService.swift` | Connected displays with roles; `isSettling` while displays are being rearranged. |
 | `WindowEvents` | `Services/WindowEvents.swift` | AX observers per app and workspace notifications; publishes a signal that triggers a sweep. |
-| `URLCommand` / `URLCommands` | `Services/URLCommands.swift` | Pure parser for `spacerouter://` URLs and the code that runs them. |
+| `URLCommand` / `URLCommands` | `Services/URLCommands.swift` | Pure parser for `deskmap://` URLs and the code that runs them. |
 | `MacSettings` | `Services/MacSettings.swift` | Reads Dock/Spaces preferences for the setup card. |
 | `UIState` | `Views/UIState.swift` | View state: the single open bottom panel (`BottomPanel`), drag state, window snapshot, desktop counts. |
 
@@ -60,7 +60,7 @@ A sweep is triggered by:
   Space changed,
 - a change to the active rules (new pin, profile switch, …),
 - displays settling after a change,
-- ⌘R / ↻ / `spacerouter://reapply`, which also clears the layout memory.
+- ⌘R / ↻ / `deskmap://reapply`, which also clears the layout memory.
 
 It does nothing without Accessibility permission, and it pauses while the
 displays or the system sleep (resuming right after wake; a safety check in
@@ -135,7 +135,7 @@ The chosen path is logged once at launch (`skylight` category).
 
 ## Data files
 
-All files live in `~/Library/Application Support/SpaceRouter/`.
+All files live in `~/Library/Application Support/Deskmap/`.
 
 ### rules.json (schema version 3)
 
@@ -154,7 +154,7 @@ All files live in `~/Library/Application Support/SpaceRouter/`.
       "id": "…",
       "appName": "Code",
       "bundleID": "com.microsoft.VSCode",
-      "tokens": ["SpaceRouter"],
+      "tokens": ["Deskmap"],
       "docked":   { "screen": "external", "desktop": 2,
                     "layout": { "x": 0, "y": 0, "w": 0.5, "h": 1 } },
       "undocked": { "screen": "builtin",  "desktop": 1,
@@ -172,7 +172,7 @@ All files live in `~/Library/Application Support/SpaceRouter/`.
   `rules.json.bak` first and the footer shows how many were skipped).
 - v1 files (`app` / `match` fields) and v2 files (no profiles) are migrated
   on read; their rules become one profile.
-- A file whose `version` is higher than 3 was written by a newer Space Router:
+- A file whose `version` is higher than 3 was written by a newer Deskmap:
   it is read, but never overwritten.
 - The keys above are a stable format; a new UI language doesn't change them.
   Profile names are user data and are kept as typed.
@@ -183,10 +183,10 @@ A list of temporary pins: `windowID`, `pid`, `bundleID`, `appName`, `title`,
 `destination`. At launch only entries whose window ID still exists in the
 window server with the same process ID are restored.
 
-### Profile export (`<name>.spacerouter.json`)
+### Profile export (`<name>.deskmap.json`)
 
 ```json
-{ "kind": "spacerouter-profile", "version": 1, "name": "Office",
+{ "kind": "deskmap-profile", "version": 1, "name": "Office",
   "exportedAt": "2026-09-14T10:00:00Z", "screens": [ … ], "rules": [ … ] }
 ```
 
@@ -197,8 +197,8 @@ and unknown display roles from `screens` are added to the map. A plain
 ## URL scheme
 
 `URLCommand.parse` is a pure function (unit-tested): the scheme must be
-`spacerouter`; the command comes from the host (`spacerouter://reapply`) or
-from the first path component (`spacerouter:reapply`), case-insensitively.
+`deskmap`, or the old `spacerouter` which is still accepted; the command comes from the host (`deskmap://reapply`) or
+from the first path component (`deskmap:reapply`), case-insensitively.
 `profile` takes the name from the `name` query item or from the rest of the
 path (percent-decoded). URLs arrive through
 `NSApplicationDelegate.application(_:open:)`, which works for a menu bar app
@@ -233,14 +233,14 @@ add the code to `CFBundleLocalizations` in `scripts/build-app.sh`, and extend
 ## Logging
 
 `Log` (`Services/Log.swift`) defines four `os.Logger` categories under the
-subsystem `com.spacerouter.app`: `routing` (moves, give-ups, temporary pin
+subsystem `com.deskmap.app`: `routing` (moves, give-ups, temporary pin
 expiry), `skylight` (availability and move path), `ax` (unresponsive apps,
 observer registration), `screens` (display changes, sleep/wake). Nothing is
 logged per sweep. Window titles are logged as `.private`.
 
 ## Tests
 
-`app/Tests/SpaceRouterTests` (Swift Testing):
+`app/Tests/DeskmapTests` (Swift Testing):
 
 | Suite | Covers |
 |---|---|
