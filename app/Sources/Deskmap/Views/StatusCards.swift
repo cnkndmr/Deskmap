@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - macOS ayarları kartı
 
-/// Space Router'ın çalışması için gereken macOS ayarları. Canlı denetlenen
+/// Deskmap'in çalışması için gereken macOS ayarları. Canlı denetlenen
 /// ayarlardan biri yanlışsa kart kapatılamaz; hepsi doğruysa yalnızca
 /// genel hatırlatma gösterilir ve "Anladım" ile gizlenir.
 struct SetupCard: View {
@@ -24,7 +24,7 @@ struct SetupCard: View {
                         .font(.callout.weight(.semibold))
                     Text(allOK
                          ? L("Things to check once during setup are listed below.")
-                         : L("With these settings Space Router cannot work properly: switching from the Dock goes to the wrong desktop, and windows appear and vanish."))
+                         : L("With these settings Deskmap cannot work properly: switching from the Dock goes to the wrong desktop, and windows appear and vanish."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

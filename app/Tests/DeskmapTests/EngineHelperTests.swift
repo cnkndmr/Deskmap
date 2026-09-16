@@ -2,7 +2,7 @@ import ApplicationServices
 import CoreGraphics
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// Motorun saf yardımcıları: yanıt vermeyen uygulama kararı, pencere
 /// sunucusu kaydı süzgeci, masaüstü taşıma soğuması, harici ekran

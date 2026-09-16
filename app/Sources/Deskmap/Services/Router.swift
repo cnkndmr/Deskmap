@@ -72,7 +72,7 @@ final class Router: ObservableObject {
     private let store: Store
     private let screens: ScreenService
     private let events: WindowEvents
-    private let queue = DispatchQueue(label: "spacerouter.router", qos: .utility)
+    private let queue = DispatchQueue(label: "deskmap.router", qos: .utility)
     // nonisolated(unsafe): ikisi de yalnızca init'te (ana aktör) doldurulur,
     // deinit'te kapatılır; `Timer` ve gözlemci belirteci Sendable olmadığı
     // için deinit erişimi başka türlü sıkı eşzamanlılık uyarısı verir.

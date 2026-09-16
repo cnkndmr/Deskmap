@@ -1,11 +1,11 @@
-# Space Router — sık kullanılan komutlar.
+# Deskmap — sık kullanılan komutlar.
 
-PROJECT := SpaceRouter
+PROJECT := Deskmap
 
 .PHONY: help app run check test concurrency-check dist clean
 
 help:
-	@echo "make app        Build the menu bar app (build/SpaceRouter.app)"
+	@echo "make app        Build the menu bar app (build/$(PROJECT).app)"
 	@echo "make run        Build and open it"
 	@echo "make check      Debug build"
 	@echo "make test       Unit tests (swift test)"

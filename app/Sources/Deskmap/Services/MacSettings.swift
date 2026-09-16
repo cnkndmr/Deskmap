@@ -1,14 +1,14 @@
 import AppKit
 import Foundation
 
-/// Space Router'ın düzgün çalışması için gereken macOS ayarları. Dock ve
+/// Deskmap'in düzgün çalışması için gereken macOS ayarları. Dock ve
 /// Spaces tercihleri `defaults` alanlarından okunur; anahtar yoksa
 /// macOS'un varsayılanı kabul edilir.
 ///
 /// Neden gerekli (3 Eylül 2026'da yaşandı): "Automatically rearrange
 /// Spaces" açıkken Dock'tan başka masaüstündeki uygulamaya geçiş komşu
 /// Space'e gidiyor, pencere belirip kayboluyor; Dock'ta "Assign To" atanmış
-/// pencere Space Router'ın taşımasıyla çelişiyor.
+/// pencere Deskmap'in taşımasıyla çelişiyor.
 enum MacSettings {
 
     struct Check: Identifiable, Equatable {
@@ -43,14 +43,14 @@ enum MacSettings {
                   ok: !groupApps),
             Check(id: "spans",
                   title: "Displays have separate Spaces",
-                  detail: L("Must be ON. When off, Space Router cannot see the external display's desktops."),
+                  detail: L("Must be ON. When off, Deskmap cannot see the external display's desktops."),
                   ok: !spansDisplays),
         ]
     }
 
     /// Canlı denetlenemeyen, kurulumda bir kez okunması gereken uyarılar.
     static let reminders: [String] = [
-        L("For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Space Router's moves."),
+        L("For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Deskmap's moves."),
         L("Settings: System Settings › Desktop & Dock › Mission Control section."),
     ]
 

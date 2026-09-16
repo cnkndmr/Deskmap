@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// `--shots` argüman ayrıştırması ve demo belgenin geçerliliği. Hiçbiri
 /// diske yazmaz; `Shots.run` (PNG üretip `exit(0)` çağıran gerçek yol)
@@ -11,28 +11,28 @@ struct ShotsTests {
     // MARK: - Argüman ayrıştırma
 
     @Test func noShotsFlagReturnsNil() {
-        #expect(Shots.parseOptions(["SpaceRouter"]) == nil)
-        #expect(Shots.parseOptions(["SpaceRouter", "--other", "x"]) == nil)
+        #expect(Shots.parseOptions(["Deskmap"]) == nil)
+        #expect(Shots.parseOptions(["Deskmap", "--other", "x"]) == nil)
     }
 
     @Test func shotsFlagWithoutValueReturnsNil() {
-        #expect(Shots.parseOptions(["SpaceRouter", "--shots"]) == nil)
+        #expect(Shots.parseOptions(["Deskmap", "--shots"]) == nil)
     }
 
     @Test func shotsFlagReadsDirectory() {
-        let options = Shots.parseOptions(["SpaceRouter", "--shots", "/tmp/out"])
+        let options = Shots.parseOptions(["Deskmap", "--shots", "/tmp/out"])
         #expect(options?.directory == "/tmp/out")
         #expect(options?.only == nil)
     }
 
     @Test func onlyFlagReadsCommaSeparatedNames() {
         let options = Shots.parseOptions(
-            ["SpaceRouter", "--shots", "/tmp/out", "--only", "01-map, 03-layout"])
+            ["Deskmap", "--shots", "/tmp/out", "--only", "01-map, 03-layout"])
         #expect(options?.only == ["01-map", "03-layout"])
     }
 
     @Test func onlyFlagWithoutValueIsIgnored() {
-        let options = Shots.parseOptions(["SpaceRouter", "--shots", "/tmp/out", "--only"])
+        let options = Shots.parseOptions(["Deskmap", "--shots", "/tmp/out", "--only"])
         #expect(options?.directory == "/tmp/out")
         #expect(options?.only == nil)
     }

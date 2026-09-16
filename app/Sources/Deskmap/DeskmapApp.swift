@@ -4,7 +4,7 @@ import SwiftUI
 /// Gerçek giriş noktası. `--shots <dizin>` varsa (bkz. `Shots.swift`) normal
 /// uygulama hiç başlamaz: `AppModel`, `SingleInstance` ve dolayısıyla
 /// `Store`/`ScreenService`/`Router`'ın disk/tarama yapan üretim yolu
-/// çalışmaz. Yoksa `SpaceRouterApp.main()` (SwiftUI'nin `App` için ürettiği
+/// çalışmaz. Yoksa `DeskmapApp.main()` (SwiftUI'nin `App` için ürettiği
 /// varsayılan giriş) üretim yolunu değişmeden çalıştırır.
 @main
 enum AppEntry {
@@ -12,11 +12,11 @@ enum AppEntry {
         if let options = Shots.parseOptions(CommandLine.arguments) {
             MainActor.assumeIsolated { Shots.run(options) }
         }
-        SpaceRouterApp.main()
+        DeskmapApp.main()
     }
 }
 
-struct SpaceRouterApp: App {
+struct DeskmapApp: App {
 
     @NSApplicationDelegateAdaptor private var delegate: AppDelegate
 
@@ -73,7 +73,7 @@ final class AppModel {
     }
 }
 
-/// `spacerouter://` URL'lerini alır. LSUIElement menü çubuğu uygulamasında
+/// `deskmap://` (eski `spacerouter://`) URL'lerini alır. LSUIElement menü çubuğu uygulamasında
 /// SwiftUI `.onOpenURL` güvenilir değil (sahne pencere değil); AppKit
 /// delegate'i Launch Services'ten gelen URL'leri her durumda alır,
 /// uygulama URL ile soğuk başlatılsa bile.
@@ -86,7 +86,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-/// Tek kopya koruması. İki Space Router aynı anda çalışırsa iki Router
+/// Tek kopya koruması. İki Deskmap aynı anda çalışırsa iki Router
 /// aynı pencereleri iki ayrı düzen belleğiyle taşımaya çalışır: pencere
 /// ileri geri gider, rules.json'u ikisi de yazar. Bu yüzden aynı bundle
 /// kimliğiyle çalışan başka bir kopya varsa yenisi hemen çıkar; eskisi

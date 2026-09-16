@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// `WindowLayout` oranları ve `Coordinates` dönüşümleri.
 struct LayoutTests {

@@ -2,19 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "SpaceRouter",
+    name: "Deskmap",
     platforms: [
         .macOS(.v13)
     ],
     targets: [
         .executableTarget(
-            name: "SpaceRouter",
-            path: "Sources/SpaceRouter"
+            name: "Deskmap",
+            path: "Sources/Deskmap"
         ),
         .testTarget(
-            name: "SpaceRouterTests",
-            dependencies: ["SpaceRouter"],
-            path: "Tests/SpaceRouterTests"
+            name: "DeskmapTests",
+            dependencies: ["Deskmap"],
+            path: "Tests/DeskmapTests"
         ),
     ]
 )

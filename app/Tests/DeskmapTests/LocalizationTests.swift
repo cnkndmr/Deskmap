@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// Yerelleştirme: kaynaktaki `L("...")` anahtarları ile
 /// `app/Resources/*.lproj/Localizable.strings` tabloları tutarlı mı?
@@ -13,7 +13,7 @@ struct LocalizationTests {
 
     // MARK: - Dosyalar
 
-    /// `app/` dizini (bu dosya app/Tests/SpaceRouterTests içinde).
+    /// `app/` dizini (bu dosya app/Tests/DeskmapTests içinde).
     private static let appDirectory = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent()
         .deletingLastPathComponent()
@@ -47,11 +47,11 @@ struct LocalizationTests {
         let problem: String?
     }
 
-    /// `app/Sources/SpaceRouter` altındaki bütün `L(` çağrıları (yorum
+    /// `app/Sources/Deskmap` altındaki bütün `L(` çağrıları (yorum
     /// satırları hariç). `Localization.swift` `L`'yi tanımlar; içindeki
     /// `L(key)` çağrısı bir anahtar değildir, taranmaz.
     private static func sourceCalls() throws -> [Call] {
-        let sources = appDirectory.appendingPathComponent("Sources/SpaceRouter")
+        let sources = appDirectory.appendingPathComponent("Sources/Deskmap")
         let files = (FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)?
             .compactMap { $0 as? URL } ?? [])
             .filter { $0.pathExtension == "swift" && $0.lastPathComponent != "Localization.swift" }

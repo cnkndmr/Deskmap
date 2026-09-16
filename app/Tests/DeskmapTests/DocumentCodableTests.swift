@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// `rules.json` çözümleme: eski şemalar, varsayılanlar, hoşgörülü okuma.
 struct DocumentCodableTests {

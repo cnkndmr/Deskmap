@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// `Rule` eşleştirme, sıralama, başlık parçalama ve anahtar karşılaştırması.
 struct RuleTests {

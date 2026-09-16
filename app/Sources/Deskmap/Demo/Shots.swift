@@ -2,14 +2,14 @@ import AppKit
 import Foundation
 import SwiftUI
 
-/// `SpaceRouter --shots <dizin>` modu: gerçek `RootView`'ı uydurma demo
+/// `Deskmap --shots <dizin>` modu: gerçek `RootView`'ı uydurma demo
 /// veriyle (bkz. `DemoData`) çizip App Store / web sitesi için PNG üretir,
 /// sonra çıkar. Tarama yok, AX yok, SkyLight yok, zamanlayıcı yok,
 /// tek-kopya kontrolü yok; `Store`/`ScreenService`/`Router`'ın disk/tarama
 /// yapan üretim yolu hiç çalıştırılmaz (bkz. o tiplerin `demo` init'leri).
 ///
 /// `AppEntry.main()` normal uygulama başlamadan önce argümanlara bakar;
-/// `--shots` varsa `SpaceRouterApp.main()` (ve dolayısıyla `AppModel`,
+/// `--shots` varsa `DeskmapApp.main()` (ve dolayısıyla `AppModel`,
 /// `SingleInstance`) hiç çağrılmaz.
 enum Shots {
 
@@ -170,7 +170,7 @@ private final class ShotsWindow: NSWindow {
 /// Shots modunda `RootView`'ı saran görünüm. `.regularMaterial` gerçek bir
 /// pencere art alanı olmadan (offscreen yakalamada) saydam/boş çizilebilir;
 /// yalnızca burada, yalnızca shots modunda opak bir art alan eklenir.
-/// Üretim yolunda (`SpaceRouterApp`) bu sarmalayıcı hiç kullanılmaz,
+/// Üretim yolunda (`DeskmapApp`) bu sarmalayıcı hiç kullanılmaz,
 /// `RootView`'ın kendisi değişmez.
 private struct ShotsRootView: View {
     var body: some View {

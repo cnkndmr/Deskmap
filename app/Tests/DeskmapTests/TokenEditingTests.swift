@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// Var olan bir pinin başlık parçalarını değiştirme: `Document.setTokens`
 /// (anahtar çakışması denetimi) ve `TokenPicker` saf yardımcıları.

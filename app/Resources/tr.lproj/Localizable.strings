@@ -1,7 +1,7 @@
 /*
-  Space Router — Türkçe.
+  Deskmap — Türkçe.
 
-  Anahtar İngilizce metnin kendisidir (app/Sources/SpaceRouter/Localization.swift).
+  Anahtar İngilizce metnin kendisidir (app/Sources/Deskmap/Localization.swift).
   Biçim belirteçleri anahtarla aynı olmalı; sıra değişiyorsa %1$@ / %2$ld kullanın.
   LocalizationTests: her L("...") anahtarının burada karşılığı var mı, fazla anahtar
   var mı ve belirteçler uyuşuyor mu diye denetler.
@@ -25,9 +25,9 @@
 "Default" = "Varsayılan";
 "Profile %ld" = "Profil %ld";
 "Profile not found" = "Profil bulunamadı";
-"This is not a Space Router profile" = "Bu bir Space Router profili değil";
+"This is not a Deskmap profile" = "Bu bir Deskmap profili değil";
 "Imported" = "İçe aktarılan";
-"rules.json belongs to a newer version of Space Router; changes will not be saved" = "rules.json daha yeni bir Space Router sürümüne ait; değişiklikler kaydedilmeyecek";
+"rules.json belongs to a newer version of Deskmap; changes will not be saved" = "rules.json daha yeni bir Deskmap sürümüne ait; değişiklikler kaydedilmeyecek";
 "1 rule could not be read" = "1 kural okunamadı";
 "%ld rules could not be read" = "%ld kural okunamadı";
 "Could not read rules.json: %@" = "rules.json okunamadı: %@";
@@ -51,8 +51,8 @@
 "Must be OFF. When on, macOS reorders your desktops: switching to an app from the Dock goes to the wrong Space and pin desktop numbers shift." = "KAPALI olmalı. Açıkken macOS masaüstü sırasını değiştirir; Dock'tan uygulamaya geçiş yanlış Space'e gider, pinlerin masaüstü numaraları kayar.";
 "Must be ON. When off, clicking an app in the Dock does not switch desktops." = "AÇIK olmalı. Kapalıyken Dock'a tıklamak masaüstü değiştirmez.";
 "OFF is recommended. When on, the Mission Control order may not match desktop numbers." = "KAPALI önerilir; açıkken Mission Control sırası ile masaüstü numaraları uyuşmayabilir.";
-"Must be ON. When off, Space Router cannot see the external display's desktops." = "AÇIK olmalı. Kapalıyken Space Router harici ekranın masaüstlerini göremez.";
-"For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Space Router's moves." = "Pinlediğiniz uygulamaların Dock simgesinde sağ tık › Options › Assign To \"None\" olmalı. \"This Desktop\" / \"All Desktops\" seçiliyse macOS pencereyi kendi atadığı Space'e çeker; Space Router'ın taşımasıyla çelişir.";
+"Must be ON. When off, Deskmap cannot see the external display's desktops." = "AÇIK olmalı. Kapalıyken Deskmap harici ekranın masaüstlerini göremez.";
+"For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Deskmap's moves." = "Pinlediğiniz uygulamaların Dock simgesinde sağ tık › Options › Assign To \"None\" olmalı. \"This Desktop\" / \"All Desktops\" seçiliyse macOS pencereyi kendi atadığı Space'e çeker; Deskmap'in taşımasıyla çelişir.";
 "Settings: System Settings › Desktop & Dock › Mission Control section." = "Ayarlar: System Settings › Desktop & Dock › Mission Control bölümü.";
 
 /* Services/Router.swift */
@@ -82,9 +82,9 @@
 "Undo the last action (⌘Z)" = "Son işlemi geri al (⌘Z)";
 "Launch at login" = "Girişte başlat";
 "Approval needed" = "Onay gerekli";
-"Turn on Space Router in System Settings › General › Login Items" = "System Settings › General › Login Items'ta Space Router'ı açın";
-"Quit Space Router" = "Space Router'dan çık";
-"Space Router starts when you log in to macOS" = "macOS oturumu açılınca Space Router başlar";
+"Turn on Deskmap in System Settings › General › Login Items" = "System Settings › General › Login Items'ta Deskmap'i açın";
+"Quit Deskmap" = "Deskmap'ten çık";
+"Deskmap starts when you log in to macOS" = "macOS oturumu açılınca Deskmap başlar";
 "This copy opens at login: %@. For a permanent install, copy it to /Applications." = "Girişte bu kopya açılır: %@. Kalıcı kurulum için /Applications'a kopyalayın.";
 "Could not turn on launch at login: %@" = "Girişte başlatma açılamadı: %@";
 "Could not turn off launch at login: %@" = "Girişte başlatma kapatılamadı: %@";
@@ -134,7 +134,7 @@
 /* Views/ProfileViews.swift: profiller, dışa/içe aktarma */
 "Profiles: each one is a separate set of pins" = "Profiller: her biri ayrı bir pin kümesi";
 "New empty profile" = "Yeni boş profil";
-"Import a profile from a file (.spacerouter.json)" = "Profili dosyadan içe aktar (.spacerouter.json)";
+"Import a profile from a file (.deskmap.json)" = "Profili dosyadan içe aktar (.deskmap.json)";
 "Import a profile from a file" = "Profili dosyadan içe aktar";
 "Active profile: click to rename, duplicate, export or delete" = "Aktif profil: ad değiştirme, kopyalama, dışa aktarma ve silme için tıklayın";
 "Switch to this profile (1 pin)" = "Bu profile geç (1 pin)";
@@ -145,7 +145,7 @@
 "Duplicate" = "Kopyala";
 "Create a new profile with these pins" = "Bu pinlerle yeni profil oluştur";
 "Export" = "Dışa aktar";
-"Save as %@.spacerouter.json" = "%@.spacerouter.json olarak kaydet";
+"Save as %@.deskmap.json" = "%@.deskmap.json olarak kaydet";
 "Delete" = "Sil";
 "The last profile cannot be deleted" = "Son profil silinemez";
 "Delete profile" = "Profili sil";
@@ -169,7 +169,7 @@
 "macOS settings look good" = "macOS ayarları uygun";
 "macOS settings need fixing" = "macOS ayarları düzeltilmeli";
 "Things to check once during setup are listed below." = "Kurulumda bir kez kontrol edilmesi gerekenler aşağıda.";
-"With these settings Space Router cannot work properly: switching from the Dock goes to the wrong desktop, and windows appear and vanish." = "Bu ayarlar böyle kalırsa Space Router düzgün çalışmaz: Dock'tan geçiş yanlış masaüstüne gider, pencereler belirip kaybolur.";
+"With these settings Deskmap cannot work properly: switching from the Dock goes to the wrong desktop, and windows appear and vanish." = "Bu ayarlar böyle kalırsa Deskmap düzgün çalışmaz: Dock'tan geçiş yanlış masaüstüne gider, pencereler belirip kaybolur.";
 "Open Desktop & Dock" = "Desktop & Dock'u aç";
 "Got It" = "Anladım";
 "Hide this card; it comes back if a setting changes" = "Kartı gizle; bir ayar bozulursa yeniden görünür";

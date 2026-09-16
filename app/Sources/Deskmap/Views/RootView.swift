@@ -327,7 +327,7 @@ struct RootView: View {
                     .buttonStyle(.link)
                     .controlSize(.small)
                     .foregroundStyle(.orange)
-                    .help(L("Turn on Space Router in System Settings › General › Login Items"))
+                    .help(L("Turn on Deskmap in System Settings › General › Login Items"))
             }
 
             Button {
@@ -337,8 +337,8 @@ struct RootView: View {
             }
             .buttonStyle(.borderless)
             .layoutPriority(1)
-            .help(L("Quit Space Router"))
-            .accessibilityLabel(L("Quit Space Router"))
+            .help(L("Quit Deskmap"))
+            .accessibilityLabel(L("Quit Deskmap"))
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -361,7 +361,7 @@ struct RootView: View {
     private var launchAtLoginHelp: String {
         let path = Bundle.main.bundleURL.path
         if path.hasPrefix("/Applications/") {
-            return L("Space Router starts when you log in to macOS")
+            return L("Deskmap starts when you log in to macOS")
         }
         return L("This copy opens at login: %@. For a permanent install, copy it to /Applications.", path)
     }

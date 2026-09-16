@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// Tek seviyeli geri alma tamponu (Store yıkıcı işlemlerden sonra doldurur).
 struct UndoBufferTests {

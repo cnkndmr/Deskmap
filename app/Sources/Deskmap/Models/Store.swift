@@ -34,7 +34,7 @@ struct Document: Codable, Equatable {
     var setupNoticeDismissed: Bool = false
 
     /// Okunan dosyanın `version` alanı (yazılmaz). Bu sürümden yeniyse
-    /// dosya daha yeni bir Space Router'a ait; üzerine yazılmamalı.
+    /// dosya daha yeni bir Deskmap'e ait; üzerine yazılmamalı.
     var fileVersion: Int = Document.currentVersion
     /// Okunurken atlanan bozuk kural sayısı (yazılmaz).
     var droppedRuleCount = 0
@@ -289,7 +289,7 @@ struct Document: Codable, Equatable {
         var doc = self
         doc.syncActiveProfile()
         guard let profile = doc.profiles.first(where: { $0.id == id }) else {
-            throw NSError(domain: "SpaceRouter", code: 1,
+            throw NSError(domain: "Deskmap", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: L("Profile not found")])
         }
         let payload = ProfileExport(name: profile.name, screens: doc.screens,
@@ -307,9 +307,10 @@ struct Document: Codable, Equatable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let payload = try decoder.decode(ProfileExport.self, from: data)
-        guard payload.kind == ProfileExport.kind || !payload.rules.isEmpty else {
-            throw NSError(domain: "SpaceRouter", code: 2,
-                          userInfo: [NSLocalizedDescriptionKey: L("This is not a Space Router profile")])
+        guard payload.kind == ProfileExport.kind || payload.kind == ProfileExport.legacyKind
+                || !payload.rules.isEmpty else {
+            throw NSError(domain: "Deskmap", code: 2,
+                          userInfo: [NSLocalizedDescriptionKey: L("This is not a Deskmap profile")])
         }
         syncActiveProfile()
         let profile = Profile(name: Self.uniqueName(payload.name, in: profiles),
@@ -329,7 +330,9 @@ struct Document: Codable, Equatable {
     }
 }
 
-/// Dışa/içe aktarma dosyası (`Ad.spacerouter.json`).
+/// Dışa/içe aktarma dosyası (`Ad.deskmap.json`). Eski `Ad.spacerouter.json`
+/// dosyaları (`kind` alanı `legacyKind`) da içe aktarılabilir; yalnızca
+/// dışa aktarma yeni adı ve uzantıyı kullanır.
 struct ProfileExport: Codable {
     var kind: String = ProfileExport.kind
     var version: Int = 1
@@ -341,8 +344,10 @@ struct ProfileExport: Codable {
     /// Okunurken atlanan bozuk kural sayısı (yazılmaz).
     var droppedRuleCount = 0
 
-    static let kind = "spacerouter-profile"
-    static let fileExtension = "spacerouter.json"
+    static let kind = "deskmap-profile"
+    /// Deskmap'in eski adı; içe aktarmada hâlâ kabul edilir.
+    static let legacyKind = "spacerouter-profile"
+    static let fileExtension = "deskmap.json"
 
     /// Yalnızca kurallar listesi içeren düz bir `rules.json` de kabul edilir.
     private enum CodingKeys: String, CodingKey {
@@ -394,6 +399,13 @@ final class Store: ObservableObject {
 
     static let directoryURL = FileManager.default
         .homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Application Support/Deskmap",
+                                isDirectory: true)
+
+    /// Eski ad (Space Router) altındaki veri klasörü; `init()` içinde bir
+    /// kez buradan `directoryURL`'e kopyalanır (bkz. `DataMigration`).
+    static let legacyDirectoryURL = FileManager.default
+        .homeDirectoryForCurrentUser
         .appendingPathComponent("Library/Application Support/SpaceRouter",
                                 isDirectory: true)
 
@@ -401,11 +413,11 @@ final class Store: ObservableObject {
     /// Okunamayan `rules.json` üzerine yazılmadan önce buraya kopyalanır.
     static let backupURL = directoryURL.appendingPathComponent("rules.json.bak")
 
-    /// Dosya daha yeni bir Space Router sürümüne aitse yazma kapalıdır:
+    /// Dosya daha yeni bir Deskmap sürümüne aitse yazma kapalıdır:
     /// eski sürüm bilmediği alanları silerek dosyayı bozmasın.
     var isReadOnly: Bool { document.isFromNewerVersion }
     static let newerVersionMessage =
-        L("rules.json belongs to a newer version of Space Router; changes will not be saved")
+        L("rules.json belongs to a newer version of Deskmap; changes will not be saved")
 
     private var cancellables = Set<AnyCancellable>()
     // nonisolated(unsafe): yalnızca init'te (ana aktör) atanır, deinit'te
@@ -414,6 +426,9 @@ final class Store: ObservableObject {
     nonisolated(unsafe) private var terminateObserver: NSObjectProtocol?
 
     init() {
+        // Deskmap'in eski adı Space Router'dı; yeni klasör hiç yoksa ve eski
+        // klasör varsa üç dosya bir kez kopyalanır (taşınmaz, silinmez).
+        DataMigration.migrate(from: Self.legacyDirectoryURL, to: Self.directoryURL)
         load()
         $document
             .dropFirst()

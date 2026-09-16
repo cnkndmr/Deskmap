@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Space Router'ı gönderilebilir tek bir paket hâline getirir:
+# Deskmap'i gönderilebilir tek bir paket hâline getirir:
 #   evrensel (arm64 + x86_64) release derleme → .app → imza → (isteğe bağlı
-#   noter) → build/dist/SpaceRouter-<sürüm>.zip (+ isteğe bağlı .dmg)
+#   noter) → build/dist/Deskmap-<sürüm>.zip (+ isteğe bağlı .dmg)
 #
 #   make dist                                    # ad-hoc imza, zip
 #   FORMAT=dmg make dist                         # zip yerine dmg
@@ -15,12 +15,12 @@
 #   xcrun notarytool store-credentials notary --apple-id ... --team-id ... --password <app-specific>
 #
 # Ad-hoc imzalı paket başka Mac'te Gatekeeper uyarısı verir; alıcı sağ tık ›
-# Open ile açar ya da: xattr -dr com.apple.quarantine /Applications/SpaceRouter.app
+# Open ile açar ya da: xattr -dr com.apple.quarantine /Applications/Deskmap.app
 #
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="SpaceRouter"
+APP_NAME="Deskmap"
 VERSION="${VERSION:-$(cat "$PROJECT_DIR/VERSION")}"
 FORMAT="${FORMAT:-zip}"                 # zip | dmg | both
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
@@ -76,7 +76,7 @@ if [[ "$FORMAT" == "dmg" || "$FORMAT" == "both" ]]; then
   STAGE="$(mktemp -d)"
   cp -R "$APP_BUNDLE" "$STAGE/"
   ln -s /Applications "$STAGE/Applications"
-  hdiutil create -volname "Space Router" -srcfolder "$STAGE" -ov -format UDZO -quiet "$DMG"
+  hdiutil create -volname "Deskmap" -srcfolder "$STAGE" -ov -format UDZO -quiet "$DMG"
   rm -rf "$STAGE"
   if [[ "$SIGN_IDENTITY" != "-" ]]; then
     codesign --force --timestamp --sign "$SIGN_IDENTITY" "$DMG"

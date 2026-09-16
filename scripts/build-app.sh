@@ -15,13 +15,12 @@ set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIGURATION="${1:-release}"
-APP_NAME="SpaceRouter"
-# The name people see: menu bar, Login Items, the Accessibility list. A rename
-# changes this one value; the bundle id, the URL scheme and the Application
-# Support folder keep their current names so existing installs keep working
+APP_NAME="Deskmap"
+# The name people see: menu bar, Login Items, the Accessibility list.
+# Overridable for a one-off rebrand build without touching the identity below
 # (see docs/naming.md).
-DISPLAY_NAME="${DISPLAY_NAME:-Space Router}"
-BUNDLE_ID="com.spacerouter.app"
+DISPLAY_NAME="${DISPLAY_NAME:-Deskmap}"
+BUNDLE_ID="com.deskmap.app"
 COPYRIGHT="${COPYRIGHT:-© 2026 Can Kandemir. MIT licensed.}"
 VERSION="${VERSION:-$(cat "$PROJECT_DIR/VERSION")}"
 UNIVERSAL="${UNIVERSAL:-0}"
@@ -109,14 +108,17 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <!-- Menü çubuğu uygulaması: Dock'ta simge gösterme. -->
     <key>LSUIElement</key>               <true/>
     <key>NSHighResolutionCapable</key>   <true/>
-    <!-- Otomasyon: spacerouter://reapply, pause, resume, toggle, profile/<ad>, next-profile -->
+    <!-- Otomasyon: deskmap://reapply, pause, resume, toggle, profile/<ad>, next-profile.
+         Eski ad (Space Router) döneminden spacerouter:// şeması da kabul edilir
+         (Shortcuts/Raycast kurulumları bozulmasın). -->
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
-            <key>CFBundleURLName</key>    <string>Space Router</string>
+            <key>CFBundleURLName</key>    <string>$DISPLAY_NAME</string>
             <key>CFBundleTypeRole</key>   <string>Viewer</string>
             <key>CFBundleURLSchemes</key>
             <array>
+                <string>deskmap</string>
                 <string>spacerouter</string>
             </array>
         </dict>

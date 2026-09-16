@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// Hedef seçimi ve düzen denemesi sayımı (Router ile arayüzün ortak dilimi).
 struct RoutingTests {

@@ -1,7 +1,7 @@
 import CoreGraphics
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// Ekran haritasının saf kararları: gölgede kalan kurallar, eksik masaüstü rozeti.
 struct MapLogicTests {

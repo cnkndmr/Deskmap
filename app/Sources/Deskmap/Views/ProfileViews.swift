@@ -44,7 +44,7 @@ struct ProfileBar: View {
                 Image(systemName: "square.and.arrow.down")
             }
             .buttonStyle(.borderless)
-            .help(L("Import a profile from a file (.spacerouter.json)"))
+            .help(L("Import a profile from a file (.deskmap.json)"))
             .accessibilityLabel(L("Import a profile from a file"))
         }
         .font(.caption)
@@ -134,7 +134,7 @@ struct ProfilePanel: View {
                     } label: {
                         Label(L("Export"), systemImage: "square.and.arrow.up")
                     }
-                    .help(L("Save as %@.spacerouter.json", profile.name))
+                    .help(L("Save as %@.deskmap.json", profile.name))
 
                     Button(role: .destructive) {
                         store.deleteProfile(profile.id)

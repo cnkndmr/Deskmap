@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import SpaceRouter
+@testable import Deskmap
 
 /// `Document` üzerindeki kural ve profil işlemleri (Store bunları çağırır).
 struct DocumentOperationsTests {
@@ -221,6 +221,19 @@ struct DocumentOperationsTests {
         #expect(doc.profiles.count == 1)
     }
 
+    /// Eski ad döneminde dışa aktarılmış `.spacerouter.json` dosyaları
+    /// (`kind: "spacerouter-profile"`), kuralları boş olsa bile kabul edilir.
+    @Test func importAcceptsLegacySpaceRouterKindEvenWithoutRules() throws {
+        var doc = Document()
+        let json = Data("""
+        { "kind": "spacerouter-profile", "name": "Eski", "rules": [] }
+        """.utf8)
+        let profile = try doc.importProfile(from: json)
+        #expect(profile.name == "Eski")
+        #expect(profile.rules.isEmpty)
+        #expect(doc.activeProfileID == profile.id)
+    }
+
     @Test func importAcceptsPlainRulesFileAndMergesScreens() throws {
         var doc = Document()
         doc.screens = [KnownScreen(id: "builtin", name: "Dahili", aspect: 1.55)]
@@ -251,7 +264,7 @@ struct DocumentOperationsTests {
         doc.rules = [rule("a", docked: external2), rule("b", tokens: ["B", "C"], undocked: builtin1)]
         let data = try doc.exportData(for: doc.activeProfileID)
         let text = String(decoding: data, as: UTF8.self)
-        #expect(text.contains("\"kind\" : \"spacerouter-profile\""))
+        #expect(text.contains("\"kind\" : \"deskmap-profile\""))
         #expect(text.contains("\"name\" : \"\(Document.defaultProfileName)\""))
 
         let imported = try doc.importProfile(from: data)

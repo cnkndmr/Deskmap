@@ -51,5 +51,5 @@ extension View {
 }
 
 enum MapSpace {
-    static let name = "spacerouter.map"
+    static let name = "deskmap.map"
 }

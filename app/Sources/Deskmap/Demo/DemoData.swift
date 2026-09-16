@@ -124,7 +124,7 @@ enum DemoData {
             window(5, pid: 5105, app: "Obsidian", bundle: "md.obsidian",
                   title: "Handbook — Obsidian", screen: "external", desktop: 5),
             window(6, pid: 5106, app: "Safari", bundle: "com.apple.Safari",
-                  title: "Space Router · GitHub — Safari", screen: "builtin", desktop: 1),
+                  title: "Deskmap · GitHub — Safari", screen: "builtin", desktop: 1),
             window(7, pid: 5107, app: "Visual Studio Code", bundle: "com.microsoft.VSCode",
                   title: "acme-web — VS Code", screen: "builtin", desktop: 1),
             window(8, pid: 5108, app: "Safari", bundle: "com.apple.Safari",
