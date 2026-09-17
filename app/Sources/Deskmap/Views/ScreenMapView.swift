@@ -138,7 +138,16 @@ private struct ScreenCard: View {
     /// Gölgede kalan kural → onu geçen kural (ScreenMapView.shadows).
     let shadowed: [String: String]
 
+    @EnvironmentObject private var ui: UIState
+
+    /// Bu ekrandaki tam ekran space'ler, `afterDesktop` → soldan sağa.
+    private var fullscreenSpaces: [Int: [FullscreenSpace]] {
+        guard isLive else { return [:] }
+        return FullscreenSpace.grouped(ui.windows, screen: screen.id, rowCount: tileCount)
+    }
+
     var body: some View {
+        let fullscreen = fullscreenSpaces
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: screen.isBuiltin ? "laptopcomputer" : "display")
@@ -152,11 +161,13 @@ private struct ScreenCard: View {
             .foregroundStyle(.secondary)
             .padding(.bottom, 4)
 
+            ForEach(fullscreen[0] ?? []) { FullscreenRow(space: $0) }
             ForEach(1..<(tileCount + 1), id: \.self) { desktop in
                 DesktopRow(
                     screen: screen, desktop: desktop, mode: mode, isLive: isLive,
                     exists: realCount.map { desktop <= $0 } ?? true,
                     rowCount: tileCount, shadowed: shadowed)
+                ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0) }
             }
             GhostRow(screen: screen, desktop: tileCount + 1, mode: mode)
         }
@@ -167,6 +178,87 @@ private struct ScreenCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(.quaternary, lineWidth: 1))
+    }
+}
+
+// MARK: - Tam ekran space satırı
+
+/// Tam ekran (ya da Split View) bir space ve içindeki pencereler.
+struct FullscreenSpace: Identifiable, Equatable {
+    let id: UInt64
+    let order: Int
+    var windows: [Router.WindowSnapshot]
+
+    /// Bir ekrandaki tam ekran space'ler: kendisinden önceki masaüstü
+    /// sayısı → Mission Control sırasıyla space'ler. Saf. `rowCount`'tan
+    /// büyük `afterDesktop` son satırın altına toplanır.
+    static func grouped(
+        _ windows: [Router.WindowSnapshot], screen: String, rowCount: Int
+    ) -> [Int: [FullscreenSpace]] {
+        var result: [Int: [FullscreenSpace]] = [:]
+        for window in windows {
+            guard let slot = window.fullscreen, slot.screen == screen else { continue }
+            let key = min(slot.afterDesktop, rowCount)
+            if let i = result[key]?.firstIndex(where: { $0.id == slot.space }) {
+                result[key]?[i].windows.append(window)
+            } else {
+                result[key, default: []].append(
+                    FullscreenSpace(id: slot.space, order: slot.order, windows: [window]))
+            }
+        }
+        return result.mapValues { $0.sorted { $0.order < $1.order } }
+    }
+}
+
+/// Masaüstü satırlarının arasında, gerçek sırasında duran salt okunur
+/// satır. Tam ekran pencerelere router dokunmaz; bu yüzden sürüklenmez,
+/// bırakma hedefi değildir ve masaüstü numarası almaz.
+private struct FullscreenRow: View {
+
+    let space: FullscreenSpace
+
+    private var isSplit: Bool { space.windows.count > 1 }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            HStack(spacing: 4) {
+                Image(systemName: isSplit
+                      ? "rectangle.split.2x1"
+                      : "arrow.up.left.and.arrow.down.right")
+                    .font(.system(size: 9))
+                Text(isSplit ? L("Split View") : L("Full screen"))
+                    .font(.caption.weight(.medium))
+            }
+            .foregroundStyle(Color.purple)
+            .frame(width: 84, alignment: .leading)
+            .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(space.windows) { window in
+                    HStack(spacing: 6) {
+                        AppIcon(bundleID: window.bundleID, size: 16)
+                        Text(window.appName)
+                            .font(.caption.weight(.medium))
+                            .lineLimit(1)
+                        Text(window.title.isEmpty ? L("Untitled window") : window.title)
+                            .font(.caption)
+                            .foregroundStyle(window.title.isEmpty ? .tertiary : .secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8).fill(Color.purple.opacity(0.08)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Color.purple.opacity(0.3), lineWidth: 1))
+        .help(L("Full-screen space. Deskmap leaves these windows alone; exit full screen to pin them."))
     }
 }
 

@@ -8,6 +8,9 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- Full-screen and Split View spaces now appear on the map as read-only purple
+  rows, in their real Mission Control position between the desktops. Before,
+  a window in a full-screen space vanished from the map entirely.
 - `appstore/probe/`: a two-build probe (sandboxed and not) that measures
   whether the Accessibility API works inside the App Sandbox. Result on
   macOS 26.6.2: with the permission granted, the sandboxed build still cannot

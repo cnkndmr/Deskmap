@@ -353,4 +353,44 @@ struct EngineHelperTests {
                 == Router.Placement(screen: "builtin", desktop: 1))
         #expect(Router.placement(of: unknown, displays: displays, screens: []) == nil)
     }
+
+    @Test func fullscreenSlotKeepsMissionControlOrder() {
+        let external = screen("external", uuid: "E", frame: CGRect(x: 0, y: 0, width: 2560, height: 1440))
+        let displays = [
+            SkyLight.DisplaySpaces(displayUUID: "E", current: 20, spaces: [
+                SkyLight.Space(id: 19, type: 4), SkyLight.Space(id: 20, type: 0),
+                SkyLight.Space(id: 21, type: 4), SkyLight.Space(id: 23, type: 4),
+                SkyLight.Space(id: 22, type: 0),
+            ]),
+        ]
+        func state(_ space: UInt64, fullscreen: Bool = true) -> Router.WindowState {
+            Router.WindowState(spaces: [space], isFullscreen: fullscreen, frame: nil, isMinimized: false)
+        }
+        func slot(_ space: UInt64, fullscreen: Bool = true) -> Router.FullscreenSlot? {
+            Router.fullscreenSlot(of: state(space, fullscreen: fullscreen),
+                                  displays: displays, screens: [external])
+        }
+        #expect(slot(19)?.afterDesktop == 0)
+        #expect(slot(21)?.afterDesktop == 1)
+        #expect(slot(23)?.afterDesktop == 1)
+        #expect((slot(21)?.order ?? 0) < (slot(23)?.order ?? 0))
+        #expect(slot(21)?.screen == "external")
+        // Normal masaüstü ya da bilinmeyen space: yuva yok.
+        #expect(slot(20, fullscreen: false) == nil)
+        #expect(slot(99) == nil)
+
+        // Arayüz gruplaması: Split View tek satır, sıra korunur, taşan en alta.
+        func window(_ id: CGWindowID, _ space: UInt64) -> Router.WindowSnapshot {
+            Router.WindowSnapshot(
+                id: id, pid: 1, appName: "A", bundleID: "a", title: "", placement: nil,
+                frame: nil, isMinimized: false, fullscreen: slot(space))
+        }
+        let windows = [window(1, 23), window(2, 21), window(3, 21), window(4, 19)]
+        let grouped = FullscreenSpace.grouped(windows, screen: "external", rowCount: 2)
+        #expect(grouped[0]?.map(\.id) == [19])
+        #expect(grouped[1]?.map(\.id) == [21, 23])
+        #expect(grouped[1]?.first?.windows.map(\.id) == [2, 3])
+        #expect(FullscreenSpace.grouped(windows, screen: "builtin", rowCount: 2).isEmpty)
+        #expect(FullscreenSpace.grouped(windows, screen: "external", rowCount: 0)[0]?.count == 3)
+    }
 }

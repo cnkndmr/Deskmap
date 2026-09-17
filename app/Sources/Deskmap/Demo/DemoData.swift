@@ -135,6 +135,12 @@ enum DemoData {
                   screen: "builtin", desktop: 2),
             window(10, pid: 5110, app: "Mail", bundle: "com.apple.mail",
                   title: "Inbox — Mail", screen: "builtin", desktop: 3),
+            // Tam ekran space: Masaüstü 2 ile 3 arasında, salt okunur satır.
+            Router.WindowSnapshot(
+                id: 12, pid: 5112, appName: "Keynote", bundleID: "com.apple.iWork.Keynote",
+                title: "Q3 Review — Keynote", placement: nil, frame: nil, isMinimized: false,
+                fullscreen: Router.FullscreenSlot(
+                    screen: "external", space: 9001, afterDesktop: 2, order: 2)),
             window(11, pid: 5111, app: "Terminal", bundle: "com.apple.Terminal",
                   title: "~ — Terminal", screen: "builtin", desktop: 4),
         ]

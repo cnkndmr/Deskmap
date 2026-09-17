@@ -103,6 +103,9 @@
 "By title" = "Başlığa göre";
 "This window only" = "Sadece bu pencere";
 "Untitled window" = "Adsız pencere";
+"Full screen" = "Tam ekran";
+"Split View" = "Split View";
+"Full-screen space. Deskmap leaves these windows alone; exit full screen to pin them." = "Tam ekran alanı. Deskmap bu pencerelere dokunmaz; sabitlemek için tam ekrandan çık.";
 "Cancel (Esc)" = "Vazgeç (Esc)";
 "Cancel" = "Vazgeç";
 "This window has no title; all windows of the app are pinned." = "Bu pencerenin başlığı yok; uygulamanın bütün pencereleri pinlenir.";

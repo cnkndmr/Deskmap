@@ -15,6 +15,17 @@ final class Router: ObservableObject {
         let desktop: Int
     }
 
+    /// Tam ekran bir space'in haritadaki yeri: hangi ekranda, hangi space
+    /// ve kendisinden önce kaç normal masaüstü var (Mission Control sırası).
+    struct FullscreenSlot: Equatable, Hashable {
+        let screen: String
+        let space: UInt64
+        /// 0 = ilk masaüstünden önce, n = n. masaüstünden sonra.
+        let afterDesktop: Int
+        /// Aynı `afterDesktop` içinde soldan sağa sıra.
+        let order: Int
+    }
+
     /// Arayüzde gösterilen pencere anlık görüntüsü; her taramada yenilenir.
     struct WindowSnapshot: Identifiable, Equatable, Hashable {
         let id: CGWindowID
@@ -27,6 +38,8 @@ final class Router: ObservableObject {
         /// AX koordinatlarında (sol üst köşe tabanlı) çerçeve.
         let frame: CGRect?
         let isMinimized: Bool
+        /// Tam ekran (ya da Split View) space'indeyse haritadaki yeri.
+        var fullscreen: FullscreenSlot? = nil
     }
 
     struct Status: Equatable {
@@ -562,7 +575,8 @@ final class Router: ObservableObject {
                 title: window.title,
                 placement: Self.placement(of: state, displays: displays, screens: screens),
                 frame: state.frame,
-                isMinimized: state.isMinimized)
+                isMinimized: state.isMinimized,
+                fullscreen: Self.fullscreenSlot(of: state, displays: displays, screens: screens))
         }.sorted {
             let a = $0.appName.localizedCaseInsensitiveCompare($1.appName)
             return a == .orderedSame ? $0.id < $1.id : a == .orderedAscending
@@ -762,6 +776,27 @@ final class Router: ObservableObject {
             }
         }
         return screens.first.map { Placement(screen: $0.id, desktop: 1) }
+    }
+
+    /// Tam ekran space'teki pencerenin haritadaki yeri; normal masaüstündeyse
+    /// ya da space hiçbir bağlı ekranın listesinde yoksa nil. Saf.
+    nonisolated static func fullscreenSlot(
+        of state: WindowState, displays: [SkyLight.DisplaySpaces], screens: [ScreenInfo]
+    ) -> FullscreenSlot? {
+        guard state.isFullscreen else { return nil }
+        for display in displays {
+            guard let screen = screens.first(where: { $0.uuid == display.displayUUID })
+            else { continue }
+            var desktopsBefore = 0
+            for (order, space) in display.spaces.enumerated() {
+                if space.isUserSpace { desktopsBefore += 1; continue }
+                if state.spaces.contains(space.id) {
+                    return FullscreenSlot(screen: screen.id, space: space.id,
+                                          afterDesktop: desktopsBefore, order: order)
+                }
+            }
+        }
+        return nil
     }
 
     /// Bağlı ekranlardaki gerçek masaüstü sayıları.
