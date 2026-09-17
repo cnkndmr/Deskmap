@@ -484,7 +484,10 @@ final class Router: ObservableObject {
                 self.applied = applied
                 self.attempts = attempts
                 self.lastAttempts = lastAttempts
-                if outcome.snapshots != self.windows { self.windows = outcome.snapshots }
+                if outcome.snapshots != self.windows {
+                    Self.logFullscreenChange(from: self.windows, to: outcome.snapshots)
+                    self.windows = outcome.snapshots
+                }
                 self.expireSessionPins(live: outcome.liveWindows)
                 if outcome.needsFollowUp || self.sweepRequested {
                     self.scheduleFollowUp(after: outcome.needsFollowUp ? 200 : 20)
@@ -776,6 +779,22 @@ final class Router: ObservableObject {
             }
         }
         return screens.first.map { Placement(screen: $0.id, desktop: 1) }
+    }
+
+    /// Tam ekran space kümesi değiştiyse günlüğe yazar (başlık yok; uygulama
+    /// adı, ekran ve haritadaki yer). Haritadaki mor satırların kaynağı.
+    private static func logFullscreenChange(from old: [WindowSnapshot], to new: [WindowSnapshot]) {
+        func slots(_ windows: [WindowSnapshot]) -> [String] {
+            windows.compactMap { window in
+                window.fullscreen.map {
+                    "\(window.appName)#\(window.id)@\($0.screen)/after\($0.afterDesktop)/space\($0.space)"
+                }
+            }.sorted()
+        }
+        let before = slots(old), after = slots(new)
+        guard before != after else { return }
+        let text = after.isEmpty ? "none" : after.joined(separator: ", ")
+        Log.routing.notice("fullscreen spaces: \(text, privacy: .public)")
     }
 
     /// Tam ekran space'teki pencerenin haritadaki yeri; normal masaüstündeyse

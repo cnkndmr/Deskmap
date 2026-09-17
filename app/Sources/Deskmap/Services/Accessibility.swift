@@ -15,11 +15,15 @@ final class AccessibilityPermission: ObservableObject {
     nonisolated(unsafe) private var timer: Timer?
 
     init() {
+        Log.ax.notice("accessibility trusted: \(self.isTrusted, privacy: .public)")
         timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
                 let now = AXIsProcessTrusted()
-                if now != self.isTrusted { self.isTrusted = now }
+                if now != self.isTrusted {
+                    Log.ax.notice("accessibility trusted: \(now, privacy: .public)")
+                    self.isTrusted = now
+                }
             }
         }
     }
