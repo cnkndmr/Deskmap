@@ -28,6 +28,20 @@ struct RootView: View {
     /// Router'ın son işlemi alt çubukta bu kadar kalır; sonra genel ipucu döner.
     static let actionFade: TimeInterval = 30
 
+    /// Sürüklerken: pinli pencere bırakılınca kaydedilen hedef güncellenir,
+    /// pinsiz pencere yalnız bir kez taşınır.
+    private var dragHint: String? {
+        guard case .window(let id)? = ui.drag?.item,
+              let window = ui.windows.first(where: { $0.id == id }) else { return nil }
+        let pinned = Routing.select(
+            rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
+            windowID: id, bundleID: window.bundleID, appName: window.appName,
+            title: window.title) != nil
+        return pinned
+            ? L("Pinned: dropping it updates the saved desktop.")
+            : L("Not pinned: dropping it moves the window once; nothing is saved.")
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             header
@@ -35,9 +49,13 @@ struct RootView: View {
                 .padding(.top, 10)
                 .padding(.bottom, 6)
 
-            ProfileBar()
-                .padding(.horizontal, 14)
-                .padding(.bottom, 8)
+            // Tek profil varken çubuk gizli; yeni profil / içe aktarma
+            // üst çubuktaki menüde.
+            if store.profiles.count > 1 {
+                ProfileBar()
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
+            }
 
             Divider()
 
@@ -56,6 +74,12 @@ struct RootView: View {
                     if permission.isTrusted && store.document.rules.isEmpty
                         && router.sessionPins.isEmpty {
                         FirstStepsCard()
+                    }
+                    if let hint = dragHint {
+                        Label(hint, systemImage: "hand.draw")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     ScreenMapView(mode: mode)
                 }
@@ -230,6 +254,26 @@ struct RootView: View {
             }
 
             Spacer()
+
+            if store.profiles.count <= 1 {
+                Menu {
+                    Button(L("New empty profile")) {
+                        store.addProfile()
+                        ui.panel = .profile
+                    }
+                    Button(L("Import a profile from a file (.deskmap.json)")) {
+                        ui.panel = nil
+                        ProfileFiles.importProfile(into: store)
+                    }
+                } label: {
+                    Image(systemName: "square.stack.3d.up")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help(L("Profiles: each one is a separate set of pins"))
+                .accessibilityLabel(L("Profiles: each one is a separate set of pins"))
+            }
 
             // Seçili moddaki pin sayısı; geçici pinler moddan bağımsız ama
             // yalnızca şu anki modun haritasında görünür, orada sayılır.

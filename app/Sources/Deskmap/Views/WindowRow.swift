@@ -47,6 +47,15 @@ struct WindowRow: View {
                                         isLive: mode == screens.mode)
         }
     }
+    /// "Neden burada?": eşleşen kural (ya da oturum pini) ve hedefi.
+    private var whyHere: String? {
+        let match = Routing.select(
+            rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
+            windowID: window.id, bundleID: window.bundleID,
+            appName: window.appName, title: window.title)
+        let name = match.flatMap { m in screens.screens.first { $0.id == m.destination.screen }?.name }
+        return Routing.explanation(for: match, screenName: name)
+    }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .window(window.id) }
 
     var body: some View {
@@ -68,6 +77,7 @@ struct WindowRow: View {
                 .foregroundStyle(window.title.isEmpty ? .tertiary : .secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+                .help(whyHere ?? window.title)
 
             Spacer(minLength: 4)
 

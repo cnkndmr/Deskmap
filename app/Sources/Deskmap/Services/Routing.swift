@@ -43,6 +43,25 @@ enum Routing {
         return Match(destination: destination, ruleID: rule.id, rule: rule)
     }
 
+    // MARK: - "Neden burada?"
+
+    /// Pencere satırının ipucu (saf): hangi kural (ya da oturum pini) hangi
+    /// hedefe gönderiyor. Yeni pencere-başı durum tutulmaz; seçim her
+    /// seferinde `select` ile yeniden yapılır. Eşleşme yoksa nil.
+    static func explanation(for match: Match?, screenName: String?) -> String? {
+        guard let match else { return nil }
+        let destination = match.destination
+        let target = L("%@ · Desktop %ld", screenName ?? destination.screen,
+                       destination.desktop)
+        let layout = L("Layout: %@", destination.layout.label)
+        guard let rule = match.rule else {
+            return L("Why here: temporary pin for this window → %@ (%@)", target, layout)
+        }
+        let name = ([rule.appName.isEmpty ? rule.bundleID : rule.appName] + rule.tokens)
+            .joined(separator: " · ")
+        return L("Why here: pin \"%@\" → %@ (%@)", name, target, layout)
+    }
+
     // MARK: - Düzen denemeleri
 
     /// Uygulama düzeni bu kadar denemeden sonra da kabul etmezse bırakılır

@@ -215,3 +215,9 @@
 "Deskmap: Paused" = "Deskmap: Duraklatıldı";
 "Deskmap: Needs attention" = "Deskmap: İlgi gerekiyor";
 "Deskmap works offline: it makes no network connections and never reads what is inside your windows, only their titles, positions and desktops." = "Deskmap çevrimdışı çalışır: ağ bağlantısı kurmaz ve pencerelerinizin içeriğini asla okumaz; yalnız başlıklarını, konumlarını ve masaüstlerini.";
+
+/* Neden burada? ve sürükleme ipucu */
+"Why here: temporary pin for this window → %@ (%@)" = "Neden burada: bu pencerenin geçici pini → %1$@ (%2$@)";
+"Why here: pin \"%@\" → %@ (%@)" = "Neden burada: \"%1$@\" pini → %2$@ (%3$@)";
+"Pinned: dropping it updates the saved desktop." = "Pinli: bırakınca kaydedilen masaüstü güncellenir.";
+"Not pinned: dropping it moves the window once; nothing is saved." = "Pinsiz: bırakınca pencere bir kez taşınır, hiçbir şey kaydedilmez.";
