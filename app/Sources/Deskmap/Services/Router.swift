@@ -670,6 +670,8 @@ final class Router: ObservableObject {
         var unresponsive: [String] = []
         /// Bağlı ekranlardaki gerçek masaüstü sayıları.
         var desktopCounts: [String: Int] = [:]
+        /// Space durumu bilinmediği için yönlendirilmeyen pencere sayısı.
+        var unknownSpaces = 0
         /// Bu taramada okunan pencere space'leri (taşıma doğrulaması için).
         var observedSpaces: [CGWindowID: [UInt64]] = [:]
         /// Bu taramada yapılan masaüstü taşımaları ve sonuçları.
@@ -691,6 +693,28 @@ final class Router: ObservableObject {
         let isFullscreen: Bool
         let frame: CGRect?
         let isMinimized: Bool
+        /// Space üyeliği ve türleri okunabildi. false ise pencerenin nerede
+        /// olduğu bilinmiyor: yalnız listelenir, taşınmaz, düzen verilmez.
+        var spacesKnown: Bool = true
+    }
+
+    /// Pencere yönlendirilebilir mi (saf): SkyLight okuması varken space
+    /// durumu bilinmiyorsa (okuma hatası, boş üyelik, türü bilinmeyen
+    /// space) hayır; yanlış masaüstüne taşıma ya da görünmeyen pencereye
+    /// düzen vermek yerine hiçbir şey yapılmaz (P0-3). SkyLight hiç yoksa
+    /// yalnız ekran ve düzen uygulanır, eski davranış.
+    nonisolated static func canRoute(_ state: WindowState, spacesReadable: Bool) -> Bool {
+        !spacesReadable || state.spacesKnown
+    }
+
+    /// Okunan space listesi ve türlerinden pencere durumu (saf).
+    nonisolated static func spaceState(
+        spaces read: [UInt64]?, type: (UInt64) -> Int?
+    ) -> (spaces: [UInt64], isFullscreen: Bool, known: Bool) {
+        guard let read, !read.isEmpty else { return ([], false, false) }
+        let types = read.map(type)
+        let known = !types.contains { $0 == nil }
+        return (read, types.contains { $0 != nil && $0 != 0 }, known)
     }
 
     /// Düzen deneme sınırları `Routing.maxAttempts` / `Routing.quickAttempts`;
@@ -707,7 +731,7 @@ final class Router: ObservableObject {
         // Space türleri ekran listesinden; listede olmayan kimlik için IPC.
         let spaceTypes = SkyLight.spaceTypes(of: displays)
         outcome.desktopCounts = Self.desktopCounts(displays: displays, screens: screens)
-        func spaceType(_ id: UInt64) -> Int { spaceTypes[id] ?? sky.type(of: id) }
+        func spaceType(_ id: UInt64) -> Int? { spaceTypes[id] ?? sky.type(of: id) }
         // Pencere sunucusu taramada bir kez okunur: 2. aşama listeleme ve
         // yaşam denetimi aynı sonuçtan türer.
         let server = AX.windowServerList()
@@ -721,17 +745,19 @@ final class Router: ObservableObject {
         // Pencere başına durum bir kez okunur.
         var states: [CGWindowID: WindowState] = [:]
         for window in windows {
-            let spaces = sky.spaces(of: window.id)
-            outcome.observedSpaces[window.id] = spaces
+            let read = sky.canRead ? sky.spaces(of: window.id) : nil
+            outcome.observedSpaces[window.id] = read ?? []
+            let space = Self.spaceState(spaces: read, type: spaceType)
             states[window.id] = WindowState(
-                spaces: spaces,
-                isFullscreen: spaces.contains { spaceType($0) != 0 },
+                spaces: space.spaces,
+                isFullscreen: space.isFullscreen,
                 frame: AX.frame(of: window),
-                isMinimized: AX.isMinimized(window))
+                isMinimized: AX.isMinimized(window),
+                spacesKnown: space.known)
         }
         func windowState(_ window: AXWindow) -> WindowState {
             states[window.id] ?? WindowState(spaces: [], isFullscreen: false,
-                                             frame: nil, isMinimized: false)
+                                             frame: nil, isMinimized: false, spacesKnown: false)
         }
 
         outcome.snapshots = windows.map { window in
@@ -762,9 +788,15 @@ final class Router: ObservableObject {
             guard let screen = screens.first(where: { $0.id == destination.screen })
             else { continue }
 
+            let state = windowState(window)
+            guard Self.canRoute(state, spacesReadable: sky.canRead) else {
+                // Yalnız listelenir; bir sonraki taramada yeniden bakılır.
+                outcome.unknownSpaces += 1
+                continue
+            }
+
             outcome.routed += 1
             let key = "\(window.id)|\(ruleID)|\(mode.rawValue)|\(destination.hashValue)"
-            let state = windowState(window)
 
             let targetFrame = Coordinates.axRect(
                 fromCocoa: destination.layout.rect(in: screen.visibleFrame),
@@ -787,7 +819,7 @@ final class Router: ObservableObject {
                 if state.isFullscreen { continue }
                 target = space
                 onTarget = current.contains(space.id)
-                isVisible = current.isEmpty || current.contains(where: visibleSpaces.contains)
+                isVisible = current.contains(where: visibleSpaces.contains)
                 desktopLabel = L("%@ · Desktop %ld", screen.name, index)
             }
 

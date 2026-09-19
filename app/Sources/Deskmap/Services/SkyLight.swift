@@ -153,18 +153,22 @@ final class SkyLight: Sendable {
         }
     }
 
-    /// Pencerenin bulunduğu space kimlikleri.
-    func spaces(of windowID: CGWindowID) -> [UInt64] {
-        guard let fn = copySpacesForWindows else { return [] }
+    /// Pencerenin bulunduğu space kimlikleri; okunamazsa nil ("bilinmiyor",
+    /// boş liste "hiçbir space'te değil" ile karışmasın).
+    func spaces(of windowID: CGWindowID) -> [UInt64]? {
+        guard connection != 0, let fn = copySpacesForWindows else { return nil }
         let list = [NSNumber(value: windowID)] as CFArray
         // 0x7: kullanıcı + diğer + geçerli space'ler
         guard let result = fn(connection, 0x7, list)?.takeRetainedValue()
-                as? [NSNumber] else { return [] }
+                as? [NSNumber] else { return nil }
         return result.map(\.uint64Value)
     }
 
-    func type(of space: UInt64) -> Int {
-        Int(spaceGetType?(connection, space) ?? 0)
+    /// Space türü (0 = normal masaüstü); çağrı yoksa nil. Eskiden 0
+    /// dönüyordu: bilinmeyen space normal masaüstü sanılıyordu (A-3).
+    func type(of space: UInt64) -> Int? {
+        guard connection != 0, let fn = spaceGetType else { return nil }
+        return Int(fn(connection, space))
     }
 
     /// `displaySpaces` sonucundan space kimliği → türü haritası. Bir tarama
@@ -256,7 +260,7 @@ final class SkyLight: Sendable {
     /// son söz sonraki taramanın doğrulamasında).
     private func settled(error: Int32, window: CGWindowID, space: UInt64) -> MoveResult {
         if error != 0 { return .noEffect }
-        return spaces(of: window).contains(space) ? .verified : .issued
+        return spaces(of: window)?.contains(space) == true ? .verified : .issued
     }
 
     private static func uint64(_ value: Any?) -> UInt64? {
