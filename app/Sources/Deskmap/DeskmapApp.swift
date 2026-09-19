@@ -45,7 +45,11 @@ struct DeskmapApp: App {
                 .environmentObject(permission)
                 .environmentObject(ui)
         } label: {
-            MenuBarLabel(paused: !store.document.enabled)
+            MenuBarLabel(health: AppHealth.state(
+                enabled: store.document.enabled,
+                trusted: permission.isTrusted,
+                requiredSettingsOK: MacSettings.allRequiredOK(MacSettings.checks()),
+                movesDegraded: router.moveHealth.state == .degraded))
         }
         .menuBarExtraStyle(.window)
     }
@@ -107,16 +111,26 @@ enum SingleInstance {
 
 /// Menü çubuğu simgesi: paketteki `MenuBarIcon.png` (şablon, @1x/@2x) —
 /// paket dışında (`swift run`) ya da dosya yoksa SF Symbol'a düşer.
+/// Üç durum: hazır (uygulama simgesi), duraklatıldı, ilgi gerekiyor.
 private struct MenuBarLabel: View {
-    let paused: Bool
+    let health: AppHealth
 
     var body: some View {
-        if paused {
+        icon.accessibilityLabel(health.label).help(health.label)
+    }
+
+    @ViewBuilder private var icon: some View {
+        switch health {
+        case .needsAttention:
+            Image(systemName: "exclamationmark.triangle")
+        case .paused:
             Image(systemName: "pause.rectangle")
-        } else if let icon = Self.icon {
-            Image(nsImage: icon)
-        } else {
-            Image(systemName: "rectangle.on.rectangle")
+        case .ready:
+            if let icon = Self.icon {
+                Image(nsImage: icon)
+            } else {
+                Image(systemName: "rectangle.on.rectangle")
+            }
         }
     }
 

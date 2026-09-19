@@ -209,3 +209,9 @@
 "Moves to other desktops did not take effect several times in a row, so they were stopped. Windows are still placed on the right display and in the right layout." = "Başka masaüstüne taşımalar art arda birkaç kez etkisiz kaldı, bu yüzden durduruldu. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir.";
 "Moving windows between desktops is not available on this macOS. Windows are still placed on the right display and in the right layout." = "Bu macOS'ta pencereleri masaüstleri arasında taşımak mümkün değil. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir.";
 "Try Again" = "Yeniden Dene";
+
+/* Menü çubuğu simgesi durumları */
+"Deskmap: Ready" = "Deskmap: Hazır";
+"Deskmap: Paused" = "Deskmap: Duraklatıldı";
+"Deskmap: Needs attention" = "Deskmap: İlgi gerekiyor";
+"Deskmap works offline: it makes no network connections and never reads what is inside your windows, only their titles, positions and desktops." = "Deskmap çevrimdışı çalışır: ağ bağlantısı kurmaz ve pencerelerinizin içeriğini asla okumaz; yalnız başlıklarını, konumlarını ve masaüstlerini.";

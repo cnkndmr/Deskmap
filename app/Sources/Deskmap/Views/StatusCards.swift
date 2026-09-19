@@ -40,23 +40,17 @@ struct SetupCard: View {
                 }
             }
 
-            ForEach(checks) { check in
-                HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: icon(for: check))
-                        .foregroundStyle(color(for: check))
-                        .padding(.top, 1)
-                    VStack(alignment: .leading, spacing: 1) {
-                        HStack(spacing: 4) {
-                            Text(check.title).font(.caption.weight(.medium))
-                            if !check.required {
-                                Text(L("Recommended"))
-                                    .font(.caption2.weight(.medium))
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Text(check.detail).font(.caption2).foregroundStyle(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
+            // Zorunlu ayarlar tek akışta; önerilen ayar ayrı başlık altında.
+            ForEach(checks.filter(\.required)) { check in
+                checkRow(check)
+            }
+            if checks.contains(where: { !$0.required }) {
+                Text(L("Recommended"))
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+                ForEach(checks.filter { !$0.required }) { check in
+                    checkRow(check)
                 }
             }
 
@@ -73,6 +67,19 @@ struct SetupCard: View {
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10)
             .fill((allOK ? Color.green : Color.orange).opacity(0.10)))
+    }
+
+    private func checkRow(_ check: MacSettings.Check) -> some View {
+        HStack(alignment: .top, spacing: 6) {
+            Image(systemName: icon(for: check))
+                .foregroundStyle(color(for: check))
+                .padding(.top, 1)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(check.title).font(.caption.weight(.medium))
+                Text(check.detail).font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private func icon(for check: MacSettings.Check) -> String {
@@ -139,6 +146,10 @@ struct PermissionCard: View {
                 Text(L("Needed to see and move windows."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Text(L("Deskmap works offline: it makes no network connections and never reads what is inside your windows, only their titles, positions and desktops."))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             Button(L("Grant Access")) {
