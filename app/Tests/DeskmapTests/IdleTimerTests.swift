@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import Testing
@@ -92,5 +93,34 @@ struct IdleTimerTests {
         #expect(decide(deadline: now))
         #expect(!decide(deadline: now.addingTimeInterval(1)))
         #expect(decide(since: Router.idleSweepInterval))
+    }
+}
+
+/// activationPolicy önbelleği: aynı pid süresi dolmadan yeniden sorulmaz.
+struct ActivationPolicyCacheTests {
+
+    @Test func fetchesOnceThenCachesUntilTTLOrForget() {
+        let cache = ActivationPolicyCache()
+        let now = Date()
+        var fetches = 0
+        func ask(_ at: Date, finished: Bool = true) -> Bool {
+            cache.isRegular(pid: 42, finishedLaunching: finished, now: at) {
+                fetches += 1
+                return true
+            }
+        }
+        #expect(ask(now))
+        #expect(ask(now.addingTimeInterval(10)))
+        #expect(fetches == 1)
+        _ = ask(now.addingTimeInterval(ActivationPolicyCache.ttl + 1))
+        #expect(fetches == 2)
+        cache.forget(42)
+        #expect(cache.count == 0)
+    }
+
+    @Test func unfinishedLaunchIsNotCached() {
+        let cache = ActivationPolicyCache()
+        _ = cache.isRegular(pid: 7, finishedLaunching: false, now: Date()) { false }
+        #expect(cache.count == 0)
     }
 }

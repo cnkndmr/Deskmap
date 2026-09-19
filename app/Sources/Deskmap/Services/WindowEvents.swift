@@ -56,6 +56,7 @@ final class WindowEvents {
             object: nil, queue: .main
         ) { [weak self] note in
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            AX.invalidateRunningApps()
             Task { @MainActor in
                 guard let self else { return }
                 if let app {
@@ -71,8 +72,11 @@ final class WindowEvents {
             object: nil, queue: .main
         ) { [weak self] note in
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            AX.invalidateRunningApps()
             Task { @MainActor in
                 if let app {
+                    ActivationPolicyCache.shared.forget(app.processIdentifier)
+                    self?.launching[app.processIdentifier] = nil
                     self?.retries[app.processIdentifier] = nil
                     self?.registering.remove(app.processIdentifier)
                     self?.unwatch(app.processIdentifier)
@@ -89,7 +93,10 @@ final class WindowEvents {
                 guard let self else { return }
                 // Etkinleşen uygulama artık yanıt veriyordur; beklemeyi kaldır,
                 // kaydı zamanlayıcının `refresh()` turu yapar.
-                if let app { self.retries[app.processIdentifier] = nil }
+                if let app {
+                    self.retries[app.processIdentifier] = nil
+                    ActivationPolicyCache.shared.forget(app.processIdentifier)
+                }
                 self.changed.send("activate")
             }
         })
@@ -117,20 +124,53 @@ final class WindowEvents {
     /// Router zamanlayıcısından düzenli olarak çağrılır.
     func refresh() {
         guard AXIsProcessTrusted() else { return }
+        lastRefresh = Date()
         for app in NSWorkspace.shared.runningApplications { watch(app) }
+    }
+
+    /// Zamanlayıcı turu: bütün süreçleri gezmek pahalı (her
+    /// `NSRunningApplication` özelliği XPC), bu yüzden yalnız bekleyen bir
+    /// yeniden deneme vakti geldiyse ya da `refreshInterval` dolduysa.
+    /// Yeni açılan uygulama zaten açılış bildirimiyle izlenir.
+    func refreshIfDue(now: Date = Date()) {
+        for entry in launching.values where now.timeIntervalSince(entry.since) <= Self.launchWait {
+            watch(entry.app)
+        }
+        if Self.shouldRefresh(now: now, lastRefresh: lastRefresh,
+                              nextRetry: retries.values.map(\.next).min()) {
+            refresh()
+        }
+    }
+
+    private var lastRefresh = Date.distantPast
+    /// Açılışı henüz bitmemiş, izlenmeyi bekleyen uygulamalar.
+    /// Arka plan ajanları çoğu zaman hiç "açılışı bitti" demez; bu yüzden
+    /// en fazla `launchWait` sık bakılır; sonra kayıt kalır ama yalnız
+    /// 60 sn'lik tam turda denenir (kapanınca silinir).
+    private var launching: [pid_t: (app: NSRunningApplication, since: Date)] = [:]
+    nonisolated static let launchWait: TimeInterval = 20
+    nonisolated static let refreshInterval: TimeInterval = 60
+
+    /// Tur kararı (saf).
+    nonisolated static func shouldRefresh(now: Date, lastRefresh: Date, nextRetry: Date?) -> Bool {
+        if let nextRetry, now >= nextRetry { return true }
+        return now.timeIntervalSince(lastRefresh) >= refreshInterval
     }
 
     private func watch(_ app: NSRunningApplication) {
         let pid = app.processIdentifier
-        // Önce ucuz denetimler: zamanlayıcı her turda bütün süreçleri gezer,
-        // çoğu zaten izleniyordur.
+        // Önce ucuz denetimler: çoğu süreç zaten izleniyordur.
         guard observers[pid] == nil,
               !registering.contains(pid),
-              pid != ProcessInfo.processInfo.processIdentifier,
-              app.activationPolicy == .regular,
-              // Açılışı bitmemiş uygulama AX'e henüz yanıt vermez; zamanlayıcı
-              // bir sonraki turda yeniden dener.
-              app.isFinishedLaunching else { return }
+              pid != ProcessInfo.processInfo.processIdentifier else { return }
+        guard app.isFinishedLaunching else {
+            // Açılışı bitmemiş uygulama AX'e henüz yanıt vermez (politikası da
+            // kesin değil); zamanlayıcı turunda yalnız ona yeniden bakılır.
+            if launching[pid] == nil { launching[pid] = (app, Date()) }
+            return
+        }
+        launching[pid] = nil
+        guard ActivationPolicyCache.shared.isRegular(app) else { return }
         let now = Date()
         if let retry = retries[pid], retry.next > now { return }
 

@@ -225,11 +225,39 @@ enum AX {
         var id: pid_t { pid }
     }
 
-    /// Dock'ta görünen, çalışan bütün uygulamalar (kendimiz hariç).
+    /// `runningApps()` önbelleği: `NSWorkspace.runningApplications` her
+    /// çağrıda yeni nesneler döndürür ve her özellik okuması (pid dahil)
+    /// LaunchServices'e XPC yapar; her taramada yüzlerce süreç için bu,
+    /// boşta CPU'nun en büyük kalemiydi. Uygulama açılınca/kapanınca/
+    /// etkinleşince `invalidateRunningApps()`; en geç `runningAppsTTL`.
+    nonisolated(unsafe) private static var cachedApps: (apps: [App], at: Date)?
+    private static let appsLock = NSLock()
+    static let runningAppsTTL: TimeInterval = 60
+
+    static func invalidateRunningApps() {
+        appsLock.lock(); defer { appsLock.unlock() }
+        cachedApps = nil
+    }
+
+    /// Dock'ta görünen, çalışan bütün uygulamalar (kendimiz hariç); önbellekli.
     static func runningApps() -> [App] {
+        let now = Date()
+        appsLock.lock()
+        if let cached = cachedApps, now.timeIntervalSince(cached.at) < runningAppsTTL {
+            appsLock.unlock()
+            return cached.apps
+        }
+        appsLock.unlock()
+        let apps = freshRunningApps()
+        appsLock.lock(); defer { appsLock.unlock() }
+        cachedApps = (apps, now)
+        return apps
+    }
+
+    private static func freshRunningApps() -> [App] {
         let ownPID = ProcessInfo.processInfo.processIdentifier
         return NSWorkspace.shared.runningApplications
-            .filter { $0.activationPolicy == .regular && $0.processIdentifier != ownPID }
+            .filter { $0.processIdentifier != ownPID && ActivationPolicyCache.shared.isRegular($0) }
             .map { App(pid: $0.processIdentifier,
                        name: $0.localizedName ?? "?",
                        bundleID: $0.bundleIdentifier ?? "") }
@@ -529,5 +557,54 @@ enum Coordinates {
         abs(a.minX - b.minX) <= tolerance && abs(a.minY - b.minY) <= tolerance
             && abs(a.width - b.width) <= tolerance
             && abs(a.height - b.height) <= tolerance
+    }
+}
+
+/// `NSRunningApplication.activationPolicy` her okunuşta LaunchServices'e
+/// eşzamanlı XPC yapar; her taramada yüzlerce süreç için sormak boşta
+/// CPU'nun en büyük kalemiydi (sample, 19.09.2026). Sonuç pid başına
+/// `ttl` süre saklanır; uygulama etkinleşince/kapanınca kayıt silinir.
+final class ActivationPolicyCache: @unchecked Sendable {
+
+    static let shared = ActivationPolicyCache()
+
+    /// Politika değişimi (ör. sonradan Dock simgesi gösteren uygulama)
+    /// en geç bu kadar sürede fark edilir.
+    static let ttl: TimeInterval = 60
+
+    private struct Entry { let regular: Bool; let at: Date }
+    private let lock = NSLock()
+    private var entries: [pid_t: Entry] = [:]
+
+    func isRegular(_ app: NSRunningApplication, now: Date = Date()) -> Bool {
+        isRegular(pid: app.processIdentifier, finishedLaunching: app.isFinishedLaunching,
+                  now: now) { app.activationPolicy == .regular }
+    }
+
+    /// `fetch` yalnız kayıt yoksa ya da süresi dolduysa çağrılır. Açılışı
+    /// bitmemiş uygulamanın politikası henüz kesin değil; saklanmaz.
+    func isRegular(pid: pid_t, finishedLaunching: Bool, now: Date,
+                   fetch: () -> Bool) -> Bool {
+        lock.lock()
+        if let entry = entries[pid], now.timeIntervalSince(entry.at) < Self.ttl {
+            lock.unlock()
+            return entry.regular
+        }
+        lock.unlock()
+        let regular = fetch()
+        guard finishedLaunching else { return regular }
+        lock.lock(); defer { lock.unlock() }
+        entries[pid] = Entry(regular: regular, at: now)
+        return regular
+    }
+
+    func forget(_ pid: pid_t) {
+        lock.lock(); defer { lock.unlock() }
+        entries[pid] = nil
+    }
+
+    var count: Int {
+        lock.lock(); defer { lock.unlock() }
+        return entries.count
     }
 }

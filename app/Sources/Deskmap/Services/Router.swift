@@ -181,7 +181,9 @@ final class Router: ObservableObject {
     /// Shots modu: tarama hiç yapılmaz (pencereler sabit verilir).
     private var isDemo = false
     /// Zamanlayıcı aralığı.
-    nonisolated static let tickInterval: TimeInterval = 2
+    /// 5 sn: turun kendisi (pencere sunucusu imzası) boşta en büyük kalemdi;
+    /// pencere olayları taramayı zaten beklemeden tetikler.
+    nonisolated static let tickInterval: TimeInterval = 5
     /// Hiçbir şey değişmese ve son tarih olmasa da bu kadar sürede bir tam
     /// tarama yapılır (gözlemcisi takılamamış uygulamanın başlık değişimi).
     nonisolated static let idleSweepInterval: TimeInterval = 60
@@ -206,13 +208,28 @@ final class Router: ObservableObject {
             Task { @MainActor in self?.tick() }
         }
         // Sistem zamanlayıcıları gruplayabilsin (güç tüketimi); 2 sn ± 0,5 sn yeter.
-        timer.tolerance = 0.5
+        timer.tolerance = 1
         self.timer = timer
 
         // Pencere olayları: art arda gelenleri tek taramada topla.
+        // Başlık değişimi (terminal, tarayıcı sekmesi) sürekli gelir; yalnız
+        // başlığa bakan kurallar için önemli, 1 sn toplanır. Diğerleri 80 ms.
+        let titleChanged = kAXTitleChangedNotification as String
         events.changed
+            .filter { $0 == titleChanged }
+            .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
+            .sink { [weak self] name in
+                self?.countSweepReason("event:\(name)")
+                self?.sweep()
+            }
+            .store(in: &cancellables)
+        events.changed
+            .filter { $0 != titleChanged }
             .debounce(for: .milliseconds(80), scheduler: DispatchQueue.main)
-            .sink { [weak self] _ in self?.sweep() }
+            .sink { [weak self] name in
+                self?.countSweepReason("event:\(name)")
+                self?.sweep()
+            }
             .store(in: &cancellables)
 
         screens.settled
@@ -301,7 +318,7 @@ final class Router: ObservableObject {
     /// imza değiştiyse, harita açıksa, taramaya bağlı bir son tarih
     /// geldiyse ya da `idleSweepInterval` dolduysa.
     private func tick() {
-        events.refresh()
+        events.refreshIfDue()
         resumeIfStuckPaused()
         guard !isPaused else { return }
         let signature = AX.windowServerSignature()
@@ -311,8 +328,31 @@ final class Router: ObservableObject {
         if Self.shouldSweepOnTick(signatureChanged: changed, mapVisible: mapVisible,
                                   deadline: sweepDeadline, now: now,
                                   sinceLastSweep: now.timeIntervalSince(lastSweepAt)) {
+            countSweepReason(changed ? "signature" : mapVisible ? "map"
+                             : (sweepDeadline.map { now >= $0 } ?? false) ? "deadline" : "idle")
             sweep()
         }
+        logSweepReasonsIfDue(now: now)
+    }
+
+    /// Tanı: taramaları kim tetikliyor (boşta CPU ölçümü için). Beş
+    /// dakikada bir, tarama olduysa tek satır.
+    private var sweepReasons: [String: Int] = [:]
+    private var sweepReasonsSince = Date()
+
+    private func countSweepReason(_ reason: String) {
+        sweepReasons[reason, default: 0] += 1
+    }
+
+    private func logSweepReasonsIfDue(now: Date) {
+        guard now.timeIntervalSince(sweepReasonsSince) >= 300 else { return }
+        if !sweepReasons.isEmpty {
+            let text = sweepReasons.sorted { $0.value > $1.value }
+                .map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
+            Log.routing.notice("Sweeps in the last 5 min: \(text, privacy: .public)")
+        }
+        sweepReasons = [:]
+        sweepReasonsSince = now
     }
 
     /// Zamanlayıcı turunda tam tarama gerekli mi (saf).

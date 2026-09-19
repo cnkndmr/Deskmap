@@ -22,3 +22,20 @@ struct ObserverRegistrationTests {
         #expect(WindowEvents.registrationBudget > 1.0)
     }
 }
+
+/// Zamanlayıcı turunda bütün süreçleri gezme kararı (pahalı; seyrek).
+struct ObserverRefreshTests {
+
+    private let now = Date(timeIntervalSinceReferenceDate: 1_000)
+
+    @Test func refreshOnlyWhenRetryDueOrIntervalPassed() {
+        let recent = now.addingTimeInterval(-5)
+        #expect(!WindowEvents.shouldRefresh(now: now, lastRefresh: recent, nextRetry: nil))
+        #expect(!WindowEvents.shouldRefresh(now: now, lastRefresh: recent,
+                                            nextRetry: now.addingTimeInterval(1)))
+        #expect(WindowEvents.shouldRefresh(now: now, lastRefresh: recent, nextRetry: now))
+        #expect(WindowEvents.shouldRefresh(
+            now: now, lastRefresh: now.addingTimeInterval(-WindowEvents.refreshInterval),
+            nextRetry: nil))
+    }
+}
