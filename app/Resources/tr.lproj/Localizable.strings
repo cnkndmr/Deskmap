@@ -79,8 +79,6 @@
 "Place pinned windows now" = "Pinli pencereleri şimdi yerleştir";
 "%@ not responding; skipped for now" = "%@ yanıt vermiyor; geçici olarak atlanıyor";
 "The app did not answer Accessibility requests (frozen or stopped in a debugger). It is listed again automatically once it responds." = "Uygulama Accessibility sorularına yanıt vermedi (donmuş ya da hata ayıklayıcıda). Yanıt verince otomatik olarak yeniden listelenir.";
-"Moving windows between desktops is not available on this macOS; only display and layout are applied" = "Masaüstü taşıma bu macOS'ta kullanılamıyor; yalnızca ekran ve düzen uygulanır";
-"SkyLight calls not found. Windows are placed on the right display and in the right layout but are not moved to other desktops." = "SkyLight çağrıları bulunamadı. Pencereler doğru ekrana ve düzene oturtulur ama başka masaüstüne taşınmaz.";
 "Pin a window, or drag it to another desktop." = "Bir pencereyi pinleyin ya da başka masaüstüne sürükleyin.";
 "Pinned windows are kept in place; others are left alone." = "Pinli pencereler yerinde tutulur; diğerlerine dokunulmaz.";
 "%@ · Undo" = "%@ · Geri al";
@@ -205,3 +203,9 @@
 /* Views/MissingDesktopBadge.swift: eksik masaüstü rozeti (D = Desktop, M = Masaüstü) */
 "D%ld→%ld" = "M%ld→%ld";
 "Desktops on this display: %ld. Add desktops in Mission Control or drag the pin to another desktop." = "Bu ekranda yalnızca %ld masaüstü var; Mission Control'de masaüstü ekleyin ya da pini başka masaüstüne sürükleyin.";
+
+/* Düşük mod (masaüstü taşıma doğrulanamadı) */
+"Reduced mode: desktop moves are off" = "Düşük mod: masaüstü taşıma kapalı";
+"Moves to other desktops did not take effect several times in a row, so they were stopped. Windows are still placed on the right display and in the right layout." = "Başka masaüstüne taşımalar art arda birkaç kez etkisiz kaldı, bu yüzden durduruldu. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir.";
+"Moving windows between desktops is not available on this macOS. Windows are still placed on the right display and in the right layout." = "Bu macOS'ta pencereleri masaüstleri arasında taşımak mümkün değil. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir.";
+"Try Again" = "Yeniden Dene";

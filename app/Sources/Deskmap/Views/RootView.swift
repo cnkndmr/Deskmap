@@ -46,6 +46,10 @@ struct RootView: View {
                     if !permission.isTrusted {
                         PermissionCard()
                     }
+                    if permission.isTrusted
+                        && (!SkyLight.shared.canMove || router.moveHealth.state == .degraded) {
+                        ReducedModeCard(canMove: SkyLight.shared.canMove) { router.retryMoves() }
+                    }
                     if !MacSettings.allRequiredOK(settingChecks) || !store.document.setupNoticeDismissed {
                         SetupCard(checks: settingChecks)
                     }
@@ -288,11 +292,6 @@ struct RootView: View {
                         .help(L("The app did not answer Accessibility requests (frozen or stopped in a debugger). It is listed again automatically once it responds."))
                 } else if let action = recentAction {
                     Label(action, systemImage: "arrow.turn.down.right")
-                } else if !SkyLight.shared.isAvailable {
-                    Label(L("Moving windows between desktops is not available on this macOS; only display and layout are applied"),
-                          systemImage: "rectangle.on.rectangle.slash")
-                        .foregroundStyle(.orange)
-                        .help(L("SkyLight calls not found. Windows are placed on the right display and in the right layout but are not moved to other desktops."))
                 } else {
                     Text(store.document.rules.isEmpty
                          ? L("Pin a window, or drag it to another desktop.")

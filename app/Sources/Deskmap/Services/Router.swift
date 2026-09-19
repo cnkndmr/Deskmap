@@ -63,6 +63,11 @@ final class Router: ObservableObject {
     /// yayınlanır (pencere listesi değişmeden eklenen masaüstü de haritaya
     /// yansısın).
     @Published private(set) var desktopCounts: [String: Int] = [:]
+    /// Masaüstü taşımasının doğrulanmış durumu; devre kesici açıksa
+    /// (`degraded`) taşıma durur, ekran ve düzen sürer.
+    @Published private(set) var moveHealth = MoveHealth()
+    /// Yapılmış ama henüz doğrulanmamış taşımalar (pencere → hedef space).
+    private var pendingMoves: [CGWindowID: PendingMove] = [:]
     /// Oturum pinlerinin diske yazılan kaydı (pencere yaşadığı sürece
     /// uygulama yeniden başlasa da geri yüklenir).
     private var sessionRecords: [CGWindowID: SessionPin] = [:]
@@ -152,7 +157,7 @@ final class Router: ObservableObject {
         self.events = WindowEvents()
         let sky = SkyLight.shared
         Log.skylight.notice("""
-            SkyLight \(sky.isAvailable ? "available" : "unavailable", privacy: .public); \
+            SkyLight \(sky.canRead ? "available" : "unavailable", privacy: .public); \
             desktop move path: \(sky.movePath, privacy: .public)
             """)
         loadSessionPins()
@@ -332,6 +337,46 @@ final class Router: ObservableObject {
         sweep()
     }
 
+    // MARK: - Taşıma doğrulaması
+
+    /// Düşük moddan çıkış: devre kesici kapanır, bütün pencereler yeniden
+    /// yerleştirilir (taşımalar yeniden doğrulanır).
+    func retryMoves() {
+        moveHealth.reset()
+        pendingMoves = [:]
+        Log.skylight.notice("Desktop moves re-enabled by user")
+        reapplyAll()
+    }
+
+    /// Bir taşıma çağrısının sonucunu kaydeder: hemen doğrulandıysa ya da
+    /// hata döndüyse devre kesiciye işlenir, yapıldıysa bekleyenlere eklenir.
+    private func noteMove(window: CGWindowID, space: UInt64, result: SkyLight.MoveResult) {
+        switch result {
+        case .verified: recordMoveCheck(window: window, verified: true)
+        case .noEffect: recordMoveCheck(window: window, verified: false)
+        case .issued: pendingMoves[window] = PendingMove(space: space, issuedAt: Date())
+        case .unavailable: break
+        }
+    }
+
+    private func recordMoveCheck(window: CGWindowID, verified: Bool) {
+        guard moveHealth.record(window: window, verified: verified) else { return }
+        switch moveHealth.state {
+        case .working:
+            Log.skylight.notice("""
+                Desktop move verified (path: \(SkyLight.shared.movePath, privacy: .public))
+                """)
+        case .degraded:
+            pendingMoves = [:]
+            Log.skylight.error("""
+                Desktop moves could not be verified \(MoveHealth.failureLimit) times in a row; \
+                reduced mode (path: \(SkyLight.shared.movePath, privacy: .public))
+                """)
+        case .unknown:
+            break
+        }
+    }
+
     // MARK: - Oturum pinleri
 
     /// Bu pencereyi (kimliğiyle) pencere kapanana kadar hedefte tutar.
@@ -448,9 +493,10 @@ final class Router: ObservableObject {
         // Son taramadaki pid ile AX öğesi doğrudan üretilir; bütün
         // uygulamaları yeniden taramak yalnızca bu yol tutmazsa gerekir.
         let snapshot = windows.first { $0.id == windowID }
+        let movesAllowed = moveHealth.movesAllowed
         queue.async { [weak self] in
             let sky = SkyLight.shared
-            guard sky.isAvailable,
+            guard sky.canRead, sky.canMove, movesAllowed,
                   let target = connected.first(where: { $0.id == placement.screen }),
                   let display = sky.displaySpaces(mainUUID: Self.primaryUUID(connected))
                     .first(where: { $0.displayUUID == target.uuid }),
@@ -494,10 +540,14 @@ final class Router: ObservableObject {
                 Manual move: \(appName, privacy: .public) [\(windowID)] → \
                 \(target.name, privacy: .public) · Desktop \(index)
                 """)
-            if !sky.move(window: windowID, to: space.id) {
-                Log.routing.error("Manual move failed: no SkyLight move path (window \(windowID))")
+            let result = sky.move(window: windowID, to: space.id)
+            if result == .unavailable || result == .noEffect {
+                Log.routing.error("Manual move failed (\(String(describing: result), privacy: .public), window \(windowID))")
             }
-            Task { @MainActor in self?.scheduleFollowUp(after: 200) }
+            Task { @MainActor in
+                self?.noteMove(window: windowID, space: space.id, result: result)
+                self?.scheduleFollowUp(after: 200)
+            }
         }
     }
 
@@ -526,6 +576,7 @@ final class Router: ObservableObject {
         let applied = self.applied
         let attempts = self.attempts
         let lastAttempts = self.lastAttempts
+        let movesAllowed = moveHealth.movesAllowed
         isSweeping = true
         sweepRequested = false
         lastSweepAt = Date()
@@ -534,7 +585,7 @@ final class Router: ObservableObject {
             let outcome = Self.route(rules: rules, sessionPins: sessionPins,
                                      sessionIDs: sessionIDs, mode: mode, screens: connected,
                                      applied: applied, attempts: attempts,
-                                     lastAttempts: lastAttempts)
+                                     lastAttempts: lastAttempts, movesAllowed: movesAllowed)
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
@@ -576,6 +627,16 @@ final class Router: ObservableObject {
                     self.windows = outcome.snapshots
                 }
                 self.expireSessionPins(live: outcome.liveWindows)
+                // Önceki taşımaların doğrulaması, sonra bu taramanın taşımaları.
+                let check = PendingMove.verify(pending: self.pendingMoves,
+                                               observed: outcome.observedSpaces, now: Date())
+                self.pendingMoves = check.remaining
+                for result in check.results {
+                    self.recordMoveCheck(window: result.window, verified: result.verified)
+                }
+                for move in outcome.moves where self.moveHealth.movesAllowed {
+                    self.noteMove(window: move.window, space: move.space, result: move.result)
+                }
                 if outcome.desktopCounts != self.desktopCounts {
                     self.desktopCounts = outcome.desktopCounts
                 }
@@ -609,6 +670,10 @@ final class Router: ObservableObject {
         var unresponsive: [String] = []
         /// Bağlı ekranlardaki gerçek masaüstü sayıları.
         var desktopCounts: [String: Int] = [:]
+        /// Bu taramada okunan pencere space'leri (taşıma doğrulaması için).
+        var observedSpaces: [CGWindowID: [UInt64]] = [:]
+        /// Bu taramada yapılan masaüstü taşımaları ve sonuçları.
+        var moves: [(window: CGWindowID, space: UInt64, result: SkyLight.MoveResult)] = []
         var routed = 0
         var lastAction: String?
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
@@ -633,7 +698,7 @@ final class Router: ObservableObject {
     nonisolated private static func route(
         rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
         mode: Mode, screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int],
-        lastAttempts: [String: Date]
+        lastAttempts: [String: Date], movesAllowed: Bool
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts, lastAttempts: lastAttempts)
         let sky = SkyLight.shared
@@ -657,6 +722,7 @@ final class Router: ObservableObject {
         var states: [CGWindowID: WindowState] = [:]
         for window in windows {
             let spaces = sky.spaces(of: window.id)
+            outcome.observedSpaces[window.id] = spaces
             states[window.id] = WindowState(
                 spaces: spaces,
                 isFullscreen: spaces.contains { spaceType($0) != 0 },
@@ -710,7 +776,7 @@ final class Router: ObservableObject {
             var onTarget = true
             var isVisible = true
             var desktopLabel = ""
-            if sky.isAvailable,
+            if sky.canRead,
                let display = displays.first(where: { $0.displayUUID == screen.uuid }),
                !display.desktops.isEmpty {
                 let desktops = display.desktops
@@ -764,18 +830,22 @@ final class Router: ObservableObject {
             // 2. Masaüstü — çerçeve verildikten sonra; aynı ekrandaki
             // masaüstüler arası taşıma çerçeveyi korur.
             let moveKey = "\(window.id)|move|\(ruleID)|\(mode.rawValue)|\(destination.hashValue)"
-            if let target, !onTarget {
+            if movesAllowed, sky.canMove, let target, !onTarget {
                 if let count = Routing.recordMoveAttempt(
                     key: moveKey, now: now,
                     attempts: &outcome.attempts, lastAttempts: &outcome.lastAttempts) {
-                    let moved = sky.move(window: window.id, to: target.id)
+                    let result = sky.move(window: window.id, to: target.id)
+                    outcome.moves.append((window.id, target.id, result))
                     Log.routing.info("""
                         \(window.appName, privacy: .public) [\(window.id)] \
                         '\(window.title, privacy: .private)' → \(desktopLabel, privacy: .public) \
                         (attempt \(count)/\(Routing.maxMoveAttempts))
                         """)
-                    if !moved {
-                        Log.routing.error("No SkyLight move path; window \(window.id) could not be moved")
+                    if result == .unavailable || result == .noEffect {
+                        Log.routing.error("""
+                            Desktop move failed (\(String(describing: result), privacy: .public)); \
+                            window \(window.id)
+                            """)
                     }
                     if count == Routing.maxMoveAttempts {
                         Log.routing.notice("""

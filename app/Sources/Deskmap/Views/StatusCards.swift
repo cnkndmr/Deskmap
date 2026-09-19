@@ -86,6 +86,42 @@ struct SetupCard: View {
     }
 }
 
+// MARK: - Düşük mod kartı
+
+/// Masaüstü taşıması bu Mac'te yok ya da doğrulanamadı (devre kesici
+/// açık): ekran ve düzen uygulanmaya devam eder, masaüstü taşıma durur.
+struct ReducedModeCard: View {
+
+    /// false: bu macOS'ta hiç taşıma yolu yok (yeniden deneme anlamsız).
+    let canMove: Bool
+    let retry: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "rectangle.on.rectangle.slash")
+                .font(.title2)
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(L("Reduced mode: desktop moves are off"))
+                    .font(.callout.weight(.semibold))
+                Text(canMove
+                     ? L("Moves to other desktops did not take effect several times in a row, so they were stopped. Windows are still placed on the right display and in the right layout.")
+                     : L("Moving windows between desktops is not available on this macOS. Windows are still placed on the right display and in the right layout."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer()
+            if canMove {
+                Button(L("Try Again"), action: retry)
+                    .controlSize(.small)
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 10).fill(.orange.opacity(0.12)))
+    }
+}
+
 // MARK: - İzin kartı
 
 struct PermissionCard: View {

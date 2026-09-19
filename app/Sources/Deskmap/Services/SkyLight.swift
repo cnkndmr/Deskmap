@@ -57,7 +57,26 @@ final class SkyLight: Sendable {
     private let setWindowListWorkspace: SetWindowListWorkspaceFn?
     private let performBridgedOperation: BridgedOperationFn?
 
-    let isAvailable: Bool
+    /// Space okuma çağrıları var ve pencere sunucusu bağlantısı kuruldu.
+    let canRead: Bool
+    /// Bu macOS'ta bir masaüstü taşıma yolu var (`movePath` "none" değil).
+    /// Yolun gerçekten çalıştığını kanıtlamaz: Router taşımayı sonraki
+    /// taramada doğrular (`MoveHealth`).
+    let canMove: Bool
+    /// Okuma ve taşıma birlikte kullanılabilir.
+    var isAvailable: Bool { canRead && canMove }
+
+    /// `move(window:to:)` sonucu.
+    enum MoveResult: Equatable {
+        /// Çağrı yapıldı; etkisi sonraki taramada `spaces(of:)` ile doğrulanır.
+        case issued
+        /// Çağrıdan hemen sonra pencere hedef space'te görüldü.
+        case verified
+        /// Çağrı hata kodu döndürdü; pencere taşınmadı.
+        case noEffect
+        /// Bu macOS'ta taşıma yolu yok.
+        case unavailable
+    }
 
     private static let frameworkPath =
         "/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight"
@@ -95,9 +114,13 @@ final class SkyLight: Sendable {
             performBridgedOperation = nil
         }
 
-        isAvailable = mainConnection != nil
+        canRead = mainConnection != nil && connection != 0
             && copyManagedDisplaySpaces != nil
             && copySpacesForWindows != nil
+        canMove = connection != 0 && Self.movePath(
+            bridged: performBridgedOperation != nil,
+            compat: spaceSetCompatID != nil && setWindowListWorkspace != nil,
+            legacy: moveWindowsToManagedSpace != nil) != "none"
     }
 
     // MARK: - Okuma
@@ -161,14 +184,19 @@ final class SkyLight: Sendable {
 
     /// Bu macOS'ta `move(window:to:)` hangi yolu kullanır (yalnızca günlük için).
     var movePath: String {
-        if performBridgedOperation != nil,
-           NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation") != nil {
+        Self.movePath(bridged: performBridgedOperation != nil,
+                      compat: spaceSetCompatID != nil && setWindowListWorkspace != nil,
+                      legacy: moveWindowsToManagedSpace != nil)
+    }
+
+    private static func movePath(bridged: Bool, compat: Bool, legacy: Bool) -> String {
+        if bridged, NSClassFromString("SLSBridgedMoveWindowsToManagedSpaceOperation") != nil {
             return "SLSBridgedMoveWindowsToManagedSpaceOperation"
         }
-        if Self.needsCompatIDWorkaround, spaceSetCompatID != nil, setWindowListWorkspace != nil {
+        if needsCompatIDWorkaround, compat {
             return "SLSSpaceSetCompatID + SLSSetWindowListWorkspace"
         }
-        if moveWindowsToManagedSpace != nil { return "SLSMoveWindowsToManagedSpace" }
+        if legacy { return "SLSMoveWindowsToManagedSpace" }
         return "none"
     }
 
@@ -182,10 +210,12 @@ final class SkyLight: Sendable {
             || version.majorVersion >= 15
     }()
 
-    /// Pencereyi verilen masaüstüne taşır. Sonuç doğrulanmaz; çağıran
-    /// `spaces(of:)` ile kontrol edebilir. Hiçbir taşıma yolu yoksa false.
+    /// Pencereyi verilen masaüstüne taşır. Eşzamanlı yollarda çağrıdan
+    /// hemen sonra `spaces(of:)` okunur; eşzamansız köprüde sonuç `issued`
+    /// döner ve Router sonraki taramada doğrular.
     @discardableResult
-    func move(window windowID: CGWindowID, to space: UInt64) -> Bool {
+    func move(window windowID: CGWindowID, to space: UInt64) -> MoveResult {
+        guard connection != 0 else { return .unavailable }
         var wid = windowID
         let list = [NSNumber(value: windowID)] as CFArray
 
@@ -199,7 +229,7 @@ final class SkyLight: Sendable {
                 object, NSSelectorFromString("initWithWindows:spaceID:"),
                 list, space) {
                 _ = perform(operation)
-                return true
+                return .issued
             }
         }
 
@@ -208,16 +238,25 @@ final class SkyLight: Sendable {
            let setWorkspace = setWindowListWorkspace {
             let tag: Int32 = 0x7961_6265
             _ = setCompat(connection, space, tag)
-            _ = setWorkspace(connection, &wid, 1, tag)
+            let error = setWorkspace(connection, &wid, 1, tag)
             _ = setCompat(connection, space, 0)
-            return true
+            return settled(error: error, window: windowID, space: space)
         }
 
         if let move = moveWindowsToManagedSpace {
-            _ = move(connection, list, space)
-            return true
+            let error = move(connection, list, space)
+            return settled(error: error, window: windowID, space: space)
         }
-        return false
+        return .unavailable
+    }
+
+    /// Eşzamanlı yolun sonucu: hata kodu varsa `noEffect`; yoksa pencere
+    /// hedefte görülüyorsa `verified`, görülmüyorsa `issued` (bu yolların
+    /// sessizce başarı döndürüp taşımadığı biliniyor, Hammerspoon #3698;
+    /// son söz sonraki taramanın doğrulamasında).
+    private func settled(error: Int32, window: CGWindowID, space: UInt64) -> MoveResult {
+        if error != 0 { return .noEffect }
+        return spaces(of: window).contains(space) ? .verified : .issued
     }
 
     private static func uint64(_ value: Any?) -> UInt64? {
