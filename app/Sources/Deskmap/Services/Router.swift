@@ -10,6 +10,36 @@ import Combine
 @MainActor
 final class Router: ObservableObject {
 
+    /// Düzenin uygulandığı çözülmüş hedef: mod + hedef (ekran, masaüstü,
+    /// düzen). Hangi kuralın eşleştiği bilerek dahil değil.
+    struct AppliedTarget: Equatable, Sendable {
+        let mode: Mode
+        let destination: Destination
+    }
+
+    struct AppliedEntry: Equatable, Sendable {
+        let target: AppliedTarget
+        /// Kaydı yazan taramanın yönlendirme nesli.
+        let generation: UInt64
+    }
+
+    /// Düzen bu hedef için yeniden verilmeli mi (saf): pencerenin son
+    /// uygulanan hedefi farklıysa ya da hiç yoksa.
+    nonisolated static func needsLayout(applied: AppliedEntry?, target: AppliedTarget) -> Bool {
+        applied?.target != target
+    }
+
+    /// Tarama sonucundaki düzen kayıtlarını sınırlara göre süzer (saf):
+    /// kaydı yazan tarama, pencere (ya da hepsi) unutulduktan önce
+    /// başladıysa kayıt atılır.
+    nonisolated static func acceptApplied(
+        _ entries: [CGWindowID: AppliedEntry], floors: [CGWindowID: UInt64], globalFloor: UInt64
+    ) -> [CGWindowID: AppliedEntry] {
+        entries.filter { id, entry in
+            entry.generation >= max(globalFloor, floors[id] ?? 0)
+        }
+    }
+
     struct Placement: Equatable, Hashable {
         let screen: String
         let desktop: Int
@@ -106,9 +136,15 @@ final class Router: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     nonisolated(unsafe) private var sleepTokens: [NSObjectProtocol] = []
 
-    /// (pencere, hedef) çiftleri için düzen bir kez uygulanır; kullanıcı
-    /// sonradan pencereyi elle taşırsa yerinden oynatılmaz.
-    private var applied: Set<String> = []
+    /// Pencere başına düzenin en son uygulandığı çözülmüş hedef ve nesil.
+    /// Düzen hedef başına bir kez verilir; kullanıcı pencereyi sonradan elle
+    /// taşırsa, başka bir kural aynı hedefe çıksa da yerinden oynatılmaz.
+    /// Hedef değişip geri dönerse (A→B→A) yeniden verilir (B7).
+    private var applied: [CGWindowID: AppliedEntry] = [:]
+    /// Pencere başına "bu nesilden eski düzen kayıtları geçersiz" sınırı:
+    /// tarama sürerken unutulan pencerenin eski kaydı sonuçla geri gelmesin.
+    private var appliedFloor: [CGWindowID: UInt64] = [:]
+    private var appliedGlobalFloor: UInt64 = 0
     /// (pencere, hedef) başına kaç kez düzen / masaüstü taşıması denendi;
     /// uygulama kabul etmezse belirli sayıdan sonra vazgeçilir.
     private var attempts: [String: Int] = [:]
@@ -351,6 +387,8 @@ final class Router: ObservableObject {
     /// Düzen belleğini sıfırlayıp bütün pencereleri yeniden yerleştirir.
     func reapplyAll() {
         generation.advance()
+        appliedGlobalFloor = generation.current
+        appliedFloor.removeAll()
         applied.removeAll()
         attempts.removeAll()
         lastAttempts.removeAll()
@@ -487,8 +525,9 @@ final class Router: ObservableObject {
     /// yerleştirilsin.
     private func forgetApplied(for windowID: CGWindowID) {
         generation.advance()
+        appliedFloor[windowID] = generation.current
+        applied[windowID] = nil
         let prefix = "\(windowID)|"
-        applied = applied.filter { !$0.hasPrefix(prefix) }
         attempts = attempts.filter { !$0.key.hasPrefix(prefix) }
         lastAttempts = lastAttempts.filter { !$0.key.hasPrefix(prefix) }
         if isSweeping { invalidatedPrefixes.insert(prefix) }
@@ -622,17 +661,16 @@ final class Router: ObservableObject {
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
-                var applied = outcome.applied
+                var applied = Self.acceptApplied(
+                    outcome.applied, floors: self.appliedFloor,
+                    globalFloor: self.appliedGlobalFloor)
                 var attempts = outcome.attempts
                 var lastAttempts = outcome.lastAttempts
                 if self.invalidateAll {
-                    applied = []
                     attempts = [:]
                     lastAttempts = [:]
                 } else if !self.invalidatedPrefixes.isEmpty {
                     let prefixes = self.invalidatedPrefixes
-                    applied = applied.filter { key in
-                        !prefixes.contains { key.hasPrefix($0) } }
                     attempts = attempts.filter { entry in
                         !prefixes.contains { entry.key.hasPrefix($0) } }
                     lastAttempts = lastAttempts.filter { entry in
@@ -648,7 +686,8 @@ final class Router: ObservableObject {
                               let id = CGWindowID(key[..<end]) else { return true }
                         return live[id] != nil
                     }
-                    applied = applied.filter(isLive)
+                    applied = applied.filter { live[$0.key] != nil }
+                    self.appliedFloor = self.appliedFloor.filter { live[$0.key] != nil }
                     attempts = attempts.filter { isLive($0.key) }
                     lastAttempts = lastAttempts.filter { isLive($0.key) }
                 }
@@ -696,7 +735,7 @@ final class Router: ObservableObject {
     }
 
     private struct Outcome {
-        var applied: Set<String>
+        var applied: [CGWindowID: AppliedEntry]
         var attempts: [String: Int]
         var lastAttempts: [String: Date]
         var snapshots: [WindowSnapshot] = []
@@ -759,7 +798,8 @@ final class Router: ObservableObject {
     /// masaüstü taşıması `Routing.maxMoveAttempts` / `Routing.moveRetryInterval`.
     nonisolated private static func route(
         rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
-        mode: Mode, screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int],
+        mode: Mode, screens: [ScreenInfo], applied: [CGWindowID: AppliedEntry],
+        attempts: [String: Int],
         lastAttempts: [String: Date], movesAllowed: Bool, token: RoutingGeneration.Token
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts, lastAttempts: lastAttempts)
@@ -821,7 +861,6 @@ final class Router: ObservableObject {
                 bundleID: window.bundleID, appName: window.appName, title: window.title)
             else { continue }
             let destination = match.destination
-            let ruleID = match.ruleID
 
             guard let screen = screens.first(where: { $0.id == destination.screen })
             else { continue }
@@ -834,12 +873,15 @@ final class Router: ObservableObject {
             }
 
             outcome.routed += 1
-            let key = "\(window.id)|\(ruleID)|\(mode.rawValue)|\(destination.hashValue)"
+            // Anahtarlar çözülmüş hedefe bağlı, kurala değil (B7).
+            let appliedTarget = AppliedTarget(mode: mode, destination: destination)
+            let key = "\(window.id)|\(mode.rawValue)|\(destination.hashValue)"
 
             let targetFrame = Coordinates.axRect(
                 fromCocoa: destination.layout.rect(in: screen.visibleFrame),
                 screens: screens)
-            var needsLayout = !outcome.applied.contains(key) && !state.isMinimized
+            var needsLayout = Self.needsLayout(applied: outcome.applied[window.id],
+                                               target: appliedTarget) && !state.isMinimized
 
             // Hedef masaüstü ve pencerenin şu anki space durumu.
             var target: SkyLight.Space?
@@ -884,10 +926,15 @@ final class Router: ObservableObject {
                 }
 
                 let previousAttempts = outcome.attempts[key] ?? 0
+                var done: Set<String> = []
                 if Routing.recordLayoutAttempt(
                     key: key, placed: placed,
-                    applied: &outcome.applied, attempts: &outcome.attempts) {
+                    applied: &done, attempts: &outcome.attempts) {
                     outcome.needsFollowUp = true
+                }
+                if done.contains(key) {
+                    outcome.applied[window.id] = AppliedEntry(
+                        target: appliedTarget, generation: token.value)
                 }
                 if !placed, previousAttempts + 1 >= Routing.maxAttempts {
                     Log.routing.notice("""
@@ -900,7 +947,7 @@ final class Router: ObservableObject {
 
             // 2. Masaüstü — çerçeve verildikten sonra; aynı ekrandaki
             // masaüstüler arası taşıma çerçeveyi korur.
-            let moveKey = "\(window.id)|move|\(ruleID)|\(mode.rawValue)|\(destination.hashValue)"
+            let moveKey = "\(window.id)|move|\(mode.rawValue)|\(destination.hashValue)"
             if movesAllowed, sky.canMove, let target, !onTarget {
                 if let count = Routing.recordMoveAttempt(
                     key: moveKey, now: now,
