@@ -12,6 +12,16 @@ final class WindowEvents {
     let changed = PassthroughSubject<String, Never>()
 
     private var observers: [pid_t: AXObserver] = [:]
+    /// Kaydı arka kuyrukta sürenler (ikinci kez gönderilmesin).
+    private var registering: Set<pid_t> = []
+    /// AX kaydı (gözlemci yaratma, bildirim ekleme, pencere listesi okuma)
+    /// ana iş parçacığında değil burada yapılır; donmuş bir uygulama
+    /// arayüzü kilitlemesin (P0-4). Seri: aynı anda tek uygulama.
+    private let registrationQueue = DispatchQueue(label: "deskmap.ax-register", qos: .utility)
+    /// Uygulama başına kayıt süre bütçesi: gözlemci ve bildirimler bu
+    /// sürede eklenemediyse ya da aşıldıysa pencere başı başlık kaydı
+    /// atlanır; kayıt hiç olmadıysa uygulama geri çekilmeye alınır.
+    nonisolated static let registrationBudget: TimeInterval = 1.5
     // nonisolated(unsafe): yalnızca init'te (ana aktör) doldurulur, deinit'te
     // kaldırılır; gözlemci belirteçleri Sendable olmadığı için deinit erişimi
     // başka türlü sıkı eşzamanlılık uyarısı verir.
@@ -25,13 +35,13 @@ final class WindowEvents {
         var delay: TimeInterval
     }
     private var retries: [pid_t: Retry] = [:]
-    private static let minRetry: TimeInterval = 2
-    private static let maxRetry: TimeInterval = 30
-    /// Bu uygulamaya yapılan AX çağrılarının yanıt süresi; kayıt ana
-    /// iş parçacığında yapıldığı için donmuş uygulama arayüzü kilitlemesin.
-    private static let messagingTimeout: Float = 1.0
+    nonisolated static let minRetry: TimeInterval = 2
+    nonisolated static let maxRetry: TimeInterval = 30
+    /// Bu uygulamaya yapılan AX çağrılarının yanıt süresi (kayıt kuyruğu
+    /// donmuş bir uygulamada uzun süre takılmasın).
+    nonisolated private static let messagingTimeout: Float = 1.0
 
-    private static let appNotifications: [String] = [
+    nonisolated private static let appNotifications: [String] = [
         kAXWindowCreatedNotification,
         kAXFocusedWindowChangedNotification,
         kAXWindowDeminiaturizedNotification,
@@ -64,6 +74,7 @@ final class WindowEvents {
             Task { @MainActor in
                 if let app {
                     self?.retries[app.processIdentifier] = nil
+                    self?.registering.remove(app.processIdentifier)
                     self?.unwatch(app.processIdentifier)
                 }
             }
@@ -114,6 +125,7 @@ final class WindowEvents {
         // Önce ucuz denetimler: zamanlayıcı her turda bütün süreçleri gezer,
         // çoğu zaten izleniyordur.
         guard observers[pid] == nil,
+              !registering.contains(pid),
               pid != ProcessInfo.processInfo.processIdentifier,
               app.activationPolicy == .regular,
               // Açılışı bitmemiş uygulama AX'e henüz yanıt vermez; zamanlayıcı
@@ -122,41 +134,95 @@ final class WindowEvents {
         let now = Date()
         if let retry = retries[pid], retry.next > now { return }
 
-        var observer: AXObserver?
-        guard AXObserverCreate(pid, WindowEvents.callback, &observer) == .success,
-              let observer else { deferRetry(pid, app: app, now: now); return }
+        registering.insert(pid)
+        let refcon = UnsafeSendablePointer(Unmanaged.passUnretained(self).toOpaque())
+        registrationQueue.async { [weak self] in
+            let result = Self.register(pid: pid, refcon: refcon.pointer)
+            Task { @MainActor in self?.finishRegistration(app, result: result) }
+        }
+    }
 
-        let refcon = Unmanaged.passUnretained(self).toOpaque()
+    /// Arka kuyruktaki kaydın sonucu.
+    private struct Registration: @unchecked Sendable {
+        /// nil: gözlemci yaratılamadı ya da hiçbir bildirim eklenemedi.
+        let observer: AXObserver?
+        let elapsed: TimeInterval
+        /// Bütçe aşıldığı için mevcut pencerelere başlık kaydı yapılmadı.
+        let skippedWindows: Bool
+    }
+
+    /// `AXObserverCreate`, bildirim kayıtları ve `kAXWindows` okuması (arka
+    /// kuyruk; ana aktöre dokunmaz). Run loop kaynağı burada eklenmez.
+    nonisolated private static func register(pid: pid_t, refcon: UnsafeMutableRawPointer)
+        -> Registration {
+        let start = Date()
+        var created: AXObserver?
+        guard AXObserverCreate(pid, WindowEvents.callback, &created) == .success,
+              let observer = created
+        else { return Registration(observer: nil, elapsed: Date().timeIntervalSince(start),
+                                   skippedWindows: false) }
+
         let appElement = AXUIElementCreateApplication(pid)
-        AXUIElementSetMessagingTimeout(appElement, Self.messagingTimeout)
+        AXUIElementSetMessagingTimeout(appElement, messagingTimeout)
         var added = false
-        for name in Self.appNotifications {
+        for name in appNotifications {
             if AXObserverAddNotification(observer, appElement, name as CFString, refcon) == .success {
                 added = true
             }
         }
-        guard added else { deferRetry(pid, app: app, now: now); return }
-
-        // Başlık değişimi pencere öğesine bağlanır; mevcut pencereler için de tak.
-        var raw: CFTypeRef?
-        if AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &raw) == .success,
-           let windows = raw as? [AXUIElement] {
-            for window in windows {
-                _ = AXObserverAddNotification(observer, window,
-                                              kAXTitleChangedNotification as CFString, refcon)
-            }
+        guard added else {
+            return Registration(observer: nil, elapsed: Date().timeIntervalSince(start),
+                                skippedWindows: false)
         }
 
+        // Başlık değişimi pencere öğesine bağlanır; mevcut pencereler için de
+        // tak. Bütçe aşıldıysa atlanır (başlık değişimleri zamanlayıcının
+        // boşta taramasıyla yine yakalanır).
+        let overBudget = Date().timeIntervalSince(start) > registrationBudget
+        if !overBudget {
+            var raw: CFTypeRef?
+            if AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &raw)
+                == .success, let windows = raw as? [AXUIElement] {
+                for window in windows {
+                    _ = AXObserverAddNotification(observer, window,
+                                                  kAXTitleChangedNotification as CFString, refcon)
+                }
+            }
+        }
+        return Registration(observer: observer, elapsed: Date().timeIntervalSince(start),
+                            skippedWindows: overBudget)
+    }
+
+    /// Ana aktörde: hazır gözlemcinin run loop kaynağı ana run loop'a eklenir.
+    /// Kayıt sürerken uygulama kapandıysa sonuç atılır.
+    private func finishRegistration(_ app: NSRunningApplication, result: Registration) {
+        let pid = app.processIdentifier
+        guard registering.remove(pid) != nil, !app.isTerminated else { return }
+        let now = Date()
+        guard let observer = result.observer else {
+            deferRetry(pid, app: app, now: now,
+                       slow: result.elapsed > Self.registrationBudget)
+            return
+        }
+        if result.skippedWindows {
+            Log.ax.notice("""
+                Window observer for \(app.localizedName ?? "?", privacy: .public) (pid \(pid)) \
+                took \(result.elapsed, format: .fixed(precision: 1)) s; per-window title \
+                observers skipped
+                """)
+        }
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
         observers[pid] = observer
         retries[pid] = nil
+        changed.send("observer")
     }
 
     /// Kayıt başarısız: bu uygulama artan aralıkla (2 → 30 sn) sonra denenir.
-    private func deferRetry(_ pid: pid_t, app: NSRunningApplication, now: Date) {
-        let delay = min((retries[pid]?.delay).map { $0 * 2 } ?? Self.minRetry, Self.maxRetry)
+    /// `slow`: kayıt bütçeyi aştı; bekleme en uzun süreden başlar.
+    private func deferRetry(_ pid: pid_t, app: NSRunningApplication, now: Date, slow: Bool = false) {
+        let delay = Self.retryDelay(previous: retries[pid]?.delay, slow: slow)
         retries[pid] = Retry(next: now.addingTimeInterval(delay), delay: delay)
-        if delay == Self.minRetry {
+        if delay == Self.minRetry || slow {
             Log.ax.info("""
                 Could not attach window observer to \(app.localizedName ?? "?", privacy: .public) \
                 (pid \(pid)); retrying in \(delay, format: .fixed(precision: 0)) s
@@ -164,12 +230,19 @@ final class WindowEvents {
         }
     }
 
+    /// Bir sonraki kayıt denemesine kadar bekleme (saf): 2 sn'den başlar,
+    /// ikiye katlanır, 30 sn'de durur; bütçeyi aşan kayıtta hemen 30 sn.
+    nonisolated static func retryDelay(previous: TimeInterval?, slow: Bool) -> TimeInterval {
+        if slow { return maxRetry }
+        return min(previous.map { $0 * 2 } ?? minRetry, maxRetry)
+    }
+
     private func unwatch(_ pid: pid_t) {
         guard let observer = observers.removeValue(forKey: pid) else { return }
         CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
     }
 
-    private static let callback: AXObserverCallback = { observer, element, notification, refcon in
+    nonisolated private static let callback: AXObserverCallback = { observer, element, notification, refcon in
         guard let refcon else { return }
         let events = Unmanaged<WindowEvents>.fromOpaque(refcon).takeUnretainedValue()
         let name = notification as String
@@ -180,4 +253,11 @@ final class WindowEvents {
         }
         Task { @MainActor in events.changed.send(name) }
     }
+}
+
+/// Ham işaretçiyi kayıt kuyruğuna taşımak için (yalnız `refcon` olarak
+/// AX'e verilir, kuyrukta çözülmez).
+private struct UnsafeSendablePointer: @unchecked Sendable {
+    let pointer: UnsafeMutableRawPointer
+    init(_ pointer: UnsafeMutableRawPointer) { self.pointer = pointer }
 }
