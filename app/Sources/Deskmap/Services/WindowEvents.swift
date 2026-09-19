@@ -10,6 +10,9 @@ final class WindowEvents {
 
     /// Olay adı ile tetiklenir.
     let changed = PassthroughSubject<String, Never>()
+    /// Başlık değişimi ayrı: değişen pencerenin sahibi (pid) ile. Router
+    /// yalnız başlığın önemli olduğu uygulamalarda tarar.
+    let titleChanged = PassthroughSubject<pid_t, Never>()
 
     private var observers: [pid_t: AXObserver] = [:]
     /// Kaydı arka kuyrukta sürenler (ikinci kez gönderilmesin).
@@ -146,10 +149,10 @@ final class WindowEvents {
     /// Açılışı henüz bitmemiş, izlenmeyi bekleyen uygulamalar.
     /// Arka plan ajanları çoğu zaman hiç "açılışı bitti" demez; bu yüzden
     /// en fazla `launchWait` sık bakılır; sonra kayıt kalır ama yalnız
-    /// 60 sn'lik tam turda denenir (kapanınca silinir).
+    /// 5 dakikalık tam turda denenir (kapanınca silinir).
     private var launching: [pid_t: (app: NSRunningApplication, since: Date)] = [:]
     nonisolated static let launchWait: TimeInterval = 20
-    nonisolated static let refreshInterval: TimeInterval = 60
+    nonisolated static let refreshInterval: TimeInterval = 300
 
     /// Tur kararı (saf).
     nonisolated static func shouldRefresh(now: Date, lastRefresh: Date, nextRetry: Date?) -> Bool {
@@ -290,6 +293,12 @@ final class WindowEvents {
             // Yeni pencerenin başlığı çoğu zaman biraz sonra gelir; onu da dinle.
             _ = AXObserverAddNotification(observer, element,
                                           kAXTitleChangedNotification as CFString, refcon)
+        }
+        if name == kAXTitleChangedNotification {
+            var pid: pid_t = 0
+            _ = AXUIElementGetPid(element, &pid)
+            Task { @MainActor in events.titleChanged.send(pid) }
+            return
         }
         Task { @MainActor in events.changed.send(name) }
     }

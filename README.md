@@ -518,7 +518,11 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
 
 - **Private APIs.** Moving windows between Spaces and finding windows on
   other desktops rely on private SkyLight and Accessibility functions. A macOS
-  update can break them; the app then falls back to display and layout only.
+  update can break them. Every desktop move is checked on the next scan; if
+  moves keep having no effect, Deskmap switches to a reduced mode (display and
+  layout only, desktop moves off) and shows a card with a **Try Again** button.
+- **Unknown state means hands off.** If macOS doesn't say which desktop a
+  window is on, the window is only listed: it is neither moved nor resized.
 - **Desktops must exist.** Deskmap can't create desktops; add them in
   Mission Control. Pins beyond the last desktop go to the last one.
 - **Titles must identify the window.** Apps that don't show a workspace or
@@ -527,8 +531,11 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
 - **Full-screen windows** are left alone.
 - **Two setups only**: monitor connected / laptop only. External displays are
   identified by position (left to right), not by model or serial number.
-- **Not instant.** Placement happens on window events and at least every
-  2 seconds, with a few retries for apps that resize slowly.
+- **Not instant.** Placement happens on window events. A light check every
+  5 seconds catches what events miss (a full scan only when something
+  changed, plus one every two minutes); title changes are grouped for a
+  second and only count for apps with title-based pins. Apps
+  that resize slowly get a few retries.
 - **One-level undo**, visible for 10 seconds.
 - **Ad-hoc signing** by default, so the Accessibility permission must be
   granted again after each rebuild.

@@ -124,3 +124,34 @@ struct ActivationPolicyCacheTests {
         #expect(cache.count == 0)
     }
 }
+
+/// Başlık değişimi yalnız önemliyse taramayı tetikler.
+struct TitleEventTests {
+
+    private let rules = [
+        Rule(appName: "Safari", bundleID: "com.apple.Safari", tokens: ["Docs"],
+             docked: Destination(screen: "ext-1")),
+        Rule(appName: "cmux", bundleID: "", tokens: [], docked: Destination(screen: "ext-1")),
+        Rule(appName: "Notes", bundleID: "", tokens: ["Plan"], docked: Destination(screen: "ext-1")),
+    ]
+
+    @Test func titleRuleForAppMatters() {
+        #expect(Router.titleMatters(bundleID: "com.apple.Safari", appName: "Safari",
+                                    rules: rules, mapVisible: false))
+        #expect(Router.titleMatters(bundleID: "com.apple.Notes", appName: "notes",
+                                    rules: rules, mapVisible: false))
+    }
+
+    @Test func appWideOrUnruledAppDoesNotMatter() {
+        #expect(!Router.titleMatters(bundleID: "com.cmux", appName: "cmux",
+                                     rules: rules, mapVisible: false))
+        #expect(!Router.titleMatters(bundleID: "com.apple.Terminal", appName: "Terminal",
+                                     rules: rules, mapVisible: false))
+    }
+
+    @Test func mapVisibleOrUnknownAppAlwaysMatters() {
+        #expect(Router.titleMatters(bundleID: "com.apple.Terminal", appName: "Terminal",
+                                    rules: rules, mapVisible: true))
+        #expect(Router.titleMatters(bundleID: nil, appName: nil, rules: [], mapVisible: false))
+    }
+}

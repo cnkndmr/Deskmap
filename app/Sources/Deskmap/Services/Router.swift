@@ -186,7 +186,7 @@ final class Router: ObservableObject {
     nonisolated static let tickInterval: TimeInterval = 5
     /// Hiçbir şey değişmese ve son tarih olmasa da bu kadar sürede bir tam
     /// tarama yapılır (gözlemcisi takılamamış uygulamanın başlık değişimi).
-    nonisolated static let idleSweepInterval: TimeInterval = 60
+    nonisolated static let idleSweepInterval: TimeInterval = 120
 
     init(store: Store, screens: ScreenService) {
         self.store = store
@@ -213,18 +213,17 @@ final class Router: ObservableObject {
 
         // Pencere olayları: art arda gelenleri tek taramada topla.
         // Başlık değişimi (terminal, tarayıcı sekmesi) sürekli gelir; yalnız
-        // başlığa bakan kurallar için önemli, 1 sn toplanır. Diğerleri 80 ms.
-        let titleChanged = kAXTitleChangedNotification as String
-        events.changed
-            .filter { $0 == titleChanged }
+        // o uygulama için başlığa bakan bir kural varsa ya da harita açıksa
+        // önemli (`titleMatters`), 1 sn toplanır. Diğer olaylar 80 ms.
+        events.titleChanged
+            .filter { [weak self] pid in self?.titleMatters(pid: pid) ?? false }
             .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
-            .sink { [weak self] name in
-                self?.countSweepReason("event:\(name)")
+            .sink { [weak self] _ in
+                self?.countSweepReason("event:title")
                 self?.sweep()
             }
             .store(in: &cancellables)
         events.changed
-            .filter { $0 != titleChanged }
             .debounce(for: .milliseconds(80), scheduler: DispatchQueue.main)
             .sink { [weak self] name in
                 self?.countSweepReason("event:\(name)")
@@ -394,6 +393,28 @@ final class Router: ObservableObject {
         }
         if let backoffEnd { deadlines.append(backoffEnd) }
         return deadlines.min()
+    }
+
+    private func titleMatters(pid: pid_t) -> Bool {
+        let app = AX.runningApps().first { $0.pid == pid }
+        return Self.titleMatters(bundleID: app?.bundleID, appName: app?.name,
+                                 rules: isPaused || !store.document.enabled ? [] : store.document.rules,
+                                 mapVisible: mapVisible)
+    }
+
+    /// Başlık değişimi tarama gerektirir mi (saf): harita açıksa (liste
+    /// tazelenmeli) ya da bu uygulama için başlık sözcüğü olan bir kural
+    /// varsa. Uygulama bilinmiyorsa güvenli taraf: evet.
+    nonisolated static func titleMatters(bundleID: String?, appName: String?, rules: [Rule],
+                                         mapVisible: Bool) -> Bool {
+        if mapVisible { return true }
+        guard let bundleID, let appName else { return true }
+        let lowered = appName.lowercased()
+        return rules.contains { rule in
+            !rule.tokens.isEmpty
+                && (rule.bundleID.isEmpty ? rule.appName.lowercased() == lowered
+                                          : rule.bundleID == bundleID)
+        }
     }
 
     /// Harita açıldı / kapandı (RootView'in penceresinin görünürlüğü).
