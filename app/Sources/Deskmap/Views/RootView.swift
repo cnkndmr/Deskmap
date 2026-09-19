@@ -46,7 +46,7 @@ struct RootView: View {
                     if !permission.isTrusted {
                         PermissionCard()
                     }
-                    if !settingChecks.allSatisfy(\.ok) || !store.document.setupNoticeDismissed {
+                    if !MacSettings.allRequiredOK(settingChecks) || !store.document.setupNoticeDismissed {
                         SetupCard(checks: settingChecks)
                     }
                     if permission.isTrusted && store.document.rules.isEmpty

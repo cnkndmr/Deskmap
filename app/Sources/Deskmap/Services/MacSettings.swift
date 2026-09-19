@@ -13,16 +13,25 @@ enum MacSettings {
 
     struct Check: Identifiable, Equatable {
         let id: String
-        /// Ayarın macOS (İngilizce) arayüzündeki adı. Bilerek çevrilmez:
-        /// Sistem Ayarları'nda aranacak metin budur.
+        /// Ayarın macOS arayüzündeki adı; Türkçe macOS'ta Sistem Ayarları'nın
+        /// kendi Türkçe adıyla gösterilir (aranacak metin budur).
         let title: String
         /// Olması gereken durum ve nedeni.
         let detail: String
         let ok: Bool
+        /// Zorunlu ayar yanlışsa Deskmap düzgün çalışmaz; önerilen ayar
+        /// (`required == false`) yalnızca sarı ipucu olarak gösterilir.
+        var required: Bool = true
     }
 
-    /// Canlı denetlenebilen ayarlar; hepsi `ok` ise kart yalnızca genel
-    /// hatırlatmayı gösterir.
+    /// Kartın "ayarlar uygun" kararı (saf): yalnız zorunlu ayarlara bakılır.
+    /// Önerilen ayar kapalı olsa da kart kapatılabilir.
+    static func allRequiredOK(_ checks: [Check]) -> Bool {
+        checks.allSatisfy { $0.ok || !$0.required }
+    }
+
+    /// Canlı denetlenebilen ayarlar; zorunluların hepsi `ok` ise kart
+    /// yalnızca genel hatırlatmayı gösterir.
     static func checks() -> [Check] {
         let mruSpaces = bool("mru-spaces", domain: "com.apple.dock", default: true)
         let autoSwoosh = bool("workspaces-auto-swoosh", domain: "com.apple.dock", default: true)
@@ -30,19 +39,19 @@ enum MacSettings {
         let spansDisplays = bool("spans-displays", domain: "com.apple.spaces", default: false)
         return [
             Check(id: "mru",
-                  title: "Automatically rearrange Spaces based on most recent use",
+                  title: L("Automatically rearrange Spaces based on most recent use"),
                   detail: L("Must be OFF. When on, macOS reorders your desktops: switching to an app from the Dock goes to the wrong Space and pin desktop numbers shift."),
                   ok: !mruSpaces),
             Check(id: "swoosh",
-                  title: "When switching to an application, switch to a Space with open windows",
+                  title: L("When switching to an application, switch to a Space with open windows"),
                   detail: L("Must be ON. When off, clicking an app in the Dock does not switch desktops."),
                   ok: autoSwoosh),
             Check(id: "group",
-                  title: "Group windows by application",
+                  title: L("Group windows by application"),
                   detail: L("OFF is recommended. When on, the Mission Control order may not match desktop numbers."),
-                  ok: !groupApps),
+                  ok: !groupApps, required: false),
             Check(id: "spans",
-                  title: "Displays have separate Spaces",
+                  title: L("Displays have separate Spaces"),
                   detail: L("Must be ON. When off, Deskmap cannot see the external display's desktops."),
                   ok: !spansDisplays),
         ]

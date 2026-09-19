@@ -2,16 +2,17 @@ import SwiftUI
 
 // MARK: - macOS ayarları kartı
 
-/// Deskmap'in çalışması için gereken macOS ayarları. Canlı denetlenen
-/// ayarlardan biri yanlışsa kart kapatılamaz; hepsi doğruysa yalnızca
-/// genel hatırlatma gösterilir ve "Anladım" ile gizlenir.
+/// Deskmap'in çalışması için gereken macOS ayarları. Zorunlu ayarlardan
+/// biri yanlışsa kart kapatılamaz; zorunluların hepsi doğruysa yalnızca
+/// genel hatırlatma gösterilir ve "Anladım" ile gizlenir. Önerilen ayar
+/// kapalıysa sarı ipucu olarak kalır, kartı "düzeltilmeli"ye çevirmez.
 struct SetupCard: View {
 
     let checks: [MacSettings.Check]
 
     @EnvironmentObject private var store: Store
 
-    private var allOK: Bool { checks.allSatisfy(\.ok) }
+    private var allOK: Bool { MacSettings.allRequiredOK(checks) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -41,11 +42,18 @@ struct SetupCard: View {
 
             ForEach(checks) { check in
                 HStack(alignment: .top, spacing: 6) {
-                    Image(systemName: check.ok ? "checkmark.circle.fill" : "xmark.circle.fill")
-                        .foregroundStyle(check.ok ? Color.green : Color.red)
+                    Image(systemName: icon(for: check))
+                        .foregroundStyle(color(for: check))
                         .padding(.top, 1)
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(check.title).font(.caption.weight(.medium))
+                        HStack(spacing: 4) {
+                            Text(check.title).font(.caption.weight(.medium))
+                            if !check.required {
+                                Text(L("Recommended"))
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         Text(check.detail).font(.caption2).foregroundStyle(.secondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -65,6 +73,16 @@ struct SetupCard: View {
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 10)
             .fill((allOK ? Color.green : Color.orange).opacity(0.10)))
+    }
+
+    private func icon(for check: MacSettings.Check) -> String {
+        if check.ok { return "checkmark.circle.fill" }
+        return check.required ? "xmark.circle.fill" : "exclamationmark.circle.fill"
+    }
+
+    private func color(for check: MacSettings.Check) -> Color {
+        if check.ok { return .green }
+        return check.required ? .red : .yellow
     }
 }
 

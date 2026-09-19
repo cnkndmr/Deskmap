@@ -48,6 +48,11 @@
 "Profile not found: %@" = "Profil bulunamadı: %@";
 
 /* Services/MacSettings.swift (ayar adları macOS'taki İngilizce adlarıyla kalır) */
+"Automatically rearrange Spaces based on most recent use" = "Alanları en son kullanıma göre otomatik olarak yeniden düzenle";
+"When switching to an application, switch to a Space with open windows" = "Bir uygulamaya geçildiğinde, uygulamanın açık pencerelerinin olduğu bir Alan'a geç";
+"Group windows by application" = "Pencereleri uygulamaya göre grupla";
+"Displays have separate Spaces" = "Ekranların ayrı Alanları var";
+"Recommended" = "Önerilen";
 "Must be OFF. When on, macOS reorders your desktops: switching to an app from the Dock goes to the wrong Space and pin desktop numbers shift." = "KAPALI olmalı. Açıkken macOS masaüstü sırasını değiştirir; Dock'tan uygulamaya geçiş yanlış Space'e gider, pinlerin masaüstü numaraları kayar.";
 "Must be ON. When off, clicking an app in the Dock does not switch desktops." = "AÇIK olmalı. Kapalıyken Dock'a tıklamak masaüstü değiştirmez.";
 "OFF is recommended. When on, the Mission Control order may not match desktop numbers." = "KAPALI önerilir; açıkken Mission Control sırası ile masaüstü numaraları uyuşmayabilir.";
