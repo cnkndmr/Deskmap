@@ -163,6 +163,13 @@ enum AX {
         backoffs = backoffs.filter { running.contains($0.key) }
     }
 
+    /// En yakın geri çekilme bitişi (sonrasında o uygulama yeniden taranır);
+    /// süren geri çekilme yoksa nil.
+    static func nextBackoffEnd(now: Date = Date()) -> Date? {
+        backoffLock.lock(); defer { backoffLock.unlock() }
+        return backoffs.values.map(\.until).filter { $0 > now }.min()
+    }
+
     /// Şu an atlanan (yanıt vermeyen) uygulamaların adları.
     static func unresponsiveApps() -> [String] {
         backoffLock.lock(); defer { backoffLock.unlock() }
@@ -367,6 +374,55 @@ enum AX {
             if let window = serverWindow(from: entry) { windows.append(window) }
         }
         return WindowServerList(windows: windows, live: live)
+    }
+
+    /// Pencere sunucusu imzasının bir satırı: katman 0 penceresinin
+    /// numarası, sahibi, tam sayıya yuvarlanmış sınırları, ekranda olup olmadığı.
+    struct SignatureRow: Equatable {
+        let id: CGWindowID
+        let pid: pid_t
+        let bounds: [Int]
+        let onscreen: Bool
+    }
+
+    /// Zamanlayıcı turunun ucuz değişim denetimi için imza. Karşılaştırma
+    /// satır satır yapılır; özet (hash) çakışması değişimi gizleyemez.
+    struct WindowServerSignature: Equatable {
+        let rows: [SignatureRow]
+    }
+
+    /// Zamanlayıcı turunun ucuz değişim denetimi: pencere sunucusunu tek
+    /// çağrıyla okur, AX'e hiç sormaz. Okunamazsa nil (tam tarama yapılır).
+    static func windowServerSignature() -> WindowServerSignature? {
+        guard let list = CGWindowListCopyWindowInfo(
+            [.optionAll, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]]
+        else { return nil }
+        return serverSignature(list)
+    }
+
+    /// Sunucu listesinin imzası (saf). Numaraya göre sıralanır; odak
+    /// değişince değişen z-sırası imzayı değiştirmez. Yeni/kapanan pencere,
+    /// taşıma, boyut, simge durumu ve masaüstleri arası geçiş imzaya
+    /// yansır; başlık yansımaz (başlık değişimi AX olayıyla gelir). Katman 0
+    /// dışı kayıtlar (menü çubuğu, Dock, bildirimler) sürekli oynadığı için
+    /// sayılmaz.
+    static func serverSignature(_ list: [[String: Any]]) -> WindowServerSignature {
+        var rows: [SignatureRow] = []
+        for entry in list {
+            guard let (number, pid) = liveEntry(from: entry),
+                  let layer = entry[kCGWindowLayer as String] as? Int, layer == 0
+            else { continue }
+            var bounds: [Int] = []
+            if let rect = entry[kCGWindowBounds as String] as? [String: Any] {
+                bounds = ["X", "Y", "Width", "Height"].map {
+                    Int(((rect[$0] as? Double) ?? 0).rounded())
+                }
+            }
+            let onscreen = entry[kCGWindowIsOnscreen as String] as? Bool ?? false
+            rows.append(SignatureRow(id: number, pid: pid, bounds: bounds, onscreen: onscreen))
+        }
+        rows.sort { $0.id < $1.id }
+        return WindowServerSignature(rows: rows)
     }
 
     /// Sunucu kaydından pencere numarası ve sahip pid (saf); biri yoksa nil.

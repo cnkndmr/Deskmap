@@ -88,14 +88,18 @@ struct RootView: View {
             } else {
                 pendingWindows = windows
             }
-            // Mission Control'de eklenen/silinen masaüstü haritaya yansısın.
-            let counts = Router.desktopCounts(screens: screens.screens)
-            if counts != ui.desktopCounts { ui.desktopCounts = counts }
             // Kullanıcı Sistem Ayarları'nda düzeltince kart kendiliğinden güncellensin.
             let checks = MacSettings.checks()
             if checks != settingChecks { settingChecks = checks }
             refreshLoginStatus()
         }
+        // Mission Control'de eklenen/silinen masaüstü haritaya yansısın;
+        // pencere listesi değişmese de (Router ayrı yayınlar).
+        .onReceive(router.$desktopCounts) { counts in
+            guard !counts.isEmpty, counts != ui.desktopCounts else { return }
+            ui.desktopCounts = counts
+        }
+        .background(WindowVisibilityObserver { router.setMapVisible($0) })
         .onChange(of: ui.drag == nil) { idle in
             guard idle, let pending = pendingWindows else { return }
             ui.windows = pending
@@ -385,5 +389,52 @@ struct RootView: View {
         }
         // Gerçek durumu oku: register sonrası .requiresApproval da olabilir.
         refreshLoginStatus()
+    }
+}
+
+/// Barındıran pencerenin ekranda olup olmadığını bildirir (menü çubuğu
+/// penceresi bir kez oluşturulur; `onAppear` her açılışta gelmez).
+/// Görünürlük pencerenin örtülme durumundan okunur.
+private struct WindowVisibilityObserver: NSViewRepresentable {
+
+    let onChange: (Bool) -> Void
+
+    func makeNSView(context: Context) -> ObserverView {
+        let view = ObserverView()
+        view.onChange = onChange
+        return view
+    }
+
+    func updateNSView(_ view: ObserverView, context: Context) {
+        view.onChange = onChange
+    }
+
+    final class ObserverView: NSView {
+        var onChange: ((Bool) -> Void)?
+        private var tokens: [NSObjectProtocol] = []
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            tokens.forEach(NotificationCenter.default.removeObserver)
+            tokens = []
+            guard let window else { onChange?(false); return }
+            for name in [NSWindow.didChangeOcclusionStateNotification,
+                         NSWindow.willCloseNotification] {
+                tokens.append(NotificationCenter.default.addObserver(
+                    forName: name, object: window, queue: .main) { [weak self] note in
+                    let closing = note.name == NSWindow.willCloseNotification
+                    MainActor.assumeIsolated { self?.report(closing: closing) }
+                })
+            }
+            report(closing: false)
+        }
+
+        private func report(closing: Bool) {
+            guard let window else { return }
+            onChange?(!closing && window.isVisible
+                      && window.occlusionState.contains(.visible))
+        }
+
+        deinit { tokens.forEach(NotificationCenter.default.removeObserver) }
     }
 }

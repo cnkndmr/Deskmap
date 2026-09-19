@@ -111,9 +111,11 @@ final class WindowEvents {
 
     private func watch(_ app: NSRunningApplication) {
         let pid = app.processIdentifier
-        guard app.activationPolicy == .regular,
+        // Önce ucuz denetimler: zamanlayıcı her turda bütün süreçleri gezer,
+        // çoğu zaten izleniyordur.
+        guard observers[pid] == nil,
               pid != ProcessInfo.processInfo.processIdentifier,
-              observers[pid] == nil,
+              app.activationPolicy == .regular,
               // Açılışı bitmemiş uygulama AX'e henüz yanıt vermez; zamanlayıcı
               // bir sonraki turda yeniden dener.
               app.isFinishedLaunching else { return }

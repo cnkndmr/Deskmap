@@ -76,6 +76,9 @@ enum Routing {
 
     // MARK: - Masaüstü taşıma denemeleri
 
+    /// Deneme sayacı anahtarı bir masaüstü taşımasına mı ait (düzene değil).
+    static func isMoveKey(_ key: String) -> Bool { key.contains("|move|") }
+
     /// Masaüstü taşıması bu kadar denemeden sonra da tutmazsa (macOS
     /// taşımayı reddediyor / özel API çalışmıyor) o pencere için bir süre
     /// bırakılır; pencere hedefe varınca ya da bellek sıfırlanınca sayaç silinir.

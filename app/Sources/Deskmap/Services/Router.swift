@@ -59,6 +59,10 @@ final class Router: ObservableObject {
     /// (birkaç tarama boyunca görünmeyince) kendiliğinden silinir; moddan
     /// bağımsızdır, hedef ekran bağlı değilse o an uygulanmaz.
     @Published private(set) var sessionPins: [CGWindowID: Destination] = [:]
+    /// Bağlı ekranlardaki gerçek masaüstü sayıları; `windows`'tan bağımsız
+    /// yayınlanır (pencere listesi değişmeden eklenen masaüstü de haritaya
+    /// yansısın).
+    @Published private(set) var desktopCounts: [String: Int] = [:]
     /// Oturum pinlerinin diske yazılan kaydı (pencere yaşadığı sürece
     /// uygulama yeniden başlasa da geri yüklenir).
     private var sessionRecords: [CGWindowID: SessionPin] = [:]
@@ -120,6 +124,22 @@ final class Router: ObservableObject {
     private var invalidatedPrefixes: Set<String> = []
     private var invalidateAll = false
     private var followUp: Task<Void, Never>?
+    /// Son tam taramanın başladığı an ve son zamanlayıcı turunda okunan
+    /// pencere sunucusu imzası (`tick`).
+    private var lastSweepAt = Date.distantPast
+    private var lastSignature: AX.WindowServerSignature?
+    /// Taramaya bağlı en yakın son tarih (`nextSweepDeadline`): bu an
+    /// geldiyse zamanlayıcı turu, imza değişmese de tam tarama yapar.
+    private var sweepDeadline: Date?
+    /// Harita (menü çubuğu penceresi) ekranda mı; RootView bildirir.
+    private var mapVisible = false
+    /// Shots modu: tarama hiç yapılmaz (pencereler sabit verilir).
+    private var isDemo = false
+    /// Zamanlayıcı aralığı.
+    nonisolated static let tickInterval: TimeInterval = 2
+    /// Hiçbir şey değişmese ve son tarih olmasa da bu kadar sürede bir tam
+    /// tarama yapılır (gözlemcisi takılamamış uygulamanın başlık değişimi).
+    nonisolated static let idleSweepInterval: TimeInterval = 60
 
     init(store: Store, screens: ScreenService) {
         self.store = store
@@ -137,13 +157,8 @@ final class Router: ObservableObject {
             """)
         loadSessionPins()
 
-        let timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
-            Task { @MainActor in
-                guard let self else { return }
-                self.events.refresh()
-                self.resumeIfStuckPaused()
-                self.sweep()
-            }
+        let timer = Timer.scheduledTimer(withTimeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tick() }
         }
         // Sistem zamanlayıcıları gruplayabilsin (güç tüketimi); 2 sn ± 0,5 sn yeter.
         timer.tolerance = 0.5
@@ -196,6 +211,7 @@ final class Router: ObservableObject {
         self.store = store
         self.screens = screens
         self.events = WindowEvents(demo: true)
+        self.isDemo = true
         self.windows = demoWindows
         self.sessionPins = demoSessionPins
         self.status = demoStatus
@@ -215,6 +231,76 @@ final class Router: ObservableObject {
             Sweep \(paused ? "paused" : "resumed", privacy: .public) (\(reason, privacy: .public))
             """)
         if !paused { sweep() }
+    }
+
+    /// Zamanlayıcı turu (2 sn). Pencere olayları taramayı zaten kendileri
+    /// tetikler; bu tur yalnızca olayın kaçırdığını yakalar. Her turda
+    /// bütün uygulamalara AX ile sormak boşta sürekli CPU harcıyordu; artık
+    /// önce pencere sunucusunun ucuz imzasına bakılır, tam tarama yalnızca
+    /// imza değiştiyse, harita açıksa, taramaya bağlı bir son tarih
+    /// geldiyse ya da `idleSweepInterval` dolduysa.
+    private func tick() {
+        events.refresh()
+        resumeIfStuckPaused()
+        guard !isPaused else { return }
+        let signature = AX.windowServerSignature()
+        let changed = signature == nil || signature != lastSignature
+        lastSignature = signature
+        let now = Date()
+        if Self.shouldSweepOnTick(signatureChanged: changed, mapVisible: mapVisible,
+                                  deadline: sweepDeadline, now: now,
+                                  sinceLastSweep: now.timeIntervalSince(lastSweepAt)) {
+            sweep()
+        }
+    }
+
+    /// Zamanlayıcı turunda tam tarama gerekli mi (saf).
+    nonisolated static func shouldSweepOnTick(
+        signatureChanged: Bool, mapVisible: Bool, deadline: Date?, now: Date,
+        sinceLastSweep: TimeInterval
+    ) -> Bool {
+        if signatureChanged || mapVisible { return true }
+        if let deadline, now >= deadline { return true }
+        return sinceLastSweep >= idleSweepInterval
+    }
+
+    /// Taramaya bağlı en yakın son tarih (saf); yoksa nil. Her biri,
+    /// imza değişmese de yeniden tam tarama gerektiren bir bekleyen iştir:
+    /// - oturum pini düşme sayacı sürüyor (`sessionMissLimit`'e kadar her tur),
+    /// - düzen denemesi sürüyor (`Routing.maxAttempts`'e kadar her tur),
+    /// - masaüstü taşıması sürüyor (sınıra kadar her tur; sınırdaysa
+    ///   son denemeden `Routing.moveRetryInterval` sonra),
+    /// - AX geri çekilmesi bitiyor (uygulama yeniden taransın).
+    /// "Her tur" = `now` (bir sonraki zamanlayıcı turu).
+    nonisolated static func nextSweepDeadline(
+        now: Date, pendingSessionMisses: Bool, attempts: [String: Int],
+        lastAttempts: [String: Date], backoffEnd: Date?
+    ) -> Date? {
+        var deadlines: [Date] = []
+        if pendingSessionMisses { deadlines.append(now) }
+        for (key, count) in attempts where count > 0 {
+            if Routing.isMoveKey(key) {
+                if count >= Routing.maxMoveAttempts {
+                    if let last = lastAttempts[key] {
+                        deadlines.append(last.addingTimeInterval(Routing.moveRetryInterval))
+                    }
+                } else {
+                    deadlines.append(now)
+                }
+            } else if count < Routing.maxAttempts {
+                deadlines.append(now)
+            }
+        }
+        if let backoffEnd { deadlines.append(backoffEnd) }
+        return deadlines.min()
+    }
+
+    /// Harita açıldı / kapandı (RootView'in penceresinin görünürlüğü).
+    /// Açıkken liste her turda tazelenir; açılınca hemen bir tur.
+    func setMapVisible(_ visible: Bool) {
+        guard visible != mapVisible else { return }
+        mapVisible = visible
+        if visible { sweep() }
     }
 
     /// Emniyet: uyanma bildirimi kaçtıysa duraklama sonsuza dek sürmesin.
@@ -418,7 +504,7 @@ final class Router: ObservableObject {
     // MARK: - Tarama
 
     private func sweep() {
-        guard AXIsProcessTrusted(), !isPaused else { return }
+        guard !isDemo, AXIsProcessTrusted(), !isPaused else { return }
         if isSweeping {
             // Tarama sürerken gelen olay kaybolmasın; bitince bir tur daha.
             sweepRequested = true
@@ -442,6 +528,7 @@ final class Router: ObservableObject {
         let lastAttempts = self.lastAttempts
         isSweeping = true
         sweepRequested = false
+        lastSweepAt = Date()
 
         queue.async { [weak self] in
             let outcome = Self.route(rules: rules, sessionPins: sessionPins,
@@ -489,6 +576,13 @@ final class Router: ObservableObject {
                     self.windows = outcome.snapshots
                 }
                 self.expireSessionPins(live: outcome.liveWindows)
+                if outcome.desktopCounts != self.desktopCounts {
+                    self.desktopCounts = outcome.desktopCounts
+                }
+                self.sweepDeadline = Self.nextSweepDeadline(
+                    now: Date(), pendingSessionMisses: !self.sessionMisses.isEmpty,
+                    attempts: self.attempts, lastAttempts: self.lastAttempts,
+                    backoffEnd: AX.nextBackoffEnd())
                 if outcome.needsFollowUp || self.sweepRequested {
                     self.scheduleFollowUp(after: outcome.needsFollowUp ? 200 : 20)
                 }
@@ -513,6 +607,8 @@ final class Router: ObservableObject {
         /// pinlerinin yaşayıp yaşamadığı buradan anlaşılır).
         var liveWindows: [CGWindowID: pid_t] = [:]
         var unresponsive: [String] = []
+        /// Bağlı ekranlardaki gerçek masaüstü sayıları.
+        var desktopCounts: [String: Int] = [:]
         var routed = 0
         var lastAction: String?
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
@@ -545,6 +641,7 @@ final class Router: ObservableObject {
         let visibleSpaces = Set(displays.map(\.current))
         // Space türleri ekran listesinden; listede olmayan kimlik için IPC.
         let spaceTypes = SkyLight.spaceTypes(of: displays)
+        outcome.desktopCounts = Self.desktopCounts(displays: displays, screens: screens)
         func spaceType(_ id: UInt64) -> Int { spaceTypes[id] ?? sky.type(of: id) }
         // Pencere sunucusu taramada bir kez okunur: 2. aşama listeleme ve
         // yaşam denetimi aynı sonuçtan türer.
@@ -820,8 +917,16 @@ final class Router: ObservableObject {
 
     /// Bağlı ekranlardaki gerçek masaüstü sayıları.
     nonisolated static func desktopCounts(screens: [ScreenInfo]) -> [String: Int] {
+        desktopCounts(displays: SkyLight.shared.displaySpaces(mainUUID: primaryUUID(screens)),
+                      screens: screens)
+    }
+
+    /// Okunmuş ekran listesinden masaüstü sayıları (saf).
+    nonisolated static func desktopCounts(
+        displays: [SkyLight.DisplaySpaces], screens: [ScreenInfo]
+    ) -> [String: Int] {
         var counts: [String: Int] = [:]
-        for display in SkyLight.shared.displaySpaces(mainUUID: primaryUUID(screens)) {
+        for display in displays {
             if let screen = screens.first(where: { $0.uuid == display.displayUUID }) {
                 counts[screen.id] = display.desktops.count
             }
