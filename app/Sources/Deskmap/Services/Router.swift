@@ -66,6 +66,10 @@ final class Router: ObservableObject {
     /// Masaüstü taşımasının doğrulanmış durumu; devre kesici açıksa
     /// (`degraded`) taşıma durur, ekran ve düzen sürer.
     @Published private(set) var moveHealth = MoveHealth()
+    /// Yönlendirme nesli: kural, ekran, duraklatma ya da oturum pini
+    /// değişince artar. Arka planda süren tarama her yan etkiden
+    /// (`AX.setFrame`, `sky.move`) önce nesline bakar; eskimişse durur (P0-2).
+    nonisolated let generation = RoutingGeneration()
     /// Yapılmış ama henüz doğrulanmamış taşımalar (pencere → hedef space).
     private var pendingMoves: [CGWindowID: PendingMove] = [:]
     /// Oturum pinlerinin diske yazılan kaydı (pencere yaşadığı sürece
@@ -179,11 +183,26 @@ final class Router: ObservableObject {
             .sink { [weak self] in self?.reapplyAll() }
             .store(in: &cancellables)
 
+        // Ekran değişimi yatışmadan da süren taramanın yan etkileri durmalı.
+        screens.$screens
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.generation.advance() }
+            .store(in: &cancellables)
+
         store.$document
             .map(\.rules)
             .removeDuplicates()
             .dropFirst()
             .sink { [weak self] _ in self?.reapplyAll() }
+            .store(in: &cancellables)
+
+        // Duraklat / sürdür (menü, deskmap://pause).
+        store.$document
+            .map(\.enabled)
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self] _ in self?.generation.advance() }
             .store(in: &cancellables)
 
         // Ekranlar / sistem uyurken tarama durur (pencere sunucusu ve
@@ -231,6 +250,7 @@ final class Router: ObservableObject {
     private func setPaused(_ paused: Bool, reason: String) {
         guard paused != isPaused else { return }
         isPaused = paused
+        generation.advance()
         pausedAt = paused ? Date() : nil
         Log.screens.notice("""
             Sweep \(paused ? "paused" : "resumed", privacy: .public) (\(reason, privacy: .public))
@@ -330,6 +350,7 @@ final class Router: ObservableObject {
 
     /// Düzen belleğini sıfırlayıp bütün pencereleri yeniden yerleştirir.
     func reapplyAll() {
+        generation.advance()
         applied.removeAll()
         attempts.removeAll()
         lastAttempts.removeAll()
@@ -465,6 +486,7 @@ final class Router: ObservableObject {
     /// Bir pencerenin düzen belleğini sıfırlar; hedefi değişince yeniden
     /// yerleştirilsin.
     private func forgetApplied(for windowID: CGWindowID) {
+        generation.advance()
         let prefix = "\(windowID)|"
         applied = applied.filter { !$0.hasPrefix(prefix) }
         attempts = attempts.filter { !$0.key.hasPrefix(prefix) }
@@ -494,6 +516,7 @@ final class Router: ObservableObject {
         // uygulamaları yeniden taramak yalnızca bu yol tutmazsa gerekir.
         let snapshot = windows.first { $0.id == windowID }
         let movesAllowed = moveHealth.movesAllowed
+        let token = generation.token()
         queue.async { [weak self] in
             let sky = SkyLight.shared
             guard sky.canRead, sky.canMove, movesAllowed,
@@ -532,6 +555,10 @@ final class Router: ObservableObject {
                 let sourceArea = Coordinates.axRect(fromCocoa: source.visibleFrame, screens: connected)
                 let targetArea = Coordinates.axRect(fromCocoa: target.visibleFrame, screens: connected)
                 let layout = WindowLayout(frame: frame, in: sourceArea)
+                guard token.isCurrent else {
+                    Log.routing.notice("Manual move dropped: routing changed (window \(windowID))")
+                    return
+                }
                 AX.setFrame(layout.rect(in: targetArea), of: window)
             }
 
@@ -540,6 +567,10 @@ final class Router: ObservableObject {
                 Manual move: \(appName, privacy: .public) [\(windowID)] → \
                 \(target.name, privacy: .public) · Desktop \(index)
                 """)
+            guard token.isCurrent else {
+                Log.routing.notice("Manual move dropped: routing changed (window \(windowID))")
+                return
+            }
             let result = sky.move(window: windowID, to: space.id)
             if result == .unavailable || result == .noEffect {
                 Log.routing.error("Manual move failed (\(String(describing: result), privacy: .public), window \(windowID))")
@@ -577,6 +608,7 @@ final class Router: ObservableObject {
         let attempts = self.attempts
         let lastAttempts = self.lastAttempts
         let movesAllowed = moveHealth.movesAllowed
+        let token = generation.token()
         isSweeping = true
         sweepRequested = false
         lastSweepAt = Date()
@@ -585,7 +617,8 @@ final class Router: ObservableObject {
             let outcome = Self.route(rules: rules, sessionPins: sessionPins,
                                      sessionIDs: sessionIDs, mode: mode, screens: connected,
                                      applied: applied, attempts: attempts,
-                                     lastAttempts: lastAttempts, movesAllowed: movesAllowed)
+                                     lastAttempts: lastAttempts, movesAllowed: movesAllowed,
+                                     token: token)
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
@@ -644,7 +677,10 @@ final class Router: ObservableObject {
                     now: Date(), pendingSessionMisses: !self.sessionMisses.isEmpty,
                     attempts: self.attempts, lastAttempts: self.lastAttempts,
                     backoffEnd: AX.nextBackoffEnd())
-                if outcome.needsFollowUp || self.sweepRequested {
+                if outcome.stale {
+                    Log.routing.info("Sweep cut short: routing changed while it ran")
+                }
+                if outcome.needsFollowUp || outcome.stale || self.sweepRequested {
                     self.scheduleFollowUp(after: outcome.needsFollowUp ? 200 : 20)
                 }
                 var status = self.status
@@ -670,6 +706,8 @@ final class Router: ObservableObject {
         var unresponsive: [String] = []
         /// Bağlı ekranlardaki gerçek masaüstü sayıları.
         var desktopCounts: [String: Int] = [:]
+        /// Tarama sürerken yönlendirme nesli değişti; yan etkiler kesildi.
+        var stale = false
         /// Space durumu bilinmediği için yönlendirilmeyen pencere sayısı.
         var unknownSpaces = 0
         /// Bu taramada okunan pencere space'leri (taşıma doğrulaması için).
@@ -722,7 +760,7 @@ final class Router: ObservableObject {
     nonisolated private static func route(
         rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
         mode: Mode, screens: [ScreenInfo], applied: Set<String>, attempts: [String: Int],
-        lastAttempts: [String: Date], movesAllowed: Bool
+        lastAttempts: [String: Date], movesAllowed: Bool, token: RoutingGeneration.Token
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts, lastAttempts: lastAttempts)
         let sky = SkyLight.shared
@@ -775,7 +813,7 @@ final class Router: ObservableObject {
         }
 
         let now = Date()
-        for window in windows {
+        windowLoop: for window in windows {
             // Arayüzle aynı seçim: oturum pini, yoksa bu modda hedefi olan
             // en özgül eşleşen kural.
             guard let match = Routing.select(
@@ -837,6 +875,7 @@ final class Router: ObservableObject {
                 if let frame = state.frame, Coordinates.close(frame, targetFrame) {
                     placed = true
                 } else {
+                    guard token.isCurrent else { outcome.stale = true; break windowLoop }
                     AX.setFrame(targetFrame, of: window)
                     // Uygulama çerçeveyi kabul etti mi? Bu okuma gerekli.
                     if let after = AX.frame(of: window), Coordinates.close(after, targetFrame) {
@@ -866,6 +905,7 @@ final class Router: ObservableObject {
                 if let count = Routing.recordMoveAttempt(
                     key: moveKey, now: now,
                     attempts: &outcome.attempts, lastAttempts: &outcome.lastAttempts) {
+                    guard token.isCurrent else { outcome.stale = true; break windowLoop }
                     let result = sky.move(window: window.id, to: target.id)
                     outcome.moves.append((window.id, target.id, result))
                     Log.routing.info("""

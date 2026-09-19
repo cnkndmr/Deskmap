@@ -106,3 +106,31 @@ enum Routing {
         return count
     }
 }
+
+/// Yönlendirme nesli (P0-2). Ana aktör değişimde `advance()` çağırır; arka
+/// plandaki tarama başta aldığı `token`'la her yan etkiden önce hâlâ güncel
+/// olup olmadığına bakar. Kilitli sayaç: iki iş parçacığından okunur.
+final class RoutingGeneration: @unchecked Sendable {
+
+    struct Token: Sendable {
+        fileprivate let owner: RoutingGeneration
+        let value: UInt64
+        /// Bu token alındığından beri nesil değişmedi mi.
+        var isCurrent: Bool { owner.current == value }
+    }
+
+    private let lock = NSLock()
+    private var value: UInt64 = 0
+
+    var current: UInt64 {
+        lock.lock(); defer { lock.unlock() }
+        return value
+    }
+
+    func advance() {
+        lock.lock(); defer { lock.unlock() }
+        value &+= 1
+    }
+
+    func token() -> Token { Token(owner: self, value: current) }
+}
