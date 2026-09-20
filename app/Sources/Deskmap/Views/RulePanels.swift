@@ -322,7 +322,7 @@ struct SaveCurrentLayoutRow: View {
 
     private var caption: String {
         guard isLive else { return L("Switch to this mode to read the window's size.") }
-        guard let window else { return L("Open a matching window to read its size.") }
+        guard window != nil else { return L("Open a matching window to read its size.") }
         guard let current else { return L("The window's size can't be read right now.") }
         if current == stored { return L("The saved layout already matches the window.") }
         return L("Window now: %@", current.label)
