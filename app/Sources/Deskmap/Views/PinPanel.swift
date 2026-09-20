@@ -163,13 +163,8 @@ struct PinPanel: View {
     /// alanına göre oranlar. Başka ekrana taşınıyorsa aynı oranlar orada
     /// uygulanır.
     private var currentLayout: WindowLayout {
-        let screenID = window.placement?.screen ?? draft.target.screen
-        guard let frame = window.frame,
-              let screen = screens.screens.first(where: { $0.id == screenID })
-        else { return .full }
-        let area = Coordinates.axRect(fromCocoa: screen.visibleFrame,
-                                      screens: screens.screens)
-        return WindowLayout(frame: frame, in: area)
+        window.currentLayout(screens: screens.screens,
+                             fallbackScreen: draft.target.screen) ?? .full
     }
 
     private func pin() {

@@ -38,6 +38,7 @@
 "Pin updated" = "Pin güncellendi";
 "Title parts changed" = "Başlık parçaları değişti";
 "Pin removed" = "Pin kaldırıldı";
+"Layout saved" = "Düzen kaydedildi";
 "Desktop order changed" = "Masaüstü sırası değişti";
 "Profile deleted: %@" = "Profil silindi: %@";
 "Built-in display" = "Dahili ekran";
@@ -125,6 +126,13 @@
 "Unpin" = "Pini kaldır";
 "Close (Esc)" = "Kapat (Esc)";
 "Close" = "Kapat";
+"Use current size and position" = "Şu anki boyutu ve konumu kullan";
+"Save the window's current position and size as this pin's layout. Screen and desktop stay the same." = "Pencerenin şu anki konum ve boyutunu bu pinin düzeni olarak kaydeder. Ekran ve masaüstü değişmez.";
+"Switch to this mode to read the window's size." = "Pencerenin boyutunu okumak için bu moda geçin.";
+"Open a matching window to read its size." = "Boyutunu okumak için bu pine uyan bir pencere açın.";
+"The window's size can't be read right now." = "Pencerenin boyutu şu anda okunamıyor.";
+"The saved layout already matches the window." = "Kayıtlı düzen pencereyle zaten aynı.";
+"Window now: %@" = "Pencere şu an: %@";
 "%@: no pin" = "%@: pin yok";
 "%@: pinned" = "%@: pinli";
 "Apply" = "Uygula";

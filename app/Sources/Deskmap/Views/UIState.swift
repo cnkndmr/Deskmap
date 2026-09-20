@@ -26,6 +26,10 @@ enum BottomPanel: Equatable {
 final class UIState: ObservableObject {
     /// Açık alt panel; nil = kapalı.
     @Published var panel: BottomPanel?
+    /// Kural paneli bir pencere satırından açıldıysa o pencere; çipten
+    /// açıldıysa nil. "Şu anki boyutu kullan" düğmesi ölçüyü bu pencereden
+    /// okur; yoksa kurala uyan ilk pencereden.
+    @Published var panelSourceWindowID: CGWindowID?
     /// Daraltılmış uygulama grupları ("ekran|masaüstü|bundleID").
     @Published var collapsed: Set<String> = []
     /// Haritada gösterilen pencereler. Sürükleme sürerken yenilenmez.
@@ -62,8 +66,10 @@ final class UIState: ObservableObject {
     var isProfilePanelOpen: Bool { panel == .profile }
 
     /// Aynı panele tekrar tıklamak kapatır, başkasına tıklamak onu açar.
-    func toggle(_ target: BottomPanel) {
+    /// `from`: paneli açan pencere satırı (çipten açılıyorsa nil).
+    func toggle(_ target: BottomPanel, from window: CGWindowID? = nil) {
         panel = panel == target ? nil : target
+        panelSourceWindowID = panel == nil ? nil : window
     }
 }
 

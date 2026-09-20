@@ -126,7 +126,7 @@ struct WindowRow: View {
             if sessionPin != nil {
                 ui.toggle(.session(window.id))
             } else if let rule = pinnedRule {
-                ui.toggle(.rule(rule.id))
+                ui.toggle(.rule(rule.id), from: window.id)
             }
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)

@@ -25,6 +25,17 @@ final class Router: ObservableObject {
 
     /// Düzen bu hedef için yeniden verilmeli mi (saf): pencerenin son
     /// uygulanan hedefi farklıysa ya da hiç yoksa.
+    /// Düzenin ekranın kullanılabilir alanındaki hedef çerçevesi (AX
+    /// koordinatları, üst kenar y = 0). Düzen oranları AX alanına göredir:
+    /// pin yakalama (`WindowSnapshot.currentLayout`), elle taşıma ve burası
+    /// aynı alanı kullanır. Alan önce Cocoa'dan çevrilir; oran Cocoa alanına
+    /// uygulanıp sonra çevrilirse dikey eksen ters döner (y = 0 alta iner,
+    /// "Üst yarı" alta, "Alt yarı" üste giderdi).
+    nonisolated static func targetFrame(for layout: WindowLayout, on screen: ScreenInfo,
+                                        screens: [ScreenInfo]) -> CGRect {
+        layout.rect(in: Coordinates.axRect(fromCocoa: screen.visibleFrame, screens: screens))
+    }
+
     nonisolated static func needsLayout(applied: AppliedEntry?, target: AppliedTarget) -> Bool {
         applied?.target != target
     }
@@ -938,9 +949,7 @@ final class Router: ObservableObject {
             let appliedTarget = AppliedTarget(mode: mode, destination: destination)
             let key = "\(window.id)|\(mode.rawValue)|\(destination.hashValue)"
 
-            let targetFrame = Coordinates.axRect(
-                fromCocoa: destination.layout.rect(in: screen.visibleFrame),
-                screens: screens)
+            let targetFrame = Self.targetFrame(for: destination.layout, on: screen, screens: screens)
             var needsLayout = Self.needsLayout(applied: outcome.applied[window.id],
                                                target: appliedTarget) && !state.isMinimized
 

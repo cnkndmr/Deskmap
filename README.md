@@ -187,6 +187,11 @@ What Deskmap enforces:
   the window freely; the layout is applied again when you press ⌘R (↻), when
   pins change, or after a display change. Windows on a desktop you are not
   looking at get their layout when you switch to that desktop.
+- **Use current size and position**: after resizing or moving a pinned window
+  by hand, click its row and press this button under the layout editor. The
+  window's current position and size (relative to its display's usable area)
+  replace the pin's saved layout. Only the layout changes: the pin keeps its
+  display and desktop, and no new pin is written. Works for temporary pins too.
 - Windows of full-screen apps are never touched. Windows without a pin are
   never moved by the engine.
 
@@ -259,9 +264,9 @@ There are no confirmation dialogs. After these actions the footer shows
 "*action* · Undo" for 10 seconds; click it or press ⌘Z:
 
 - unpinning (**Pin removed**), dragging a pin to another desktop (**Pin
-  moved**), re-pinning over an existing target (**Pin updated**), editing
-  title parts, reordering desktops, deleting a profile, dragging a temporary
-  pin.
+  moved**), re-pinning over an existing target (**Pin updated**), saving the
+  window's current size as the layout (**Layout saved**), editing title
+  parts, reordering desktops, deleting a profile, dragging a temporary pin.
 
 Undo is one level deep and restores only that action. Any other change in
 between (a new pin, a layout step, a profile switch, a URL command) cancels

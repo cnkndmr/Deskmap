@@ -98,6 +98,11 @@ Düzen her pencereye bir kez uygulanır. Sonrasında istediğin gibi boyutlandı
 uygulama geri zıplatmaz. Her şeyin baştan yerleşmesini istersen **⌘R** (ya da
 ↻ düğmesi).
 
+Elle boyutlandırıp beğendiğin bir ölçü mü var? Pinli satıra tıkla ve düzen
+düzenleyicinin altındaki **Şu anki boyutu ve konumu kullan** düğmesine bas:
+pencerenin şu anki yeri ve boyutu pinin düzeni olur. Pin ekranını ve
+masaüstünü korur. Vazgeçersen ⌘Z ile geri al.
+
 ## 6. İki kurulum: monitörlü, monitörsüz
 
 Takılı olmayan bir monitörün 3. masaüstünde pencere duramaz. Bu yüzden her

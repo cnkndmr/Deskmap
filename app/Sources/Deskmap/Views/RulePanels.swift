@@ -54,6 +54,7 @@ struct RulePanel: View {
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var screens: ScreenService
 
     /// Parça düzenleme taslağı: uyan ilk pencerenin başlık bölümleri ve
     /// seçim. Parçalar kurala aittir, moddan bağımsızdır; bu yüzden diğer
@@ -90,8 +91,27 @@ struct RulePanel: View {
                         updated.layout = layout
                         store.setDestination(updated, for: rule.id, mode: mode)
                     }))
+                SaveCurrentLayoutRow(
+                    window: layoutSourceWindow,
+                    stored: store.rule(rule.id)?[mode]?.layout ?? destination.layout,
+                    // Canlı pencereler yalnızca şu anki modda listelenir; diğer
+                    // modun paneli açıksa ölçü alınmaz.
+                    isLive: mode == screens.mode
+                ) { layout in
+                    store.saveLayout(layout, for: rule.id, mode: mode)
+                }
             }
         }
+    }
+
+    /// Ölçünün okunacağı pencere: panel bir satırdan açıldıysa o satırın
+    /// penceresi (hâlâ kurala uyuyorsa), yoksa kurala uyan ilk pencere.
+    private var layoutSourceWindow: Router.WindowSnapshot? {
+        if let id = ui.panelSourceWindowID,
+           let window = matching.first(where: { $0.id == id }) {
+            return window
+        }
+        return matching.first
     }
 
     private var otherModeText: String {
@@ -207,6 +227,7 @@ struct SessionPinPanel: View {
     let window: Router.WindowSnapshot
     let destination: Destination
 
+    @EnvironmentObject private var store: Store
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var ui: UIState
 
@@ -234,6 +255,76 @@ struct SessionPinPanel: View {
                     updated.layout = layout
                     router.pinSession(window.id, destination: updated)
                 }))
+            SaveCurrentLayoutRow(
+                window: window,
+                stored: router.sessionPins[window.id]?.layout ?? destination.layout,
+                isLive: true
+            ) { layout in
+                // Geçici pin: hedef doğrudan güncellenir; geri alma pin hâlâ
+                // duruyorsa eski düzene döndürür (sürüklemeyle aynı kalıp).
+                let current = router.sessionPins[window.id] ?? destination
+                var updated = current
+                updated.layout = layout
+                router.pinSession(window.id, destination: updated)
+                let router = router, id = window.id
+                store.recordSessionChange(L("Layout saved")) {
+                    if router.sessionPins[id] != nil {
+                        router.pinSession(id, destination: current)
+                    }
+                }
+            }
         }
+    }
+}
+
+// MARK: - Şu anki boyutu kullan
+
+/// Düzen düzenleyicinin altındaki satır: pencerenin gerçek konum ve
+/// boyutunu (bulunduğu ekranın kullanılabilir alanına oranla) kayıtlı
+/// düzenin yerine yazar. Yalnızca düzen değişir: pin başka ekrana ya da
+/// masaüstüne gönderilmez, yeni pin yazılmaz.
+struct SaveCurrentLayoutRow: View {
+
+    /// Ölçünün okunacağı pencere; kurala uyan açık pencere yoksa nil.
+    let window: Router.WindowSnapshot?
+    /// Kayıtlı düzen; ölçü buna eşitse düğme kapalı kalır.
+    let stored: WindowLayout
+    /// Panel şu anki modu gösteriyor mu (canlı pencereler yalnızca o modda).
+    let isLive: Bool
+    let save: (WindowLayout) -> Void
+
+    @EnvironmentObject private var screens: ScreenService
+
+    /// Pencerenin şu anki düzeni; okunamıyorsa nil.
+    private var current: WindowLayout? {
+        guard isLive, let window else { return nil }
+        return window.currentLayout(screens: screens.screens)
+    }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(caption)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .lineLimit(1)
+            Spacer()
+            Button {
+                if let current { save(current) }
+            } label: {
+                Label(L("Use current size and position"),
+                      systemImage: "arrow.down.right.and.arrow.up.left")
+            }
+            .controlSize(.small)
+            .disabled(current == nil || current == stored)
+            .help(L("Save the window's current position and size as this pin's layout. Screen and desktop stay the same."))
+        }
+    }
+
+    private var caption: String {
+        guard isLive else { return L("Switch to this mode to read the window's size.") }
+        guard let window else { return L("Open a matching window to read its size.") }
+        guard let current else { return L("The window's size can't be read right now.") }
+        if current == stored { return L("The saved layout already matches the window.") }
+        return L("Window now: %@", current.label)
     }
 }

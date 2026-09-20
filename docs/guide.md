@@ -100,6 +100,11 @@ The layout is applied once per window. After that, resize it however you
 like — the app won't keep snapping it back. Press **⌘R** (or the ↻ button)
 when you want everything placed again from scratch.
 
+Found a size you like by hand? Click the pinned row and press **Use current
+size and position** under the layout editor: the window's current place and
+size become the pin's layout. The pin stays on its display and desktop.
+Undo with ⌘Z if you change your mind.
+
 ## 6. Two setups: with monitor, without
 
 Your windows can't live on desktop 3 of a monitor that isn't plugged in. So

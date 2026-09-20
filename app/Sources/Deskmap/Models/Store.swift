@@ -158,6 +158,19 @@ struct Document: Codable, Equatable {
         update(rule)
     }
 
+    /// Kuralın bu moddaki hedefinin yalnızca düzenini değiştirir; ekran ve
+    /// masaüstü olduğu gibi kalır. Kural ya da bu modda hedef yoksa dokunmaz.
+    /// Belge gerçekten değiştiyse true döner.
+    @discardableResult
+    mutating func setLayout(_ layout: WindowLayout, for id: String, mode: Mode) -> Bool {
+        guard var rule = rule(id), var destination = rule[mode],
+              destination.layout != layout else { return false }
+        destination.layout = layout
+        rule[mode] = destination
+        update(rule)
+        return true
+    }
+
     /// Pinler: aynı anahtarlı (uygulama + parçalar) kural varsa onun bu
     /// moddaki hedefi güncellenir, yoksa yeni kural eklenir. Kural kimliği
     /// döner.
@@ -596,6 +609,19 @@ final class Store: ObservableObject {
         recording(L("Pin moved")) {
             document.setDestination(destination, for: id, mode: mode)
         }
+    }
+
+    /// "Şu anki boyutu kullan": pencerenin gerçek çerçevesinden okunan
+    /// düzeni kuralın bu moddaki hedefine yazar. Ekran ve masaüstü değişmez;
+    /// pencere başka masaüstüne taşınmaz. Eski düzen ezildiği için geri
+    /// alınabilir. Değişiklik olduysa true döner.
+    @discardableResult
+    func saveLayout(_ layout: WindowLayout, for id: String, mode: Mode) -> Bool {
+        var changed = false
+        recording(L("Layout saved")) {
+            changed = document.setLayout(layout, for: id, mode: mode)
+        }
+        return changed
     }
 
     /// Pinler: aynı anahtarlı (uygulama + parçalar) kural varsa onun bu

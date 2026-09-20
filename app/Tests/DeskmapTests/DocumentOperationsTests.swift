@@ -14,6 +14,38 @@ struct DocumentOperationsTests {
              docked: docked, undocked: undocked)
     }
 
+    // MARK: Düzen kaydetme
+
+    /// "Şu anki boyutu kullan": yalnızca düzen değişir, ekran ve masaüstü
+    /// olduğu gibi kalır; diğer modun hedefine dokunulmaz.
+    @Test func setLayoutKeepsScreenAndDesktop() {
+        var doc = Document()
+        doc.rules = [rule("r", docked: external2, undocked: builtin1)]
+        let layout = WindowLayout(x: 0.1, y: 0.2, w: 0.6, h: 0.7)
+        let changed = doc.setLayout(layout, for: "r", mode: .docked)
+        #expect(changed)
+        let docked = doc.rule("r")?.docked
+        #expect(docked?.screen == "external")
+        #expect(docked?.desktop == 2)
+        #expect(docked?.layout == layout)
+        #expect(doc.rule("r")?.undocked == builtin1)
+        #expect(doc.rules.count == 1)
+    }
+
+    /// Kural yoksa, bu modda hedef yoksa ya da düzen zaten aynıysa belge
+    /// değişmez ve false döner (Store bu durumda geri alma kaydı bırakmaz).
+    @Test func setLayoutIsNoOpWithoutTargetOrChange() {
+        var doc = Document()
+        doc.rules = [rule("r", docked: external2)]
+        let before = doc
+        let unknownRule = doc.setLayout(.center, for: "yok", mode: .docked)
+        let noTarget = doc.setLayout(.center, for: "r", mode: .undocked)
+        let sameLayout = doc.setLayout(.leftHalf, for: "r", mode: .docked)
+        #expect(!unknownRule && !noTarget && !sameLayout)
+        #expect(doc == before)
+        #expect(doc.rule("r")?.undocked == nil)
+    }
+
     // MARK: Masaüstü haritası
 
     @Test func desktopMappingCases() {
