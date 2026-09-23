@@ -11,7 +11,6 @@ struct RootView: View {
     @EnvironmentObject private var ui: UIState
 
     @State private var mode: Mode = .undocked
-    @State private var confirmingLayoutCopy = false
     /// Son görülen gerçek mod; değişince seçici onu izler (kullanıcının
     /// elle seçtiği mod ekran parametreleri değişti diye sıfırlanmaz).
     @State private var liveMode: Mode?
@@ -254,30 +253,19 @@ struct RootView: View {
                     .foregroundStyle(.secondary)
             }
 
+            // Onay penceresi yok: menü çubuğu penceresinde sheet'in düğmesine
+            // basılınca pencere kapanıyor ve eylem düşüyordu. Diğer yıkıcı
+            // işlemler gibi alt çubuktaki "Geri al" ile korunur.
             if mode == .docked {
                 Button {
-                    if store.document.rules.contains(where: { $0.docked != nil }) {
-                        confirmingLayoutCopy = true
-                    } else {
-                        store.copyLayout(from: .undocked, to: .docked)
-                    }
+                    store.copyLayout(from: .undocked, to: .docked)
                 } label: {
                     Image(systemName: "laptopcomputer.and.arrow.down")
                 }
                 .buttonStyle(.borderless)
                 .disabled(!store.document.rules.contains { $0.undocked != nil })
-                .help(L("Copy the Laptop only layout here; the current Monitor connected setup is replaced"))
+                .help(L("Copy the Laptop only layout here; the current Monitor connected setup is replaced (⌘Z undoes)"))
                 .accessibilityLabel(L("Copy the Laptop only layout here"))
-                .confirmationDialog(
-                    L("Replace the Monitor connected setup?"),
-                    isPresented: $confirmingLayoutCopy
-                ) {
-                    Button(L("Copy Laptop only layout"), role: .destructive) {
-                        store.copyLayout(from: .undocked, to: .docked)
-                    }
-                } message: {
-                    Text(L("Every pin gets the same place it has in Laptop only mode; the current Monitor connected pins are deleted. Then move only the windows you want onto the monitor."))
-                }
             }
 
             Spacer()
