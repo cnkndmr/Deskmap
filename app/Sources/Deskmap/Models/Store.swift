@@ -197,6 +197,22 @@ struct Document: Codable, Equatable {
         }
     }
 
+    /// Bir modun bütün kurulumunu diğer modun üzerine yazar: her kuralın
+    /// `target` hedefi `source` hedefinin kopyası olur. Hedef modun eski
+    /// kurulumu tamamen silinir; `source`'ta hedefi olmayan kuralın `target`
+    /// hedefi kalkar, hiç hedefi kalmayan kural silinir. Belge gerçekten
+    /// değiştiyse true döner.
+    @discardableResult
+    mutating func copyLayout(from source: Mode, to target: Mode) -> Bool {
+        guard source != target else { return false }
+        var copied = rules
+        for i in copied.indices { copied[i][target] = copied[i][source] }
+        copied.removeAll { $0.docked == nil && $0.undocked == nil }
+        guard copied != rules else { return false }
+        rules = copied
+        return true
+    }
+
     /// Kuralın parçaları `tokens` olsaydı aynı anahtara (uygulama + parçalar)
     /// sahip olacak başka bir kural; yoksa nil.
     func conflictingRule(ifTokens tokens: [String], for id: String) -> Rule? {
@@ -658,6 +674,17 @@ final class Store: ObservableObject {
         recording(L("Pin removed")) {
             document.unpin(id, mode: mode)
         }
+    }
+
+    /// "Laptop düzenini buraya kopyala": `source` modunun kurulumu `target`
+    /// modunun üzerine yazılır, eskisi silinir (geri alınabilir).
+    @discardableResult
+    func copyLayout(from source: Mode, to target: Mode) -> Bool {
+        var changed = false
+        recording(L("Layout copied")) {
+            changed = document.copyLayout(from: source, to: target)
+        }
+        return changed
     }
 
     /// Bir ekrandaki masaüstünü listede başka sıraya taşır; o ekranın bu

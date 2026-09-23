@@ -14,6 +14,29 @@ struct DocumentOperationsTests {
              docked: docked, undocked: undocked)
     }
 
+    // MARK: Düzen kopyalama
+
+    /// Sadece laptop kurulumu monitör bağlı kurulumun üzerine yazılır:
+    /// ortak kuralın hedefi kopyalanır, yalnızca laptopta olmayanın monitör
+    /// hedefi kalkar, yalnızca monitörde olan kural silinir.
+    @Test func copyLayoutReplacesTargetMode() {
+        var doc = Document()
+        doc.rules = [
+            rule("both", tokens: ["A"], docked: external2, undocked: builtin1),
+            rule("laptop", tokens: ["B"], undocked: Destination(screen: "builtin", desktop: 3)),
+            rule("monitor", tokens: ["C"], docked: external2),
+        ]
+        let changed = doc.copyLayout(from: .undocked, to: .docked)
+        #expect(changed)
+        #expect(doc.rules.map(\.id) == ["both", "laptop"])
+        #expect(doc.rule("both")?.docked == builtin1)
+        #expect(doc.rule("both")?.undocked == builtin1)
+        #expect(doc.rule("laptop")?.docked == Destination(screen: "builtin", desktop: 3))
+        // Kopya zaten aynıysa belge değişmez.
+        let again = doc.copyLayout(from: .undocked, to: .docked)
+        #expect(!again)
+    }
+
     // MARK: Düzen kaydetme
 
     /// "Şu anki boyutu kullan": yalnızca düzen değişir, ekran ve masaüstü

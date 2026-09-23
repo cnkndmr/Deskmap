@@ -229,3 +229,11 @@
 "Why here: pin \"%@\" → %@ (%@)" = "Neden burada: \"%1$@\" pini → %2$@ (%3$@)";
 "Pinned: dropping it updates the saved desktop." = "Pinli: bırakınca kaydedilen masaüstü güncellenir.";
 "Not pinned: dropping it moves the window once; nothing is saved." = "Pinsiz: bırakınca pencere bir kez taşınır, hiçbir şey kaydedilmez.";
+
+/* Laptop düzenini monitör moduna kopyalama */
+"Layout copied" = "Düzen kopyalandı";
+"Copy the Laptop only layout here; the current Monitor connected setup is replaced" = "Sadece laptop düzenini buraya kopyala; şu anki monitör bağlı kurulumu silinir";
+"Copy the Laptop only layout here" = "Sadece laptop düzenini buraya kopyala";
+"Replace the Monitor connected setup?" = "Monitör bağlı kurulumu değiştirilsin mi?";
+"Copy Laptop only layout" = "Sadece laptop düzenini kopyala";
+"Every pin gets the same place it has in Laptop only mode; the current Monitor connected pins are deleted. Then move only the windows you want onto the monitor." = "Her pin sadece laptop modundaki yerini alır; şu anki monitör bağlı pinleri silinir. Sonra yalnızca istediğin pencereleri monitöre taşı.";
