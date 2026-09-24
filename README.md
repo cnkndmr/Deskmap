@@ -511,27 +511,26 @@ app/Sources/Deskmap/
 ```
 
 ```mermaid
-flowchart TB
-    subgraph Triggers["⚡ Triggers"]
-        direction LR
-        E1["AX observers<br><sub>new window, title, focus</sub>"]
-        E2["Workspace notifications<br><sub>desktop switch, app launch</sub>"]
-        E3["ScreenService<br><sub>display change, settle delay</sub>"]
-        E4["2 s timer"]
-    end
-    subgraph Sweep["🔄 Router sweep (background queue)"]
-        direction LR
+flowchart LR
+    T["⚡ Triggers<br><sub>AX events · desktop switch<br>display change · 2 s timer</sub>"] --> R1
+    subgraph Sweep["🔄 Router sweep · background queue"]
         R1["SkyLight<br><sub>desktops per display</sub>"] --> R2["Accessibility<br><sub>windows, titles, frames</sub>"]
         R2 --> R3["Routing.select<br><sub>pure target choice</sub>"]
         R3 --> R4["Apply layout,<br>move to desktop"]
     end
-    Triggers --> Sweep
-    Store[("📄 rules.json<br>Store")] --> R3
-    Sweep --> UI["🧭 SwiftUI map<br><sub>main actor</sub>"]
-    UI -- "pin, drag, undo" --> Store
+    ST[("📄 rules.json")] --> R3
+    R4 --> UI["🧭 SwiftUI map<br><sub>main actor</sub>"]
+    UI -. "pin, drag, undo" .-> ST
 
-    style Triggers fill:#0A84FF22,stroke:#0A84FF
-    style Sweep fill:#30D15822,stroke:#30D158
+    classDef trig fill:#0A84FF,stroke:#0A84FF,color:#fff
+    classDef step fill:#30D158,stroke:#30D158,color:#000
+    classDef data fill:#FF9F0A,stroke:#FF9F0A,color:#000
+    classDef ui fill:#5E5CE6,stroke:#5E5CE6,color:#fff
+    class T trig
+    class R1,R2,R3,R4 step
+    class ST data
+    class UI ui
+    style Sweep fill:#30D15815,stroke:#30D158
 ```
 
 The **Router** sweeps every 2 seconds and right after window events (new
