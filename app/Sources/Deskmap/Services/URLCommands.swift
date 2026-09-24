@@ -41,6 +41,12 @@ enum URLCommand: Equatable {
         // `deskmap:profile/Ofis`:   host yok, yol ["profile", "Ofis"].
         // `pathComponents` yüzde kodlamasını çözer.
         var parts = url.pathComponents.filter { $0 != "/" }
+        // macOS 15 Foundation'ı `//`'suz (opak) URL'de `pathComponents`'i boş
+        // döndürüyor; yolu URLComponents'ten al (o da kodlamayı çözer).
+        if parts.isEmpty, url.host == nil,
+           let path = URLComponents(url: url, resolvingAgainstBaseURL: false)?.path {
+            parts = path.split(separator: "/").map(String.init)
+        }
         let command: String
         if let host = url.host, !host.isEmpty {
             command = host.lowercased()
