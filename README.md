@@ -1,4 +1,23 @@
-# Deskmap
+<p align="center">
+  <img src="app/Resources/AppIcon-1024.png" width="128" alt="Deskmap icon">
+</p>
+
+<h1 align="center">Deskmap</h1>
+
+<p align="center">
+  <b>Every window on the right display, the right desktop, in the right layout, every time.</b>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white" alt="Swift 5.9">
+  <img src="https://img.shields.io/badge/SwiftUI-menu%20bar%20app-0A84FF" alt="SwiftUI menu bar app">
+  <img src="https://img.shields.io/badge/version-0.4.0-5E5CE6" alt="Version 0.4.0">
+  <img src="https://img.shields.io/badge/dependencies-none-30D158" alt="No dependencies">
+  <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="MIT license">
+</p>
+
+---
 
 A macOS menu bar app that keeps windows on the right display, the right
 desktop (Space) and in the right layout, based on what their **window title**
@@ -12,7 +31,25 @@ works with any app that shows a workspace, project or document name in its
 window title: Safari tab groups, VS Code workspaces, Obsidian vaults, terminal
 profiles, and so on.
 
-![The menu bar window: one card per display, one row per desktop, pinned windows in place](docs/images/en/01-map.png)
+<table>
+  <tr>
+    <td width="50%" align="center"><img src="docs/images/en/01-map.png" alt="The map: one card per display, one row per desktop, pinned windows in place"></td>
+    <td width="50%" align="center"><img src="docs/images/en/02-pin.png" alt="Pinning a window by the part of its title that names the workspace"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>The map</b><br><sub>One card per display, one row per desktop, every window where it lives.</sub></td>
+    <td align="center"><b>Pin by title</b><br><sub>Pick the part of the title that names the workspace; choose a layout.</sub></td>
+  </tr>
+</table>
+
+|  | What you get |
+|---|---|
+| 🎯 | **Title-based pins**: match on the workspace, project or document name in the window title, not just the app. |
+| 🖥️ | **Two setups**: separate targets for *monitor connected* and *laptop only*; everything is re-placed when you plug in or unplug. |
+| 📐 | **Layouts**: full, halves, 70 / 30, centered, or any inset in percent, per pin. |
+| 🗂️ | **Profiles**: named pin sets, switchable from the menu, Shortcuts or Raycast (`deskmap://`). |
+| ↩️ | **No dialogs, just undo**: every destructive action shows *Undo* for 10 seconds (⌘Z). |
+| 🪶 | **Light**: one `.app`, no Hammerspoon, no yabai, ~0.2 % CPU at idle. |
 
 *The screenshots come from the app itself, rendered with demo data:
 `Deskmap --shots <dir>` (see `app/Sources/Deskmap/Demo/`).*
@@ -118,6 +155,8 @@ Quit and reopen the app after changing it.
 
 ## Required macOS settings
 
+<img src="docs/images/en/05-setup.png" align="right" width="300" alt="The macOS settings card with all checks passing">
+
 Deskmap checks these settings live and shows an orange **macOS settings
 need fixing** card until they are right. The card has an **Open Desktop &
 Dock** button.
@@ -136,6 +175,8 @@ pin. With "This Desktop" or "All Desktops", macOS pulls the window to the
 Space it assigned, which conflicts with Deskmap's moves. This one cannot
 be checked automatically; the card reminds you, and **Got It** hides the
 reminder (the card comes back if one of the live-checked settings changes).
+
+<br clear="right">
 
 ## Quick start
 
@@ -158,7 +199,30 @@ has no pins.
 
 ## How it works
 
+```mermaid
+flowchart LR
+    W["🪟 Window opens,<br>title changes,<br>or a monitor is plugged in"] --> M{"Matches a pin?<br><sub>app + title parts</sub>"}
+    M -- no --> L["Left alone"]
+    M -- "several" --> S["Most specific wins<br><sub>temporary pin &gt; more title parts</sub>"]
+    M -- one --> T
+    S --> T["Target for the current mode<br><sub>monitor connected / laptop only</sub>"]
+    T --> D["🖥️ Display<br><sub>builtin · external · external-2</sub>"]
+    D --> SP["🗂️ Desktop (Space)"]
+    SP --> LY["📐 Layout<br><sub>applied once per target</sub>"]
+
+    classDef start fill:#0A84FF,stroke:#0A84FF,color:#fff
+    classDef decide fill:#FF9F0A,stroke:#FF9F0A,color:#000
+    classDef place fill:#30D158,stroke:#30D158,color:#000
+    classDef skip fill:#8E8E93,stroke:#8E8E93,color:#fff
+    class W start
+    class M,S decide
+    class T,D,SP,LY place
+    class L skip
+```
+
 ### Pins (rules)
+
+<img src="docs/images/en/03-layout.png" align="right" width="300" alt="A pin's panel: title parts and a right-half layout">
 
 A pin says: *windows of this app whose title contains these parts go to this
 display, this desktop, in this layout*.
@@ -199,6 +263,8 @@ Click a pinned row or a chip to open its panel: change the layout, **Unpin**,
 or change the title parts (this needs a window matching the pin to be open;
 **Apply** refuses a selection that would duplicate another pin's app and
 parts).
+
+<br clear="right">
 
 ### Temporary pins
 
@@ -247,6 +313,8 @@ then by UUID. A pin whose display isn't connected is skipped.
 
 ### Profiles
 
+<img src="docs/images/en/04-profiles.png" align="right" width="300" alt="Profiles: Desk and Café, with Duplicate, Export and Delete">
+
 A profile is a named set of pins; the chips under the toolbar list them with
 their pin count.
 
@@ -257,6 +325,8 @@ their pin count.
   `.deskmap.json` file exported earlier; a plain `rules.json` also works.
 - Profiles can be switched from Shortcuts, Raycast and others via the
   [URL scheme](#automation-url-scheme).
+
+<br clear="right">
 
 ### Undo
 
@@ -438,6 +508,30 @@ app/Sources/Deskmap/
 │   ├── MacSettings.swift     Live check of the required macOS settings
 │   └── Log.swift             os.Logger categories
 └── Views/                    Map, window rows, chips, pin/profile panels, status cards
+```
+
+```mermaid
+flowchart TB
+    subgraph Triggers["⚡ Triggers"]
+        direction LR
+        E1["AX observers<br><sub>new window, title, focus</sub>"]
+        E2["Workspace notifications<br><sub>desktop switch, app launch</sub>"]
+        E3["ScreenService<br><sub>display change, settle delay</sub>"]
+        E4["2 s timer"]
+    end
+    subgraph Sweep["🔄 Router sweep (background queue)"]
+        direction LR
+        R1["SkyLight<br><sub>desktops per display</sub>"] --> R2["Accessibility<br><sub>windows, titles, frames</sub>"]
+        R2 --> R3["Routing.select<br><sub>pure target choice</sub>"]
+        R3 --> R4["Apply layout,<br>move to desktop"]
+    end
+    Triggers --> Sweep
+    Store[("📄 rules.json<br>Store")] --> R3
+    Sweep --> UI["🧭 SwiftUI map<br><sub>main actor</sub>"]
+    UI -- "pin, drag, undo" --> Store
+
+    style Triggers fill:#0A84FF22,stroke:#0A84FF
+    style Sweep fill:#30D15822,stroke:#30D158
 ```
 
 The **Router** sweeps every 2 seconds and right after window events (new
