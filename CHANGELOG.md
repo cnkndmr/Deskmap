@@ -35,6 +35,11 @@ number comes from the `VERSION` file.
   are shared by both setups, so removing one at once would also remove it
   from the active setup. Rows that exist only as a plan or pin just
   renumber. The separate "Remove this planned desktop" item is gone.
+- Dragging a desktop row in the active setup now reorders the desktops for
+  real: every window on that display moves to its desktop's new position
+  (pinned or not; "All Desktops" windows stay). macOS offers no way to
+  reorder spaces from outside (no Mission Control action, the SkyLight call
+  needs SIP off), so the contents move instead. ⌘Z moves them back.
 - Full-screen and Split View spaces now appear on the map as read-only purple
   rows, in their real Mission Control position between the desktops. Before,
   a window in a full-screen space vanished from the map entirely.
@@ -57,6 +62,13 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- Many windows on desktops that are not visible were missing from the map
+  and could not be routed (Claude, ChatGPT, Finder…; their pins showed as
+  "no open window"). The AX remote token carried the window number where an
+  AX element ID belongs; it now scans element IDs (alt-tab-macos method),
+  accepts only `AXWindow` elements (children return the same window
+  number), caches the IDs and retries a window that was not found every
+  30 s (~20 ms per scan, measured).
 - Ghost windows on Desktop 1: a helper window that sits on no space at all
   (cmux keeps an invisible 64 pt one) was placed on "Desktop 1" by the
   frame fallback, so the app looked open there although its real window was

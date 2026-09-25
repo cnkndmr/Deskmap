@@ -464,11 +464,15 @@ private struct DesktopRow: View {
                 }
                 let router = router
                 let screenID = screen.id, from = desktop, count = rowCount
-                let sessionMoved = router.moveDesktop(on: screenID, from: from, to: to, count: count)
+                // Etkin modda pencereler de taşınır: masaüstü sırası gerçekten değişir.
+                let live = isLive
+                let sessionMoved = router.moveDesktop(on: screenID, from: from, to: to, count: count,
+                                                      reorderWindows: live)
                 store.moveDesktop(
                     on: screenID, from: from, to: to, count: count, mode: mode,
                     undoingSessionPins: sessionMoved
-                        ? { router.moveDesktop(on: screenID, from: to, to: from, count: count) }
+                        ? { router.moveDesktop(on: screenID, from: to, to: from, count: count,
+                                               reorderWindows: live) }
                         : nil)
             }
     }

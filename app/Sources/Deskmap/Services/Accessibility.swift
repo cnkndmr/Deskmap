@@ -200,21 +200,80 @@ enum AX {
         return unsafeBitCast(pointer, to: CreateWithRemoteTokenFn.self)
     }()
 
-    /// Pencere numarasından AX öğesi üretir. Belirteç: 20 bayt —
-    /// pid (4), 0 (4), "coco" 0x636f636f (4), windowID (4), 0 (4).
+    /// Pencere numarasından AX öğesi. Belirteç 20 bayt: pid (4), 0 (4),
+    /// "coco" 0x636f636f (4), AX öğe kimliği (8). Öğe kimliği pencere
+    /// numarası DEĞİL (eskiden öyle sanılıyordu; çoğu uygulamada -25201
+    /// dönüyor, başka masaüstündeki Claude/ChatGPT/Finder pencereleri hiç
+    /// listelenmiyordu; ölçüldü 25.09.2026). alt-tab-macos yöntemi: kimlikler
+    /// 0'dan taranır, `_AXUIElementGetWindow` ile eşleşen bulunur. Bulunan
+    /// kimlikler önbellekte; bulunamayan pencere bir süre yeniden taranmaz.
     static func element(pid: pid_t, windowID: CGWindowID) -> AXUIElement? {
+        guard createWithRemoteToken != nil, let getWindowID else { return nil }
+        let now = Date()
+        remoteLock.lock()
+        let cached = remoteIDs[pid]?[windowID]
+        let missedAt = remoteMisses[pid]?[windowID]
+        remoteLock.unlock()
+
+        if let cached, let element = remoteElement(pid: pid, elementID: cached) {
+            var found: CGWindowID = 0
+            if getWindowID(element, &found) == .success, found == windowID { return element }
+        }
+        if let missedAt, now.timeIntervalSince(missedAt) < remoteMissRetry { return nil }
+
+        // Tek taramada bu pid'in bütün pencereleri önbelleğe girer.
+        var discovered: [CGWindowID: UInt64] = [:]
+        var match: AXUIElement?
+        for id in UInt64(0)..<remoteScanLimit {
+            guard let element = remoteElement(pid: pid, elementID: id) else { continue }
+            AXUIElementSetMessagingTimeout(element, 0.1)
+            var found: CGWindowID = 0
+            guard getWindowID(element, &found) == .success, found != 0,
+                  discovered[found] == nil else { continue }
+            // Pencerenin alt öğeleri de aynı numarayı döndürür (Claude'da
+            // ilk eşleşen AXUnknown, Finder'da AXOutline); yalnız pencere.
+            let role: String? = attribute(element, kAXRoleAttribute)
+            guard role == kAXWindowRole else { continue }
+            discovered[found] = id
+            if found == windowID { match = element; break }
+        }
+        remoteLock.lock()
+        remoteIDs[pid, default: [:]].merge(discovered) { _, new in new }
+        if match == nil {
+            remoteMisses[pid, default: [:]][windowID] = now
+        } else {
+            remoteMisses[pid]?[windowID] = nil
+        }
+        remoteLock.unlock()
+        return match
+    }
+
+    private static func remoteElement(pid: pid_t, elementID: UInt64) -> AXUIElement? {
         guard let createWithRemoteToken else { return nil }
         var token = [UInt8](repeating: 0, count: 20)
-        func put(_ value: UInt32, at offset: Int) {
-            withUnsafeBytes(of: value.littleEndian) { bytes in
-                for (i, byte) in bytes.enumerated() { token[offset + i] = byte }
-            }
+        withUnsafeBytes(of: pid.littleEndian) { for (i, b) in $0.enumerated() { token[i] = b } }
+        withUnsafeBytes(of: UInt32(0x636f636f).littleEndian) {
+            for (i, b) in $0.enumerated() { token[8 + i] = b }
         }
-        put(UInt32(bitPattern: pid), at: 0)
-        put(0x636f636f, at: 8)
-        put(UInt32(windowID), at: 12)
-        let data = Data(token) as CFData
-        return createWithRemoteToken(data)?.takeRetainedValue()
+        withUnsafeBytes(of: elementID.littleEndian) {
+            for (i, b) in $0.enumerated() { token[12 + i] = b }
+        }
+        return createWithRemoteToken(Data(token) as CFData)?.takeRetainedValue()
+    }
+
+    /// Taranan en yüksek öğe kimliği (alt-tab-macos 1000 kullanıyor).
+    private static let remoteScanLimit: UInt64 = 1000
+    /// Bulunamayan pencere için yeniden tarama aralığı.
+    private static let remoteMissRetry: TimeInterval = 30
+    nonisolated(unsafe) private static var remoteIDs: [pid_t: [CGWindowID: UInt64]] = [:]
+    nonisolated(unsafe) private static var remoteMisses: [pid_t: [CGWindowID: Date]] = [:]
+    private static let remoteLock = NSLock()
+
+    /// Kapanmış uygulamaların öğe kimliği önbelleğini atar.
+    static func pruneRemoteCache(running: Set<pid_t>) {
+        remoteLock.lock(); defer { remoteLock.unlock() }
+        remoteIDs = remoteIDs.filter { running.contains($0.key) }
+        remoteMisses = remoteMisses.filter { running.contains($0.key) }
     }
 
     /// Dock'ta görünen bir uygulama.
@@ -284,6 +343,7 @@ enum AX {
         let apps = runningApps()
         let now = Date()
         pruneBackoffs(running: Set(apps.map(\.pid)))
+        pruneRemoteCache(running: Set(apps.map(\.pid)))
         /// Bu taramada uygulama başına AX çağrı süreleri (yanıt vermeyeni bulmak için).
         var timings: [pid_t: AppTiming] = [:]
         let active = apps.filter { !isBackedOff($0.pid, now: now) }

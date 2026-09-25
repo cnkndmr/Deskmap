@@ -545,11 +545,18 @@ final class Router: ObservableObject {
     /// Masaüstü sıralaması değişince bu ekrandaki oturum pinlerinin masaüstü
     /// numaraları da kurallarla aynı haritaya göre kayar (moddan bağımsız).
     /// En az bir pin kaydıysa true döner (geri alma kaydı için).
+    /// `reorderWindows`: etkin modda masaüstü sırası gerçekten değişsin
+    /// diye o ekrandaki pencereler de haritaya göre taşınır. macOS space
+    /// sırasını dışarıdan değiştirmeye izin vermiyor (Mission Control'de
+    /// sıralama eylemi yok, SkyLight çağrısı SIP ister); içerik taşınınca
+    /// masaüstüleri kullanıcı için aynı biçimde yer değiştirir.
     @discardableResult
-    func moveDesktop(on screen: String, from: Int, to: Int, count: Int) -> Bool {
+    func moveDesktop(on screen: String, from: Int, to: Int, count: Int,
+                     reorderWindows: Bool = false) -> Bool {
         guard let mapping = Document.desktopMapping(from: from, to: to, count: count)
         else { return false }
-        var changed = false
+        if reorderWindows { reorderWindowsOnDesktops(screen: screen, mapping: mapping) }
+        var changed = reorderWindows
         for (id, record) in sessionRecords
         where record.destination.screen == screen {
             guard let updated = mapping[record.destination.desktop],
@@ -566,6 +573,38 @@ final class Router: ObservableObject {
             sweep()
         }
         return changed
+    }
+
+    /// Ekrandaki pencereleri masaüstü haritasına göre taşır (eski sıra →
+    /// yeni sıra). Yalnız tek space'teki pencereler; "All Desktops"
+    /// pencereleri ve gerçekte olmayan masaüstülere düşenler atlanır.
+    private func reorderWindowsOnDesktops(screen screenID: String, mapping: [Int: Int]) {
+        let connected = screens.screens
+        let candidates = windows.compactMap { window -> (CGWindowID, Int)? in
+            guard let placement = window.placement, placement.screen == screenID,
+                  let target = mapping[placement.desktop], target != placement.desktop
+            else { return nil }
+            return (window.id, target)
+        }
+        guard !candidates.isEmpty, moveHealth.movesAllowed else { return }
+        queue.async { [weak self] in
+            let sky = SkyLight.shared
+            guard sky.canRead, sky.canMove,
+                  let target = connected.first(where: { $0.id == screenID }),
+                  let display = sky.displaySpaces(mainUUID: Self.primaryUUID(connected))
+                    .first(where: { $0.displayUUID == target.uuid })
+            else { return }
+            let desktops = display.desktops.map(\.id)
+            var moved = 0
+            for (id, desktop) in candidates where desktop <= desktops.count {
+                guard let current = sky.spaces(of: id), current.count == 1,
+                      desktops.contains(current[0]) else { continue }
+                sky.move(window: id, to: desktops[desktop - 1])
+                moved += 1
+            }
+            Log.routing.notice("Desktop reorder on \(screenID, privacy: .public): moved \(moved) window(s)")
+            Task { @MainActor [weak self] in self?.scheduleFollowUp(after: 300) }
+        }
     }
 
     /// Açılışta: kayıtlı oturum pinlerinden penceresi hâlâ (aynı pid ile)
