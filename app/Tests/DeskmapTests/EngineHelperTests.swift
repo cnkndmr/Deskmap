@@ -336,6 +336,20 @@ struct EngineHelperTests {
         #expect(Router.placement(of: onExternal, displays: displays, screens: screens)
                 == Router.Placement(screen: "external", desktop: 2))
 
+        // Birden çok masaüstünde: ekranda görünen masaüstü (20) öne çıkar.
+        let sticky = Router.WindowState(spaces: [22, 20], isFullscreen: false, frame: nil, isMinimized: false)
+        #expect(Router.placement(of: sticky, displays: displays, screens: screens)
+                == Router.Placement(screen: "external", desktop: 1))
+        let stickyHidden = Router.WindowState(spaces: [22, 2], isFullscreen: false, frame: nil, isMinimized: false)
+        #expect(Router.placement(of: stickyHidden, displays: displays, screens: screens)
+                == Router.Placement(screen: "builtin", desktop: 2))
+
+        // Space okundu ama bilinen masaüstlerinde yok: tahmin yok.
+        let stray = Router.WindowState(
+            spaces: [99], isFullscreen: false,
+            frame: CGRect(x: 2000, y: 100, width: 800, height: 600), isMinimized: false)
+        #expect(Router.placement(of: stray, displays: displays, screens: screens) == nil)
+
         // Tam ekran: yerleşim yok.
         let fullscreen = Router.WindowState(spaces: [21], isFullscreen: true, frame: nil, isMinimized: false)
         #expect(Router.placement(of: fullscreen, displays: displays, screens: screens) == nil)

@@ -28,6 +28,19 @@ number comes from the `VERSION` file.
   `scripts/make-store-shots.swift`) with its output in
   `appstore/screenshots/`, and the sandbox probe.
 
+### Fixed
+
+- Ghost windows on Desktop 1: a helper window that sits on no space at all
+  (cmux keeps an invisible 64 pt one) was placed on "Desktop 1" by the
+  frame fallback, so the app looked open there although its real window was
+  on another desktop. Windows whose space list reads empty are now left out
+  of the map and routing; hidden (⌘H) and minimized windows keep their space
+  and still show (measured on macOS 26).
+- A window on several desktops ("All Desktops") now shows on the desktop
+  currently visible on that screen, not always on the first one.
+- A window whose spaces are known but match no desktop is no longer guessed
+  onto Desktop 1 by its frame.
+
 ## [0.4.0] — 2026-09-16
 
 The release that made the app something you can hand to someone else: it

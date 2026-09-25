@@ -18,6 +18,13 @@ struct UnknownSpaceTests {
         #expect(!Router.spaceState(spaces: [], type: types([:])).known)
     }
 
+    @Test func emptyReadMeansSpacelessHelperWindow() {
+        #expect(Router.isSpaceless([], pinned: false))
+        #expect(!Router.isSpaceless([], pinned: true))
+        #expect(!Router.isSpaceless(nil, pinned: false))
+        #expect(!Router.isSpaceless([6], pinned: false))
+    }
+
     @Test func unknownSpaceTypeIsUnknownNotUserSpace() {
         let state = Router.spaceState(spaces: [5], type: types([:]))
         #expect(!state.known)

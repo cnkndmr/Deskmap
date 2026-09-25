@@ -856,6 +856,15 @@ final class Router: ObservableObject {
         !spacesReadable || state.spacesKnown
     }
 
+    /// Space listesi okunabildi ama boş: pencere hiçbir masaüstünde değil
+    /// (sunucuda duran ama gösterilmeyen yardımcı pencere). Gizli (⌘H) ve
+    /// küçültülmüş pencereler space'lerini korur (ölçüldü, 25.09.2026), bu
+    /// yüzden elenmez. Oturum pini olan pencere elenmez. Okunamayan (nil)
+    /// liste "bilinmiyor" sayılır, elenmez.
+    nonisolated static func isSpaceless(_ read: [UInt64]?, pinned: Bool) -> Bool {
+        !pinned && read?.isEmpty == true
+    }
+
     /// Okunan space listesi ve türlerinden pencere durumu (saf).
     nonisolated static func spaceState(
         spaces read: [UInt64]?, type: (UInt64) -> Int?
@@ -894,9 +903,14 @@ final class Router: ObservableObject {
 
         // Pencere başına durum bir kez okunur.
         var states: [CGWindowID: WindowState] = [:]
+        var spaceless: Set<CGWindowID> = []
         for window in windows {
             let read = sky.canRead ? sky.spaces(of: window.id) : nil
             outcome.observedSpaces[window.id] = read ?? []
+            if Self.isSpaceless(read, pinned: sessionIDs.contains(window.id)) {
+                spaceless.insert(window.id)
+                continue
+            }
             let space = Self.spaceState(spaces: read, type: spaceType)
             states[window.id] = WindowState(
                 spaces: space.spaces,
@@ -910,7 +924,11 @@ final class Router: ObservableObject {
                                              frame: nil, isMinimized: false, spacesKnown: false)
         }
 
-        outcome.snapshots = windows.map { window in
+        // Hiçbir masaüstünde olmayan pencereler (ör. cmux'un 64 pt'lik
+        // görünmez yardımcı penceresi) haritaya ve yönlendirmeye girmez;
+        // eskiden "Desktop 1"e düşüp orada hayalet pencere gibi görünüyordu.
+        let listed = windows.filter { !spaceless.contains($0.id) }
+        outcome.snapshots = listed.map { window in
             let state = windowState(window)
             return WindowSnapshot(
                 id: window.id, pid: window.pid, appName: window.appName, bundleID: window.bundleID,
@@ -925,7 +943,7 @@ final class Router: ObservableObject {
         }
 
         let now = Date()
-        windowLoop: for window in windows {
+        windowLoop: for window in listed {
             // Arayüzle aynı seçim: oturum pini, yoksa bu modda hedefi olan
             // en özgül eşleşen kural.
             guard let match = Routing.select(
@@ -1119,10 +1137,18 @@ final class Router: ObservableObject {
             for display in displays {
                 guard let screen = screens.first(where: { $0.uuid == display.displayUUID })
                 else { continue }
-                if let index = display.desktops.firstIndex(where: { spaces.contains($0.id) }) {
+                // Birden çok masaüstündeki (ör. "All Desktops") pencere,
+                // o ekranda görünen masaüstünde gösterilir; ilk sıradakinde değil.
+                let desktops = display.desktops
+                let index = desktops.firstIndex { $0.id == display.current && spaces.contains($0.id) }
+                    ?? desktops.firstIndex { spaces.contains($0.id) }
+                if let index {
                     return Placement(screen: screen.id, desktop: index + 1)
                 }
             }
+            // Space'ler okundu ama bilinen hiçbir masaüstüne denk gelmiyor:
+            // tahmin yok ("Desktop 1"de hayalet göstermektense haritada gösterme).
+            return nil
         }
         // Space bilgisi yoksa pencere çerçevesinden ekranı bul.
         if let frame = state.frame {
