@@ -402,6 +402,12 @@ private struct DesktopRow: View {
         .opacity(isBeingDragged ? 0.4 : 1)
         .dropTarget(target)
         .contextMenu {
+            if canRemoveReal {
+                Button(L("Remove Desktop %ld", desktop), role: .destructive) {
+                    let router = router, screenID = screen.id, desktop = desktop
+                    Task { _ = await router.removeDesktop(on: screenID, desktop: desktop) }
+                }
+            }
             if isRemovablePlan {
                 Button(L("Remove this planned desktop")) {
                     // Kalan plan zaten var olan masaüstlerini aşmıyorsa plan tümden silinir.
@@ -411,6 +417,12 @@ private struct DesktopRow: View {
                 }
             }
         }
+    }
+
+    /// Etkin moddaki gerçek masaüstü (ekranın son masaüstü değilse)
+    /// Mission Control üzerinden silinebilir.
+    private var canRemoveReal: Bool {
+        isLive && exists && (realCount ?? 0) > 1 && desktop <= (realCount ?? 0)
     }
 
     /// Plandaki son ve boş masaüstü plandan çıkarılabilir.

@@ -241,3 +241,5 @@
 "Planned desktop removed" = "Planlanan masaüstü kaldırıldı";
 "Remove this planned desktop" = "Bu planlanan masaüstünü kaldır";
 "Click to add a desktop to this setup; it is created when this setup becomes active." = "Bu kuruluma masaüstü eklemek için tıklayın; kurulum etkin olunca masaüstü yaratılır.";
+"Remove Desktop %ld" = "Masaüstünü sil (%ld)";
+"Could not remove desktop %ld on %@" = "%2$@ ekranında masaüstü %1$ld silinemedi";

@@ -378,6 +378,7 @@ running, macOS starts it first.
 | `deskmap://profile?name=<name>` | Same; use this for names containing `/` |
 | `deskmap://next-profile` | Switch to the next profile, wrapping around (`next` and `nextprofile` also work) |
 | `deskmap://add-desktop/<screen>` | Add a desktop to a connected display (`builtin`, `external`, …); opens Mission Control briefly and presses its **+** |
+| `deskmap://remove-desktop/<screen>/<n>` | Remove desktop *n* of a connected display through Mission Control; pins shift like the map does |
 
 Command names are case-insensitive, and `deskmap:reapply` (without `//`)
 works too. Spaces and non-ASCII characters must be percent-encoded:

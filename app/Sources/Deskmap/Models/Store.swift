@@ -271,6 +271,30 @@ struct Document: Codable, Equatable {
         if moved != rules { rules = moved }
     }
 
+    /// Bir ekrandaki masaüstü silinince: o ekranın bu moddaki pinleri
+    /// `removalMapping`'e göre kayar, plan bir azalır.
+    mutating func removeDesktop(on screen: String, desktop: Int, mode: Mode) {
+        var moved = rules
+        for i in moved.indices {
+            guard var destination = moved[i][mode], destination.screen == screen
+            else { continue }
+            destination.desktop = Self.removalMapping(desktop: destination.desktop, removed: desktop)
+            moved[i][mode] = destination
+        }
+        if moved != rules { rules = moved }
+        let planned = plannedDesktops(mode: mode, screen: screen)
+        if planned >= desktop { setPlannedDesktops(planned - 1, mode: mode, screen: screen) }
+    }
+
+    /// Masaüstü `removed` silinince eski numara → yeni numara: öncekiler
+    /// aynı, sonrakiler bir yukarı; silinenin pinleri bir öncekine (ilkse
+    /// yeni ilk masaüstüne) geçer. Saf.
+    static func removalMapping(desktop: Int, removed: Int) -> Int {
+        if desktop < removed { return desktop }
+        if desktop == removed { return max(removed - 1, 1) }
+        return desktop - 1
+    }
+
     /// Masaüstü `from` listede `to` sırasına taşınınca eski numara → yeni
     /// numara haritası (kurallar ve oturum pinleri aynı haritayı kullanır).
     /// Geçersiz taşımada nil.
@@ -718,6 +742,13 @@ final class Store: ObservableObject {
         recording(L("Desktop order changed"), companion: companion) {
             document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode)
         }
+    }
+
+    /// Gerçek masaüstü silindikten sonra pinleri yeniden numaralar. Geri
+    /// alma kaydı yok: ⌘Z masaüstünü geri getiremez, yalnız numaraları
+    /// bozardı.
+    func removeDesktop(on screen: String, desktop: Int, mode: Mode) {
+        document.removeDesktop(on: screen, desktop: desktop, mode: mode)
     }
 
     /// Etkin olmayan modda masaüstü ekler: yalnız plana yazılır (⌘Z geri

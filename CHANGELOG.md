@@ -20,6 +20,13 @@ number comes from the `VERSION` file.
   one) and Deskmap creates the missing desktops through Mission Control when
   that setup becomes active. Plans are stored per setup and display in
   `rules.json` (`plannedDesktops`).
+- Desktops can be removed: right-click a desktop row in the active setup →
+  "Remove Desktop N" (or `deskmap://remove-desktop/<screen>/<n>`). Mission
+  Control removes it (`AXRemoveDesktop`); pins on later desktops move up by
+  one and pins on the removed one move to the previous desktop, session pins
+  included. The last desktop of a display is never removed, nothing is
+  touched if Mission Control's list does not match SkyLight's, and there is
+  no ⌘Z (the desktop itself cannot be brought back).
 - Full-screen and Split View spaces now appear on the map as read-only purple
   rows, in their real Mission Control position between the desktops. Before,
   a window in a full-screen space vanished from the map entirely.

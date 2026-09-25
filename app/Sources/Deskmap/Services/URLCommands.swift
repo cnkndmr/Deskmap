@@ -13,6 +13,7 @@ import Foundation
 ///     deskmap://profile?name=<ad>    aynı; "/" içeren adlar için
 ///     deskmap://next-profile         sıradaki profile geç (döner)
 ///     deskmap://add-desktop/<ekran>  ekrana masaüstü ekle (builtin, external…)
+///     deskmap://remove-desktop/<ekran>/<n>  ekranın n. masaüstünü sil
 ///
 /// Ayrıştırma saf bir işlevdir (`parse`), ne Store'a ne de AppKit'e
 /// dokunur; böylece tek başına test edilebilir. Çalıştırma `URLCommands`
@@ -25,6 +26,7 @@ enum URLCommand: Equatable {
     case profile(name: String)
     case nextProfile
     case addDesktop(screen: String)
+    case removeDesktop(screen: String, desktop: Int)
 
     static let scheme = "deskmap"
     /// Eski uygulama adı; süresiz kabul edilir (bkz. tip belgesi).
@@ -69,6 +71,9 @@ enum URLCommand: Equatable {
             let screen = parts.joined(separator: "/")
                 .trimmingCharacters(in: .whitespacesAndNewlines)
             return screen.isEmpty ? nil : .addDesktop(screen: screen.lowercased())
+        case "remove-desktop", "removedesktop":
+            guard parts.count == 2, let desktop = Int(parts[1]), desktop >= 1 else { return nil }
+            return .removeDesktop(screen: parts[0].lowercased(), desktop: desktop)
         case "profile":
             let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
             let fromQuery = query?.first { $0.name.lowercased() == "name" }?.value
@@ -120,6 +125,12 @@ enum URLCommands {
                   let index = profiles.firstIndex(where: { $0.id == store.document.activeProfileID })
             else { return }
             store.switchProfile(to: profiles[(index + 1) % profiles.count].id)
+        case .removeDesktop(let screen, let desktop):
+            Task {
+                if await !router.removeDesktop(on: screen, desktop: desktop) {
+                    store.report(L("Could not remove desktop %ld on %@", desktop, screen))
+                }
+            }
         case .addDesktop(let screen):
             Task {
                 if await !router.addDesktop(on: screen) {

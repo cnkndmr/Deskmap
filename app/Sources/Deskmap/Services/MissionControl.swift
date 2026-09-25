@@ -54,7 +54,61 @@ enum MissionControl {
         return before == nil
     }
 
+    /// Verilen ekrandaki `desktop`. normal masaüstünü siler (içindeki
+    /// pencereleri macOS başka masaüstüne taşır). Mission Control'deki
+    /// sıra SkyLight'ın space sırasıyla aynıdır (tam ekran space'ler dahil);
+    /// sayılar uyuşmazsa hiçbir şeye dokunulmaz. Son masaüstü silinmez.
+    static func removeDesktop(displayID: CGDirectDisplayID, displayUUID: String,
+                              desktop: Int) async -> Bool {
+        guard let display = SkyLight.shared.displaySpaces(mainUUID: nil)
+                .first(where: { $0.displayUUID == displayUUID }) else { return false }
+        let desktops = display.desktops
+        guard desktops.count > 1, desktop >= 1, desktop <= desktops.count,
+              let index = display.spaces.firstIndex(of: desktops[desktop - 1])
+        else { return false }
+        guard openMissionControl() else { return false }
+        defer { close() }
+
+        let deadline = Date().addingTimeInterval(appearTimeout)
+        var buttons: [AXUIElement] = []
+        while buttons.isEmpty, Date() < deadline {
+            try? await Task.sleep(nanoseconds: pollInterval)
+            buttons = spaceButtons(displayID: displayID)
+        }
+        guard buttons.count == display.spaces.count else {
+            Log.app.error("Remove desktop: Mission Control shows \(buttons.count) spaces, SkyLight \(display.spaces.count); nothing removed")
+            return false
+        }
+        let result = AXUIElementPerformAction(buttons[index], "AXRemoveDesktop" as CFString)
+        guard result == .success else {
+            Log.app.error("Remove desktop: action failed (\(result.rawValue))")
+            return false
+        }
+        for _ in 0..<10 {
+            try? await Task.sleep(nanoseconds: pollInterval)
+            if let now = desktopCount(uuid: displayUUID), now < desktops.count {
+                Log.app.notice("Desktop \(desktop) removed on display \(displayID): \(desktops.count) → \(now)")
+                return true
+            }
+        }
+        Log.app.notice("Remove desktop: action sent but the desktop count did not change")
+        return false
+    }
+
     // MARK: - Yardımcılar
+
+    /// İlgili ekranın `mc.spaces.list` düğmeleri, Mission Control sırasıyla.
+    private static func spaceButtons(displayID: CGDirectDisplayID) -> [AXUIElement] {
+        for display in displayGroups()
+        where (value(display, "AXDisplayID") as? NSNumber)?.uint32Value == displayID {
+            for bar in children(display) where identifier(bar) == "mc.spaces" {
+                if let list = children(bar).first(where: { identifier($0) == "mc.spaces.list" }) {
+                    return children(list)
+                }
+            }
+        }
+        return []
+    }
 
     private static func openMissionControl() -> Bool {
         let url = URL(fileURLWithPath: "/System/Applications/Mission Control.app")

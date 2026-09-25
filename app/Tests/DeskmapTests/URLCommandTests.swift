@@ -19,6 +19,10 @@ struct URLCommandTests {
         #expect(URLCommand.parse(URL(string: "deskmap:add-desktop/builtin")!)
                 == .addDesktop(screen: "builtin"))
         #expect(URLCommand.parse(URL(string: "deskmap://add-desktop")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://remove-desktop/external/3")!)
+                == .removeDesktop(screen: "external", desktop: 3))
+        #expect(URLCommand.parse(URL(string: "deskmap://remove-desktop/external")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://remove-desktop/external/0")!) == nil)
     }
 
     @Test func legacySchemeStillParsesTheSameCommands() {

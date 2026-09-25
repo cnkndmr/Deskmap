@@ -633,6 +633,35 @@ final class Router: ObservableObject {
         return added
     }
 
+    /// Etkin moddaki bağlı ekranın masaüstünü siler; başarılıysa bu ekranın
+    /// kural ve oturum pinleri `Document.removalMapping` ile kayar.
+    func removeDesktop(on screenID: String, desktop: Int) async -> Bool {
+        guard let info = screens.screens.first(where: { $0.id == screenID }),
+              let screen = NSScreen.screens.first(where: { ScreenInfo.uuid(of: $0) == info.uuid }),
+              let displayID = ScreenInfo.displayID(of: screen)
+        else { return false }
+        let removed = await MissionControl.removeDesktop(
+            displayID: displayID, displayUUID: info.uuid, desktop: desktop)
+        if removed {
+            store.removeDesktop(on: screenID, desktop: desktop, mode: screens.mode)
+            var changed = false
+            for (id, record) in sessionRecords where record.destination.screen == screenID {
+                let updated = Document.removalMapping(desktop: record.destination.desktop,
+                                                      removed: desktop)
+                guard updated != record.destination.desktop else { continue }
+                var next = record
+                next.destination.desktop = updated
+                sessionRecords[id] = next
+                sessionPins[id] = next.destination
+                forgetApplied(for: id)
+                changed = true
+            }
+            if changed { saveSessionPins() }
+        }
+        scheduleFollowUp(after: 300)
+        return removed
+    }
+
     /// Etkin moddaki planlanmış masaüstülerinden eksik olanları yaratır
     /// (etkin olmayan modda "+" ile eklenenler). Aynı hedef için bir kez
     /// denenir; başarısızsa plan durur, harita satırı "henüz yok" kalır.

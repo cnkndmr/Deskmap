@@ -24,6 +24,19 @@ struct DocumentCodableTests {
         #expect(try decode(#"{"plannedDesktops": "x"}"#).plannedDesktops.isEmpty)
     }
 
+    @Test func removingADesktopShiftsPinsAndPlan() {
+        #expect(Document.removalMapping(desktop: 2, removed: 3) == 2)
+        #expect(Document.removalMapping(desktop: 3, removed: 3) == 2)
+        #expect(Document.removalMapping(desktop: 4, removed: 3) == 3)
+        #expect(Document.removalMapping(desktop: 1, removed: 1) == 1)
+        var doc = Document()
+        doc.setPlannedDesktops(5, mode: .docked, screen: "external")
+        doc.removeDesktop(on: "external", desktop: 2, mode: .docked)
+        #expect(doc.plannedDesktops(mode: .docked, screen: "external") == 4)
+        doc.removeDesktop(on: "builtin", desktop: 2, mode: .docked)
+        #expect(doc.plannedDesktops(mode: .docked, screen: "external") == 4)
+    }
+
     @Test func v1SchemaMigrates() throws {
         let doc = try decode("""
         {
