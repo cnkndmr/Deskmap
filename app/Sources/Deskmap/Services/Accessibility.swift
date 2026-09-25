@@ -205,47 +205,58 @@ enum AX {
     /// numarası DEĞİL (eskiden öyle sanılıyordu; çoğu uygulamada -25201
     /// dönüyor, başka masaüstündeki Claude/ChatGPT/Finder pencereleri hiç
     /// listelenmiyordu; ölçüldü 25.09.2026). alt-tab-macos yöntemi: kimlikler
-    /// 0'dan taranır, `_AXUIElementGetWindow` ile eşleşen bulunur. Bulunan
-    /// kimlikler önbellekte; bulunamayan pencere bir süre yeniden taranmaz.
+    /// 0'dan taranır, `_AXUIElementGetWindow` ile eşleşen AXWindow bulunur.
+    ///
+    /// Tarama uygulama (pid) başına: bir tam geçiş o uygulamanın bütün
+    /// pencerelerini önbelleğe yazar; `remoteRescan` dolmadan aynı pid
+    /// yeniden taranmaz (bulunamayan yardımcı pencereler her taramada 1000
+    /// IPC yapmasın). Zaman aşımı (yanıt vermeyen uygulama) ya da süre
+    /// bütçesi aşılırsa tarama kesilir, kısa süre sonra yeniden denenir.
     static func element(pid: pid_t, windowID: CGWindowID) -> AXUIElement? {
         guard createWithRemoteToken != nil, let getWindowID else { return nil }
         let now = Date()
         remoteLock.lock()
         let cached = remoteIDs[pid]?[windowID]
-        let missedAt = remoteMisses[pid]?[windowID]
+        let nextScan = remoteNextScan[pid]
         remoteLock.unlock()
 
         if let cached, let element = remoteElement(pid: pid, elementID: cached) {
+            AXUIElementSetMessagingTimeout(element, 0.2)
             var found: CGWindowID = 0
             if getWindowID(element, &found) == .success, found == windowID { return element }
         }
-        if let missedAt, now.timeIntervalSince(missedAt) < remoteMissRetry { return nil }
+        if let nextScan, now < nextScan { return nil }
 
-        // Tek taramada bu pid'in bütün pencereleri önbelleğe girer.
         var discovered: [CGWindowID: UInt64] = [:]
-        var match: AXUIElement?
+        var aborted = false
         for id in UInt64(0)..<remoteScanLimit {
+            if Date().timeIntervalSince(now) > remoteScanBudget { aborted = true; break }
             guard let element = remoteElement(pid: pid, elementID: id) else { continue }
-            AXUIElementSetMessagingTimeout(element, 0.1)
+            AXUIElementSetMessagingTimeout(element, 0.2)
             var found: CGWindowID = 0
-            guard getWindowID(element, &found) == .success, found != 0,
-                  discovered[found] == nil else { continue }
+            let result = getWindowID(element, &found)
+            if result == .cannotComplete { aborted = true; break }
+            guard result == .success, found != 0, discovered[found] == nil else { continue }
             // Pencerenin alt öğeleri de aynı numarayı döndürür (Claude'da
             // ilk eşleşen AXUnknown, Finder'da AXOutline); yalnız pencere.
             let role: String? = attribute(element, kAXRoleAttribute)
             guard role == kAXWindowRole else { continue }
             discovered[found] = id
-            if found == windowID { match = element; break }
         }
         remoteLock.lock()
-        remoteIDs[pid, default: [:]].merge(discovered) { _, new in new }
-        if match == nil {
-            remoteMisses[pid, default: [:]][windowID] = now
+        if aborted {
+            remoteIDs[pid, default: [:]].merge(discovered) { _, new in new }
+            remoteNextScan[pid] = now.addingTimeInterval(remoteAbortRetry)
         } else {
-            remoteMisses[pid]?[windowID] = nil
+            // Tam geçiş: kimlikler yeniden kullanılabilir, eski harita atılır.
+            remoteIDs[pid] = discovered
+            remoteNextScan[pid] = now.addingTimeInterval(remoteRescan)
         }
         remoteLock.unlock()
-        return match
+        if aborted {
+            Log.ax.notice("Remote window scan cut short for pid \(pid) (timeout or budget)")
+        }
+        return discovered[windowID].flatMap { remoteElement(pid: pid, elementID: $0) }
     }
 
     private static func remoteElement(pid: pid_t, elementID: UInt64) -> AXUIElement? {
@@ -263,17 +274,21 @@ enum AX {
 
     /// Taranan en yüksek öğe kimliği (alt-tab-macos 1000 kullanıyor).
     private static let remoteScanLimit: UInt64 = 1000
-    /// Bulunamayan pencere için yeniden tarama aralığı.
-    private static let remoteMissRetry: TimeInterval = 30
+    /// Aynı uygulamanın tam taraması arasındaki süre (bir tarama ~20 ms, ölçüldü).
+    private static let remoteRescan: TimeInterval = 30
+    /// Kesilen taramadan sonra yeniden deneme.
+    private static let remoteAbortRetry: TimeInterval = 5
+    /// Tek taramanın süre bütçesi (yavaş ama yanıt veren uygulama).
+    private static let remoteScanBudget: TimeInterval = 0.3
     nonisolated(unsafe) private static var remoteIDs: [pid_t: [CGWindowID: UInt64]] = [:]
-    nonisolated(unsafe) private static var remoteMisses: [pid_t: [CGWindowID: Date]] = [:]
+    nonisolated(unsafe) private static var remoteNextScan: [pid_t: Date] = [:]
     private static let remoteLock = NSLock()
 
     /// Kapanmış uygulamaların öğe kimliği önbelleğini atar.
     static func pruneRemoteCache(running: Set<pid_t>) {
         remoteLock.lock(); defer { remoteLock.unlock() }
         remoteIDs = remoteIDs.filter { running.contains($0.key) }
-        remoteMisses = remoteMisses.filter { running.contains($0.key) }
+        remoteNextScan = remoteNextScan.filter { running.contains($0.key) }
     }
 
     /// Dock'ta görünen bir uygulama.
@@ -386,10 +401,15 @@ enum AX {
         //    öğesi üret.
         let byPID = Dictionary(uniqueKeysWithValues: active.map { ($0.pid, $0) })
         for info in (server ?? windowServerList()).windows {
-            guard !seen.contains(info.id), let app = byPID[info.pid],
-                  let element = element(pid: app.pid, windowID: info.id)
-            else { continue }
+            guard !seen.contains(info.id), let app = byPID[info.pid] else { continue }
             let pid = app.pid
+            // Bu taramada zaten yavaş kalan uygulamaya uzak tarama yapılmaz;
+            // süre uygulamanın hesabına yazılır (backoff kararı görsün).
+            if let timing = timings[pid],
+               isUnresponsive(maxSingleCall: timing.maxCall, total: timing.total) { continue }
+            guard let element = timings[pid, default: AppTiming()]
+                .measure({ element(pid: pid, windowID: info.id) })
+            else { continue }
             AXUIElementSetMessagingTimeout(element, timeout)
             guard alwaysInclude.contains(info.id)
                     || timings[pid, default: AppTiming()]

@@ -55,6 +55,39 @@ struct DocumentCodableTests {
         #expect(doc.pendingRemovals.isEmpty)
     }
 
+    @Test func realRemovalShiftsEveryModeAndProfile() {
+        var doc = Document()
+        let pin = Rule(appName: "Safari", bundleID: "com.apple.Safari", tokens: [],
+                       docked: Destination(screen: "builtin", desktop: 4),
+                       undocked: Destination(screen: "builtin", desktop: 5))
+        doc.rules = [pin]
+        doc.syncActiveProfile()
+        doc.addProfile(named: "B", copyingCurrent: true)   // B etkin, A arkada
+        doc.removeDesktop(on: "builtin", desktop: 2, modes: Mode.allCases)
+        #expect(doc.rules[0].docked?.desktop == 3)
+        #expect(doc.rules[0].undocked?.desktop == 4)
+        let other = doc.profiles.first { $0.id != doc.activeProfileID }!
+        #expect(other.rules[0].docked?.desktop == 3)
+        #expect(other.rules[0].undocked?.desktop == 4)
+    }
+
+    @Test func pendingQueueDropsOnlyTheFirstEntry() {
+        var doc = Document()
+        doc.removeDesktopLater(on: "builtin", desktop: 2, mode: .undocked, existing: true, space: 5)
+        doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .undocked, existing: true, space: 9)
+        doc.dropFirstPendingRemoval(mode: .undocked, screen: "builtin")
+        #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin")
+                == [PendingRemoval(desktop: 3, space: 9)])
+        doc.dropFirstPendingRemoval(mode: .undocked, screen: "builtin")
+        #expect(doc.pendingRemovals.isEmpty)
+    }
+
+    @Test func windowsReorderOnlyBetweenRealDesktops() {
+        #expect(Router.canReorderWindows(from: 1, to: 3, realCount: 3))
+        #expect(!Router.canReorderWindows(from: 1, to: 5, realCount: 3))
+        #expect(!Router.canReorderWindows(from: 4, to: 1, realCount: 3))
+    }
+
     @Test func pendingRemovalFindsSpaceByIDFirst() {
         // macOS monitör masaüstülerini sona ekledi: kimlik yine doğru sırayı bulur.
         #expect(Router.pendingIndex(PendingRemoval(desktop: 2, space: 5), desktops: [4, 5, 6, 34]) == 2)

@@ -19,13 +19,16 @@ enum MissionControl {
 
     /// Verilen ekrana bir masaüstü ekler; eklenen masaüstü sayısı
     /// SkyLight'ta görülürse true. Mission Control her durumda kapatılır.
-    static func addDesktop(displayID: CGDirectDisplayID, displayUUID: String) async -> Bool {
-        let before = desktopCount(uuid: displayUUID)
+    /// `mainUUID`: "Displays have separate Spaces" kapalıyken SkyLight
+    /// ekranı "Main" diye bildirir; Router'daki gibi birincil ekranın UUID'si.
+    static func addDesktop(displayID: CGDirectDisplayID, displayUUID: String,
+                           mainUUID: String?) async -> Bool {
+        let before = desktopCount(uuid: displayUUID, mainUUID: mainUUID)
         guard openMissionControl() else {
             Log.app.error("Add desktop: Mission Control could not be opened")
             return false
         }
-        defer { close() }
+        defer { closeIfOpen() }
 
         let deadline = Date().addingTimeInterval(appearTimeout)
         var button: AXUIElement?
@@ -45,7 +48,8 @@ enum MissionControl {
         // Yeni space SkyLight'ta birkaç yüz ms içinde görünür.
         for _ in 0..<10 {
             try? await Task.sleep(nanoseconds: pollInterval)
-            if let before, let now = desktopCount(uuid: displayUUID), now > before {
+            if let before, let now = desktopCount(uuid: displayUUID, mainUUID: mainUUID),
+               now > before {
                 Log.app.notice("Desktop added on display \(displayID): \(before) → \(now)")
                 return true
             }
@@ -59,15 +63,15 @@ enum MissionControl {
     /// sıra SkyLight'ın space sırasıyla aynıdır (tam ekran space'ler dahil);
     /// sayılar uyuşmazsa hiçbir şeye dokunulmaz. Son masaüstü silinmez.
     static func removeDesktop(displayID: CGDirectDisplayID, displayUUID: String,
-                              desktop: Int) async -> Bool {
-        guard let display = SkyLight.shared.displaySpaces(mainUUID: nil)
+                              mainUUID: String?, desktop: Int) async -> Bool {
+        guard let display = SkyLight.shared.displaySpaces(mainUUID: mainUUID)
                 .first(where: { $0.displayUUID == displayUUID }) else { return false }
         let desktops = display.desktops
         guard desktops.count > 1, desktop >= 1, desktop <= desktops.count,
               let index = display.spaces.firstIndex(of: desktops[desktop - 1])
         else { return false }
         guard openMissionControl() else { return false }
-        defer { close() }
+        defer { closeIfOpen() }
 
         let deadline = Date().addingTimeInterval(appearTimeout)
         var buttons: [AXUIElement] = []
@@ -86,7 +90,8 @@ enum MissionControl {
         }
         for _ in 0..<10 {
             try? await Task.sleep(nanoseconds: pollInterval)
-            if let now = desktopCount(uuid: displayUUID), now < desktops.count {
+            if let now = desktopCount(uuid: displayUUID, mainUUID: mainUUID),
+               now < desktops.count {
                 Log.app.notice("Desktop \(desktop) removed on display \(displayID): \(desktops.count) → \(now)")
                 return true
             }
@@ -119,7 +124,17 @@ enum MissionControl {
         return true
     }
 
-    /// Escape ile kapatır (Mission Control açıkken tuş ona gider).
+    /// Mission Control açıksa (ağacı görünüyorsa) Escape ile kapatır.
+    /// Açılmadıysa tuş gönderilmez: öndeki uygulamaya gidip onun bir
+    /// penceresini/diyaloğunu kapatabilirdi.
+    private static func closeIfOpen() {
+        guard !displayGroups().isEmpty else {
+            Log.app.notice("Mission Control not open; Escape not sent")
+            return
+        }
+        close()
+    }
+
     private static func close() {
         let source = CGEventSource(stateID: .hidSystemState)
         for down in [true, false] {
@@ -128,8 +143,8 @@ enum MissionControl {
         }
     }
 
-    private static func desktopCount(uuid: String) -> Int? {
-        SkyLight.shared.displaySpaces(mainUUID: nil)
+    private static func desktopCount(uuid: String, mainUUID: String?) -> Int? {
+        SkyLight.shared.displaySpaces(mainUUID: mainUUID)
             .first { $0.displayUUID == uuid }?.desktops.count
     }
 

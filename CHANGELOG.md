@@ -62,6 +62,34 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- Review fixes for today's desktop features (multi-agent review, each
+  finding checked by two skeptics):
+  - Add/remove through Mission Control failed when "Displays have separate
+    Spaces" is off (the display is reported as "Main"); the primary display
+    UUID is now passed through.
+  - Escape was posted even when Mission Control never opened, reaching the
+    frontmost app; it is now sent only while Mission Control's tree is up.
+  - A queued removal that failed cleared the whole queue although pins had
+    already shifted; now only done (or vanished) entries leave the queue,
+    a failure is reported and retried on the next launch. Executing a queued
+    removal now also shifts session pins and the other setup's pins.
+  - Removing a desktop renumbered only the active profile and setup; it now
+    renumbers every profile, and a live removal every setup of that display
+    (the laptop display's desktops are shared).
+  - A plan stayed as a permanent minimum and re-created desktops the user
+    deleted later; it is cleared once met, and creation re-reads the live
+    count instead of a pre-settle snapshot.
+  - Dragging a desktop onto plan/pin rows beyond the real desktops merged
+    two desktops' windows; windows now move only between real desktops,
+    read their current desktop live (fast second drag or ⌘Z), and ⌘Z is
+    only registered when windows really moved.
+  - The remote-window scan could stall a sweep on a hung app and repeat 1000
+    IPC calls per helper window: it now runs once per app per 30 s (one pass
+    caches every window, ~60–100 ms measured), stops on a timeout or a
+    0.3 s budget, and skips apps already slow in that sweep. Apps do not
+    always keep AX elements for windows on other desktops, so some windows
+    may still be missed (same limit as alt-tab-macos).
+  - Add/remove/plan operations are serialised; a failed "+" is reported.
 - Many windows on desktops that are not visible were missing from the map
   and could not be routed (Claude, ChatGPT, Finder…; their pins showed as
   "no open window"). The AX remote token carried the window number where an

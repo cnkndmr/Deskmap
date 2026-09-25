@@ -173,6 +173,14 @@ struct Document: Codable, Equatable {
         pendingRemovals[Self.planKey(mode: mode, screen: screen)] = nil
     }
 
+    /// Kuyruktaki ilk silme yapıldı ya da geçersiz: kuyruktan düşer.
+    mutating func dropFirstPendingRemoval(mode: Mode, screen: String) {
+        let key = Self.planKey(mode: mode, screen: screen)
+        guard var list = pendingRemovals[key], !list.isEmpty else { return }
+        list.removeFirst()
+        pendingRemovals[key] = list.isEmpty ? nil : list
+    }
+
     /// Planı `count`'a ayarlar; 0 ya da altı planı siler.
     mutating func setPlannedDesktops(_ count: Int, mode: Mode, screen: String) {
         let key = Self.planKey(mode: mode, screen: screen)
@@ -313,16 +321,36 @@ struct Document: Codable, Equatable {
     /// Bir ekrandaki masaüstü silinince: o ekranın bu moddaki pinleri
     /// `removalMapping`'e göre kayar, plan bir azalır.
     mutating func removeDesktop(on screen: String, desktop: Int, mode: Mode) {
-        var moved = rules
-        for i in moved.indices {
-            guard var destination = moved[i][mode], destination.screen == screen
-            else { continue }
-            destination.desktop = Self.removalMapping(desktop: destination.desktop, removed: desktop)
-            moved[i][mode] = destination
+        removeDesktop(on: screen, desktop: desktop, modes: [mode])
+    }
+
+    /// Masaüstü silinince verilen modlarda bu ekranın pinleri kayar;
+    /// yalnız etkin profil değil bütün profiller (profil değişince pinler
+    /// yanlış masaüstüne gitmesin). Planlar da bir azalır.
+    mutating func removeDesktop(on screen: String, desktop: Int, modes: [Mode]) {
+        func remap(_ list: [Rule]) -> [Rule] {
+            var moved = list
+            for i in moved.indices {
+                for mode in modes {
+                    guard var destination = moved[i][mode], destination.screen == screen
+                    else { continue }
+                    destination.desktop = Self.removalMapping(
+                        desktop: destination.desktop, removed: desktop)
+                    moved[i][mode] = destination
+                }
+            }
+            return moved
         }
+        let moved = remap(rules)
         if moved != rules { rules = moved }
-        let planned = plannedDesktops(mode: mode, screen: screen)
-        if planned >= desktop { setPlannedDesktops(planned - 1, mode: mode, screen: screen) }
+        for i in profiles.indices where profiles[i].id != activeProfileID {
+            let other = remap(profiles[i].rules)
+            if other != profiles[i].rules { profiles[i].rules = other }
+        }
+        for mode in modes {
+            let planned = plannedDesktops(mode: mode, screen: screen)
+            if planned >= desktop { setPlannedDesktops(planned - 1, mode: mode, screen: screen) }
+        }
     }
 
     /// Masaüstü `removed` silinince eski numara → yeni numara: öncekiler
@@ -793,16 +821,21 @@ final class Store: ObservableObject {
         }
     }
 
-    /// Bekleyen silmeler yapıldı ya da geçersiz: kayıt geri alınamaz.
-    func clearPendingRemovals(mode: Mode, screen: String) {
-        document.clearPendingRemovals(mode: mode, screen: screen)
+    /// Bekleyen ilk silme yapıldı ya da geçersiz (geri alma kaydı yok).
+    func dropFirstPendingRemoval(mode: Mode, screen: String) {
+        document.dropFirstPendingRemoval(mode: mode, screen: screen)
+    }
+
+    /// Plan karşılandı (geri alma kaydı yok).
+    func clearPlannedDesktops(mode: Mode, screen: String) {
+        document.setPlannedDesktops(0, mode: mode, screen: screen)
     }
 
     /// Gerçek masaüstü silindikten sonra pinleri yeniden numaralar. Geri
     /// alma kaydı yok: ⌘Z masaüstünü geri getiremez, yalnız numaraları
     /// bozardı.
-    func removeDesktop(on screen: String, desktop: Int, mode: Mode) {
-        document.removeDesktop(on: screen, desktop: desktop, mode: mode)
+    func removeDesktop(on screen: String, desktop: Int, modes: [Mode]) {
+        document.removeDesktop(on: screen, desktop: desktop, modes: modes)
     }
 
     /// Etkin olmayan modda masaüstü ekler: yalnız plana yazılır (⌘Z geri

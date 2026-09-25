@@ -104,8 +104,7 @@ final class Router: ObservableObject {
     /// yayınlanır (pencere listesi değişmeden eklenen masaüstü de haritaya
     /// yansısın).
     @Published private(set) var desktopCounts: [String: Int] = [:]
-    /// Planlanmış masaüstü yaratımı sürüyor / denenmiş hedefler.
-    private var isCreatingDesktops = false
+    /// Bu oturumda denenmiş plan/silme hedefleri (başarısızlık döngüsü olmasın).
     private var plannedAttempts: Set<String> = []
     private static let maxPlannedCreations = 8
     /// Masaüstü taşımasının doğrulanmış durumu; devre kesici açıksa
@@ -549,14 +548,19 @@ final class Router: ObservableObject {
     /// diye o ekrandaki pencereler de haritaya göre taşınır. macOS space
     /// sırasını dışarıdan değiştirmeye izin vermiyor (Mission Control'de
     /// sıralama eylemi yok, SkyLight çağrısı SIP ister); içerik taşınınca
-    /// masaüstüleri kullanıcı için aynı biçimde yer değiştirir.
+    /// masaüstüleri kullanıcı için aynı biçimde yer değiştirir. Taşıma
+    /// yalnız sürüklenen iki satır da gerçek masaüstüyse yapılır; plan/pin
+    /// satırlarına sürüklemede iki masaüstünün pencereleri karışırdı.
     @discardableResult
     func moveDesktop(on screen: String, from: Int, to: Int, count: Int,
                      reorderWindows: Bool = false) -> Bool {
         guard let mapping = Document.desktopMapping(from: from, to: to, count: count)
         else { return false }
-        if reorderWindows { reorderWindowsOnDesktops(screen: screen, mapping: mapping) }
-        var changed = reorderWindows
+        let real = desktopCounts[screen] ?? 0
+        let reorders = reorderWindows && Self.canReorderWindows(from: from, to: to, realCount: real)
+            && moveHealth.movesAllowed && SkyLight.shared.canMove
+        if reorders { reorderWindowsOnDesktops(screen: screen, mapping: mapping) }
+        var changed = reorders
         for (id, record) in sessionRecords
         where record.destination.screen == screen {
             guard let updated = mapping[record.destination.desktop],
@@ -575,19 +579,21 @@ final class Router: ObservableObject {
         return changed
     }
 
+    /// Pencereler yalnız iki uç da gerçek masaüstüyse taşınır (saf).
+    nonisolated static func canReorderWindows(from: Int, to: Int, realCount: Int) -> Bool {
+        from >= 1 && to >= 1 && max(from, to) <= realCount
+    }
+
     /// Ekrandaki pencereleri masaüstü haritasına göre taşır (eski sıra →
-    /// yeni sıra). Yalnız tek space'teki pencereler; "All Desktops"
-    /// pencereleri ve gerçekte olmayan masaüstülere düşenler atlanır.
+    /// yeni sıra). Pencerenin şu anki masaüstü kuyrukta SkyLight'tan taze
+    /// okunur (son taramanın anlık görüntüsü eski olabilir: hızlı ikinci
+    /// sürükleme ya da ⌘Z). Yalnız tek space'teki pencereler; "All
+    /// Desktops" pencereleri ve gerçekte olmayan masaüstüler atlanır.
     private func reorderWindowsOnDesktops(screen screenID: String, mapping: [Int: Int]) {
         let connected = screens.screens
-        let candidates = windows.compactMap { window -> (CGWindowID, Int)? in
-            guard let placement = window.placement, placement.screen == screenID,
-                  let target = mapping[placement.desktop], target != placement.desktop
-            else { return nil }
-            return (window.id, target)
-        }
-        guard !candidates.isEmpty, moveHealth.movesAllowed else { return }
-        queue.async { [weak self] in
+        let candidates = windows.filter { $0.placement?.screen == screenID }.map(\.id)
+        guard !candidates.isEmpty else { return }
+        queue.async {
             let sky = SkyLight.shared
             guard sky.canRead, sky.canMove,
                   let target = connected.first(where: { $0.id == screenID }),
@@ -596,9 +602,11 @@ final class Router: ObservableObject {
             else { return }
             let desktops = display.desktops.map(\.id)
             var moved = 0
-            for (id, desktop) in candidates where desktop <= desktops.count {
+            for id in candidates {
                 guard let current = sky.spaces(of: id), current.count == 1,
-                      desktops.contains(current[0]) else { continue }
+                      let index = desktops.firstIndex(of: current[0]),
+                      let desktop = mapping[index + 1], desktop != index + 1,
+                      desktop <= desktops.count else { continue }
                 sky.move(window: id, to: desktops[desktop - 1])
                 moved += 1
             }
@@ -660,55 +668,76 @@ final class Router: ObservableObject {
 
     // MARK: - Masaüstü ekleme
 
-    /// Bağlı bir ekrana Mission Control üzerinden masaüstü ekler, sonra
-    /// haritanın masaüstü sayısı tazelensin diye yeniden tarar.
-    func addDesktop(on screenID: String) async -> Bool {
+    /// Mission Control işlemi sürüyor: ekleme/silme/plan yürütme tek tek
+    /// yapılır (aynı anda iki işlem Mission Control'ü açıp kapatır, sıra
+    /// kayabilir).
+    private var desktopOpInFlight = false
+
+    private func displayInfo(_ screenID: String) -> (uuid: String, id: CGDirectDisplayID)? {
         guard let info = screens.screens.first(where: { $0.id == screenID }),
               let screen = NSScreen.screens.first(where: { ScreenInfo.uuid(of: $0) == info.uuid }),
               let displayID = ScreenInfo.displayID(of: screen)
-        else { return false }
-        let added = await MissionControl.addDesktop(displayID: displayID, displayUUID: info.uuid)
+        else { return nil }
+        return (info.uuid, displayID)
+    }
+
+    /// Bağlı bir ekrana Mission Control üzerinden masaüstü ekler, sonra
+    /// haritanın masaüstü sayısı tazelensin diye yeniden tarar. Başka bir
+    /// masaüstü işlemi sürüyorsa false.
+    func addDesktop(on screenID: String) async -> Bool {
+        guard !desktopOpInFlight else { return false }
+        desktopOpInFlight = true
+        defer { desktopOpInFlight = false }
+        return await addDesktopNow(on: screenID)
+    }
+
+    private func addDesktopNow(on screenID: String) async -> Bool {
+        guard let display = displayInfo(screenID) else { return false }
+        let added = await MissionControl.addDesktop(
+            displayID: display.id, displayUUID: display.uuid,
+            mainUUID: Self.primaryUUID(screens.screens))
         scheduleFollowUp(after: 300)
         return added
     }
 
-    /// Masaüstünü pinlere dokunmadan siler (bekleyen silmeler için).
-    private func removeDesktopOnly(on screenID: String, desktop: Int) async -> Bool {
-        guard let info = screens.screens.first(where: { $0.id == screenID }),
-              let screen = NSScreen.screens.first(where: { ScreenInfo.uuid(of: $0) == info.uuid }),
-              let displayID = ScreenInfo.displayID(of: screen)
-        else { return false }
+    /// Masaüstünü pinlere dokunmadan siler.
+    private func removeDesktopNow(on screenID: String, desktop: Int) async -> Bool {
+        guard let display = displayInfo(screenID) else { return false }
         return await MissionControl.removeDesktop(
-            displayID: displayID, displayUUID: info.uuid, desktop: desktop)
+            displayID: display.id, displayUUID: display.uuid,
+            mainUUID: Self.primaryUUID(screens.screens), desktop: desktop)
     }
 
     /// Etkin moddaki bağlı ekranın masaüstünü siler; başarılıysa bu ekranın
-    /// kural ve oturum pinleri `Document.removalMapping` ile kayar.
+    /// bütün modlardaki (laptop ekranının masaüstüleri iki modda ortak) ve
+    /// bütün profillerdeki pinleri ile oturum pinleri kayar.
     func removeDesktop(on screenID: String, desktop: Int) async -> Bool {
-        guard let info = screens.screens.first(where: { $0.id == screenID }),
-              let screen = NSScreen.screens.first(where: { ScreenInfo.uuid(of: $0) == info.uuid }),
-              let displayID = ScreenInfo.displayID(of: screen)
-        else { return false }
-        let removed = await MissionControl.removeDesktop(
-            displayID: displayID, displayUUID: info.uuid, desktop: desktop)
+        guard !desktopOpInFlight else { return false }
+        desktopOpInFlight = true
+        defer { desktopOpInFlight = false }
+        let removed = await removeDesktopNow(on: screenID, desktop: desktop)
         if removed {
-            store.removeDesktop(on: screenID, desktop: desktop, mode: screens.mode)
-            var changed = false
-            for (id, record) in sessionRecords where record.destination.screen == screenID {
-                let updated = Document.removalMapping(desktop: record.destination.desktop,
-                                                      removed: desktop)
-                guard updated != record.destination.desktop else { continue }
-                var next = record
-                next.destination.desktop = updated
-                sessionRecords[id] = next
-                sessionPins[id] = next.destination
-                forgetApplied(for: id)
-                changed = true
-            }
-            if changed { saveSessionPins() }
+            store.removeDesktop(on: screenID, desktop: desktop, modes: Mode.allCases)
+            shiftSessionPins(screen: screenID, removed: desktop)
         }
         scheduleFollowUp(after: 300)
         return removed
+    }
+
+    private func shiftSessionPins(screen screenID: String, removed desktop: Int) {
+        var changed = false
+        for (id, record) in sessionRecords where record.destination.screen == screenID {
+            let updated = Document.removalMapping(desktop: record.destination.desktop,
+                                                  removed: desktop)
+            guard updated != record.destination.desktop else { continue }
+            var next = record
+            next.destination.desktop = updated
+            sessionRecords[id] = next
+            sessionPins[id] = next.destination
+            forgetApplied(for: id)
+            changed = true
+        }
+        if changed { saveSessionPins() }
     }
 
     /// Etkin olmayan modda silinecek masaüstünün şu an bilinen space
@@ -734,51 +763,90 @@ final class Router: ObservableObject {
         return removal.desktop <= desktops.count ? removal.desktop : nil
     }
 
+    /// Ekranın bu andaki gerçek masaüstü sayısı (SkyLight'tan taze).
+    private func liveDesktopCount(uuid: String) -> Int? {
+        SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens))
+            .first { $0.displayUUID == uuid }?.desktops.count
+    }
+
     /// Etkin moddaki bekleyen silmeleri yapar, sonra planlanmış
     /// masaüstülerinden eksik olanları yaratır (etkin olmayan modda
-    /// eklenenler). Aynı hedef için bir kez denenir; başarısızsa plan durur,
-    /// harita satırı "henüz yok" kalır.
+    /// eklenenler). Silme: başarılı ya da artık olmayan girdi kuyruktan
+    /// düşer, öbür modların pinleri ve oturum pinleri o an kayar; başarısız
+    /// girdi ve sonrakiler kuyrukta kalır, kullanıcıya bildirilir, bu
+    /// oturumda aynı kuyruk bir kez denenir (sonraki açılışta yeniden).
+    /// Plan: karşılanınca silinir (kalıcı alt sınır değil; sonradan
+    /// silinen masaüstü yeniden yaratılmaz).
     private func createPlannedDesktops() {
-        guard !isCreatingDesktops, !screens.isSettling, !desktopCounts.isEmpty else { return }
+        guard !desktopOpInFlight, !screens.isSettling, !desktopCounts.isEmpty else { return }
         let mode = screens.mode
         for screen in screens.screens {
             let removals = store.document.pendingRemovals(mode: mode, screen: screen.id)
             guard !removals.isEmpty else { continue }
-            isCreatingDesktops = true
+            let key = "remove|\(mode.rawValue)|\(screen.id)|\(removals.count)"
+            guard !plannedAttempts.contains(key) else { continue }
+            plannedAttempts.insert(key)
+            desktopOpInFlight = true
             let uuid = screen.uuid, screenID = screen.id
             Log.app.notice("Removing \(removals.count) desktop(s) planned for \(screenID, privacy: .public)")
             Task { [weak self] in
+                guard let self else { return }
+                defer {
+                    self.desktopOpInFlight = false
+                    self.scheduleFollowUp(after: 300)
+                }
                 for removal in removals {
-                    guard let self else { return }
-                    let desktops = SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(self.screens.screens))
+                    guard self.screens.mode == mode, !self.screens.isSettling else { return }
+                    let desktops = SkyLight.shared
+                        .displaySpaces(mainUUID: Self.primaryUUID(self.screens.screens))
                         .first { $0.displayUUID == uuid }?.desktops.map(\.id) ?? []
                     guard desktops.count > 1,
                           let index = Self.pendingIndex(removal, desktops: desktops) else {
                         Log.app.notice("Planned removal skipped on \(screenID, privacy: .public): desktop not found")
+                        self.store.dropFirstPendingRemoval(mode: mode, screen: screenID)
                         continue
                     }
-                    // Pinler silme anında kaydırıldı; burada yalnız masaüstü gider.
-                    guard await self.removeDesktopOnly(on: screenID, desktop: index) else { break }
+                    guard await self.removeDesktopNow(on: screenID, desktop: index) else {
+                        self.store.report(L("Could not remove desktop %ld on %@", index, screenID))
+                        return
+                    }
+                    self.store.dropFirstPendingRemoval(mode: mode, screen: screenID)
+                    // Bu modun pinleri silme sıraya girerken kaydı; öbürleri şimdi.
+                    self.store.removeDesktop(on: screenID, desktop: index,
+                                             modes: Mode.allCases.filter { $0 != mode })
+                    self.shiftSessionPins(screen: screenID, removed: index)
                 }
-                self?.store.clearPendingRemovals(mode: mode, screen: screenID)
-                self?.isCreatingDesktops = false
-                self?.scheduleFollowUp(after: 300)
             }
             return
         }
         for screen in screens.screens {
             let want = store.document.plannedDesktops(mode: mode, screen: screen.id)
-            guard let have = desktopCounts[screen.id], want > have else { continue }
-            let key = "\(mode.rawValue)|\(screen.id)|\(want)"
+            guard want > 0, let have = desktopCounts[screen.id] else { continue }
+            guard want > have else {
+                store.clearPlannedDesktops(mode: mode, screen: screen.id)
+                continue
+            }
+            let key = "add|\(mode.rawValue)|\(screen.id)|\(want)"
             guard !plannedAttempts.contains(key) else { continue }
             plannedAttempts.insert(key)
-            isCreatingDesktops = true
-            Log.app.notice("Creating planned desktops on \(screen.id, privacy: .public): \(have) → \(want)")
+            desktopOpInFlight = true
+            let uuid = screen.uuid, screenID = screen.id
+            Log.app.notice("Creating planned desktops on \(screenID, privacy: .public): \(have) → \(want)")
             Task { [weak self] in
-                for _ in 0..<min(want - have, Self.maxPlannedCreations) {
-                    guard let self, await self.addDesktop(on: screen.id) else { break }
+                guard let self else { return }
+                defer { self.desktopOpInFlight = false }
+                for _ in 0..<Self.maxPlannedCreations {
+                    // Tarama anlık görüntüsü değil, o anki sayı (ekranlar yeni yatışmış olabilir).
+                    guard self.screens.mode == mode, !self.screens.isSettling,
+                          let now = self.liveDesktopCount(uuid: uuid), now < want else { break }
+                    guard await self.addDesktopNow(on: screenID) else {
+                        self.store.report(L("Could not add a desktop to %@", screenID))
+                        return
+                    }
                 }
-                self?.isCreatingDesktops = false
+                if let now = self.liveDesktopCount(uuid: uuid), now >= want {
+                    self.store.clearPlannedDesktops(mode: mode, screen: screenID)
+                }
             }
             return
         }

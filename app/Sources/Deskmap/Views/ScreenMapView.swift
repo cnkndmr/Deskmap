@@ -589,8 +589,11 @@ private struct GhostRow: View {
                 return
             }
             isAdding = true
+            let router = router, store = store, screenID = screen.id, name = screen.name
             Task {
-                _ = await router.addDesktop(on: screen.id)
+                if await !router.addDesktop(on: screenID) {
+                    store.report(L("Could not add a desktop to %@", name))
+                }
                 isAdding = false
             }
         }
