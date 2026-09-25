@@ -169,7 +169,8 @@ private struct ScreenCard: View {
                     rowCount: tileCount, shadowed: shadowed)
                 ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0) }
             }
-            GhostRow(screen: screen, desktop: tileCount + 1, mode: mode)
+            GhostRow(screen: screen, desktop: tileCount + 1, mode: mode,
+                     canAdd: isLive && isConnected)
         }
         .padding(10)
         .background(
@@ -499,8 +500,12 @@ private struct GhostRow: View {
     let screen: KnownScreen
     let desktop: Int
     let mode: Mode
+    /// Tıklayınca bu ekrana gerçek bir masaüstü eklenebilir (bağlı ekran).
+    let canAdd: Bool
 
     @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var router: Router
+    @State private var isAdding = false
 
     private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
     private var isTargeted: Bool {
@@ -511,7 +516,11 @@ private struct GhostRow: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Image(systemName: "plus")
+            if isAdding {
+                ProgressView().controlSize(.mini)
+            } else {
+                Image(systemName: "plus")
+            }
             Text(L("Desktop %ld", desktop))
         }
         .font(.caption)
@@ -527,6 +536,17 @@ private struct GhostRow: View {
                     style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
         .dropTarget(target)
         .opacity(ui.drag == nil ? 0.7 : 1)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard canAdd, !isAdding, ui.drag == nil else { return }
+            isAdding = true
+            Task {
+                _ = await router.addDesktop(on: screen.id)
+                isAdding = false
+            }
+        }
+        .help(canAdd ? L("Click to add a desktop to this display (opens Mission Control briefly).")
+                     : L("Connect this display to add desktops."))
     }
 }
 

@@ -8,6 +8,12 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- The "+ Desktop N" row under each connected display now adds a real desktop
+  when clicked: Mission Control opens for a moment, Deskmap presses that
+  display's **+** button through Accessibility and closes it again. The same
+  is available as `deskmap://add-desktop/<screen>`. On macOS 26 Mission
+  Control's tree lives in `WindowManager`, not the Dock (measured); both are
+  searched.
 - Full-screen and Split View spaces now appear on the map as read-only purple
   rows, in their real Mission Control position between the desktops. Before,
   a window in a full-screen space vanished from the map entirely.

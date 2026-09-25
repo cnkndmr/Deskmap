@@ -615,6 +615,20 @@ final class Router: ObservableObject {
         }
     }
 
+    // MARK: - Masaüstü ekleme
+
+    /// Bağlı bir ekrana Mission Control üzerinden masaüstü ekler, sonra
+    /// haritanın masaüstü sayısı tazelensin diye yeniden tarar.
+    func addDesktop(on screenID: String) async -> Bool {
+        guard let info = screens.screens.first(where: { $0.id == screenID }),
+              let screen = NSScreen.screens.first(where: { ScreenInfo.uuid(of: $0) == info.uuid }),
+              let displayID = ScreenInfo.displayID(of: screen)
+        else { return false }
+        let added = await MissionControl.addDesktop(displayID: displayID, displayUUID: info.uuid)
+        scheduleFollowUp(after: 300)
+        return added
+    }
+
     // MARK: - Elle taşıma
 
     /// Pinsiz bir pencereyi tek seferlik hedef masaüstüne taşır; kural

@@ -14,6 +14,11 @@ struct URLCommandTests {
         #expect(URLCommand.parse(URL(string: "deskmap://toggle")!) == .toggle)
         #expect(URLCommand.parse(URL(string: "deskmap://next-profile")!) == .nextProfile)
         #expect(URLCommand.parse(URL(string: "deskmap://profile/Ofis")!) == .profile(name: "Ofis"))
+        #expect(URLCommand.parse(URL(string: "deskmap://add-desktop/External")!)
+                == .addDesktop(screen: "external"))
+        #expect(URLCommand.parse(URL(string: "deskmap:add-desktop/builtin")!)
+                == .addDesktop(screen: "builtin"))
+        #expect(URLCommand.parse(URL(string: "deskmap://add-desktop")!) == nil)
     }
 
     @Test func legacySchemeStillParsesTheSameCommands() {

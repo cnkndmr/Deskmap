@@ -377,6 +377,7 @@ running, macOS starts it first.
 | `deskmap://profile/<name>` | Switch to the named profile (exact match first, then case-insensitive) |
 | `deskmap://profile?name=<name>` | Same; use this for names containing `/` |
 | `deskmap://next-profile` | Switch to the next profile, wrapping around (`next` and `nextprofile` also work) |
+| `deskmap://add-desktop/<screen>` | Add a desktop to a connected display (`builtin`, `external`, …); opens Mission Control briefly and presses its **+** |
 
 Command names are case-insensitive, and `deskmap:reapply` (without `//`)
 works too. Spaces and non-ASCII characters must be percent-encoded:

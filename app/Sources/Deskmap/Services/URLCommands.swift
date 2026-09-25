@@ -12,6 +12,7 @@ import Foundation
 ///     deskmap://profile/<ad>         adı verilen profile geç
 ///     deskmap://profile?name=<ad>    aynı; "/" içeren adlar için
 ///     deskmap://next-profile         sıradaki profile geç (döner)
+///     deskmap://add-desktop/<ekran>  ekrana masaüstü ekle (builtin, external…)
 ///
 /// Ayrıştırma saf bir işlevdir (`parse`), ne Store'a ne de AppKit'e
 /// dokunur; böylece tek başına test edilebilir. Çalıştırma `URLCommands`
@@ -23,6 +24,7 @@ enum URLCommand: Equatable {
     case toggle
     case profile(name: String)
     case nextProfile
+    case addDesktop(screen: String)
 
     static let scheme = "deskmap"
     /// Eski uygulama adı; süresiz kabul edilir (bkz. tip belgesi).
@@ -63,6 +65,10 @@ enum URLCommand: Equatable {
         case "toggle":       return .toggle
         case "next-profile", "nextprofile", "next":
             return .nextProfile
+        case "add-desktop", "adddesktop":
+            let screen = parts.joined(separator: "/")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            return screen.isEmpty ? nil : .addDesktop(screen: screen.lowercased())
         case "profile":
             let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems
             let fromQuery = query?.first { $0.name.lowercased() == "name" }?.value
@@ -114,6 +120,12 @@ enum URLCommands {
                   let index = profiles.firstIndex(where: { $0.id == store.document.activeProfileID })
             else { return }
             store.switchProfile(to: profiles[(index + 1) % profiles.count].id)
+        case .addDesktop(let screen):
+            Task {
+                if await !router.addDesktop(on: screen) {
+                    store.report(L("Could not add a desktop to %@", screen))
+                }
+            }
         }
     }
 
