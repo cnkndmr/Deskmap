@@ -21,6 +21,16 @@ struct Profile: Codable, Equatable, Identifiable, Hashable {
 
 /// `rules.json` içeriği. Kural ve profil işlemleri saf değer işlemleridir;
 /// `Store` bunları çağırıp sonucu yayınlar ve diske yazar.
+/// Etkin olmayan modda silinmiş, gerçek silmesi bekleyen masaüstü.
+/// `desktop`: silindiği andaki sıra (önceki bekleyen silmelerden sonra);
+/// `space`: o an bilinen SkyLight space kimliği (ekran bağlıysa). Mod
+/// etkinleşince önce kimlik aranır; macOS masaüstülerini başka ekrandan
+/// eklese de doğru masaüstü silinir. Kimlik yoksa sıra kullanılır.
+struct PendingRemoval: Codable, Equatable, Hashable {
+    var desktop: Int
+    var space: UInt64?
+}
+
 struct Document: Codable, Equatable {
     var version: Int = Document.currentVersion
     var enabled: Bool = true
@@ -37,6 +47,11 @@ struct Document: Codable, Equatable {
     /// burada durur; mod etkinleşince Router eksikleri Mission Control ile
     /// yaratır. Profilden bağımsız (masaüstüleri ekranın, kuralların değil).
     var plannedDesktops: [String: Int] = [:]
+    /// Etkin olmayan modda silinen masaüstüleri (anahtar `planKey`), silme
+    /// sırasıyla. Pinler silme anında kayar; gerçek masaüstünü Router mod
+    /// etkinleşince Mission Control ile siler. Laptop ekranının masaüstüleri
+    /// iki modda ortak olduğu için hemen silmek öbür kurulumu da bozardı.
+    var pendingRemovals: [String: [PendingRemoval]] = [:]
 
     /// Okunan dosyanın `version` alanı (yazılmaz). Bu sürümden yeniyse
     /// dosya daha yeni bir Deskmap'e ait; üzerine yazılmamalı.
@@ -61,7 +76,7 @@ struct Document: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case version, enabled, screens, rules, profiles, activeProfileID, settings
-        case setupNoticeDismissed, plannedDesktops
+        case setupNoticeDismissed, plannedDesktops, pendingRemovals
     }
 
     private struct LegacySettings: Decodable { var enabled: Bool? }
@@ -99,6 +114,8 @@ struct Document: Codable, Equatable {
         activeProfileID = try c.decodeIfPresent(String.self, forKey: .activeProfileID) ?? ""
         setupNoticeDismissed = try c.decodeIfPresent(Bool.self, forKey: .setupNoticeDismissed) ?? false
         plannedDesktops = (try? c.decodeIfPresent([String: Int].self, forKey: .plannedDesktops)) ?? [:]
+        pendingRemovals = (try? c.decodeIfPresent(
+            [String: [PendingRemoval]].self, forKey: .pendingRemovals)) ?? [:]
         if profiles.isEmpty {
             let profile = Profile(name: Self.defaultProfileName, rules: rules)
             profiles = [profile]
@@ -125,6 +142,9 @@ struct Document: Codable, Equatable {
         if !plannedDesktops.isEmpty {
             try c.encode(plannedDesktops, forKey: .plannedDesktops)
         }
+        if !pendingRemovals.isEmpty {
+            try c.encode(pendingRemovals, forKey: .pendingRemovals)
+        }
     }
 
     static func planKey(mode: Mode, screen: String) -> String { "\(mode.rawValue)|\(screen)" }
@@ -132,6 +152,25 @@ struct Document: Codable, Equatable {
     /// Bu mod ve ekran için planlanmış masaüstü sayısı; plan yoksa 0.
     func plannedDesktops(mode: Mode, screen: String) -> Int {
         plannedDesktops[Self.planKey(mode: mode, screen: screen)] ?? 0
+    }
+
+    func pendingRemovals(mode: Mode, screen: String) -> [PendingRemoval] {
+        pendingRemovals[Self.planKey(mode: mode, screen: screen)] ?? []
+    }
+
+    /// Etkin olmayan modda masaüstü siler: pinler hemen kayar; `existing`
+    /// (masaüstü gerçekte var) ise gerçek silme mod etkinleşince yapılsın
+    /// diye sıraya yazılır, yoksa (plan/pin satırı) yalnız numaralar kayar.
+    mutating func removeDesktopLater(on screen: String, desktop: Int, mode: Mode,
+                                     existing: Bool, space: UInt64?) {
+        removeDesktop(on: screen, desktop: desktop, mode: mode)
+        guard existing else { return }
+        pendingRemovals[Self.planKey(mode: mode, screen: screen), default: []]
+            .append(PendingRemoval(desktop: desktop, space: space))
+    }
+
+    mutating func clearPendingRemovals(mode: Mode, screen: String) {
+        pendingRemovals[Self.planKey(mode: mode, screen: screen)] = nil
     }
 
     /// Planı `count`'a ayarlar; 0 ya da altı planı siler.
@@ -744,6 +783,21 @@ final class Store: ObservableObject {
         }
     }
 
+    /// Etkin olmayan modda masaüstü siler (bkz. `Document.removeDesktopLater`);
+    /// yalnız belge değişir, ⌘Z geri alır.
+    func removeDesktopLater(on screen: String, desktop: Int, mode: Mode,
+                            existing: Bool, space: UInt64?) {
+        recording(L("Desktop removed")) {
+            document.removeDesktopLater(on: screen, desktop: desktop, mode: mode,
+                                        existing: existing, space: space)
+        }
+    }
+
+    /// Bekleyen silmeler yapıldı ya da geçersiz: kayıt geri alınamaz.
+    func clearPendingRemovals(mode: Mode, screen: String) {
+        document.clearPendingRemovals(mode: mode, screen: screen)
+    }
+
     /// Gerçek masaüstü silindikten sonra pinleri yeniden numaralar. Geri
     /// alma kaydı yok: ⌘Z masaüstünü geri getiremez, yalnız numaraları
     /// bozardı.
@@ -755,13 +809,6 @@ final class Store: ObservableObject {
     /// alır); mod etkinleşince Router gerçek masaüstünü yaratır.
     func planDesktop(on screen: String, mode: Mode, count: Int) {
         recording(L("Desktop added")) {
-            document.setPlannedDesktops(count, mode: mode, screen: screen)
-        }
-    }
-
-    /// Plandaki son (henüz olmayan) masaüstünü plandan çıkarır.
-    func unplanDesktop(on screen: String, mode: Mode, count: Int) {
-        recording(L("Planned desktop removed")) {
             document.setPlannedDesktops(count, mode: mode, screen: screen)
         }
     }

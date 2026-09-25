@@ -633,6 +633,16 @@ final class Router: ObservableObject {
         return added
     }
 
+    /// Masaüstünü pinlere dokunmadan siler (bekleyen silmeler için).
+    private func removeDesktopOnly(on screenID: String, desktop: Int) async -> Bool {
+        guard let info = screens.screens.first(where: { $0.id == screenID }),
+              let screen = NSScreen.screens.first(where: { ScreenInfo.uuid(of: $0) == info.uuid }),
+              let displayID = ScreenInfo.displayID(of: screen)
+        else { return false }
+        return await MissionControl.removeDesktop(
+            displayID: displayID, displayUUID: info.uuid, desktop: desktop)
+    }
+
     /// Etkin moddaki bağlı ekranın masaüstünü siler; başarılıysa bu ekranın
     /// kural ve oturum pinleri `Document.removalMapping` ile kayar.
     func removeDesktop(on screenID: String, desktop: Int) async -> Bool {
@@ -662,12 +672,61 @@ final class Router: ObservableObject {
         return removed
     }
 
-    /// Etkin moddaki planlanmış masaüstülerinden eksik olanları yaratır
-    /// (etkin olmayan modda "+" ile eklenenler). Aynı hedef için bir kez
-    /// denenir; başarısızsa plan durur, harita satırı "henüz yok" kalır.
+    /// Etkin olmayan modda silinecek masaüstünün şu an bilinen space
+    /// kimliği: ekran bağlıysa, o ekranın masaüstüleri arasından önceki
+    /// bekleyen silmeler çıkarıldıktan sonra `desktop`. sıradaki. Saf olmayan
+    /// tek parça SkyLight okuması.
+    func spaceForPendingRemoval(on screenID: String, desktop: Int, mode: Mode) -> UInt64? {
+        guard let info = screens.screens.first(where: { $0.id == screenID }),
+              let display = SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens))
+                .first(where: { $0.displayUUID == info.uuid })
+        else { return nil }
+        let gone = Set(store.document.pendingRemovals(mode: mode, screen: screenID).compactMap(\.space))
+        let remaining = display.desktops.map(\.id).filter { !gone.contains($0) }
+        return desktop >= 1 && desktop <= remaining.count ? remaining[desktop - 1] : nil
+    }
+
+    /// Bekleyen silmenin şu anki masaüstü sırası (saf): kimlik varsa
+    /// yalnız kimlikle (bulunamazsa nil, sıraya düşülmez); yoksa sıra.
+    nonisolated static func pendingIndex(_ removal: PendingRemoval, desktops: [UInt64]) -> Int? {
+        if let space = removal.space {
+            return desktops.firstIndex(of: space).map { $0 + 1 }
+        }
+        return removal.desktop <= desktops.count ? removal.desktop : nil
+    }
+
+    /// Etkin moddaki bekleyen silmeleri yapar, sonra planlanmış
+    /// masaüstülerinden eksik olanları yaratır (etkin olmayan modda
+    /// eklenenler). Aynı hedef için bir kez denenir; başarısızsa plan durur,
+    /// harita satırı "henüz yok" kalır.
     private func createPlannedDesktops() {
         guard !isCreatingDesktops, !screens.isSettling, !desktopCounts.isEmpty else { return }
         let mode = screens.mode
+        for screen in screens.screens {
+            let removals = store.document.pendingRemovals(mode: mode, screen: screen.id)
+            guard !removals.isEmpty else { continue }
+            isCreatingDesktops = true
+            let uuid = screen.uuid, screenID = screen.id
+            Log.app.notice("Removing \(removals.count) desktop(s) planned for \(screenID, privacy: .public)")
+            Task { [weak self] in
+                for removal in removals {
+                    guard let self else { return }
+                    let desktops = SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(self.screens.screens))
+                        .first { $0.displayUUID == uuid }?.desktops.map(\.id) ?? []
+                    guard desktops.count > 1,
+                          let index = Self.pendingIndex(removal, desktops: desktops) else {
+                        Log.app.notice("Planned removal skipped on \(screenID, privacy: .public): desktop not found")
+                        continue
+                    }
+                    // Pinler silme anında kaydırıldı; burada yalnız masaüstü gider.
+                    guard await self.removeDesktopOnly(on: screenID, desktop: index) else { break }
+                }
+                self?.store.clearPendingRemovals(mode: mode, screen: screenID)
+                self?.isCreatingDesktops = false
+                self?.scheduleFollowUp(after: 300)
+            }
+            return
+        }
         for screen in screens.screens {
             let want = store.document.plannedDesktops(mode: mode, screen: screen.id)
             guard let have = desktopCounts[screen.id], want > have else { continue }

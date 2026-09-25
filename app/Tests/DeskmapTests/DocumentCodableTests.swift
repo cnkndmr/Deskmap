@@ -37,6 +37,32 @@ struct DocumentCodableTests {
         #expect(doc.plannedDesktops(mode: .docked, screen: "external") == 4)
     }
 
+    @Test func inactiveRemovalShiftsPinsNowAndQueuesRealRemoval() throws {
+        var doc = Document()
+        doc.rules = [Rule(appName: "Safari", bundleID: "com.apple.Safari", tokens: [],
+                          undocked: Destination(screen: "builtin", desktop: 4))]
+        doc.removeDesktopLater(on: "builtin", desktop: 2, mode: .undocked, existing: true, space: 5)
+        #expect(doc.rules[0].undocked?.desktop == 3)
+        #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin")
+                == [PendingRemoval(desktop: 2, space: 5)])
+        // Gerçekte olmayan satır: yalnız numaralar kayar, sıraya girmez.
+        doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .undocked, existing: false, space: nil)
+        #expect(doc.rules[0].undocked?.desktop == 2)
+        #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin").count == 1)
+        let back = try JSONDecoder().decode(Document.self, from: JSONEncoder().encode(doc))
+        #expect(back.pendingRemovals == doc.pendingRemovals)
+        doc.clearPendingRemovals(mode: .undocked, screen: "builtin")
+        #expect(doc.pendingRemovals.isEmpty)
+    }
+
+    @Test func pendingRemovalFindsSpaceByIDFirst() {
+        // macOS monitör masaüstülerini sona ekledi: kimlik yine doğru sırayı bulur.
+        #expect(Router.pendingIndex(PendingRemoval(desktop: 2, space: 5), desktops: [4, 5, 6, 34]) == 2)
+        #expect(Router.pendingIndex(PendingRemoval(desktop: 2, space: 99), desktops: [4, 5]) == nil)
+        #expect(Router.pendingIndex(PendingRemoval(desktop: 2, space: nil), desktops: [4, 5]) == 2)
+        #expect(Router.pendingIndex(PendingRemoval(desktop: 3, space: nil), desktops: [4, 5]) == nil)
+    }
+
     @Test func v1SchemaMigrates() throws {
         let doc = try decode("""
         {

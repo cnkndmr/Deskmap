@@ -27,6 +27,14 @@ number comes from the `VERSION` file.
   included. The last desktop of a display is never removed, nothing is
   touched if Mission Control's list does not match SkyLight's, and there is
   no ⌘Z (the desktop itself cannot be brought back).
+- Every desktop row now has "Remove Desktop N", in either setup, with no
+  other limits. In the setup that is not active the removal is queued
+  (`pendingRemovals` in `rules.json`, with the space ID when the display is
+  connected) and done through Mission Control when that setup becomes
+  active; pins shift at once and ⌘Z undoes it. The laptop display's desktops
+  are shared by both setups, so removing one at once would also remove it
+  from the active setup. Rows that exist only as a plan or pin just
+  renumber. The separate "Remove this planned desktop" item is gone.
 - Full-screen and Split View spaces now appear on the map as read-only purple
   rows, in their real Mission Control position between the desktops. Before,
   a window in a full-screen space vanished from the map entirely.

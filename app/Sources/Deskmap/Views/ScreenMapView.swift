@@ -30,7 +30,7 @@ struct ScreenMapView: View {
                     isLive: isLive,
                     isConnected: screens.screens.contains { $0.id == screen.id },
                     tileCount: tileCount(for: screen),
-                    realCount: ui.desktopCounts[screen.id],
+                    realCount: realCount(for: screen),
                     shadowed: shadowed)
             }
 
@@ -68,6 +68,16 @@ struct ScreenMapView: View {
         }
     }
 
+    /// Bağlı ekrandaki masaüstü sayısı; etkin olmayan modda o moda
+    /// bekleyen silmeler düşülür (silinen satır haritadan kalkar).
+    private func realCount(for screen: KnownScreen) -> Int? {
+        guard let real = ui.desktopCounts[screen.id] else { return nil }
+        guard !isLive else { return real }
+        let pending = store.document.pendingRemovals(mode: mode, screen: screen.id)
+            .filter { $0.space != nil }.count
+        return max(real - pending, 0)
+    }
+
     private func tileCount(for screen: KnownScreen) -> Int {
         let used = store.document.rules
             .compactMap { $0[mode] }
@@ -82,7 +92,7 @@ struct ScreenMapView: View {
             ? router.sessionPins.values.filter { $0.screen == screen.id }
                 .map(\.desktop).max() ?? 0
             : 0
-        let real = ui.desktopCounts[screen.id] ?? 0
+        let real = realCount(for: screen) ?? 0
         let planned = store.document.plannedDesktops(mode: mode, screen: screen.id)
         return max(real, used, live, session, planned, 1)
     }
@@ -402,33 +412,30 @@ private struct DesktopRow: View {
         .opacity(isBeingDragged ? 0.4 : 1)
         .dropTarget(target)
         .contextMenu {
-            if canRemoveReal {
-                Button(L("Remove Desktop %ld", desktop), role: .destructive) {
-                    let router = router, screenID = screen.id, desktop = desktop
-                    Task { _ = await router.removeDesktop(on: screenID, desktop: desktop) }
-                }
-            }
-            if isRemovablePlan {
-                Button(L("Remove this planned desktop")) {
-                    // Kalan plan zaten var olan masaüstlerini aşmıyorsa plan tümden silinir.
-                    let rest = desktop - 1
-                    store.unplanDesktop(on: screen.id, mode: mode,
-                                        count: rest > (realCount ?? 0) ? rest : 0)
-                }
-            }
+            Button(L("Remove Desktop %ld", desktop), role: .destructive) { remove() }
         }
     }
 
-    /// Etkin moddaki gerçek masaüstü (ekranın son masaüstü değilse)
-    /// Mission Control üzerinden silinebilir.
-    private var canRemoveReal: Bool {
-        isLive && exists && (realCount ?? 0) > 1 && desktop <= (realCount ?? 0)
-    }
-
-    /// Plandaki son ve boş masaüstü plandan çıkarılabilir.
-    private var isRemovablePlan: Bool {
-        desktop == rowCount && groups.isEmpty && orphanRules.isEmpty
-            && store.document.plannedDesktops(mode: mode, screen: screen.id) == desktop
+    /// Satırı siler; kısıt yok. Etkin modda gerçekte var olan masaüstü
+    /// Mission Control ile hemen silinir (pinler kayar); etkin olmayan modda
+    /// silme o mod etkinleşince yapılır. Gerçekte olmayan (plan/pin) satırda
+    /// yalnız numaralar kayar. Bu ikisi ⌘Z ile geri alınır.
+    private func remove() {
+        let existing = desktop <= (realCount ?? 0)
+        if isLive && existing {
+            let router = router, store = store, screenID = screen.id, desktop = desktop
+            Task {
+                if await !router.removeDesktop(on: screenID, desktop: desktop) {
+                    store.report(L("Could not remove desktop %ld on %@", desktop, screenID))
+                }
+            }
+            return
+        }
+        store.removeDesktopLater(
+            on: screen.id, desktop: desktop, mode: mode, existing: !isLive && existing,
+            space: !isLive && existing
+                ? router.spaceForPendingRemoval(on: screen.id, desktop: desktop, mode: mode)
+                : nil)
     }
 
     /// Satırı tutup sürüklemek: bırakılan masaüstü sırasına taşınır, o
