@@ -14,6 +14,12 @@ number comes from the `VERSION` file.
   is available as `deskmap://add-desktop/<screen>`. On macOS 26 Mission
   Control's tree lives in `WindowManager`, not the Dock (measured); both are
   searched.
+- "+ Desktop N" also works in the setup that is not active (e.g. Laptop only
+  while a monitor is connected): the desktop is planned (shown as "doesn't
+  exist yet", can take pins, ⌘Z undoes, right-click removes the last empty
+  one) and Deskmap creates the missing desktops through Mission Control when
+  that setup becomes active. Plans are stored per setup and display in
+  `rules.json` (`plannedDesktops`).
 - Full-screen and Split View spaces now appear on the map as read-only purple
   rows, in their real Mission Control position between the desktops. Before,
   a window in a full-screen space vanished from the map entirely.

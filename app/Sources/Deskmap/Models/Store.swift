@@ -32,6 +32,11 @@ struct Document: Codable, Equatable {
     /// Kurulum hatırlatması (Dock "Assign To" vb.) kullanıcı tarafından
     /// kapatıldı mı? Canlı denetlenen ayarlar bozuksa kart yine görünür.
     var setupNoticeDismissed: Bool = false
+    /// Mod ve ekran başına istenen en az masaüstü sayısı (anahtar
+    /// `planKey`). Etkin olmayan modda "+ Masaüstü" ile eklenen masaüstü
+    /// burada durur; mod etkinleşince Router eksikleri Mission Control ile
+    /// yaratır. Profilden bağımsız (masaüstüleri ekranın, kuralların değil).
+    var plannedDesktops: [String: Int] = [:]
 
     /// Okunan dosyanın `version` alanı (yazılmaz). Bu sürümden yeniyse
     /// dosya daha yeni bir Deskmap'e ait; üzerine yazılmamalı.
@@ -56,7 +61,7 @@ struct Document: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case version, enabled, screens, rules, profiles, activeProfileID, settings
-        case setupNoticeDismissed
+        case setupNoticeDismissed, plannedDesktops
     }
 
     private struct LegacySettings: Decodable { var enabled: Bool? }
@@ -93,6 +98,7 @@ struct Document: Codable, Equatable {
         droppedRuleCount += records.reduce(0) { $0 + $1.rules.droppedCount }
         activeProfileID = try c.decodeIfPresent(String.self, forKey: .activeProfileID) ?? ""
         setupNoticeDismissed = try c.decodeIfPresent(Bool.self, forKey: .setupNoticeDismissed) ?? false
+        plannedDesktops = (try? c.decodeIfPresent([String: Int].self, forKey: .plannedDesktops)) ?? [:]
         if profiles.isEmpty {
             let profile = Profile(name: Self.defaultProfileName, rules: rules)
             profiles = [profile]
@@ -116,6 +122,22 @@ struct Document: Codable, Equatable {
         try c.encode(profiles, forKey: .profiles)
         try c.encode(activeProfileID, forKey: .activeProfileID)
         try c.encode(setupNoticeDismissed, forKey: .setupNoticeDismissed)
+        if !plannedDesktops.isEmpty {
+            try c.encode(plannedDesktops, forKey: .plannedDesktops)
+        }
+    }
+
+    static func planKey(mode: Mode, screen: String) -> String { "\(mode.rawValue)|\(screen)" }
+
+    /// Bu mod ve ekran için planlanmış masaüstü sayısı; plan yoksa 0.
+    func plannedDesktops(mode: Mode, screen: String) -> Int {
+        plannedDesktops[Self.planKey(mode: mode, screen: screen)] ?? 0
+    }
+
+    /// Planı `count`'a ayarlar; 0 ya da altı planı siler.
+    mutating func setPlannedDesktops(_ count: Int, mode: Mode, screen: String) {
+        let key = Self.planKey(mode: mode, screen: screen)
+        plannedDesktops[key] = count > 0 ? count : nil
     }
 
     /// Verilen adı, listedekilerle çakışmayacak biçimde ("Ad (2)") döndürür.
@@ -695,6 +717,21 @@ final class Store: ObservableObject {
                      undoingSessionPins companion: (() -> Void)? = nil) {
         recording(L("Desktop order changed"), companion: companion) {
             document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode)
+        }
+    }
+
+    /// Etkin olmayan modda masaüstü ekler: yalnız plana yazılır (⌘Z geri
+    /// alır); mod etkinleşince Router gerçek masaüstünü yaratır.
+    func planDesktop(on screen: String, mode: Mode, count: Int) {
+        recording(L("Desktop added")) {
+            document.setPlannedDesktops(count, mode: mode, screen: screen)
+        }
+    }
+
+    /// Plandaki son (henüz olmayan) masaüstünü plandan çıkarır.
+    func unplanDesktop(on screen: String, mode: Mode, count: Int) {
+        recording(L("Planned desktop removed")) {
+            document.setPlannedDesktops(count, mode: mode, screen: screen)
         }
     }
 

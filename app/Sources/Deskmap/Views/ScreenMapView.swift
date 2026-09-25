@@ -83,7 +83,8 @@ struct ScreenMapView: View {
                 .map(\.desktop).max() ?? 0
             : 0
         let real = ui.desktopCounts[screen.id] ?? 0
-        return max(real, used, live, session, 1)
+        let planned = store.document.plannedDesktops(mode: mode, screen: screen.id)
+        return max(real, used, live, session, planned, 1)
     }
 
     // MARK: - Gölgede kalan kurallar
@@ -166,11 +167,12 @@ private struct ScreenCard: View {
                 DesktopRow(
                     screen: screen, desktop: desktop, mode: mode, isLive: isLive,
                     exists: realCount.map { desktop <= $0 } ?? true,
+                    realCount: realCount,
                     rowCount: tileCount, shadowed: shadowed)
                 ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0) }
             }
             GhostRow(screen: screen, desktop: tileCount + 1, mode: mode,
-                     canAdd: isLive && isConnected)
+                     isLive: isLive, canAdd: !isLive || isConnected)
         }
         .padding(10)
         .background(
@@ -275,6 +277,8 @@ private struct DesktopRow: View {
     let isLive: Bool
     /// Bağlı ekranda bu masaüstü gerçekten var mı?
     let exists: Bool
+    /// Bağlı ekrandaki gerçek masaüstü sayısı (bağlı değilse nil).
+    let realCount: Int?
     /// Bu ekran kartındaki satır sayısı (sıralama için).
     let rowCount: Int
     /// Gölgede kalan kural → onu geçen kural; soluk çip olarak gösterilir.
@@ -397,6 +401,22 @@ private struct DesktopRow: View {
                     style: StrokeStyle(lineWidth: 1, dash: exists ? [] : [4, 3])))
         .opacity(isBeingDragged ? 0.4 : 1)
         .dropTarget(target)
+        .contextMenu {
+            if isRemovablePlan {
+                Button(L("Remove this planned desktop")) {
+                    // Kalan plan zaten var olan masaüstlerini aşmıyorsa plan tümden silinir.
+                    let rest = desktop - 1
+                    store.unplanDesktop(on: screen.id, mode: mode,
+                                        count: rest > (realCount ?? 0) ? rest : 0)
+                }
+            }
+        }
+    }
+
+    /// Plandaki son ve boş masaüstü plandan çıkarılabilir.
+    private var isRemovablePlan: Bool {
+        desktop == rowCount && groups.isEmpty && orphanRules.isEmpty
+            && store.document.plannedDesktops(mode: mode, screen: screen.id) == desktop
     }
 
     /// Satırı tutup sürüklemek: bırakılan masaüstü sırasına taşınır, o
@@ -500,9 +520,11 @@ private struct GhostRow: View {
     let screen: KnownScreen
     let desktop: Int
     let mode: Mode
-    /// Tıklayınca bu ekrana gerçek bir masaüstü eklenebilir (bağlı ekran).
+    /// Etkin modda tıklama gerçek masaüstü ekler; değilse plana yazar.
+    let isLive: Bool
     let canAdd: Bool
 
+    @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var router: Router
     @State private var isAdding = false
@@ -539,14 +561,19 @@ private struct GhostRow: View {
         .contentShape(Rectangle())
         .onTapGesture {
             guard canAdd, !isAdding, ui.drag == nil else { return }
+            guard isLive else {
+                store.planDesktop(on: screen.id, mode: mode, count: desktop)
+                return
+            }
             isAdding = true
             Task {
                 _ = await router.addDesktop(on: screen.id)
                 isAdding = false
             }
         }
-        .help(canAdd ? L("Click to add a desktop to this display (opens Mission Control briefly).")
-                     : L("Connect this display to add desktops."))
+        .help(!canAdd ? L("Connect this display to add desktops.")
+              : isLive ? L("Click to add a desktop to this display (opens Mission Control briefly).")
+              : L("Click to add a desktop to this setup; it is created when this setup becomes active."))
     }
 }
 

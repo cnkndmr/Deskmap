@@ -9,6 +9,21 @@ struct DocumentCodableTests {
         try JSONDecoder().decode(Document.self, from: Data(json.utf8))
     }
 
+    @Test func plannedDesktopsRoundTripAndDefaultToEmpty() throws {
+        var doc = try decode("{}")
+        #expect(doc.plannedDesktops.isEmpty)
+        #expect(doc.plannedDesktops(mode: .undocked, screen: "builtin") == 0)
+        doc.setPlannedDesktops(10, mode: .undocked, screen: "builtin")
+        let data = try JSONEncoder().encode(doc)
+        let back = try JSONDecoder().decode(Document.self, from: data)
+        #expect(back.plannedDesktops(mode: .undocked, screen: "builtin") == 10)
+        #expect(back.plannedDesktops(mode: .docked, screen: "builtin") == 0)
+        doc.setPlannedDesktops(0, mode: .undocked, screen: "builtin")
+        #expect(doc.plannedDesktops.isEmpty)
+        // Bozuk alan belgeyi düşürmez.
+        #expect(try decode(#"{"plannedDesktops": "x"}"#).plannedDesktops.isEmpty)
+    }
+
     @Test func v1SchemaMigrates() throws {
         let doc = try decode("""
         {

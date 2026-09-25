@@ -237,3 +237,7 @@
 "Click to add a desktop to this display (opens Mission Control briefly)." = "Bu ekrana masaüstü eklemek için tıklayın (Mission Control kısa süre açılır).";
 "Connect this display to add desktops." = "Masaüstü eklemek için bu ekranı bağlayın.";
 "Could not add a desktop to %@" = "%@ ekranına masaüstü eklenemedi";
+"Desktop added" = "Masaüstü eklendi";
+"Planned desktop removed" = "Planlanan masaüstü kaldırıldı";
+"Remove this planned desktop" = "Bu planlanan masaüstünü kaldır";
+"Click to add a desktop to this setup; it is created when this setup becomes active." = "Bu kuruluma masaüstü eklemek için tıklayın; kurulum etkin olunca masaüstü yaratılır.";

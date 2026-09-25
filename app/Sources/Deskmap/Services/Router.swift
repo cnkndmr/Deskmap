@@ -104,6 +104,10 @@ final class Router: ObservableObject {
     /// yayınlanır (pencere listesi değişmeden eklenen masaüstü de haritaya
     /// yansısın).
     @Published private(set) var desktopCounts: [String: Int] = [:]
+    /// Planlanmış masaüstü yaratımı sürüyor / denenmiş hedefler.
+    private var isCreatingDesktops = false
+    private var plannedAttempts: Set<String> = []
+    private static let maxPlannedCreations = 8
     /// Masaüstü taşımasının doğrulanmış durumu; devre kesici açıksa
     /// (`degraded`) taşıma durur, ekran ve düzen sürer.
     @Published private(set) var moveHealth = MoveHealth()
@@ -629,6 +633,30 @@ final class Router: ObservableObject {
         return added
     }
 
+    /// Etkin moddaki planlanmış masaüstülerinden eksik olanları yaratır
+    /// (etkin olmayan modda "+" ile eklenenler). Aynı hedef için bir kez
+    /// denenir; başarısızsa plan durur, harita satırı "henüz yok" kalır.
+    private func createPlannedDesktops() {
+        guard !isCreatingDesktops, !screens.isSettling, !desktopCounts.isEmpty else { return }
+        let mode = screens.mode
+        for screen in screens.screens {
+            let want = store.document.plannedDesktops(mode: mode, screen: screen.id)
+            guard let have = desktopCounts[screen.id], want > have else { continue }
+            let key = "\(mode.rawValue)|\(screen.id)|\(want)"
+            guard !plannedAttempts.contains(key) else { continue }
+            plannedAttempts.insert(key)
+            isCreatingDesktops = true
+            Log.app.notice("Creating planned desktops on \(screen.id, privacy: .public): \(have) → \(want)")
+            Task { [weak self] in
+                for _ in 0..<min(want - have, Self.maxPlannedCreations) {
+                    guard let self, await self.addDesktop(on: screen.id) else { break }
+                }
+                self?.isCreatingDesktops = false
+            }
+            return
+        }
+    }
+
     // MARK: - Elle taşıma
 
     /// Pinsiz bir pencereyi tek seferlik hedef masaüstüne taşır; kural
@@ -798,6 +826,7 @@ final class Router: ObservableObject {
                 if outcome.desktopCounts != self.desktopCounts {
                     self.desktopCounts = outcome.desktopCounts
                 }
+                self.createPlannedDesktops()
                 self.sweepDeadline = Self.nextSweepDeadline(
                     now: Date(), pendingSessionMisses: !self.sessionMisses.isEmpty,
                     attempts: self.attempts, lastAttempts: self.lastAttempts,
