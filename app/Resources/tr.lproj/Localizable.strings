@@ -290,3 +290,5 @@
 "Left 30%" = "Sol %30";
 "1 unassigned window" = "1 sahipsiz pencere";
 "%ld unassigned windows" = "%ld sahipsiz pencere";
+"Not pinned: dropping it opens a pin for this setup; the window is not moved." = "Pinli değil: bırakınca bu kurulum için pin açılır; pencere taşınmaz.";
+"Pin for %@" = "Şu kurulum için pin: %@";

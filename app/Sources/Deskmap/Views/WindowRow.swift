@@ -154,9 +154,23 @@ struct WindowRow: View {
             router.unpinSession(window.id)
         } else if let rule = pinnedRule {
             store.unpin(rule.id, mode: mode)
-        } else if !wasDrafting, let placement = window.placement {
-            ui.panel = .pin(PinDraft(window: window, target: placement))
+        } else if !wasDrafting,
+                  let target = Self.draftTarget(window.placement, isLive: mode == screens.mode,
+                                                screens: store.screens(for: mode)) {
+            ui.panel = .pin(PinDraft(window: window, target: target))
         }
+    }
+
+    /// Pin düğmesiyle açılan taslağın hedefi (saf): canlı kurulumda
+    /// pencerenin bulunduğu yer; diğer kurulumda o yer o kurulumda da varsa
+    /// orası, yoksa kurulumun ilk ekranının ilk masaüstü.
+    static func draftTarget(_ placement: Router.Placement?, isLive: Bool,
+                            screens: [KnownScreen]) -> Router.Placement? {
+        if isLive { return placement }
+        if let placement, screens.contains(where: { $0.id == placement.screen }) {
+            return placement
+        }
+        return screens.first.map { Router.Placement(screen: $0.id, desktop: 1) }
     }
 
     private var dragGesture: some Gesture {
@@ -203,6 +217,10 @@ struct WindowRow: View {
                                             layout: current.layout),
                             mode: mode)
                         ui.panel = nil
+                    } else if mode != screens.mode {
+                        // Diğer kurulumun haritası: pencere şimdi taşınmaz,
+                        // o kurulum için pin taslağı açılır.
+                        ui.panel = .pin(PinDraft(window: window, target: placement))
                     } else if placement != window.placement {
                         // Pinsiz pencere: tek seferlik taşınır, kural yazılmaz.
                         router.moveWindow(window.id, to: placement)

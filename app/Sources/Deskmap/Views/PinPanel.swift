@@ -66,15 +66,23 @@ struct PinPanel: View {
                 .accessibilityLabel(L("Cancel"))
             }
 
-            Picker("", selection: $kind) {
-                ForEach(Kind.allCases) { candidate in
-                    Text(candidate.label).tag(candidate)
+            // Geçici pin yalnız şu anki kurulumda anlamlı (pencere kimliği
+            // bu oturuma bağlı); diğer kurulumun sekmesinde yalnız başlık pini.
+            if mode == screens.mode {
+                Picker("", selection: $kind) {
+                    ForEach(Kind.allCases) { candidate in
+                        Text(candidate.label).tag(candidate)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.small)
+                .frame(width: 300)
+            } else {
+                Text(L("Pin for %@", mode.title))
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .controlSize(.small)
-            .frame(width: 300)
 
             switch kind {
             case .title:

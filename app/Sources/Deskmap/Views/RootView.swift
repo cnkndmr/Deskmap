@@ -118,9 +118,10 @@ struct RootView: View {
             rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
             windowID: id, bundleID: window.bundleID, appName: window.appName,
             title: window.title) != nil
-        return pinned
-            ? L("Pinned: dropping it updates the saved desktop.")
-            : L("Not pinned: dropping it moves the window once; nothing is saved.")
+        if pinned { return L("Pinned: dropping it updates the saved desktop.") }
+        return mode == screens.mode
+            ? L("Not pinned: dropping it moves the window once; nothing is saved.")
+            : L("Not pinned: dropping it opens a pin for this setup; the window is not moved.")
     }
 
     var body: some View {
@@ -149,9 +150,8 @@ struct RootView: View {
                 ScrollView {
                     VStack(spacing: 10) {
                         SetupDifferenceTray(mode: mode)
-                        if mode == screens.mode {
-                            UnownedWindowsTray(mode: mode)
-                        }
+                        // İki sekmede de: sahipsizlik kurulumdan bağımsız.
+                        UnownedWindowsTray(mode: mode)
                     }
                     .padding(12)
                     // Uzun içerik (çip + yer) sütunu yana taşırmasın.
@@ -336,7 +336,9 @@ struct RootView: View {
     @ViewBuilder
     private var bottomPanel: some View {
         switch ui.panel {
-        case .pin(let draft) where mode == screens.mode:
+        // Taslak açıldığı sekmenin modundadır (sekme değişince panel kapanır);
+        // diğer kurulumun sekmesinde de pin yazılabilir.
+        case .pin(let draft):
             // Kimlik pencereye bağlı: başka pencereye geçince @State
             // (başlık parçaları, düzen) eski pencereden kalmasın.
             PinPanel(draft: draft, mode: mode)

@@ -272,3 +272,22 @@ struct MenuBarBadgeTests {
         #expect(badged.size.width > 22 && badged.size.height == 16)
     }
 }
+
+struct OtherSetupDraftTests {
+
+    private let laptop = [KnownScreen(id: "builtin", name: "Built-in", aspect: 1.6)]
+
+    @Test func liveSetupUsesWhereTheWindowIs() {
+        let here = Router.Placement(screen: "external", desktop: 3)
+        #expect(WindowRow.draftTarget(here, isLive: true, screens: laptop) == here)
+    }
+
+    @Test func otherSetupKeepsThePlaceOnlyIfThatDisplayBelongsToIt() {
+        let onBuiltin = Router.Placement(screen: "builtin", desktop: 4)
+        #expect(WindowRow.draftTarget(onBuiltin, isLive: false, screens: laptop) == onBuiltin)
+        let onExternal = Router.Placement(screen: "external", desktop: 2)
+        #expect(WindowRow.draftTarget(onExternal, isLive: false, screens: laptop)
+                == Router.Placement(screen: "builtin", desktop: 1))
+        #expect(WindowRow.draftTarget(nil, isLive: false, screens: []) == nil)
+    }
+}
