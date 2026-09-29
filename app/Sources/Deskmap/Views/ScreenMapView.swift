@@ -34,7 +34,11 @@ struct ScreenMapView: View {
                     shadowed: shadowed)
             }
 
-            UnassignedTray(mode: mode)
+            SetupDifferenceTray(mode: mode)
+
+            if isLive {
+                UnownedWindowsTray(mode: mode)
+            }
         }
         .coordinateSpace(name: MapSpace.name)
         .onPreferenceChange(DropTargetPreference.self) { ui.targets = $0 }
@@ -603,16 +607,21 @@ private struct GhostRow: View {
     }
 }
 
-// MARK: - Atanmamış kurallar
+// MARK: - Kurulumlar arasında farklı
 
-/// Bu modda hedefi olmayan pinler (diğer modda pinli). Bir öğeyi buraya
-/// bırakmak bu moddaki pini kaldırır.
-private struct UnassignedTray: View {
+/// İki kurulum (monitör bağlı / yalnız laptop) arasında farklı kalan
+/// pinler: yalnız diğer kurulumda yeri olanlar (bu haritada yerleri yok;
+/// bir masaüstüne sürüklemek burada da pinler), yalnız bu kurulumda yeri
+/// olanlar (diğer kurulumda dokunulmaz) ve iki kurulumda başka ekrana ya da
+/// masaüstüne gidenler. Bir öğeyi buraya bırakmak bu moddaki pini kaldırır.
+private struct SetupDifferenceTray: View {
 
     let mode: Mode
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
+
+    private var other: Mode { mode == .docked ? .undocked : .docked }
 
     private var isTargeted: Bool {
         guard ui.drag?.hover == .tray else { return false }
@@ -620,31 +629,51 @@ private struct UnassignedTray: View {
         return true
     }
 
-    private var rules: [Rule] {
-        store.document.rules.filter { $0[mode] == nil }
-    }
-
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "tray")
-                .foregroundStyle(.tertiary)
-                .padding(.top, 3)
+        let groups = ScreenMapView.setupDifferences(rules: store.document.rules, mode: mode)
+        VStack(alignment: .leading, spacing: 8) {
+            TrayHeader(systemImage: "rectangle.2.swap",
+                       title: L("Different between setups"),
+                       count: groups.onlyOther.count + groups.onlyThis.count
+                           + groups.placedDifferently.count)
 
-            if rules.isEmpty {
+            if groups.onlyOther.isEmpty && groups.onlyThis.isEmpty
+                && groups.placedDifferently.isEmpty {
                 Text(mode == .docked
                      ? L("Drop a window here to unpin it while a monitor is connected.")
                      : L("Drop a window here to unpin it while on the laptop only."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-                    .padding(.top, 3)
             } else {
-                FlowLayout(spacing: 6) {
-                    ForEach(rules) { rule in
-                        RuleChip(rule: rule, mode: mode)
+                if !groups.onlyOther.isEmpty {
+                    section(L("Pinned only for %@", other.title), rules: groups.onlyOther,
+                            help: L("No place in this setup; drag onto a desktop to pin here too."))
+                }
+                if !groups.onlyThis.isEmpty {
+                    section(L("Pinned only for %@", mode.title), rules: groups.onlyThis,
+                            help: L("Left alone in the other setup."))
+                }
+                if !groups.placedDifferently.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(L("Placed differently for %@", other.title))
+                            .font(.caption2.weight(.medium))
+                            .foregroundStyle(.secondary)
+                        FlowLayout(spacing: 6) {
+                            ForEach(groups.placedDifferently) { rule in
+                                HStack(spacing: 4) {
+                                    RuleChip(rule: rule, mode: mode)
+                                    if let there = rule[other] {
+                                        Text("→ " + placeLabel(there, mode: other))
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                            .lineLimit(1)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
-            Spacer(minLength: 0)
         }
         .padding(8)
         .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
@@ -656,6 +685,140 @@ private struct UnassignedTray: View {
                 .strokeBorder(isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
                               style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
         .dropTarget(.tray)
+    }
+
+    /// "Ekran · Masaüstü N" (diğer kurulumdaki yer).
+    private func placeLabel(_ destination: Destination, mode: Mode) -> String {
+        let name = store.screens(for: mode).first { $0.id == destination.screen }?.name
+            ?? destination.screen
+        return L("%@ · Desktop %ld", name, destination.desktop)
+    }
+
+    private func section(_ title: String, rules: [Rule], help: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(.secondary)
+                .help(help)
+            FlowLayout(spacing: 6) {
+                ForEach(rules) { rule in
+                    RuleChip(rule: rule, mode: mode)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Sahipsiz pencereler
+
+/// Hiçbir kurulumda pini olmayan (ne kuralı ne geçici pini olan) açık
+/// pencereler. Masaüstü satırlarında da görünürler; burada toplu durur.
+/// Sürüklemek tek seferlik taşır, pin düğmesi pinler.
+private struct UnownedWindowsTray: View {
+
+    let mode: Mode
+
+    @EnvironmentObject private var store: Store
+    @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var router: Router
+
+    @AppStorage("unownedTrayCollapsed") private var collapsed = false
+
+    var body: some View {
+        let windows = ScreenMapView.unownedWindows(
+            ui.windows, rules: store.document.rules, sessionPins: router.sessionPins)
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                collapsed.toggle()
+            } label: {
+                HStack(spacing: 4) {
+                    TrayHeader(systemImage: "questionmark.square.dashed",
+                               title: L("Unassigned windows"), count: windows.count)
+                    Image(systemName: collapsed ? "chevron.right" : "chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.tertiary)
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help(L("Open windows with no pin in either setup"))
+
+            if !collapsed {
+                if windows.isEmpty {
+                    Text(L("Every open window has a pin."))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                } else {
+                    VStack(spacing: 3) {
+                        ForEach(windows) { window in
+                            WindowRow(window: window, mode: mode)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.primary.opacity(0.1),
+                              style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+    }
+}
+
+/// Alt kutuların başlık satırı: simge, başlık, sayı.
+private struct TrayHeader: View {
+
+    let systemImage: String
+    let title: String
+    let count: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+                .foregroundStyle(.tertiary)
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            if count > 0 {
+                Text("\(count)")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(.tertiary)
+            }
+        }
+    }
+}
+
+extension ScreenMapView {
+
+    /// Kurulumlar arasında farklı kalan pinler (saf): bu modda yeri
+    /// olmayanlar, yalnız bu modda yeri olanlar ve iki modda başka ekrana ya
+    /// da masaüstüne gidenler (yalnız düzen farkı sayılmaz). Kural sırası
+    /// korunur.
+    static func setupDifferences(rules: [Rule], mode: Mode)
+        -> (onlyOther: [Rule], onlyThis: [Rule], placedDifferently: [Rule]) {
+        let other: Mode = mode == .docked ? .undocked : .docked
+        return (rules.filter { $0[mode] == nil },
+                rules.filter { $0[mode] != nil && $0[other] == nil },
+                rules.filter {
+                    guard let here = $0[mode], let there = $0[other] else { return false }
+                    return here.screen != there.screen || here.desktop != there.desktop
+                })
+    }
+
+    /// Hiçbir kurulumda pini olmayan pencereler (saf): geçici pini yok ve
+    /// hiçbir modda hedefi olan kural uymuyor.
+    static func unownedWindows(
+        _ windows: [Router.WindowSnapshot], rules: [Rule],
+        sessionPins: [CGWindowID: Destination]
+    ) -> [Router.WindowSnapshot] {
+        let pinned = rules.filter { $0.docked != nil || $0.undocked != nil }
+        return windows.filter { window in
+            sessionPins[window.id] == nil && !pinned.contains {
+                $0.matches(bundleID: window.bundleID, appName: window.appName, title: window.title)
+            }
+        }
     }
 }
 

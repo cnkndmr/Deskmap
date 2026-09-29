@@ -8,6 +8,11 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Two boxes under the map.** *Different between setups* lists pins that are
+  pinned only in the other setup, only in this one, or sent to another display
+  or desktop in the other setup (with that place shown). *Unassigned windows*
+  (current setup only, collapsible) lists open windows with no pin in either
+  setup; drag one to move it, or press its pin.
 - **Free move**: a pinned window's panel has a timer button (1, 5, 15, 30 or
   60 minutes). For that time Deskmap does not put the window back, so it can
   be moved and resized freely; the row shows the time left, "+5 min" extends

@@ -253,3 +253,11 @@
 "1 minute" = "1 dakika";
 "%ld minutes" = "%ld dakika";
 "%ld of %ld windows" = "%ld/%ld pencere";
+"Different between setups" = "Kurulumlar arasında farklı";
+"Pinned only for %@" = "Yalnız şu kurulumda pinli: %@";
+"No place in this setup; drag onto a desktop to pin here too." = "Bu kurulumda yeri yok; burada da pinlemek için bir masaüstüne sürükleyin.";
+"Left alone in the other setup." = "Diğer kurulumda dokunulmaz.";
+"Unassigned windows" = "Sahipsiz pencereler";
+"Open windows with no pin in either setup" = "İki kurulumda da pini olmayan açık pencereler";
+"Every open window has a pin." = "Açık her pencerenin pini var.";
+"Placed differently for %@" = "Şu kurulumda başka yerde: %@";

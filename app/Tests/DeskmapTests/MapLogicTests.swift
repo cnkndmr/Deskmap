@@ -122,3 +122,40 @@ struct MapLogicTests {
         #expect(MissingDesktopBadge.clamped(for: wanted, desktopCounts: counts, isLive: false) == nil)
     }
 }
+
+struct TrayLogicTests {
+
+    private let d = Destination(screen: "builtin", desktop: 1, layout: .full)
+
+    @Test func setupDifferencesSplitsByMode() {
+        let both = Rule(id: "both", appName: "A", bundleID: "a", tokens: [], docked: d, undocked: d)
+        let dockedOnly = Rule(id: "dock", appName: "B", bundleID: "b", tokens: [], docked: d)
+        let laptopOnly = Rule(id: "lap", appName: "C", bundleID: "c", tokens: [], undocked: d)
+        var elsewhere = d
+        elsewhere.desktop = 3
+        var halfLayout = d
+        halfLayout.layout = WindowLayout(x: 0, y: 0, w: 0.5, h: 1)
+        let moved = Rule(id: "moved", appName: "D", bundleID: "d", tokens: [], docked: d, undocked: elsewhere)
+        let resized = Rule(id: "resized", appName: "E", bundleID: "e", tokens: [], docked: d, undocked: halfLayout)
+        let groups = ScreenMapView.setupDifferences(
+            rules: [both, dockedOnly, laptopOnly, moved, resized], mode: .docked)
+        #expect(groups.onlyOther.map(\.id) == ["lap"])
+        #expect(groups.onlyThis.map(\.id) == ["dock"])
+        #expect(groups.placedDifferently.map(\.id) == ["moved"])
+    }
+
+    @Test func unownedExcludesAnyPinInEitherMode() {
+        func window(_ id: CGWindowID, _ bundle: String, _ title: String) -> Router.WindowSnapshot {
+            Router.WindowSnapshot(id: id, pid: 1, appName: bundle, bundleID: bundle, title: title,
+                                  placement: nil, frame: nil, isMinimized: false, fullscreen: nil)
+        }
+        let laptopOnly = Rule(id: "lap", appName: "c", bundleID: "c", tokens: [], undocked: d)
+        let titled = Rule(id: "t", appName: "a", bundleID: "a", tokens: ["Work"], docked: d)
+        let empty = Rule(id: "e", appName: "x", bundleID: "x", tokens: [])
+        let windows = [window(1, "a", "Work – doc"), window(2, "a", "Home"),
+                       window(3, "c", "any"), window(4, "s", "session"), window(5, "x", "no dest")]
+        let unowned = ScreenMapView.unownedWindows(windows, rules: [laptopOnly, titled, empty],
+                                                   sessionPins: [4: d])
+        #expect(unowned.map(\.id) == [2, 5])
+    }
+}
