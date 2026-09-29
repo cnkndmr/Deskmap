@@ -99,6 +99,32 @@ struct WindowLayout: Codable, Equatable, Hashable {
         self.fixed = fixed
     }
 
+    /// Uygulama sabit boyutu reddetti mi (saf): okunan boyut istenenden
+    /// (ekrana sığdırılmış hâlinden) iki eksende de küçük değil ama ona da
+    /// eşit değil — en küçük boyutu daha büyük ya da boyutlanamayan pencere.
+    /// İstenenden küçük boyut "henüz uygulanmadı" sayılır (animasyon,
+    /// gecikmeli AX), yeniden denenir.
+    func refusesSize(_ actual: CGSize, in area: CGRect, tolerance: CGFloat = 4) -> Bool {
+        guard let fixed else { return false }
+        let wanted = CGSize(width: min(CGFloat(fixed.width), area.width),
+                            height: min(CGFloat(fixed.height), area.height))
+        let notSmaller = actual.width >= wanted.width - tolerance
+            && actual.height >= wanted.height - tolerance
+        let same = abs(actual.width - wanted.width) <= tolerance
+            && abs(actual.height - wanted.height) <= tolerance
+        return notSmaller && !same
+    }
+
+    /// Sabit boyutu değiştirir; ekran boyutu biliniyorsa oran karşılığı
+    /// yeniden hesaplanır, bilinmiyorsa eski oranlar korunur (tahmini ekranla
+    /// yanlış oran yazılmasın).
+    func withFixed(_ fixed: FixedSize, screenSize: CGSize?) -> WindowLayout {
+        if let screenSize { return WindowLayout(fixed: fixed, screenSize: screenSize) }
+        var result = self
+        result.fixed = fixed
+        return result
+    }
+
     /// Sabit boyutlu düzende uygulamanın kabul ettiği gerçek boyutla aynı
     /// sabitleme noktasına göre çerçeve (saf); oranlı düzende nil. Uygulama
     /// istenen boyutu kabul etmezse (en küçük boyut, boyutlanamaz pencere)

@@ -739,9 +739,9 @@ struct UnownedWindowsTray: View {
             if !collapsed {
                 if windows.isEmpty {
                     // İzin yokken ya da ilk taramadan önce pencere bilinmiyor.
-                    Text(permission.isTrusted && !ui.windows.isEmpty
-                         ? L("Every open window has a pin.")
-                         : L("Windows are not listed yet."))
+                    Text(Self.emptyText(trusted: permission.isTrusted, windows: ui.windows,
+                                        rules: store.document.rules,
+                                        sessionPins: router.sessionPins))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 } else {
@@ -759,6 +759,27 @@ struct UnownedWindowsTray: View {
             RoundedRectangle(cornerRadius: 10)
                 .strokeBorder(Color.primary.opacity(0.1),
                               style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
+    }
+}
+
+extension UnownedWindowsTray {
+
+    /// Kutu boşken metin (saf): izin yoksa listelenmedi; hiç pencere yoksa
+    /// açık pencere yok; pinsiz olanların hepsi tam ekran/yersizse onlara
+    /// dokunulmadığı; yoksa her pencerenin pini var.
+    static func emptyText(trusted: Bool, windows: [Router.WindowSnapshot], rules: [Rule],
+                          sessionPins: [CGWindowID: Destination]) -> String {
+        guard trusted else { return L("Windows are not listed yet.") }
+        guard !windows.isEmpty else { return L("No open windows.") }
+        let pinned = rules.filter { $0.docked != nil || $0.undocked != nil }
+        let skipped = windows.contains { window in
+            (window.fullscreen != nil || window.placement == nil)
+                && sessionPins[window.id] == nil
+                && !pinned.contains { $0.matches(bundleID: window.bundleID, appName: window.appName,
+                                                 title: window.title) }
+        }
+        return skipped ? L("Full-screen windows without a pin are left alone.")
+                       : L("Every open window has a pin.")
     }
 }
 

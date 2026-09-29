@@ -179,7 +179,8 @@ struct LayoutToolTests {
         let on = LayoutEditor.toggledFixed(.center, on: true, screenSize: size)
         #expect(on.fixed == .init(width: 1370, height: 860, anchor: .center))
         let off = LayoutEditor.toggledFixed(on, on: false, screenSize: size)
-        #expect(off.fixed == nil && abs(off.w - 1370.0 / 1710) < 1e-9)
+        // Geri çevirince yuvarlama farkı içinde kalan hazır düzen geri gelir.
+        #expect(off == .center)
         // Sabitleme noktası alanın dayandığı kenarlardan.
         #expect(LayoutEditor.toggledFixed(.topLeft, on: true, screenSize: size).fixed?.anchor == .topLeft)
         #expect(LayoutEditor.toggledFixed(.rightThird, on: true, screenSize: size).fixed?.anchor == .right)
@@ -215,6 +216,56 @@ struct BugFixTests {
         let moved = CGRect(x: 0, y: 0, width: 800, height: 500)
         let saved = Router.WindowSnapshot.fixedLayout(frame: moved, stored: stored, area: area)
         #expect(saved.fixed == .init(width: 800, height: 500, anchor: .topLeft))
+        // Sabitleme köşesi yerinde kalıp büyütülen pencere: yeni boyut kaydedilir.
+        let corner = WindowLayout(fixed: .init(width: 800, height: 600, anchor: .topLeft))
+        let grown = Router.WindowSnapshot.fixedLayout(
+            frame: CGRect(x: 0, y: 0, width: 1000, height: 700), stored: corner, area: area)
+        #expect(grown.fixed == .init(width: 1000, height: 700, anchor: .topLeft))
+        // Hiçbir kenara dayanmayan pencere: kayıtlı sabitleme korunur.
+        let right = WindowLayout(fixed: .init(width: 800, height: 600, anchor: .right))
+        let floating = Router.WindowSnapshot.fixedLayout(
+            frame: CGRect(x: 300, y: 200, width: 700, height: 500), stored: right, area: area)
+        #expect(floating.fixed?.anchor == .right)
+    }
+
+    @Test func onlyALargerSizeCountsAsRefused() {
+        let layout = WindowLayout(fixed: .init(width: 600, height: 400, anchor: .center))
+        #expect(layout.refusesSize(CGSize(width: 900, height: 700), in: area))
+        // Küçük okuma: henüz uygulanmadı (animasyon), reddedilmiş sayılmaz.
+        #expect(!layout.refusesSize(CGSize(width: 300, height: 200), in: area))
+        #expect(!layout.refusesSize(CGSize(width: 600, height: 400), in: area))
+        #expect(!WindowLayout.leftHalf.refusesSize(CGSize(width: 900, height: 700), in: area))
+    }
+
+    @Test func unknownScreenKeepsTheProportionsWhenEditingFixed() {
+        var layout = WindowLayout.leftThird
+        layout.fixed = .init(width: 1200, height: 800, anchor: .left)
+        let edited = layout.withFixed(.init(width: 1300, height: 800, anchor: .left), screenSize: nil)
+        #expect(edited.x == layout.x && edited.w == layout.w && edited.fixed?.width == 1300)
+    }
+
+    @Test func olderFilesGetAProportionalFallbackForFixedSizes() {
+        let screen = KnownScreen(id: "builtin", name: "B", aspect: 1.6,
+                                 visibleWidth: 1710, visibleHeight: 1074)
+        let rule = Rule(id: "r", appName: "A", bundleID: "a", tokens: [],
+                        docked: Destination(screen: "builtin", desktop: 1,
+                                            layout: WindowLayout(fixed: .init(width: 855, height: 1074,
+                                                                              anchor: .left))))
+        let filled = Document.backfillingFixed([rule], screens: [screen])
+        #expect(abs((filled[0].docked?.layout.w ?? 0) - 0.5) < 1e-9)
+    }
+
+    @Test func emptyUnassignedTextSaysWhy() {
+        let placed = Router.Placement(screen: "builtin", desktop: 1)
+        var full = Router.WindowSnapshot(id: 1, pid: 1, appName: "v", bundleID: "v", title: "t",
+                                         placement: placed, frame: nil, isMinimized: false)
+        full.fullscreen = Router.FullscreenSlot(screen: "builtin", space: 9, afterDesktop: 1, order: 0)
+        #expect(UnownedWindowsTray.emptyText(trusted: false, windows: [], rules: [], sessionPins: [:])
+                == L("Windows are not listed yet."))
+        #expect(UnownedWindowsTray.emptyText(trusted: true, windows: [], rules: [], sessionPins: [:])
+                == L("No open windows."))
+        #expect(UnownedWindowsTray.emptyText(trusted: true, windows: [full], rules: [], sessionPins: [:])
+                == L("Full-screen windows without a pin are left alone."))
     }
 
     @Test func fixedToggleKeepsEdgeToEdgeSizesExactAndHalvesApart() {
@@ -224,8 +275,16 @@ struct BugFixTests {
         let left = LayoutEditor.toggledFixed(.leftHalf, on: true, screenSize: size)
         let right = LayoutEditor.toggledFixed(.rightHalf, on: true, screenSize: size)
         #expect((left.fixed?.width ?? 0) + (right.fixed?.width ?? 0) <= 1710)
-        // Geri çevirince hazır düzenin kendisi.
-        #expect(LayoutEditor.toggledFixed(full, on: false, screenSize: size) == .full)
+        // Geri çevirince hazır düzenin kendisi (10 pt'lik yuvarlamaya rağmen).
+        for preset in [WindowLayout.full, .leftHalf, .rightHalf, .topHalf, .center, .left70] {
+            let back = LayoutEditor.toggledFixed(
+                LayoutEditor.toggledFixed(preset, on: true, screenSize: size), on: false, screenSize: size)
+            #expect(back == preset, "\(preset.label)")
+        }
+        let wide = CGSize(width: 5120, height: 1410)
+        let third = LayoutEditor.toggledFixed(
+            LayoutEditor.toggledFixed(.centerThird, on: true, screenSize: wide), on: false, screenSize: wide)
+        #expect(third == .centerThird)
     }
 
     @Test func editingOneMarginKeepsTheOtherEdgesExact() {

@@ -470,6 +470,9 @@ struct SaveCurrentLayoutRow: View {
         guard window != nil else { return L("Open a matching window to read its size.") }
         guard let current else { return L("The window's size can't be read right now.") }
         if current == stored { return L("The saved layout already matches the window.") }
+        if current.fixed != nil {
+            return L("Window now: %@ (the anchor sets the position)", current.label)
+        }
         return L("Window now: %@", current.label)
     }
 }

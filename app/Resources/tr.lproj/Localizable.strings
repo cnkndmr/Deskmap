@@ -296,3 +296,6 @@
 "Windows are not listed yet." = "Pencereler henüz listelenmedi.";
 "Drag onto a desktop to set this setup's place." = "Bu kurulumdaki yerini belirlemek için bir masaüstüne sürükleyin.";
 "Drag onto a desktop to pin it for %@; the window is not moved" = "%@ için pinlemek üzere bir masaüstüne sürükleyin; pencere taşınmaz";
+"No open windows." = "Açık pencere yok.";
+"Full-screen windows without a pin are left alone." = "Pinsiz tam ekran pencerelere dokunulmaz.";
+"Window now: %@ (the anchor sets the position)" = "Pencere şu an: %@ (konumu sabitleme belirler)";

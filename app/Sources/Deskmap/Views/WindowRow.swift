@@ -230,12 +230,15 @@ struct WindowRow: View {
                         router.moveWindow(window.id, to: placement)
                     }
                 case .tray:
+                    // Yalnız bir pin kalktıysa panel kapanır; pinsiz pencere
+                    // bırakıldığında açık taslak/panel korunur.
                     if sessionPin != nil {
                         router.unpinSession(window.id)
+                        ui.panel = nil
                     } else if let rule = pinnedRule {
                         store.unpin(rule.id, mode: mode)
+                        ui.panel = nil
                     }
-                    ui.panel = nil
                 }
             }
     }

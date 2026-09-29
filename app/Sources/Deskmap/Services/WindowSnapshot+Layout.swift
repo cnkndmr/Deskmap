@@ -39,12 +39,10 @@ extension Router.WindowSnapshot {
     /// çerçeve boyutu (tam pt) ve kenarlardan sabitleme.
     static func fixedLayout(frame: CGRect, stored: WindowLayout, area: CGRect) -> WindowLayout {
         if Coordinates.close(frame, stored.rect(in: area)) { return stored }
-        if let reanchored = stored.reanchored(actualSize: frame.size, in: area),
-           Coordinates.close(frame, reanchored) {
-            // Uygulama boyutu kısıtladı ama yer doğru: kayıt aynı.
-            return stored
-        }
-        let anchor = WindowLayout.Anchor.touching(frame, in: area)
+        // Kenara dayanıyorsa sabitleme oradan; hiçbir kenara dayanmıyorsa
+        // kayıtlı sabitleme korunur (konum sabitlemeyle belirlenir).
+        let touching = WindowLayout.Anchor.touching(frame, in: area)
+        let anchor = touching == .center ? (stored.fixed?.anchor ?? .center) : touching
         return WindowLayout(fixed: .init(width: Double(frame.width.rounded()),
                                          height: Double(frame.height.rounded()), anchor: anchor),
                             screenSize: area.size)

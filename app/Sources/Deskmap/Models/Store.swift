@@ -148,6 +148,33 @@ struct Document: Codable, Equatable {
             activeProfileID = profiles[0].id
             rules = profiles[0].rules
         }
+        // Şema 4'ten önce yazılmış sabit boyutlarda oran karşılığı yoktu
+        // (0/0/1/1); eski sürüm salt okunur açsa da "Tam" görmesin diye
+        // bilinen ekran boyutuyla doldurulur.
+        if fileVersion < 4 {
+            rules = Self.backfillingFixed(rules, screens: screens)
+            profiles = profiles.map {
+                Profile(id: $0.id, name: $0.name, rules: Self.backfillingFixed($0.rules, screens: screens))
+            }
+        }
+    }
+
+    /// Sabit boyutlu hedeflere oran karşılığı yazar (saf); ekran boyutu
+    /// bilinmiyorsa dokunmaz.
+    static func backfillingFixed(_ rules: [Rule], screens: [KnownScreen]) -> [Rule] {
+        func fill(_ destination: Destination?) -> Destination? {
+            guard var destination, let fixed = destination.layout.fixed,
+                  let size = screens.first(where: { $0.id == destination.screen })?.knownVisibleSize
+            else { return destination }
+            destination.layout = WindowLayout(fixed: fixed, screenSize: size)
+            return destination
+        }
+        return rules.map { rule in
+            var rule = rule
+            rule.docked = fill(rule.docked)
+            rule.undocked = fill(rule.undocked)
+            return rule
+        }
     }
 
     func encode(to encoder: Encoder) throws {

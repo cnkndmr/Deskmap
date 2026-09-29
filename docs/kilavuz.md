@@ -115,8 +115,8 @@ Birini kur, geç, diğerini kur. Monitörü taktığında ya da çıkardığınd
 uygulama ekranların yatışmasını birkaç saniye bekler, sonra o kurulumun
 dediği yere her pinli pencereyi yerleştirir.
 
-Bir pini kurulumlardan birinde istemiyorsan: alttaki kesik çizgili **tepsiye**
-sürükle. Öteki kurulumda kalmaya devam eder.
+Bir pini kurulumlardan birinde istemiyorsan: sol kenar çubuğundaki *Kurulumlar
+arasında farklı* kutusuna sürükle. Öteki kurulumda kalmaya devam eder.
 
 ## 7. Profiller: masa, kafe, sunum
 

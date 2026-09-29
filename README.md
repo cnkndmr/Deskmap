@@ -254,7 +254,9 @@ What Deskmap enforces:
 - **Use current size and position**: after resizing or moving a pinned window
   by hand, click its row and press this button under the layout editor. The
   window's current position and size (relative to its display's usable area)
-  replace the pin's saved layout. Only the layout changes: the pin keeps its
+  replace the pin's saved layout; for a fixed-size pin, the size in points and
+  the anchor from the edges the window touches (a window touching no edge
+  keeps the saved anchor). Only the layout changes: the pin keeps its
   display and desktop, and no new pin is written. Works for temporary pins too.
 - Windows of full-screen apps are never touched. Windows without a pin are
   never moved by the engine.

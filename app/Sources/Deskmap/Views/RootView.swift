@@ -70,6 +70,8 @@ struct RootView: View {
     /// `screenMargin`. `WindowRoomReader` pencere ekran değiştirince ya da
     /// çözünürlük değişince yeniler; bilinmiyorsa nil.
     @State private var room: WindowRoom?
+    /// Son görülen bekleyen masaüstü silmeleri (taslağı kapatmak için).
+    @State private var lastPendingRemovals: [String: [PendingRemoval]]?
 
     /// Harita alanı (kenar çubuğu + harita) ve alt panelin tavanı (saf).
     /// `room`: pencereye düşen toplam yükseklik; `chrome`: üst ve alt
@@ -265,7 +267,20 @@ struct RootView: View {
         // pencere listesi değişmese de (Router ayrı yayınlar).
         .onReceive(router.$desktopCounts) { counts in
             guard !counts.isEmpty, counts != ui.desktopCounts else { return }
+            // Taslağın ekranında masaüstü azaldı (ör. deskmap://remove-desktop):
+            // numaralar kaydı, taslak eski numarayla yanlış yere pin yazmasın.
+            if let draft = ui.pinDraft, let before = ui.desktopCounts[draft.target.screen],
+               let after = counts[draft.target.screen], after < before {
+                ui.panel = nil
+            }
             ui.desktopCounts = counts
+        }
+        .onReceive(store.$document.map(\.pendingRemovals).removeDuplicates()) { removals in
+            // Etkin olmayan kurulumda sıraya giren silme de numaraları kaydırır.
+            defer { lastPendingRemovals = removals }
+            guard let before = lastPendingRemovals, let draft = ui.pinDraft else { return }
+            let key = Document.planKey(mode: mode, screen: draft.target.screen)
+            if removals[key] != before[key] { ui.panel = nil }
         }
         .background(WindowVisibilityObserver { router.setMapVisible($0) })
         .onChange(of: ui.drag == nil) { idle in

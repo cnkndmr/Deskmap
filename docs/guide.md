@@ -118,8 +118,8 @@ Set up one, switch, set up the other. When you plug the monitor in or pull
 it out, the app waits a couple of seconds for the displays to settle and
 then puts every pinned window where that setup says.
 
-A pin you don't want in one of the setups: drag it to the dashed **tray** at
-the bottom. It stays in the other setup.
+A pin you don't want in one of the setups: drag it to the *Different between
+setups* box in the left sidebar. It stays in the other setup.
 
 ## 7. Profiles: desk, café, presentation
 

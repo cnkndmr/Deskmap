@@ -1408,7 +1408,15 @@ final class Router: ObservableObject {
 
             var placed = false
             if needsLayout {
+                let area = Self.targetArea(on: screen, screens: screens)
                 if let frame = state.frame, Coordinates.close(frame, targetFrame) {
+                    placed = true
+                } else if let frame = state.frame,
+                          destination.layout.refusesSize(frame.size, in: area),
+                          let anchored = destination.layout.reanchored(actualSize: frame.size, in: area),
+                          Coordinates.close(frame, anchored) {
+                    // Sabit boyutu reddeden pencere zaten doğru noktada:
+                    // yeniden uygulamada önce yanlış yere sıçratılmaz.
                     placed = true
                 } else {
                     guard token.isCurrent else { outcome.stale = true; break windowLoop }
@@ -1417,11 +1425,13 @@ final class Router: ObservableObject {
                     if let after = AX.frame(of: window) {
                         if Coordinates.close(after, targetFrame) {
                             placed = true
-                        } else if let anchored = destination.layout.reanchored(
-                                    actualSize: after.size,
-                                    in: Self.targetArea(on: screen, screens: screens)) {
-                            // Sabit boyut: uygulama boyutu reddetti (en küçük
-                            // boyut vb.); gerçek boyutla aynı noktaya hizala,
+                        } else if (outcome.attempts[key] ?? 0) >= 1,
+                                  destination.layout.refusesSize(after.size, in: area),
+                                  let anchored = destination.layout.reanchored(
+                                    actualSize: after.size, in: area) {
+                            // Sabit boyut: uygulama boyutu ikinci denemede de
+                            // reddetti (en küçük boyut vb.; ilk okuma gecikmeli
+                            // AX olabilir); gerçek boyutla aynı noktaya hizala,
                             // konum tutunca yerleşmiş say (boyut için sonsuz
                             // deneme olmasın).
                             if !Coordinates.close(after, anchored) {

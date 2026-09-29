@@ -81,10 +81,10 @@ struct LayoutEditor: View {
                     VStack(alignment: .leading, spacing: 6) {
                         PercentField(L("Width"), systemImage: "arrow.left.and.right",
                                      value: sizeBinding(\.width), unit: "pt",
-                                     range: 200...8000, step: 50)
+                                     range: 200...8000, step: 50, labelWidth: 64)
                         PercentField(L("Height"), systemImage: "arrow.up.and.down",
                                      value: sizeBinding(\.height), unit: "pt",
-                                     range: 150...4000, step: 50)
+                                     range: 150...4000, step: 50, labelWidth: 64)
                     }
                     AnchorPicker(anchor: anchorBinding)
                 }
@@ -122,7 +122,16 @@ struct LayoutEditor: View {
     private var fixedBinding: Binding<Bool> {
         Binding(
             get: { layout.fixed != nil },
-            set: { on in layout = Self.toggledFixed(layout, on: on, screenSize: target.visibleSize) })
+            set: { on in
+                // Ekran boyutu bilinmiyorsa kapatmak kayıtlı oran karşılığına döner.
+                if !on, target.knownVisibleSize == nil {
+                    var back = layout
+                    back.fixed = nil
+                    layout = back
+                } else {
+                    layout = Self.toggledFixed(layout, on: on, screenSize: target.visibleSize)
+                }
+            })
     }
 
     /// Sabit boyut aç/kapa dönüşümü (saf).
@@ -152,8 +161,16 @@ struct LayoutEditor: View {
         // Hazır düzene 1 pt'den yakınsa onun kendisi (Tam, Sol yarım …).
         let presets = WindowLayout.presets(aspect: Double(screenSize.width / max(screenSize.height, 1)))
             + WindowLayout.presets
-        return presets.first { Coordinates.close($0.rect(in: area), back.rect(in: area), tolerance: 1) }
-            ?? back
+        // Açarken kenara dayanan boyut 10 pt'ye aşağı yuvarlanır; bu kadar
+        // yakın hazır düzen varsa en yakını geri gelir (Sol yarım → Sol yarım).
+        func distance(_ a: CGRect, _ b: CGRect) -> CGFloat {
+            max(abs(a.minX - b.minX), abs(a.minY - b.minY), abs(a.maxX - b.maxX), abs(a.maxY - b.maxY))
+        }
+        let rect = back.rect(in: area)
+        return presets
+            .map { ($0, distance($0.rect(in: area), rect)) }
+            .filter { $0.1 <= 11 }
+            .min { $0.1 < $1.1 }?.0 ?? back
     }
 
     static func anchor(of rect: CGRect, in area: CGRect) -> WindowLayout.Anchor {
@@ -166,7 +183,7 @@ struct LayoutEditor: View {
             set: { value in
                 guard var fixed = layout.fixed else { return }
                 fixed[keyPath: keyPath] = Double(max(value, 100))
-                layout = WindowLayout(fixed: fixed, screenSize: target.visibleSize)
+                layout = layout.withFixed(fixed, screenSize: target.knownVisibleSize)
             })
     }
 
@@ -176,7 +193,7 @@ struct LayoutEditor: View {
             set: { anchor in
                 guard var fixed = layout.fixed else { return }
                 fixed.anchor = anchor
-                layout = WindowLayout(fixed: fixed, screenSize: target.visibleSize)
+                layout = layout.withFixed(fixed, screenSize: target.knownVisibleSize)
             })
     }
 
@@ -209,7 +226,9 @@ struct LayoutEditor: View {
             get: { Margins(layout)[keyPath: keyPath] },
             set: { newValue in
                 let margins = Margins(layout)
-                let value = min(max(newValue, 0), 90 - margins[keyPath: opposite])
+                // Alt sınır en son: dar ızgara seçiminde karşı kenar %90'ı
+                // aşsa da kenar boşluğu eksiye düşmez.
+                let value = max(0, min(newValue, 90 - margins[keyPath: opposite]))
                 layout = Self.settingMargin(keyPath, to: value, of: layout)
             })
     }
@@ -251,15 +270,20 @@ struct PercentField: View {
     var unit = "%"
     var range: ClosedRange<Int> = 0...90
     var step = 5
+    /// Etiket sütununun en az genişliği; aynı sütundaki alanlar hizalı
+    /// kalsın diye (uzun Türkçe etiket yine sığar).
+    var labelWidth: CGFloat = 42
 
     init(_ label: String, systemImage: String, value: Binding<Int>,
-         unit: String = "%", range: ClosedRange<Int> = 0...90, step: Int = 5) {
+         unit: String = "%", range: ClosedRange<Int> = 0...90, step: Int = 5,
+         labelWidth: CGFloat = 42) {
         self.label = label
         self.systemImage = systemImage
         _value = value
         self.unit = unit
         self.range = range
         self.step = step
+        self.labelWidth = labelWidth
     }
 
     var body: some View {
@@ -271,7 +295,7 @@ struct PercentField: View {
                 .font(.caption)
                 .lineLimit(1)
                 .fixedSize()
-                .frame(minWidth: 42, alignment: .leading)
+                .frame(minWidth: labelWidth, alignment: .leading)
             TextField("", value: $value, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
@@ -392,6 +416,11 @@ struct LayoutGrid: View {
                 })
         .help(L("Drag across the grid to choose an area."))
         .accessibilityLabel(L("Layout grid"))
+        // Yarıda kalan sürükleme (pencere kapandı) eski seçimi bırakmasın.
+        .onDisappear {
+            start = nil
+            current = nil
+        }
     }
 }
 
