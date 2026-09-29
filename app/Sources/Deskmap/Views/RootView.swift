@@ -27,6 +27,9 @@ struct RootView: View {
 
     /// Router'ın son işlemi alt çubukta bu kadar kalır; sonra genel ipucu döner.
     static let actionFade: TimeInterval = 30
+    /// Pencere boyutu ve sol kenar çubuğunun genişliği.
+    static let windowSize = CGSize(width: 900, height: 740)
+    static let sidebarWidth: CGFloat = 290
 
     /// Sürüklerken: pinli pencere bırakılınca kaydedilen hedef güncellenir,
     /// pinsiz pencere yalnız bir kez taşınır.
@@ -59,6 +62,25 @@ struct RootView: View {
 
             Divider()
 
+            HStack(spacing: 0) {
+                // Sol: kurulumlar arası farklar ve sahipsiz pencereler; hep
+                // görünür, buradan haritaya yana doğru sürüklenir.
+                ScrollView {
+                    VStack(spacing: 10) {
+                        SetupDifferenceTray(mode: mode)
+                        if mode == screens.mode {
+                            UnownedWindowsTray(mode: mode)
+                        }
+                    }
+                    .padding(12)
+                    // Uzun içerik (çip + yer) sütunu yana taşırmasın.
+                    .frame(width: Self.sidebarWidth)
+                }
+                .frame(width: Self.sidebarWidth)
+                .reportsViewport("sidebar")
+
+                Divider()
+
             ScrollView {
                 VStack(spacing: 14) {
                     if !permission.isTrusted {
@@ -84,6 +106,22 @@ struct RootView: View {
                     ScreenMapView(mode: mode)
                 }
                 .padding(14)
+                .background(EnclosingScrollViewReader { ui.autoScroll.scrollView = $0 })
+            }
+            .reportsViewport("map")
+            }
+            // Sürükleme koordinatları ve bırakma hedefleri iki sütunu da
+            // kapsar; hayalet de burada çizilir (sütunlar arasında kırpılmaz).
+            .coordinateSpace(name: MapSpace.name)
+            .onPreferenceChange(DropTargetPreference.self) {
+                ui.targets = $0
+                ui.refreshHover()
+            }
+            .onPreferenceChange(ViewportPreference.self) { ui.viewports = $0 }
+            .overlay(alignment: .topLeading) { DragGhost(mode: mode) }
+            .onChange(of: ui.drag) { drag in
+                ui.autoScroll.update(point: drag?.location,
+                                     viewport: ui.viewports["map"] ?? .zero)
             }
 
             bottomPanel
@@ -93,7 +131,7 @@ struct RootView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 8)
         }
-        .frame(width: 560, height: 640)
+        .frame(width: Self.windowSize.width, height: Self.windowSize.height)
         .background(.regularMaterial)
         .onAppear {
             mode = screens.mode

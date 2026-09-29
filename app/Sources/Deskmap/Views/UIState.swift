@@ -41,9 +41,32 @@ final class UIState: ObservableObject {
     /// Sürükleme sırasında canlı durum ve bilinen hedef çerçeveleri.
     @Published var drag: ChipDrag?
     var targets: [DropTargetFrame] = []
+    /// Kaydırılan bölgelerin görünür çerçeveleri ("map", "sidebar"). Bir
+    /// bölgede kaydırılıp görünmez olmuş hedef, imleç o bölgenin dışında
+    /// (ör. üst çubukta) iken seçilmesin diye nokta bunlardan birinde olmalı.
+    var viewports: [String: CGRect] = [:]
+    let autoScroll = AutoScroller()
 
     func target(at point: CGPoint) -> DropTarget? {
-        targets.first { $0.frame.contains(point) }?.target
+        Self.target(at: point, targets: targets, viewports: Array(viewports.values))
+    }
+
+    /// Bırakma hedefi (saf): nokta görünür bir bölgede ve hedefin içinde.
+    nonisolated static func target(at point: CGPoint, targets: [DropTargetFrame],
+                                   viewports: [CGRect]) -> DropTarget? {
+        guard viewports.isEmpty || viewports.contains(where: { $0.contains(point) })
+        else { return nil }
+        return targets.first { $0.frame.contains(point) }?.target
+    }
+
+    /// Hedef çerçeveleri değişti (kaydırma, yeniden çizim): sürükleme
+    /// sürüyorsa imleç kıpırdamasa da üzerindeki hedef yeniden seçilir.
+    func refreshHover() {
+        guard var drag else { return }
+        let hover = target(at: drag.location)
+        guard hover != drag.hover else { return }
+        drag.hover = hover
+        self.drag = drag
     }
 
     // MARK: Panel kısayolları

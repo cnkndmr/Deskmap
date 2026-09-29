@@ -34,41 +34,6 @@ struct ScreenMapView: View {
                     shadowed: shadowed)
             }
 
-            SetupDifferenceTray(mode: mode)
-
-            if isLive {
-                UnownedWindowsTray(mode: mode)
-            }
-        }
-        .coordinateSpace(name: MapSpace.name)
-        .onPreferenceChange(DropTargetPreference.self) { ui.targets = $0 }
-        .overlay(alignment: .topLeading) {
-            // Sürüklenen öğenin hayaleti; imleci izler.
-            if let drag = ui.drag {
-                Group {
-                    switch drag.item {
-                    case .rule(let id):
-                        if let rule = store.rule(id) {
-                            RuleChip(rule: rule, mode: mode, isGhost: true)
-                        }
-                    case .window(let id):
-                        if let window = ui.windows.first(where: { $0.id == id }) {
-                            WindowRow(window: window, mode: mode, isGhost: true)
-                                .frame(width: 260)
-                        }
-                    case .desktop(_, let desktop):
-                        Label(L("Desktop %ld", desktop), systemImage: "line.3.horizontal")
-                            .font(.caption.weight(.medium))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Capsule().fill(Color(nsColor: .controlBackgroundColor)))
-                            .overlay(Capsule().strokeBorder(Color.accentColor, lineWidth: 1))
-                    }
-                }
-                .offset(x: drag.location.x - 12, y: drag.location.y - 12)
-                .allowsHitTesting(false)
-                .shadow(radius: 6, y: 2)
-            }
         }
     }
 
@@ -614,7 +579,7 @@ private struct GhostRow: View {
 /// bir masaüstüne sürüklemek burada da pinler), yalnız bu kurulumda yeri
 /// olanlar (diğer kurulumda dokunulmaz) ve iki kurulumda başka ekrana ya da
 /// masaüstüne gidenler. Bir öğeyi buraya bırakmak bu moddaki pini kaldırır.
-private struct SetupDifferenceTray: View {
+struct SetupDifferenceTray: View {
 
     let mode: Mode
 
@@ -658,15 +623,17 @@ private struct SetupDifferenceTray: View {
                         Text(L("Placed differently for %@", other.title))
                             .font(.caption2.weight(.medium))
                             .foregroundStyle(.secondary)
-                        FlowLayout(spacing: 6) {
+                        VStack(alignment: .leading, spacing: 6) {
                             ForEach(groups.placedDifferently) { rule in
-                                HStack(spacing: 4) {
+                                VStack(alignment: .leading, spacing: 2) {
                                     RuleChip(rule: rule, mode: mode)
                                     if let there = rule[other] {
                                         Text("→ " + placeLabel(there, mode: other))
                                             .font(.caption2)
                                             .foregroundStyle(.tertiary)
                                             .lineLimit(1)
+                                            .truncationMode(.middle)
+                                            .padding(.leading, 8)
                                     }
                                 }
                             }
@@ -714,7 +681,7 @@ private struct SetupDifferenceTray: View {
 /// Hiçbir kurulumda pini olmayan (ne kuralı ne geçici pini olan) açık
 /// pencereler. Masaüstü satırlarında da görünürler; burada toplu durur.
 /// Sürüklemek tek seferlik taşır, pin düğmesi pinler.
-private struct UnownedWindowsTray: View {
+struct UnownedWindowsTray: View {
 
     let mode: Mode
 
@@ -818,6 +785,46 @@ extension ScreenMapView {
             sessionPins[window.id] == nil && !pinned.contains {
                 $0.matches(bundleID: window.bundleID, appName: window.appName, title: window.title)
             }
+        }
+    }
+}
+
+// MARK: - Sürükleme hayaleti
+
+/// Sürüklenen öğenin hayaleti; imleci izler. Pencerenin tamamını kaplayan
+/// katmanda çizilir ki kenar çubuğundan haritaya giderken kırpılmasın.
+struct DragGhost: View {
+
+    let mode: Mode
+
+    @EnvironmentObject private var store: Store
+    @EnvironmentObject private var ui: UIState
+
+    var body: some View {
+        if let drag = ui.drag {
+            Group {
+                switch drag.item {
+                case .rule(let id):
+                    if let rule = store.rule(id) {
+                        RuleChip(rule: rule, mode: mode, isGhost: true)
+                    }
+                case .window(let id):
+                    if let window = ui.windows.first(where: { $0.id == id }) {
+                        WindowRow(window: window, mode: mode, isGhost: true)
+                            .frame(width: 260)
+                    }
+                case .desktop(_, let desktop):
+                    Label(L("Desktop %ld", desktop), systemImage: "line.3.horizontal")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color(nsColor: .controlBackgroundColor)))
+                        .overlay(Capsule().strokeBorder(Color.accentColor, lineWidth: 1))
+                }
+            }
+            .offset(x: drag.location.x - 12, y: drag.location.y - 12)
+            .allowsHitTesting(false)
+            .shadow(radius: 6, y: 2)
         }
     }
 }

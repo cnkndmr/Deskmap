@@ -159,3 +159,30 @@ struct TrayLogicTests {
         #expect(unowned.map(\.id) == [2, 5])
     }
 }
+
+struct AutoScrollTests {
+
+    private let viewport = CGRect(x: 300, y: 100, width: 600, height: 500)
+
+    @Test func stillInTheMiddleAndInTheSidebar() {
+        #expect(AutoScroller.velocity(for: CGPoint(x: 600, y: 350), in: viewport) == 0)
+        // Kenar çubuğu (haritanın solunda): kaydırmaz.
+        #expect(AutoScroller.velocity(for: CGPoint(x: 100, y: 590), in: viewport) == 0)
+    }
+
+    @Test func fasterCloserToTheEdge() {
+        let near = AutoScroller.velocity(for: CGPoint(x: 600, y: 590), in: viewport)
+        let edge = AutoScroller.velocity(for: CGPoint(x: 600, y: 560), in: viewport)
+        #expect(near > edge && edge > 0)
+        #expect(AutoScroller.velocity(for: CGPoint(x: 600, y: 700), in: viewport) == AutoScroller.maxSpeed)
+        #expect(AutoScroller.velocity(for: CGPoint(x: 600, y: 110), in: viewport) < 0)
+        #expect(AutoScroller.velocity(for: CGPoint(x: 600, y: 0), in: viewport) == -AutoScroller.maxSpeed)
+    }
+
+    @Test func hiddenTargetsOutsideViewportsAreIgnored() {
+        let targets = [DropTargetFrame(target: .tray, frame: CGRect(x: 300, y: -60, width: 600, height: 40))]
+        // Görünür alanın üstünde kalmış hedef, imleç üst çubuktayken seçilmez.
+        #expect(UIState.target(at: CGPoint(x: 400, y: -40), targets: targets, viewports: [viewport]) == nil)
+        #expect(UIState.target(at: CGPoint(x: 400, y: -40), targets: targets, viewports: []) == .tray)
+    }
+}

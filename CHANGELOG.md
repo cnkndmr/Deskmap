@@ -8,6 +8,12 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Wider map with a sidebar** (900 × 740). *Different between setups* and
+  *Unassigned windows* sit in a left sidebar that is always visible, so a
+  window is dragged sideways onto a desktop instead of up the whole map.
+- **Auto-scroll while dragging**: holding a dragged item near the top or
+  bottom edge of the map scrolls it, faster the closer to the edge; the
+  desktop under the cursor is highlighted even while the map scrolls.
 - **Two boxes under the map.** *Different between setups* lists pins that are
   pinned only in the other setup, only in this one, or sent to another display
   or desktop in the other setup (with that place shown). *Unassigned windows*
