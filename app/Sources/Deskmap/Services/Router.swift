@@ -104,10 +104,16 @@ final class Router: ObservableObject {
     /// pencereyi masaüstüne geri taşımaz, düzen vermez; süre bitince pin
     /// yeniden uygulanır (pencere yerine döner). Diske yazılmaz.
     @Published private(set) var freeMoves: [CGWindowID: Date] = [:]
-    /// İzin verildiği andaki pin hedefi. Pencerenin pini kalkar ya da hedefi
-    /// değişirse (pin taşındı, düzen değişti, profil/mod değişti) izin biter;
-    /// yeni hedef süre dolmasını beklemeden uygulanır.
-    private var freeTargets: [CGWindowID: Destination] = [:]
+    /// İzin verildiği andaki pin: kural kimliği (oturum pininde
+    /// `Routing.sessionRuleID`) ve hedefi. Başlığa bağlı değildir (sekme
+    /// değişince izin düşmez); o pin kalkar ya da hedefi değişirse (taşındı,
+    /// düzen değişti, profil/mod değişti) izin biter ve yeni hedef süre
+    /// dolmasını beklemeden uygulanır.
+    struct FreeGrant: Equatable {
+        var ruleID: String
+        var destination: Destination
+    }
+    private var freeTargets: [CGWindowID: FreeGrant] = [:]
     /// Bağlı ekranlardaki gerçek masaüstü sayıları; `windows`'tan bağımsız
     /// yayınlanır (pencere listesi değişmeden eklenen masaüstü de haritaya
     /// yansısın).
@@ -572,7 +578,7 @@ final class Router: ObservableObject {
                     title: window.title)
             else { continue }
             freeMoves[id] = end
-            freeTargets[id] = match.destination
+            freeTargets[id] = FreeGrant(ruleID: match.ruleID, destination: match.destination)
             // Yarım kalmış taşıma/düzen denemeleri izin boyunca donup
             // zamanlayıcıyı her turda tam taramaya zorlamasın.
             dropAttempts(for: id)
@@ -607,13 +613,13 @@ final class Router: ObservableObject {
         if ended { sweep() }
     }
 
-    /// Pini kalkan ya da hedefi değişen pencerelerin izni (tarama sonucu).
-    /// Düzen belleği unutulmaz: yeni hedef zaten yeni düzen demek, pinsiz
-    /// pencereye de dokunulmaz.
+    /// İzni düşürür (pin kalktı ya da değişti). Düzen belleği de unutulur:
+    /// pin aynı hedefle geri gelirse düzen de yeniden verilir.
     private func dropFreeMoves(_ windowIDs: [CGWindowID], reason: String) {
         var dropped = 0
         for id in windowIDs where freeMoves.removeValue(forKey: id) != nil {
             freeTargets[id] = nil
+            forgetApplied(for: id)
             dropped += 1
         }
         if dropped > 0 {
@@ -621,9 +627,23 @@ final class Router: ObservableObject {
         }
     }
 
-    /// İzin hâlâ geçerli mi (saf): verildiği hedef değişmediyse.
-    nonisolated static func freeMoveHolds(grantedFor: Destination, current: Destination) -> Bool {
-        grantedFor == current
+    /// Her taramadan önce (ana aktör): izin verilen pin hâlâ aynı mı?
+    private func validateFreeMoves() {
+        guard !freeTargets.isEmpty else { return }
+        let stale = freeTargets.filter { id, grant in
+            !Self.freeMoveHolds(grant, sessionPin: sessionPins[id],
+                                ruleDestination: store.rule(grant.ruleID)?[screens.mode])
+        }.map(\.key)
+        dropFreeMoves(stale, reason: "pin changed")
+    }
+
+    /// İzin hâlâ geçerli mi (saf). Oturum pini kurala göre önce gelir:
+    /// kurala verilmiş izin, pencereye sonradan oturum pini konunca biter.
+    nonisolated static func freeMoveHolds(
+        _ grant: FreeGrant, sessionPin: Destination?, ruleDestination: Destination?
+    ) -> Bool {
+        if grant.ruleID == Routing.sessionRuleID { return sessionPin == grant.destination }
+        return sessionPin == nil && ruleDestination == grant.destination
     }
 
     /// Süresi dolan izinleri düşürür (zamanlayıcı turu).
@@ -1060,8 +1080,8 @@ final class Router: ObservableObject {
         // Duraklatılmışken de geçici pinli pencereler listelenir ve yaşam
         // denetimi sürer.
         let sessionIDs = Set(self.sessionPins.keys)
-        let active = Self.activeFreeMoves(freeMoves, now: Date())
-        let free = freeTargets.filter { active.contains($0.key) }
+        validateFreeMoves()
+        let free = Self.activeFreeMoves(freeMoves, now: Date())
         let mode = screens.mode
         let connected = screens.screens
         let applied = self.applied
@@ -1075,7 +1095,7 @@ final class Router: ObservableObject {
 
         queue.async { [weak self] in
             let outcome = Self.route(rules: rules, sessionPins: sessionPins,
-                                     sessionIDs: sessionIDs, free: free, routing: routing,
+                                     sessionIDs: sessionIDs, free: free,
                                      mode: mode, screens: connected,
                                      applied: applied, attempts: attempts,
                                      lastAttempts: lastAttempts, movesAllowed: movesAllowed,
@@ -1124,7 +1144,6 @@ final class Router: ObservableObject {
                     self.windows = outcome.snapshots
                 }
                 self.expireSessionPins(live: outcome.liveWindows)
-                self.dropFreeMoves(outcome.freeEnded, reason: "pin changed")
                 // Önceki taşımaların doğrulaması, sonra bu taramanın taşımaları.
                 let check = PendingMove.verify(pending: self.pendingMoves,
                                                observed: outcome.observedSpaces, now: Date())
@@ -1185,8 +1204,6 @@ final class Router: ObservableObject {
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
         /// yeniden dene.
         var needsFollowUp = false
-        /// Serbest pencerelerden pini kalkan ya da hedefi değişenler.
-        var freeEnded: [CGWindowID] = []
     }
 
     /// Bir pencerenin taramada bir kez okunan durumu; anlık görüntü,
@@ -1236,7 +1253,7 @@ final class Router: ObservableObject {
     /// masaüstü taşıması `Routing.maxMoveAttempts` / `Routing.moveRetryInterval`.
     nonisolated private static func route(
         rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
-        free: [CGWindowID: Destination], routing: Bool, mode: Mode, screens: [ScreenInfo], applied: [CGWindowID: AppliedEntry],
+        free: Set<CGWindowID>, mode: Mode, screens: [ScreenInfo], applied: [CGWindowID: AppliedEntry],
         attempts: [String: Int],
         lastAttempts: [String: Date], movesAllowed: Bool, token: RoutingGeneration.Token
     ) -> Outcome {
@@ -1306,18 +1323,10 @@ final class Router: ObservableObject {
             guard let match = Routing.select(
                 rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
                 bundleID: window.bundleID, appName: window.appName, title: window.title)
-            else {
-                // Pini kalkan serbest pencerenin izni biter (yönlendirme
-                // duraklatılmışken kural listesi boş; o zaman değil).
-                if routing, free[window.id] != nil { outcome.freeEnded.append(window.id) }
-                continue
-            }
-            // Serbest hareket izni olan pencereye dokunulmaz; izin verildiği
-            // hedef değiştiyse izin biter ve yeni hedef hemen uygulanır.
-            if let freeTarget = free[window.id] {
-                if Self.freeMoveHolds(grantedFor: freeTarget, current: match.destination) { continue }
-                outcome.freeEnded.append(window.id)
-            }
+            else { continue }
+            // Serbest hareket izni olan pencereye dokunulmaz (izin geçerliliği
+            // taramadan önce ana aktörde denetlenir: `validateFreeMoves`).
+            if free.contains(window.id) { continue }
             let destination = match.destination
 
             guard let screen = screens.first(where: { $0.id == destination.screen })

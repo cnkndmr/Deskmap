@@ -110,15 +110,26 @@ struct FreeMoveTests {
         #expect(Router.activeFreeMoves(until, now: now) == [1])
     }
 
-    @Test func grantHoldsOnlyForItsTarget() {
+    @Test func grantHoldsOnlyForItsPin() {
         let d2 = Destination(screen: "builtin", desktop: 2, layout: .full)
         var moved = d2
         moved.desktop = 3
         var resized = d2
         resized.layout = WindowLayout(x: 0, y: 0, w: 0.5, h: 1)
-        #expect(Router.freeMoveHolds(grantedFor: d2, current: d2))
-        #expect(!Router.freeMoveHolds(grantedFor: d2, current: moved))
-        #expect(!Router.freeMoveHolds(grantedFor: d2, current: resized))
+        let rule = Router.FreeGrant(ruleID: "r1", destination: d2)
+        // Kural aynı hedefte: sürer (başlık eşleşmesine bakılmaz).
+        #expect(Router.freeMoveHolds(rule, sessionPin: nil, ruleDestination: d2))
+        // Kural taşındı, düzeni değişti, silindi / bu modda hedefi yok: biter.
+        #expect(!Router.freeMoveHolds(rule, sessionPin: nil, ruleDestination: moved))
+        #expect(!Router.freeMoveHolds(rule, sessionPin: nil, ruleDestination: resized))
+        #expect(!Router.freeMoveHolds(rule, sessionPin: nil, ruleDestination: nil))
+        // Pencereye sonradan oturum pini kondu: biter.
+        #expect(!Router.freeMoveHolds(rule, sessionPin: d2, ruleDestination: d2))
+
+        let session = Router.FreeGrant(ruleID: Routing.sessionRuleID, destination: d2)
+        #expect(Router.freeMoveHolds(session, sessionPin: d2, ruleDestination: nil))
+        #expect(!Router.freeMoveHolds(session, sessionPin: moved, ruleDestination: nil))
+        #expect(!Router.freeMoveHolds(session, sessionPin: nil, ruleDestination: d2))
     }
 
     @Test func remainingText() {
