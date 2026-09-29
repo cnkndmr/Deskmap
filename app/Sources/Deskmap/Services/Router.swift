@@ -105,13 +105,18 @@ final class Router: ObservableObject {
     /// yeniden uygulanır (pencere yerine döner). Diske yazılmaz.
     @Published private(set) var freeMoves: [CGWindowID: Date] = [:]
     /// İzin verildiği andaki pin: kural kimliği (oturum pininde
-    /// `Routing.sessionRuleID`) ve hedefi. Başlığa bağlı değildir (sekme
-    /// değişince izin düşmez); o pin kalkar ya da hedefi değişirse (taşındı,
-    /// düzen değişti, profil/mod değişti) izin biter ve yeni hedef süre
-    /// dolmasını beklemeden uygulanır.
+    /// `Routing.sessionRuleID`), hedefi ve pencerenin o anki kimliği
+    /// (uygulama + başlık). Her taramadan önce pencereyi yöneten pin,
+    /// SAKLANAN başlıkla yeniden seçilir: sekme/başlık değişince izin düşmez;
+    /// ama pin kalkar, taşınır, düzeni değişir, daha özgül bir pin gelir,
+    /// parçaları düzenlenir ya da profil/mod değişirse izin biter ve yeni
+    /// hedef süre dolmasını beklemeden uygulanır.
     struct FreeGrant: Equatable {
         var ruleID: String
         var destination: Destination
+        var bundleID: String = ""
+        var appName: String = ""
+        var title: String = ""
     }
     private var freeTargets: [CGWindowID: FreeGrant] = [:]
     /// Bağlı ekranlardaki gerçek masaüstü sayıları; `windows`'tan bağımsız
@@ -578,7 +583,9 @@ final class Router: ObservableObject {
                     title: window.title)
             else { continue }
             freeMoves[id] = end
-            freeTargets[id] = FreeGrant(ruleID: match.ruleID, destination: match.destination)
+            freeTargets[id] = FreeGrant(ruleID: match.ruleID, destination: match.destination,
+                                        bundleID: window.bundleID, appName: window.appName,
+                                        title: window.title)
             // Yarım kalmış taşıma/düzen denemeleri izin boyunca donup
             // zamanlayıcıyı her turda tam taramaya zorlamasın.
             dropAttempts(for: id)
@@ -630,20 +637,26 @@ final class Router: ObservableObject {
     /// Her taramadan önce (ana aktör): izin verilen pin hâlâ aynı mı?
     private func validateFreeMoves() {
         guard !freeTargets.isEmpty else { return }
+        let rules = store.document.rules
+        let mode = screens.mode
         let stale = freeTargets.filter { id, grant in
-            !Self.freeMoveHolds(grant, sessionPin: sessionPins[id],
-                                ruleDestination: store.rule(grant.ruleID)?[screens.mode])
+            !Self.freeMoveHolds(grant, windowID: id, rules: rules,
+                                sessionPins: sessionPins, mode: mode)
         }.map(\.key)
         dropFreeMoves(stale, reason: "pin changed")
     }
 
-    /// İzin hâlâ geçerli mi (saf). Oturum pini kurala göre önce gelir:
-    /// kurala verilmiş izin, pencereye sonradan oturum pini konunca biter.
+    /// İzin hâlâ geçerli mi (saf): izin anındaki başlıkla bugün seçilen pin
+    /// (oturum pini önce) aynı kural ve aynı hedef mi?
     nonisolated static func freeMoveHolds(
-        _ grant: FreeGrant, sessionPin: Destination?, ruleDestination: Destination?
+        _ grant: FreeGrant, windowID: CGWindowID, rules: [Rule],
+        sessionPins: [CGWindowID: Destination], mode: Mode
     ) -> Bool {
-        if grant.ruleID == Routing.sessionRuleID { return sessionPin == grant.destination }
-        return sessionPin == nil && ruleDestination == grant.destination
+        guard let match = Routing.select(
+            rules: rules, sessionPins: sessionPins, mode: mode, windowID: windowID,
+            bundleID: grant.bundleID, appName: grant.appName, title: grant.title)
+        else { return false }
+        return match.ruleID == grant.ruleID && match.destination == grant.destination
     }
 
     /// Süresi dolan izinleri düşürür (zamanlayıcı turu).

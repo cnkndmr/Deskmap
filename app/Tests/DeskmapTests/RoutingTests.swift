@@ -110,26 +110,42 @@ struct FreeMoveTests {
         #expect(Router.activeFreeMoves(until, now: now) == [1])
     }
 
-    @Test func grantHoldsOnlyForItsPin() {
+    @Test func grantHoldsOnlyWhileItsPinGovernsTheWindow() {
         let d2 = Destination(screen: "builtin", desktop: 2, layout: .full)
-        var moved = d2
-        moved.desktop = 3
-        var resized = d2
-        resized.layout = WindowLayout(x: 0, y: 0, w: 0.5, h: 1)
-        let rule = Router.FreeGrant(ruleID: "r1", destination: d2)
-        // Kural aynı hedefte: sürer (başlık eşleşmesine bakılmaz).
-        #expect(Router.freeMoveHolds(rule, sessionPin: nil, ruleDestination: d2))
-        // Kural taşındı, düzeni değişti, silindi / bu modda hedefi yok: biter.
-        #expect(!Router.freeMoveHolds(rule, sessionPin: nil, ruleDestination: moved))
-        #expect(!Router.freeMoveHolds(rule, sessionPin: nil, ruleDestination: resized))
-        #expect(!Router.freeMoveHolds(rule, sessionPin: nil, ruleDestination: nil))
-        // Pencereye sonradan oturum pini kondu: biter.
-        #expect(!Router.freeMoveHolds(rule, sessionPin: d2, ruleDestination: d2))
+        var d3 = d2
+        d3.desktop = 3
+        let safari = "com.apple.Safari"
+        let wide = Rule(id: "wide", appName: "Safari", bundleID: safari, tokens: [], docked: d2)
+        let grant = Router.FreeGrant(ruleID: "wide", destination: d2, bundleID: safari,
+                                     appName: "Safari", title: "GitHub – PR")
+        func holds(_ rules: [Rule], _ pins: [CGWindowID: Destination] = [:]) -> Bool {
+            Router.freeMoveHolds(grant, windowID: 7, rules: rules, sessionPins: pins, mode: .docked)
+        }
+        // Aynı pin: sürer (canlı başlığa bakılmaz, saklanan başlıkla seçilir).
+        #expect(holds([wide]))
+        // Pin taşındı / silindi / bu modda hedefi yok: biter.
+        var moved = wide
+        moved.docked = d3
+        #expect(!holds([moved]))
+        #expect(!holds([]))
+        var otherMode = wide
+        otherMode.docked = nil
+        otherMode.undocked = d2
+        #expect(!holds([otherMode]))
+        // Daha özgül yeni pin pencereyi aldı: biter.
+        let specific = Rule(id: "gh", appName: "Safari", bundleID: safari, tokens: ["GitHub"], docked: d3)
+        #expect(!holds([wide, specific]))
+        // Başlığa uymayan yeni pin: sürer.
+        let mail = Rule(id: "mail", appName: "Safari", bundleID: safari, tokens: ["Mail"], docked: d3)
+        #expect(holds([wide, mail]))
+        // Pencereye oturum pini kondu: biter.
+        #expect(!holds([wide], [7: d2]))
 
-        let session = Router.FreeGrant(ruleID: Routing.sessionRuleID, destination: d2)
-        #expect(Router.freeMoveHolds(session, sessionPin: d2, ruleDestination: nil))
-        #expect(!Router.freeMoveHolds(session, sessionPin: moved, ruleDestination: nil))
-        #expect(!Router.freeMoveHolds(session, sessionPin: nil, ruleDestination: d2))
+        let session = Router.FreeGrant(ruleID: Routing.sessionRuleID, destination: d2,
+                                       bundleID: safari, appName: "Safari", title: "x")
+        #expect(Router.freeMoveHolds(session, windowID: 7, rules: [], sessionPins: [7: d2], mode: .docked))
+        #expect(!Router.freeMoveHolds(session, windowID: 7, rules: [], sessionPins: [7: d3], mode: .docked))
+        #expect(!Router.freeMoveHolds(session, windowID: 7, rules: [wide], sessionPins: [:], mode: .docked))
     }
 
     @Test func remainingText() {

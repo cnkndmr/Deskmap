@@ -252,3 +252,4 @@
 "End free movement; the window goes back to its pin" = "Serbestliği bitir; pencere pinine döner";
 "1 minute" = "1 dakika";
 "%ld minutes" = "%ld dakika";
+"%ld of %ld windows" = "%ld/%ld pencere";

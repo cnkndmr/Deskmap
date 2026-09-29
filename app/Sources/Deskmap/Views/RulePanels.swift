@@ -313,19 +313,32 @@ struct FreeMoveRow: View {
 
     @EnvironmentObject private var router: Router
 
-    /// En geç biten izin (birden çok pencerede hepsi aynı anda verilir).
-    private var until: Date? {
-        windowIDs.compactMap { router.freeMoves[$0] }.max()
-    }
-
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
-            if let until, until > context.date {
-                active(remaining: until.timeIntervalSince(context.date))
+            let free = windowIDs.filter { (router.freeMoves[$0] ?? .distantPast) > context.date }
+            if let until = free.compactMap({ router.freeMoves[$0] }).max() {
+                active(remaining: until.timeIntervalSince(context.date), free: free)
             } else {
                 idle
             }
         }
+    }
+
+    /// Süre menüsü: yalnız verilen pencerelere izin verir.
+    private func durationMenu(for ids: [CGWindowID]) -> some View {
+        Menu {
+            ForEach(Router.freeMoveDurations, id: \.self) { duration in
+                Button(Self.label(duration)) {
+                    router.allowFreeMove(ids, for: duration)
+                }
+            }
+        } label: {
+            Label(L("Free move"), systemImage: "timer")
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .controlSize(.small)
+        .help(L("Let this window be moved freely for a while"))
     }
 
     private var idle: some View {
@@ -337,39 +350,39 @@ struct FreeMoveRow: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
-            Menu {
-                ForEach(Router.freeMoveDurations, id: \.self) { duration in
-                    Button(Self.label(duration)) {
-                        router.allowFreeMove(windowIDs, for: duration)
-                    }
-                }
-            } label: {
-                Label(L("Free move"), systemImage: "timer")
-            }
-            .menuStyle(.borderlessButton)
-            .fixedSize()
-            .controlSize(.small)
-            .help(L("Let this window be moved freely for a while"))
+            durationMenu(for: windowIDs)
         }
     }
 
-    private func active(remaining: TimeInterval) -> some View {
-        HStack(spacing: 8) {
+    /// `free`: şu an serbest olan hedefler. Bir kısmı serbestse sayı
+    /// gösterilir ve kalanlar için süre menüsü açık kalır.
+    private func active(remaining: TimeInterval, free: [CGWindowID]) -> some View {
+        let rest = windowIDs.filter { !free.contains($0) }
+        return HStack(spacing: 8) {
             Image(systemName: "timer")
                 .foregroundStyle(Color.teal)
             Text(L("Free to move · %@ left", Router.freeMoveRemaining(remaining)))
                 .font(.caption.monospacedDigit())
                 .foregroundStyle(Color.teal)
-            Text(L("Then it goes back to its pin."))
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
+            if rest.isEmpty {
+                Text(L("Then it goes back to its pin."))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Text(L("%ld of %ld windows", free.count, windowIDs.count))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
             Spacer()
+            if !rest.isEmpty {
+                durationMenu(for: rest)
+            }
             Button(L("+5 min")) {
-                router.extendFreeMove(windowIDs, by: 5 * 60)
+                router.extendFreeMove(free, by: 5 * 60)
             }
             .controlSize(.small)
             Button(L("End now")) {
-                router.endFreeMove(windowIDs)
+                router.endFreeMove(free)
             }
             .controlSize(.small)
             .help(L("End free movement; the window goes back to its pin"))
