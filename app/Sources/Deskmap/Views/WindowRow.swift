@@ -163,6 +163,18 @@ struct WindowRow: View {
         }
     }
 
+    /// Pinsiz pencerenin bırakılması bir şey yapar mı (saf): diğer kurulumda
+    /// masaüstüne bırakmak taslak açar; canlı kurulumda yalnız başka bir
+    /// masaüstüne ve tam ekran/yersiz olmayan pencere taşınır; tepsi hiçbir
+    /// şey yapmaz.
+    static func unpinnedDropActs(_ target: DropTarget, window: Router.WindowSnapshot,
+                                 isLive: Bool) -> Bool {
+        guard case .desktop(let screen, let desktop) = target else { return false }
+        if !isLive { return true }
+        return window.fullscreen == nil && window.placement != nil
+            && window.placement != Router.Placement(screen: screen, desktop: desktop)
+    }
+
     /// Pin düğmesiyle açılan taslağın hedefi (saf): canlı kurulumda
     /// pencerenin bulunduğu yer; diğer kurulumda o yer o kurulumda da varsa
     /// orası, yoksa kurulumun ilk ekranının ilk masaüstü.
@@ -186,9 +198,13 @@ struct WindowRow: View {
             .onEnded { value in
                 defer { ui.drag = nil }
                 guard let target = ui.target(at: value.location) else { return }
-                // Pinsiz pencereyi tepsiye bırakmak hiçbir şey yapmaz: açık
-                // panel de kapanmaz.
-                if target == .tray, sessionPin == nil, pinnedRule == nil { return }
+                // Hiçbir şey yapmayacak bırakma (pinsiz pencereyi tepsiye ya da
+                // olduğu masaüstüne, tam ekran/yersiz pencereyi bir yere) açık
+                // paneli de kapatmaz.
+                if sessionPin == nil, pinnedRule == nil,
+                   !Self.unpinnedDropActs(target, window: window, isLive: mode == screens.mode) {
+                    return
+                }
                 // Bilgi panelleri kapanır; başka pencerenin pin taslağı ve
                 // profil paneli tek seferlik taşımadan etkilenmez.
                 switch ui.panel {

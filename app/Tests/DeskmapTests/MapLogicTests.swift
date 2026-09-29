@@ -298,3 +298,20 @@ struct OtherSetupDraftTests {
         #expect(WindowRow.draftTarget(nil, isLive: false, screens: []) == nil)
     }
 }
+
+struct UnpinnedDropTests {
+
+    private let here = Router.Placement(screen: "builtin", desktop: 2)
+
+    private var window: Router.WindowSnapshot {
+        Router.WindowSnapshot(id: 1, pid: 1, appName: "a", bundleID: "a", title: "t",
+                              placement: here, frame: nil, isMinimized: false)
+    }
+
+    @Test func onlyRealMovesOrOtherSetupDraftsAct() {
+        #expect(!WindowRow.unpinnedDropActs(.tray, window: window, isLive: true))
+        #expect(!WindowRow.unpinnedDropActs(.desktop(screen: "builtin", desktop: 2), window: window, isLive: true))
+        #expect(WindowRow.unpinnedDropActs(.desktop(screen: "builtin", desktop: 3), window: window, isLive: true))
+        #expect(WindowRow.unpinnedDropActs(.desktop(screen: "builtin", desktop: 2), window: window, isLive: false))
+    }
+}

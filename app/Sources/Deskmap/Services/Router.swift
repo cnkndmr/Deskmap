@@ -1385,7 +1385,10 @@ final class Router: ObservableObject {
             let key = "\(window.id)|\(mode.rawValue)|\(destination.hashValue)"
 
             let targetFrame = Self.targetFrame(for: destination.layout, on: screen, screens: screens)
-            let refusedKey = "\(window.id)|refused|\(destination.hashValue)"
+            // Red, reddedildiği hedef boyutuna bağlı: ekran alanı değişince
+            // (çözünürlük) eski kayıt yeni boyutu engellemesin.
+            let refusedKey = "\(window.id)|refused|\(destination.hashValue)|"
+                + "\(Int(targetFrame.width))x\(Int(targetFrame.height))"
             var needsLayout = Self.needsLayout(applied: outcome.applied[window.id],
                                                target: appliedTarget) && !state.isMinimized
 
