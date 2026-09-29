@@ -39,21 +39,37 @@ struct RootView: View {
     /// "bottom" (alt çubuk). Harita alanı bunlardan hesaplanır.
     @State private var heights: [String: CGFloat] = [:]
 
-    /// Harita alanının (kenar çubuğu + harita) yüksekliği (saf): panel
-    /// kapalıyken pencere `windowSize.height` olur; panel açılınca pencere
-    /// aşağı uzar, harita daralmaz. Ekrana sığmazsa yalnız taşan kadar
-    /// harita kısalır (en az `minMapHeight`).
-    nonisolated static func mapHeight(chrome: CGFloat, panel: CGFloat,
-                                      screen: CGFloat) -> CGFloat {
+    /// Pencerenin üst kenarından, bulunduğu ekranın kullanılabilir alt
+    /// kenarına (Dock ve menü çubuğu hariç) kadar olan yükseklik, eksi
+    /// `screenMargin`. `WindowRoomReader` pencere ekran değiştirince ya da
+    /// çözünürlük değişince yeniler; bilinmiyorsa nil.
+    @State private var room: CGFloat?
+
+    /// Harita alanı (kenar çubuğu + harita) ve alt panelin tavanı (saf).
+    /// `room`: pencereye düşen toplam yükseklik; `chrome`: üst ve alt
+    /// çubuklar; `panel`: panelin doğal yüksekliği (kapalıysa 0).
+    ///
+    /// - Panel kapalıyken pencere `windowSize.height` olur (sığarsa).
+    /// - Panel açılınca pencere aşağı uzar, harita daralmaz.
+    /// - Sığmazsa önce harita taşan kadar kısalır, en az `minMapHeight`
+    ///   (çok küçük ekranda alanın yarısı) kalır; panel yine sığmazsa
+    ///   `panelCap` yüksekliğinde kendi içinde kayar.
+    ///
+    /// Sonuç her zaman: chrome + map + min(panel, panelCap) ≤ room.
+    nonisolated static func heights(chrome: CGFloat, panel: CGFloat, room: CGFloat)
+        -> (map: CGFloat, panelCap: CGFloat?) {
         let preferred = windowSize.height - chrome
-        let fits = screen - screenMargin - chrome - panel
-        return max(minMapHeight, min(preferred, fits))
+        let space = max(room - chrome, 0)
+        let map = max(min(preferred, max(space - panel, min(minMapHeight, space / 2))), 0)
+        let left = space - map
+        return (map, panel > left ? max(left, 0) : nil)
     }
 
-    private var mapHeight: CGFloat {
-        Self.mapHeight(chrome: (heights["top"] ?? 90) + (heights["bottom"] ?? 36),
-                       panel: heights["panel"] ?? 0,
-                       screen: NSScreen.main?.visibleFrame.height ?? 900)
+    private var layoutHeights: (map: CGFloat, panelCap: CGFloat?) {
+        let fallback = (NSScreen.main?.visibleFrame.height ?? 900) - Self.screenMargin
+        return Self.heights(chrome: (heights["top"] ?? 90) + (heights["bottom"] ?? 36),
+                            panel: heights["panel"] ?? 0,
+                            room: room ?? fallback)
     }
 
     /// Sürüklerken: pinli pencere bırakılınca kaydedilen hedef güncellenir,
@@ -151,11 +167,20 @@ struct RootView: View {
                 ui.autoScroll.update(point: drag?.location,
                                      viewport: ui.viewports["map"] ?? .zero)
             }
-            .frame(height: mapHeight)
+            .frame(height: layoutHeights.map)
 
-            // Panel haritadan yer almaz: pencere aşağı doğru uzar.
-            bottomPanel
-                .measuresHeight("panel")
+            // Panel haritadan yer almaz: pencere aşağı doğru uzar. Ekrana
+            // sığmazsa kendi içinde kayar (doğal boyu içeride ölçülür).
+            if let cap = layoutHeights.panelCap {
+                ScrollView {
+                    bottomPanel
+                        .measuresHeight("panel")
+                }
+                .frame(height: cap)
+            } else {
+                bottomPanel
+                    .measuresHeight("panel")
+            }
 
             VStack(spacing: 0) {
                 Divider()
@@ -168,6 +193,7 @@ struct RootView: View {
         .frame(width: Self.windowSize.width)
         .fixedSize(horizontal: false, vertical: true)
         .onPreferenceChange(HeightPreference.self) { heights = $0 }
+        .background(WindowRoomReader(margin: Self.screenMargin) { room = $0 })
         .background(.regularMaterial)
         .onAppear {
             mode = screens.mode
@@ -593,5 +619,73 @@ extension View {
             Color.clear.preference(key: HeightPreference.self,
                                    value: [key: geometry.size.height])
         })
+    }
+}
+
+/// Pencerenin bulunduğu ekranda aşağıya doğru ne kadar yer olduğunu
+/// bildirir: pencerenin üst kenarı (menü çubuğunun altı) ile ekranın
+/// kullanılabilir alanının alt kenarı arası, eksi pay. Pencere başka ekrana
+/// geçince, taşınınca ya da ekran ayarları değişince yeniden ölçer.
+struct WindowRoomReader: NSViewRepresentable {
+
+    let margin: CGFloat
+    let changed: (CGFloat?) -> Void
+
+    func makeNSView(context: Context) -> NSView { Probe(margin: margin, changed: changed) }
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    /// Kullanılabilir yükseklik (saf). Pencere üstü ekranın kullanılabilir
+    /// alanının dışındaysa (henüz yerleşmemiş) kullanılabilir üst kenar esas
+    /// alınır.
+    static func room(windowTop: CGFloat, visible: CGRect, margin: CGFloat) -> CGFloat {
+        let top = (visible.minY...visible.maxY).contains(windowTop) ? windowTop : visible.maxY
+        return max(top - visible.minY - margin, 0)
+    }
+
+    private final class Probe: NSView {
+        let margin: CGFloat
+        let changed: (CGFloat?) -> Void
+        private var last: CGFloat?
+        private var tokens: [NSObjectProtocol] = []
+
+        init(margin: CGFloat, changed: @escaping (CGFloat?) -> Void) {
+            self.margin = margin
+            self.changed = changed
+            super.init(frame: .zero)
+        }
+        required init?(coder: NSCoder) { nil }
+
+        deinit { tokens.forEach(NotificationCenter.default.removeObserver) }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            tokens.forEach(NotificationCenter.default.removeObserver)
+            tokens = []
+            guard let window else { return }
+            let center = NotificationCenter.default
+            for name in [NSWindow.didChangeScreenNotification, NSWindow.didMoveNotification,
+                         NSWindow.didBecomeKeyNotification] {
+                tokens.append(center.addObserver(forName: name, object: window, queue: .main) {
+                    [weak self] _ in self?.measure() })
+            }
+            tokens.append(center.addObserver(
+                forName: NSApplication.didChangeScreenParametersNotification,
+                object: nil, queue: .main) { [weak self] _ in self?.measure() })
+            measure()
+        }
+
+        private func measure() {
+            guard let window, let screen = window.screen else { return }
+            let room = WindowRoomReader.room(windowTop: window.frame.maxY,
+                                             visible: screen.visibleFrame, margin: margin)
+            guard room != last else { return }
+            last = room
+            Log.app.notice("""
+                Map window room: \(Int(room)) pt on \(screen.localizedName, privacy: .public) \
+                (visible \(Int(screen.visibleFrame.height)) pt)
+                """)
+            // Görünüm güncellemesi sırasında durum değiştirilmesin.
+            DispatchQueue.main.async { [changed] in changed(room) }
+        }
     }
 }

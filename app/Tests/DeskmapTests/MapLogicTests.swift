@@ -189,17 +189,46 @@ struct AutoScrollTests {
 
 struct WindowHeightTests {
 
-    @Test func panelGrowsTheWindowInsteadOfTheMap() {
-        // Büyük ekran: panel açık da olsa harita aynı yükseklikte.
-        let closed = RootView.mapHeight(chrome: 120, panel: 0, screen: 1400)
-        let open = RootView.mapHeight(chrome: 120, panel: 320, screen: 1400)
-        #expect(closed == RootView.windowSize.height - 120)
-        #expect(open == closed)
+    private func total(_ chrome: CGFloat, _ panel: CGFloat, _ room: CGFloat) -> CGFloat {
+        let h = RootView.heights(chrome: chrome, panel: panel, room: room)
+        return chrome + h.map + min(panel, h.panelCap ?? panel)
     }
 
-    @Test func shrinksOnlyByTheOverflowAndNeverBelowTheMinimum() {
-        // 950 pt ekran: 950 - 12 - 120 - 320 = 498.
-        #expect(RootView.mapHeight(chrome: 120, panel: 320, screen: 950) == 498)
-        #expect(RootView.mapHeight(chrome: 120, panel: 700, screen: 950) == RootView.minMapHeight)
+    @Test func panelGrowsTheWindowInsteadOfTheMap() {
+        let closed = RootView.heights(chrome: 120, panel: 0, room: 1400)
+        let open = RootView.heights(chrome: 120, panel: 320, room: 1400)
+        #expect(closed.map == RootView.windowSize.height - 120)
+        #expect(open.map == closed.map)
+        #expect(open.panelCap == nil)
+    }
+
+    @Test func shrinksTheMapByTheOverflowOnly() {
+        // 900 pt alan: 900 - 120 - 320 = 460.
+        let h = RootView.heights(chrome: 120, panel: 320, room: 900)
+        #expect(h.map == 460 && h.panelCap == nil)
+    }
+
+    @Test func panelScrollsWhenEvenTheMinimumMapDoesNotFit() {
+        let h = RootView.heights(chrome: 120, panel: 500, room: 700)
+        #expect(h.map == RootView.minMapHeight)
+        #expect(h.panelCap == 700 - 120 - RootView.minMapHeight)
+    }
+
+    @Test func neverTallerThanTheRoom() {
+        for room in stride(from: CGFloat(100), through: 1600, by: 37) {
+            for panel in stride(from: CGFloat(0), through: 900, by: 53) {
+                for chrome in [CGFloat(80), 126, 170] {
+                    #expect(total(chrome, panel, room) <= max(room, chrome) + 0.001,
+                            "room \(room) panel \(panel) chrome \(chrome)")
+                }
+            }
+        }
+    }
+
+    @Test func roomUsesTheWindowTopOrTheVisibleTop() {
+        let visible = CGRect(x: 0, y: 70, width: 1512, height: 875)   // Dock 70 pt, menü çubuğu üstte
+        #expect(WindowRoomReader.room(windowTop: 940, visible: visible, margin: 12) == 858)
+        // Henüz yerleşmemiş pencere (ekran dışı): kullanılabilir üst kenar.
+        #expect(WindowRoomReader.room(windowTop: 5000, visible: visible, margin: 12) == 863)
     }
 }
