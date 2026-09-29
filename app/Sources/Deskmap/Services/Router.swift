@@ -117,6 +117,9 @@ final class Router: ObservableObject {
         var bundleID: String = ""
         var appName: String = ""
         var title: String = ""
+        /// İzin verildiği kurulum; kurulum değişince (monitör takıldı ya
+        /// da çıkarıldı) hedef aynı olsa da izin biter.
+        var mode: Mode = .docked
     }
     private var freeTargets: [CGWindowID: FreeGrant] = [:]
     /// Bağlı ekranlardaki gerçek masaüstü sayıları; `windows`'tan bağımsız
@@ -588,7 +591,7 @@ final class Router: ObservableObject {
             freeMoves[id] = end
             freeTargets[id] = FreeGrant(ruleID: match.ruleID, destination: match.destination,
                                         bundleID: window.bundleID, appName: window.appName,
-                                        title: window.title)
+                                        title: window.title, mode: screens.mode)
             // Yarım kalmış taşıma/düzen denemeleri izin boyunca donup
             // zamanlayıcıyı her turda tam taramaya zorlamasın.
             dropAttempts(for: id)
@@ -655,7 +658,7 @@ final class Router: ObservableObject {
         _ grant: FreeGrant, windowID: CGWindowID, rules: [Rule],
         sessionPins: [CGWindowID: Destination], mode: Mode
     ) -> Bool {
-        guard let match = Routing.select(
+        guard mode == grant.mode, let match = Routing.select(
             rules: rules, sessionPins: sessionPins, mode: mode, windowID: windowID,
             bundleID: grant.bundleID, appName: grant.appName, title: grant.title)
         else { return false }
@@ -1098,7 +1101,8 @@ final class Router: ObservableObject {
         let sessionIDs = Set(self.sessionPins.keys)
         // Ekranlar yatışırken mod geçici olabilir; izin yatışınca
         // (`settled` → `reapplyAll`) kalıcı moda göre denetlenir.
-        if routing { validateFreeMoves() }
+        // Duraklatılmışken de denetlenir (pin/mod değişimi kaçmasın).
+        if !screens.isSettling { validateFreeMoves() }
         let free = Self.activeFreeMoves(freeMoves, now: Date())
         let mode = screens.mode
         let connected = screens.screens

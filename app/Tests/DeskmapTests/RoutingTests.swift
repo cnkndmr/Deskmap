@@ -140,6 +140,10 @@ struct FreeMoveTests {
         #expect(holds([wide, mail]))
         // Pencereye oturum pini kondu: biter.
         #expect(!holds([wide], [7: d2]))
+        // Kurulum değişti, hedef iki modda aynı olsa da: biter.
+        var both = wide
+        both.undocked = d2
+        #expect(!Router.freeMoveHolds(grant, windowID: 7, rules: [both], sessionPins: [:], mode: .undocked))
 
         let session = Router.FreeGrant(ruleID: Routing.sessionRuleID, destination: d2,
                                        bundleID: safari, appName: "Safari", title: "x")
