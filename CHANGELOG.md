@@ -8,6 +8,11 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Free move**: a pinned window's panel has a timer button (1, 5, 15, 30 or
+  60 minutes). For that time Deskmap does not put the window back, so it can
+  be moved and resized freely; the row shows the time left, "+5 min" extends
+  it, "End now" stops it. When the time is up the pin applies again (desktop
+  and layout). Not saved; ends when the window closes.
 - The "+ Desktop N" row under each connected display now adds a real desktop
   when clicked: Mission Control opens for a moment, Deskmap presses that
   display's **+** button through Accessibility and closes it again. The same

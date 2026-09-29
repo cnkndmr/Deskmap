@@ -101,7 +101,21 @@ struct RulePanel: View {
                     store.saveLayout(layout, for: rule.id, mode: mode)
                 }
             }
+
+            if mode == screens.mode, !freeMoveTargets.isEmpty {
+                Divider()
+                FreeMoveRow(windowIDs: freeMoveTargets)
+            }
         }
+    }
+
+    /// Serbest hareket izninin verileceği pencereler: panel bir satırdan
+    /// açıldıysa o pencere, çipten açıldıysa kurala uyan bütün pencereler.
+    private var freeMoveTargets: [CGWindowID] {
+        if let id = ui.panelSourceWindowID, matching.contains(where: { $0.id == id }) {
+            return [id]
+        }
+        return matching.map(\.id)
     }
 
     /// Ölçünün okunacağı pencere: panel bir satırdan açıldıysa o satırın
@@ -272,6 +286,111 @@ struct SessionPinPanel: View {
                         router.pinSession(id, destination: current)
                     }
                 }
+            }
+
+            Divider()
+            FreeMoveRow(windowIDs: [window.id])
+        }
+    }
+}
+
+// MARK: - Serbest hareket
+
+/// Pin panellerinin altındaki satır: pencereye belirli bir süre serbest
+/// hareket izni verir. Süre boyunca Deskmap pencereyi yerine döndürmez;
+/// süre bitince pin yeniden uygulanır.
+struct FreeMoveRow: View {
+
+    let windowIDs: [CGWindowID]
+
+    @EnvironmentObject private var router: Router
+
+    /// En geç biten izin (birden çok pencerede hepsi aynı anda verilir).
+    private var until: Date? {
+        windowIDs.compactMap { router.freeMoves[$0] }.max()
+    }
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            if let until, until > context.date {
+                active(remaining: until.timeIntervalSince(context.date))
+            } else {
+                idle
+            }
+        }
+    }
+
+    private var idle: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "timer")
+                .foregroundStyle(.secondary)
+            Text(L("Move freely for a while: Deskmap will not put the window back until the time is up."))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            Menu {
+                ForEach(Router.freeMoveDurations, id: \.self) { duration in
+                    Button(Self.label(duration)) {
+                        router.allowFreeMove(windowIDs, for: duration)
+                    }
+                }
+            } label: {
+                Label(L("Free move"), systemImage: "timer")
+            }
+            .menuStyle(.borderlessButton)
+            .fixedSize()
+            .controlSize(.small)
+            .help(L("Let this window be moved freely for a while"))
+        }
+    }
+
+    private func active(remaining: TimeInterval) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "timer")
+                .foregroundStyle(Color.teal)
+            Text(L("Free to move · %@ left", Router.freeMoveRemaining(remaining)))
+                .font(.caption.monospacedDigit())
+                .foregroundStyle(Color.teal)
+            Text(L("Then it goes back to its pin."))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            Spacer()
+            Button(L("+5 min")) {
+                router.extendFreeMove(windowIDs, by: 5 * 60)
+            }
+            .controlSize(.small)
+            Button(L("End now")) {
+                router.endFreeMove(windowIDs)
+            }
+            .controlSize(.small)
+            .help(L("End free movement; the window goes back to its pin"))
+        }
+    }
+
+    static func label(_ duration: TimeInterval) -> String {
+        let minutes = Int(duration / 60)
+        return minutes == 1 ? L("1 minute") : L("%ld minutes", minutes)
+    }
+}
+
+/// Satırda serbest hareket göstergesi: saat simgesi ve kalan süre.
+struct FreeMoveBadge: View {
+
+    let until: Date
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let left = until.timeIntervalSince(context.date)
+            if left > 0 {
+                HStack(spacing: 2) {
+                    Image(systemName: "timer")
+                    Text(Router.freeMoveRemaining(left))
+                        .monospacedDigit()
+                }
+                .font(.system(size: 9))
+                .foregroundStyle(Color.teal)
+                .help(L("Free to move · %@ left", Router.freeMoveRemaining(left)))
             }
         }
     }

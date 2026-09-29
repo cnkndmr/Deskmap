@@ -85,6 +85,10 @@ struct WindowRow: View {
                 MissingDesktopBadge(wanted: destination.desktop, real: real)
             }
 
+            if isPinned, let until = router.freeMoves[window.id] {
+                FreeMoveBadge(until: until)
+            }
+
             if let layout = pinnedLayout {
                 LayoutGlyph(layout: layout, size: CGSize(width: 14, height: 10))
                     .foregroundStyle(.tertiary)

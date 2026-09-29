@@ -242,3 +242,13 @@
 "Remove Desktop %ld" = "Masaüstünü sil (%ld)";
 "Could not remove desktop %ld on %@" = "%2$@ ekranında masaüstü %1$ld silinemedi";
 "Desktop removed" = "Masaüstü silindi";
+"Move freely for a while: Deskmap will not put the window back until the time is up." = "Bir süre serbest gezdir: süre bitene kadar Deskmap pencereyi yerine döndürmez.";
+"Free move" = "Serbest bırak";
+"Let this window be moved freely for a while" = "Bu pencere bir süre serbestçe taşınabilsin";
+"Free to move · %@ left" = "Serbest · %@ kaldı";
+"Then it goes back to its pin." = "Sonra pinine döner.";
+"+5 min" = "+5 dk";
+"End now" = "Şimdi bitir";
+"End free movement; the window goes back to its pin" = "Serbestliği bitir; pencere pinine döner";
+"1 minute" = "1 dakika";
+"%ld minutes" = "%ld dakika";

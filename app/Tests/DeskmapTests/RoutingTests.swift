@@ -101,3 +101,20 @@ struct RoutingTests {
         #expect(attempts == ["other": 2])
     }
 }
+
+struct FreeMoveTests {
+
+    @Test func activeOnlyBeforeDeadline() {
+        let now = Date(timeIntervalSince1970: 1_000)
+        let until: [CGWindowID: Date] = [1: now.addingTimeInterval(30), 2: now, 3: now.addingTimeInterval(-5)]
+        #expect(Router.activeFreeMoves(until, now: now) == [1])
+    }
+
+    @Test func remainingText() {
+        #expect(Router.freeMoveRemaining(0) == "0:00")
+        #expect(Router.freeMoveRemaining(4.2) == "0:05")
+        #expect(Router.freeMoveRemaining(245) == "4:05")
+        #expect(Router.freeMoveRemaining(3600) == "1:00:00")
+        #expect(Router.freeMoveRemaining(-3) == "0:00")
+    }
+}

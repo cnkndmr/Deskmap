@@ -100,6 +100,10 @@ final class Router: ObservableObject {
     /// (birkaç tarama boyunca görünmeyince) kendiliğinden silinir; moddan
     /// bağımsızdır, hedef ekran bağlı değilse o an uygulanmaz.
     @Published private(set) var sessionPins: [CGWindowID: Destination] = [:]
+    /// Serbest hareket: pencere → iznin bittiği an. Bu süre boyunca motor
+    /// pencereyi masaüstüne geri taşımaz, düzen vermez; süre bitince pin
+    /// yeniden uygulanır (pencere yerine döner). Diske yazılmaz.
+    @Published private(set) var freeMoves: [CGWindowID: Date] = [:]
     /// Bağlı ekranlardaki gerçek masaüstü sayıları; `windows`'tan bağımsız
     /// yayınlanır (pencere listesi değişmeden eklenen masaüstü de haritaya
     /// yansısın).
@@ -333,6 +337,7 @@ final class Router: ObservableObject {
     private func tick() {
         events.refreshIfDue()
         resumeIfStuckPaused()
+        expireFreeMoves(now: Date())
         guard !isPaused else { return }
         let signature = AX.windowServerSignature()
         let changed = signature == nil || signature != lastSignature
@@ -539,6 +544,61 @@ final class Router: ObservableObject {
         sessionMisses[windowID] = nil
         forgetApplied(for: windowID)
         saveSessionPins()
+    }
+
+    // MARK: - Serbest hareket
+
+    /// Panelde sunulan süreler (sn).
+    nonisolated static let freeMoveDurations: [TimeInterval] = [60, 5 * 60, 15 * 60, 30 * 60, 60 * 60]
+
+    /// Bu pencereler `duration` boyunca serbest: motor onları yerine
+    /// döndürmez. Süren bir izin yeniden verilirse süre baştan başlar.
+    func allowFreeMove(_ windowIDs: [CGWindowID], for duration: TimeInterval) {
+        guard !windowIDs.isEmpty, duration > 0 else { return }
+        let end = Date().addingTimeInterval(duration)
+        for id in windowIDs { freeMoves[id] = end }
+        // Süren taramanın bu pencereleri geri taşıması kesilsin.
+        generation.advance()
+        Log.routing.notice("Free move: \(windowIDs.count) window(s) for \(Int(duration)) s")
+    }
+
+    /// Süren izni `duration` kadar uzatır (bitmişse şimdiden başlatır).
+    func extendFreeMove(_ windowIDs: [CGWindowID], by duration: TimeInterval) {
+        let now = Date()
+        for id in windowIDs {
+            freeMoves[id] = max(freeMoves[id] ?? now, now).addingTimeInterval(duration)
+        }
+        generation.advance()
+    }
+
+    /// İzni hemen bitirir; pin yeniden uygulanır (masaüstü ve düzen).
+    func endFreeMove(_ windowIDs: [CGWindowID]) {
+        var ended = false
+        for id in windowIDs where freeMoves.removeValue(forKey: id) != nil {
+            forgetApplied(for: id)
+            ended = true
+        }
+        if ended { sweep() }
+    }
+
+    /// Süresi dolan izinleri düşürür (zamanlayıcı turu).
+    private func expireFreeMoves(now: Date) {
+        let expired = freeMoves.filter { $0.value <= now }.map(\.key)
+        guard !expired.isEmpty else { return }
+        Log.routing.notice("Free move ended: \(expired.count) window(s)")
+        endFreeMove(expired)
+    }
+
+    /// Şu an serbest olan pencereler (saf).
+    nonisolated static func activeFreeMoves(_ until: [CGWindowID: Date], now: Date) -> Set<CGWindowID> {
+        Set(until.filter { $0.value > now }.keys)
+    }
+
+    /// Kalan süre metni (saf): "4:05", saat varsa "1:00:00".
+    nonisolated static func freeMoveRemaining(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval.rounded(.up)))
+        let (h, m, sec) = (total / 3600, total % 3600 / 60, total % 60)
+        return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
     }
 
     /// Masaüstü sıralaması değişince bu ekrandaki oturum pinlerinin masaüstü
@@ -950,6 +1010,7 @@ final class Router: ObservableObject {
         // Duraklatılmışken de geçici pinli pencereler listelenir ve yaşam
         // denetimi sürer.
         let sessionIDs = Set(self.sessionPins.keys)
+        let free = Self.activeFreeMoves(freeMoves, now: Date())
         let mode = screens.mode
         let connected = screens.screens
         let applied = self.applied
@@ -963,7 +1024,8 @@ final class Router: ObservableObject {
 
         queue.async { [weak self] in
             let outcome = Self.route(rules: rules, sessionPins: sessionPins,
-                                     sessionIDs: sessionIDs, mode: mode, screens: connected,
+                                     sessionIDs: sessionIDs, free: free,
+                                     mode: mode, screens: connected,
                                      applied: applied, attempts: attempts,
                                      lastAttempts: lastAttempts, movesAllowed: movesAllowed,
                                      token: token)
@@ -996,6 +1058,8 @@ final class Router: ObservableObject {
                         return live[id] != nil
                     }
                     applied = applied.filter { live[$0.key] != nil }
+                    let freeMoves = self.freeMoves.filter { live[$0.key] != nil }
+                    if freeMoves != self.freeMoves { self.freeMoves = freeMoves }
                     self.appliedFloor = self.appliedFloor.filter { live[$0.key] != nil }
                     attempts = attempts.filter { isLive($0.key) }
                     lastAttempts = lastAttempts.filter { isLive($0.key) }
@@ -1117,7 +1181,7 @@ final class Router: ObservableObject {
     /// masaüstü taşıması `Routing.maxMoveAttempts` / `Routing.moveRetryInterval`.
     nonisolated private static func route(
         rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
-        mode: Mode, screens: [ScreenInfo], applied: [CGWindowID: AppliedEntry],
+        free: Set<CGWindowID>, mode: Mode, screens: [ScreenInfo], applied: [CGWindowID: AppliedEntry],
         attempts: [String: Int],
         lastAttempts: [String: Date], movesAllowed: Bool, token: RoutingGeneration.Token
     ) -> Outcome {
@@ -1188,6 +1252,8 @@ final class Router: ObservableObject {
                 rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
                 bundleID: window.bundleID, appName: window.appName, title: window.title)
             else { continue }
+            // Serbest hareket izni olan pencereye dokunulmaz.
+            if free.contains(window.id) { continue }
             let destination = match.destination
 
             guard let screen = screens.first(where: { $0.id == destination.screen })
