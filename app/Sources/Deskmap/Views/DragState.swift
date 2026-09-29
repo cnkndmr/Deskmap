@@ -26,6 +26,9 @@ struct ChipDrag: Equatable {
     var item: DragItem
     var location: CGPoint
     var hover: DropTarget?
+    /// Sürükleme "Kurulumlar arasında farklı" kutusundan başladı: kutuya
+    /// geri bırakmak hiçbir şey yapmaz (pin kaldırılmaz).
+    var fromTray = false
 }
 
 /// Sürüklenen şey: pinli bir kural çipi ya da canlı bir pencere satırı.

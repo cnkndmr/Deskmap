@@ -60,9 +60,16 @@ enum Shots {
         let permission = AccessibilityPermission(demoTrusted: true)
         let ui = UIState()
 
-        let size = NSSize(width: 560, height: 640)
+        // Kareler 1710 × 1074 pt'lik kullanılabilir alana göre (bu Mac'in
+        // dahili ekranı): pencere oranlı boyutunu buna göre alır; boy her karede
+        // içeriğe göre yeniden ölçülür (açık panel pencereyi uzatır).
+        let room = WindowRoom(height: 1074 - RootView.screenMargin,
+                              visible: CGSize(width: 1710, height: 1074))
+        let size = NSSize(width: RootView.windowWidth(visibleWidth: room.visible.width),
+                          height: RootView.preferredHeight(visibleHeight: room.visible.height))
         let hosting = NSHostingView(rootView:
             ShotsRootView()
+                .environment(\.demoRoom, room)
                 .environmentObject(store)
                 .environmentObject(screens)
                 .environmentObject(router)
@@ -102,6 +109,12 @@ enum Shots {
             guard shouldCapture(name, options: options) else { return }
             ui.desktopCounts = fixedDesktopCounts
             pump(0.15)
+            let fitting = hosting.fittingSize
+            if fitting.width > 0, fitting.height > 0, fitting != hosting.frame.size {
+                hosting.setFrameSize(fitting)
+                window.setContentSize(fitting)
+                pump(0.15)
+            }
             guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else {
                 FileHandle.standardError.write(Data("shots: bitmap oluşturulamadı (\(name))\n".utf8))
                 return

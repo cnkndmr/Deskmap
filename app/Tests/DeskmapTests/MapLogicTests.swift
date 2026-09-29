@@ -148,7 +148,8 @@ struct TrayLogicTests {
     @Test func unownedExcludesAnyPinInEitherMode() {
         func window(_ id: CGWindowID, _ bundle: String, _ title: String) -> Router.WindowSnapshot {
             Router.WindowSnapshot(id: id, pid: 1, appName: bundle, bundleID: bundle, title: title,
-                                  placement: nil, frame: nil, isMinimized: false, fullscreen: nil)
+                                  placement: .init(screen: "builtin", desktop: 1), frame: nil,
+                                  isMinimized: false, fullscreen: nil)
         }
         let laptopOnly = Rule(id: "lap", appName: "c", bundleID: "c", tokens: [], undocked: d)
         let titled = Rule(id: "t", appName: "a", bundleID: "a", tokens: ["Work"], docked: d)
@@ -158,6 +159,12 @@ struct TrayLogicTests {
         let unowned = ScreenMapView.unownedWindows(windows, rules: [laptopOnly, titled, empty],
                                                    sessionPins: [4: d])
         #expect(unowned.map(\.id) == [2, 5])
+        // Tam ekran ya da yeri bilinmeyen pencere listelenmez (dokunulmaz).
+        var full = window(6, "z", "video")
+        full.fullscreen = Router.FullscreenSlot(screen: "builtin", space: 9, afterDesktop: 1, order: 0)
+        let unplaced = Router.WindowSnapshot(id: 7, pid: 1, appName: "z", bundleID: "z", title: "t",
+                                             placement: nil, frame: nil, isMinimized: false)
+        #expect(ScreenMapView.unownedWindows([full, unplaced], rules: [], sessionPins: [:]).isEmpty)
     }
 }
 

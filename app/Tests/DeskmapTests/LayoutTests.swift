@@ -187,3 +187,62 @@ struct LayoutToolTests {
         #expect(LayoutEditor.toggledFixed(.full, on: true, screenSize: size).fixed?.anchor == .center)
     }
 }
+
+struct BugFixTests {
+
+    private let area = CGRect(x: 0, y: 0, width: 1710, height: 1074)
+
+    @Test func refusedFixedSizeIsReanchoredWithTheRealSize() {
+        let layout = WindowLayout(fixed: .init(width: 600, height: 400, anchor: .bottomRight))
+        // Uygulama en az 900 × 700 kabul ediyor: yine sağ alt köşeye oturur.
+        let frame = layout.reanchored(actualSize: CGSize(width: 900, height: 700), in: area)
+        #expect(frame == CGRect(x: 810, y: 374, width: 900, height: 700))
+        #expect(WindowLayout.leftHalf.reanchored(actualSize: .zero, in: area) == nil)
+    }
+
+    @Test func fixedLayoutsCarryAProportionalFallbackForOlderVersions() {
+        let layout = WindowLayout(fixed: .init(width: 855, height: 1074, anchor: .left),
+                                  screenSize: area.size)
+        #expect(abs(layout.w - 0.5) < 1e-9 && layout.h == 1 && layout.x == 0)
+        // Yerleşim yine sabit boyuttan.
+        #expect(layout.rect(in: area).width == 855)
+    }
+
+    @Test func useCurrentSizeKeepsFixedLayoutsFixed() {
+        let stored = WindowLayout(fixed: .init(width: 1000, height: 600, anchor: .center))
+        let there = stored.rect(in: area)
+        #expect(Router.WindowSnapshot.fixedLayout(frame: there, stored: stored, area: area) == stored)
+        let moved = CGRect(x: 0, y: 0, width: 800, height: 500)
+        let saved = Router.WindowSnapshot.fixedLayout(frame: moved, stored: stored, area: area)
+        #expect(saved.fixed == .init(width: 800, height: 500, anchor: .topLeft))
+    }
+
+    @Test func fixedToggleKeepsEdgeToEdgeSizesExactAndHalvesApart() {
+        let size = area.size
+        let full = LayoutEditor.toggledFixed(.full, on: true, screenSize: size)
+        #expect(full.fixed?.width == 1710 && full.fixed?.height == 1074)
+        let left = LayoutEditor.toggledFixed(.leftHalf, on: true, screenSize: size)
+        let right = LayoutEditor.toggledFixed(.rightHalf, on: true, screenSize: size)
+        #expect((left.fixed?.width ?? 0) + (right.fixed?.width ?? 0) <= 1710)
+        // Geri çevirince hazır düzenin kendisi.
+        #expect(LayoutEditor.toggledFixed(full, on: false, screenSize: size) == .full)
+    }
+
+    @Test func editingOneMarginKeepsTheOtherEdgesExact() {
+        let third = WindowLayout.centerThird
+        let edited = LayoutEditor.settingMargin(\.top, to: 10, of: third)
+        #expect(edited.x == third.x && edited.w == third.w)
+        #expect(abs(edited.y - 0.1) < 1e-9 && abs(edited.h - 0.9) < 1e-9)
+    }
+
+    @MainActor @Test func autoScrollArmsOnlyAfterLeavingTheEdgeBand() {
+        let scroller = AutoScroller()
+        let viewport = CGRect(x: 0, y: 0, width: 600, height: 500)
+        scroller.update(point: CGPoint(x: 300, y: 5), viewport: viewport)      // bantta başladı
+        #expect(!scroller.armed)
+        scroller.update(point: CGPoint(x: 300, y: 250), viewport: viewport)    // ortaya çıktı
+        #expect(scroller.armed)
+        scroller.update(point: nil, viewport: viewport)                        // sürükleme bitti
+        #expect(!scroller.armed)
+    }
+}

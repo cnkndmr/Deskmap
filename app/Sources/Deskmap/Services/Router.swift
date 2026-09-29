@@ -33,7 +33,12 @@ final class Router: ObservableObject {
     /// "Üst yarı" alta, "Alt yarı" üste giderdi).
     nonisolated static func targetFrame(for layout: WindowLayout, on screen: ScreenInfo,
                                         screens: [ScreenInfo]) -> CGRect {
-        layout.rect(in: Coordinates.axRect(fromCocoa: screen.visibleFrame, screens: screens))
+        layout.rect(in: targetArea(on: screen, screens: screens))
+    }
+
+    /// Ekranın kullanılabilir alanı AX koordinatlarında (sol üst tabanlı).
+    nonisolated static func targetArea(on screen: ScreenInfo, screens: [ScreenInfo]) -> CGRect {
+        Coordinates.axRect(fromCocoa: screen.visibleFrame, screens: screens)
     }
 
     nonisolated static func needsLayout(applied: AppliedEntry?, target: AppliedTarget) -> Bool {
@@ -1012,6 +1017,8 @@ final class Router: ObservableObject {
         // Son taramadaki pid ile AX öğesi doğrudan üretilir; bütün
         // uygulamaları yeniden taramak yalnızca bu yol tutmazsa gerekir.
         let snapshot = windows.first { $0.id == windowID }
+        // Tam ekran uygulamanın penceresine dokunulmaz (README kuralı).
+        if snapshot?.fullscreen != nil { return }
         let movesAllowed = moveHealth.movesAllowed
         let token = generation.token()
         queue.async { [weak self] in
@@ -1407,8 +1414,24 @@ final class Router: ObservableObject {
                     guard token.isCurrent else { outcome.stale = true; break windowLoop }
                     AX.setFrame(targetFrame, of: window)
                     // Uygulama çerçeveyi kabul etti mi? Bu okuma gerekli.
-                    if let after = AX.frame(of: window), Coordinates.close(after, targetFrame) {
-                        placed = true
+                    if let after = AX.frame(of: window) {
+                        if Coordinates.close(after, targetFrame) {
+                            placed = true
+                        } else if let anchored = destination.layout.reanchored(
+                                    actualSize: after.size,
+                                    in: Self.targetArea(on: screen, screens: screens)) {
+                            // Sabit boyut: uygulama boyutu reddetti (en küçük
+                            // boyut vb.); gerçek boyutla aynı noktaya hizala,
+                            // konum tutunca yerleşmiş say (boyut için sonsuz
+                            // deneme olmasın).
+                            if !Coordinates.close(after, anchored) {
+                                AX.setFrame(anchored, of: window)
+                            }
+                            if let again = AX.frame(of: window),
+                               Coordinates.close(again.origin, anchored.origin) {
+                                placed = true
+                            }
+                        }
                     }
                 }
 

@@ -69,7 +69,12 @@ struct LayoutEditor: View {
             Toggle(L("Fixed size"), isOn: fixedBinding)
                 .toggleStyle(.checkbox)
                 .controlSize(.small)
-                .help(L("Same size in points on every display, placed at an anchor point"))
+                // Ekranın gerçek boyutu bilinmeden pt'ye çevirmek yanlış
+                // boyut yazardı (sabit düzen zaten varsa kapatılabilir).
+                .disabled(target.knownVisibleSize == nil && layout.fixed == nil)
+                .help(target.knownVisibleSize == nil && layout.fixed == nil
+                      ? L("Connect this display once so its size is known.")
+                      : L("Same size in points on every display, placed at an anchor point"))
 
             if layout.fixed != nil {
                 HStack(alignment: .top, spacing: 14) {
@@ -126,23 +131,33 @@ struct LayoutEditor: View {
         if on {
             guard layout.fixed == nil else { return layout }
             let rect = layout.rect(in: area)
-            func round10(_ v: CGFloat) -> Double { Double((v / 10).rounded() * 10) }
-            return WindowLayout(fixed: .init(width: round10(rect.width),
-                                             height: round10(rect.height),
-                                             anchor: anchor(of: rect, in: area)))
+            // Kenardan kenara uzanan boyut yuvarlanmaz (tam yükseklik/genişlik
+            // eksik kalmasın); kenara dayanan boyut aşağı yuvarlanır (iki
+            // yarım üst üste binmesin); ortadaki en yakın 10'a.
+            func size(_ v: CGFloat, low: Bool, high: Bool, whole: CGFloat) -> Double {
+                if low && high { return Double(whole) }
+                return Double(((v / 10) as CGFloat).rounded(low || high ? .down : .toNearestOrEven) * 10)
+            }
+            let slack: CGFloat = 1
+            let left = rect.minX - area.minX <= slack, right = area.maxX - rect.maxX <= slack
+            let top = rect.minY - area.minY <= slack, bottom = area.maxY - rect.maxY <= slack
+            return WindowLayout(
+                fixed: .init(width: size(rect.width, low: left, high: right, whole: area.width),
+                             height: size(rect.height, low: top, high: bottom, whole: area.height),
+                             anchor: .touching(rect, in: area)),
+                screenSize: screenSize)
         }
         guard layout.fixed != nil else { return layout }
-        return WindowLayout(frame: layout.rect(in: area), in: area)
+        let back = WindowLayout(frame: layout.rect(in: area), in: area)
+        // Hazır düzene 1 pt'den yakınsa onun kendisi (Tam, Sol yarım …).
+        let presets = WindowLayout.presets(aspect: Double(screenSize.width / max(screenSize.height, 1)))
+            + WindowLayout.presets
+        return presets.first { Coordinates.close($0.rect(in: area), back.rect(in: area), tolerance: 1) }
+            ?? back
     }
 
-    /// Alanın dayandığı kenarlara göre sabitleme noktası (saf): iki kenara
-    /// da dayanıyor ya da hiçbirine dayanmıyorsa o eksende orta.
     static func anchor(of rect: CGRect, in area: CGRect) -> WindowLayout.Anchor {
-        let slack = max(area.width, area.height) * 0.01
-        func side(_ low: Bool, _ high: Bool) -> Int { low == high ? 1 : (low ? 0 : 2) }
-        let col = side(rect.minX - area.minX <= slack, area.maxX - rect.maxX <= slack)
-        let row = side(rect.minY - area.minY <= slack, area.maxY - rect.maxY <= slack)
-        return WindowLayout.Anchor.allCases[row * 3 + col]
+        .touching(rect, in: area)
     }
 
     private func sizeBinding(_ keyPath: WritableKeyPath<WindowLayout.FixedSize, Double>) -> Binding<Int> {
@@ -151,7 +166,7 @@ struct LayoutEditor: View {
             set: { value in
                 guard var fixed = layout.fixed else { return }
                 fixed[keyPath: keyPath] = Double(max(value, 100))
-                layout = WindowLayout(fixed: fixed)
+                layout = WindowLayout(fixed: fixed, screenSize: target.visibleSize)
             })
     }
 
@@ -161,7 +176,7 @@ struct LayoutEditor: View {
             set: { anchor in
                 guard var fixed = layout.fixed else { return }
                 fixed.anchor = anchor
-                layout = WindowLayout(fixed: fixed)
+                layout = WindowLayout(fixed: fixed, screenSize: target.visibleSize)
             })
     }
 
@@ -169,7 +184,7 @@ struct LayoutEditor: View {
     // Her ayar tek bir atama ile yazılır; iki ayrı atama arasında
     // binding'in eski değeri okunup diğer kenarı bozuyordu.
 
-    private struct Margins {
+    struct Margins {
         var left: Int, right: Int, top: Int, bottom: Int
 
         init(_ layout: WindowLayout) {
@@ -193,11 +208,31 @@ struct LayoutEditor: View {
         Binding(
             get: { Margins(layout)[keyPath: keyPath] },
             set: { newValue in
-                var margins = Margins(layout)
-                margins[keyPath: keyPath] =
-                    min(max(newValue, 0), 90 - margins[keyPath: opposite])
-                layout = margins.layout
+                let margins = Margins(layout)
+                let value = min(max(newValue, 0), 90 - margins[keyPath: opposite])
+                layout = Self.settingMargin(keyPath, to: value, of: layout)
             })
+    }
+
+    /// Yalnız değişen kenarı yazar (saf); diğer üç kenar tam değerini korur
+    /// (üçte bir gibi yüzdeye tam oturmayan düzenler yana kaymasın).
+    static func settingMargin(_ keyPath: WritableKeyPath<Margins, Int>, to value: Int,
+                                          of layout: WindowLayout) -> WindowLayout {
+        var result = layout
+        let v = Double(value) / 100
+        switch keyPath {
+        case \Margins.left:
+            let right = layout.x + layout.w
+            result.x = v; result.w = right - v
+        case \Margins.right:
+            result.w = (1 - v) - layout.x
+        case \Margins.top:
+            let bottom = layout.y + layout.h
+            result.y = v; result.h = bottom - v
+        default:
+            result.h = (1 - v) - layout.y
+        }
+        return result
     }
 
     private var leftBinding: Binding<Int> { margin(\.left, opposite: \.right) }
@@ -234,7 +269,9 @@ struct PercentField: View {
                 .frame(width: 14)
             Text(label)
                 .font(.caption)
-                .frame(width: 42, alignment: .leading)
+                .lineLimit(1)
+                .fixedSize()
+                .frame(minWidth: 42, alignment: .leading)
             TextField("", value: $value, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .multilineTextAlignment(.trailing)
@@ -341,10 +378,10 @@ struct LayoutGrid: View {
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged { value in
-                    if start == nil {
-                        start = Self.cell(at: value.startLocation, size: size,
-                                          cols: dims.cols, rows: dims.rows)
-                    }
+                    // Başlangıç her olayda sürüklemenin kendi başlangıcından:
+                    // iptal edilmiş bir sürüklemenin hücresi kalmasın.
+                    start = Self.cell(at: value.startLocation, size: size,
+                                      cols: dims.cols, rows: dims.rows)
                     current = Self.cell(at: value.location, size: size,
                                         cols: dims.cols, rows: dims.rows)
                 }

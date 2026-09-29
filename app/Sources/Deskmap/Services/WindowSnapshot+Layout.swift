@@ -18,4 +18,35 @@ extension Router.WindowSnapshot {
         let area = Coordinates.axRect(fromCocoa: screen.visibleFrame, screens: screens)
         return WindowLayout(frame: frame, in: area)
     }
+
+    /// Kayıtlı düzenin türüne göre şu anki düzen: oranlı kayıtta oranlar;
+    /// sabit boyutlu kayıtta pencere kayıtlı yerindeyse kaydın kendisi,
+    /// değilse şu anki boyut (pt) ve dayandığı kenarlardan sabitleme.
+    func currentLayout(like stored: WindowLayout, screens: [ScreenInfo],
+                       fallbackScreen: String? = nil) -> WindowLayout? {
+        guard stored.fixed != nil else {
+            return currentLayout(screens: screens, fallbackScreen: fallbackScreen)
+        }
+        guard let frame,
+              let screenID = placement?.screen ?? fallbackScreen,
+              let screen = screens.first(where: { $0.id == screenID })
+        else { return nil }
+        let area = Coordinates.axRect(fromCocoa: screen.visibleFrame, screens: screens)
+        return Self.fixedLayout(frame: frame, stored: stored, area: area)
+    }
+
+    /// Sabit boyutlu karşılık (saf): kayıtlı yerindeyse kayıt; değilse
+    /// çerçeve boyutu (tam pt) ve kenarlardan sabitleme.
+    static func fixedLayout(frame: CGRect, stored: WindowLayout, area: CGRect) -> WindowLayout {
+        if Coordinates.close(frame, stored.rect(in: area)) { return stored }
+        if let reanchored = stored.reanchored(actualSize: frame.size, in: area),
+           Coordinates.close(frame, reanchored) {
+            // Uygulama boyutu kısıtladı ama yer doğru: kayıt aynı.
+            return stored
+        }
+        let anchor = WindowLayout.Anchor.touching(frame, in: area)
+        return WindowLayout(fixed: .init(width: Double(frame.width.rounded()),
+                                         height: Double(frame.height.rounded()), anchor: anchor),
+                            screenSize: area.size)
+    }
 }

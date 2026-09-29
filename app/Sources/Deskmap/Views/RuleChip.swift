@@ -13,6 +13,9 @@ struct RuleChip: View {
     /// Penceresi açık ama bu kuralı geçen kuralın kimliği (gölgede kalan
     /// pin); çip soluk çizilir, ipucu nedenini söyler.
     var shadowedBy: String?
+    /// Çip "Kurulumlar arasında farklı" kutusunda: ipucu ona göre, kutuya
+    /// geri bırakmak pini kaldırmaz.
+    var inTray = false
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var screens: ScreenService
@@ -39,7 +42,8 @@ struct RuleChip: View {
                                                           isLive: isLive) {
                     MissingDesktopBadge(wanted: destination.desktop, real: real)
                 }
-                LayoutGlyph(layout: destination.layout, size: CGSize(width: 14, height: 10))
+                LayoutGlyph(layout: destination.layout, size: CGSize(width: 14, height: 10),
+                            screenSize: store.screenSize(of: destination.screen))
                     .foregroundStyle(.secondary)
             }
         }
@@ -58,6 +62,9 @@ struct RuleChip: View {
 
     private var helpText: String {
         let base = "\(rule.appName): \(rule.title)"
+        if inTray {
+            return base + "\n" + L("Drag onto a desktop to set this setup's place.")
+        }
         guard let shadowedBy else {
             return base + "\n" + L("Its window is not open right now. Drag to move.")
         }
@@ -73,7 +80,8 @@ struct RuleChip: View {
                 ui.drag = ChipDrag(
                     item: .rule(rule.id),
                     location: value.location,
-                    hover: ui.target(at: value.location))
+                    hover: ui.target(at: value.location),
+                    fromTray: inTray)
             }
             .onEnded { value in
                 defer { ui.drag = nil }
@@ -86,6 +94,8 @@ struct RuleChip: View {
                         to: Destination(screen: screen, desktop: desktop, layout: layout),
                         mode: mode)
                 case .tray:
+                    // Kutudan başlayıp kutuya bırakılan çip: vazgeçildi.
+                    guard !inTray else { return }
                     store.unpin(rule.id, mode: mode)
                 }
             }
@@ -100,7 +110,7 @@ struct LayoutGlyph: View {
     let layout: WindowLayout
     let size: CGSize
     /// Sabit boyutlu düzeni ölçeklemek için ekranın kullanılabilir alanı
-    /// (pt); bilinmiyorsa 14" MacBook Pro'nunki.
+    /// (pt); bilinmiyorsa 1710 × 1074 pt (bu Mac'in dahili ekranı).
     var screenSize = CGSize(width: 1710, height: 1074)
 
     init(layout: WindowLayout, size: CGSize,

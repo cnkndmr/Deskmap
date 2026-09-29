@@ -162,13 +162,13 @@ struct DocumentCodableTests {
         let data = try JSONEncoder().encode(doc)
         let back = try decode(String(decoding: data, as: UTF8.self))
         #expect(back == doc)
-        #expect(back.fileVersion == 3)
+        #expect(back.fileVersion == Document.currentVersion)
         #expect(back.droppedRuleCount == 0)
         // Yazılmayan alanlar dosyada yok.
         let text = String(decoding: data, as: UTF8.self)
         #expect(!text.contains("fileVersion"))
         #expect(!text.contains("droppedRuleCount"))
-        #expect(text.contains("\"version\":3"))
+        #expect(text.contains("\"version\":\(Document.currentVersion)"))
     }
 
     @Test func destinationDefaultsAndDesktopClamp() throws {
@@ -257,15 +257,18 @@ struct DocumentCodableTests {
 
     @Test func newerFileVersionIsDetected() throws {
         let doc = try decode("""
-        { "version": 4, "enabled": true, "futureField": { "x": 1 },
+        { "version": 5, "enabled": true, "futureField": { "x": 1 },
           "rules": [ { "id": "r1", "appName": "A", "bundleID": "", "tokens": [] } ] }
         """)
-        #expect(doc.fileVersion == 4)
+        #expect(doc.fileVersion == 5)
         #expect(doc.isFromNewerVersion)
         // Kurallar yine okunur; yalnızca yazma kapanır.
         #expect(doc.rules.count == 1)
         #expect(!Document().isFromNewerVersion)
         #expect(!(try decode("{ \"version\": 3 }")).isFromNewerVersion)
+        #expect(!(try decode("{ \"version\": 4 }")).isFromNewerVersion)
+        // 4'ten önceki sürüm (3) sabit boyutu bilmez; bu sürümün dosyası ona yenidir.
+        #expect(Document.currentVersion == 4)
         // Sayı olmayan sürüm eski dosya sayılır, belgeyi düşürmez.
         #expect(try decode("{ \"version\": \"3\" }").fileVersion == 1)
     }

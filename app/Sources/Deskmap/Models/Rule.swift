@@ -40,6 +40,16 @@ struct WindowLayout: Codable, Equatable, Hashable {
             }
         }
 
+        /// Dikdörtgenin dayandığı kenarlara göre sabitleme noktası (saf):
+        /// iki kenara da dayanıyor ya da hiçbirine dayanmıyorsa o eksende orta.
+        static func touching(_ rect: CGRect, in area: CGRect) -> Anchor {
+            let slack = max(area.width, area.height) * 0.01
+            func side(_ low: Bool, _ high: Bool) -> Int { low == high ? 1 : (low ? 0 : 2) }
+            let col = side(rect.minX - area.minX <= slack, area.maxX - rect.maxX <= slack)
+            let row = side(rect.minY - area.minY <= slack, area.maxY - rect.maxY <= slack)
+            return allCases[row * 3 + col]
+        }
+
         var label: String {
             switch self {
             case .topLeft: return L("Top left")
@@ -75,10 +85,29 @@ struct WindowLayout: Codable, Equatable, Hashable {
         self.x = x; self.y = y; self.w = w; self.h = h
     }
 
-    /// Sabit boyutlu düzen.
-    init(fixed: FixedSize) {
+    /// Sabit boyutlu düzen. `screenSize` verilirse oranlar (x, y, w, h) o
+    /// ekrandaki karşılığıyla doldurulur: `fixed`'i bilmeyen eski sürüm
+    /// "Tam" yerine yakın bir düzen okur.
+    init(fixed: FixedSize, screenSize: CGSize? = nil) {
         self.init()
+        if let screenSize, screenSize.width > 0, screenSize.height > 0 {
+            let area = CGRect(origin: .zero, size: screenSize)
+            let rect = WindowLayout(fixed: fixed).rect(in: area)
+            let proportional = WindowLayout(frame: rect, in: area)
+            x = proportional.x; y = proportional.y; w = proportional.w; h = proportional.h
+        }
         self.fixed = fixed
+    }
+
+    /// Sabit boyutlu düzende uygulamanın kabul ettiği gerçek boyutla aynı
+    /// sabitleme noktasına göre çerçeve (saf); oranlı düzende nil. Uygulama
+    /// istenen boyutu kabul etmezse (en küçük boyut, boyutlanamaz pencere)
+    /// pencere yine doğru köşeye/kenara oturur.
+    func reanchored(actualSize: CGSize, in area: CGRect) -> CGRect? {
+        guard let fixed else { return nil }
+        return WindowLayout(fixed: FixedSize(width: Double(actualSize.width),
+                                             height: Double(actualSize.height),
+                                             anchor: fixed.anchor)).rect(in: area)
     }
 
     static let full       = WindowLayout(x: 0,   y: 0,   w: 1,   h: 1)

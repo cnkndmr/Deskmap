@@ -92,8 +92,12 @@ struct RootView: View {
         return (map, panel > left ? max(left, 0) : nil)
     }
 
+    /// Shots modunda sabit oda (gerçek ekran ve pencere konumu kullanılmaz).
+    @Environment(\.demoRoom) private var demoRoom
+
     /// Ölçüm gelene dek ana ekrana göre tahmin.
     private var currentRoom: WindowRoom {
+        if let demoRoom { return demoRoom }
         if let room { return room }
         let visible = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1440, height: 860)
         return WindowRoom(height: visible.height - Self.screenMargin, visible: visible)
@@ -207,17 +211,16 @@ struct RootView: View {
             .frame(height: layoutHeights.map)
 
             // Panel haritadan yer almaz: pencere aşağı doğru uzar. Ekrana
-            // sığmazsa kendi içinde kayar (doğal boyu içeride ölçülür).
-            if let cap = layoutHeights.panelCap {
-                ScrollView {
-                    bottomPanel
-                        .measuresHeight("panel")
-                }
-                .frame(height: cap)
-            } else {
+            // sığmazsa kendi içinde kayar (doğal boyu içeride ölçülür). Tek
+            // yapı: tavan açılıp kapansa da panelin kimliği ve durumu (pin
+            // taslağındaki seçimler) korunur.
+            ScrollView {
                 bottomPanel
                     .measuresHeight("panel")
             }
+            .scrollDisabled(layoutHeights.panelCap == nil)
+            .frame(height: min(heights["panel"] ?? 0,
+                               layoutHeights.panelCap ?? .greatestFiniteMagnitude))
 
             VStack(spacing: 0) {
                 Divider()
@@ -666,6 +669,19 @@ extension View {
 struct WindowRoom: Equatable {
     var height: CGFloat
     var visible: CGSize
+}
+
+private struct DemoRoomKey: EnvironmentKey {
+    static let defaultValue: WindowRoom? = nil
+}
+
+extension EnvironmentValues {
+    /// Shots modu: gerçek ekran yerine bu oda; ayrıca kullanıcı tercihleri
+    /// (katlanmış kutu) karelere karışmaz.
+    var demoRoom: WindowRoom? {
+        get { self[DemoRoomKey.self] }
+        set { self[DemoRoomKey.self] = newValue }
+    }
 }
 
 /// Pencerenin bulunduğu ekranda aşağıya doğru ne kadar yer olduğunu

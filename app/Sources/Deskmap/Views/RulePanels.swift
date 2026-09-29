@@ -279,7 +279,8 @@ struct SessionPinPanel: View {
                     updated.layout = layout
                     router.pinSession(window.id, destination: updated)
                 }),
-                screen: store.screens(for: screens.mode).first { $0.id == destination.screen })
+                screen: store.document.screens.first { $0.id == destination.screen }
+                    ?? store.screens(for: .docked).first { $0.id == destination.screen })
             SaveCurrentLayoutRow(
                 window: window,
                 stored: router.sessionPins[window.id]?.layout ?? destination.layout,
@@ -438,10 +439,11 @@ struct SaveCurrentLayoutRow: View {
 
     @EnvironmentObject private var screens: ScreenService
 
-    /// Pencerenin şu anki düzeni; okunamıyorsa nil.
+    /// Pencerenin şu anki düzeni, kaydın türünde (sabit boyutlu kayıtta pt);
+    /// okunamıyorsa nil.
     private var current: WindowLayout? {
         guard isLive, let window else { return nil }
-        return window.currentLayout(screens: screens.screens)
+        return window.currentLayout(like: stored, screens: screens.screens)
     }
 
     var body: some View {

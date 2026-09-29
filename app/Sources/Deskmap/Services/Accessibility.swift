@@ -638,6 +638,12 @@ enum Coordinates {
             && abs(a.width - b.width) <= tolerance
             && abs(a.height - b.height) <= tolerance
     }
+
+    /// İki nokta yakın mı (yalnız konum; boyutu uygulamanın belirlediği
+    /// sabit boyutlu yerleşim için).
+    static func close(_ a: CGPoint, _ b: CGPoint, tolerance: CGFloat = 4) -> Bool {
+        abs(a.x - b.x) <= tolerance && abs(a.y - b.y) <= tolerance
+    }
 }
 
 /// `NSRunningApplication.activationPolicy` her okunuşta LaunchServices'e

@@ -390,6 +390,9 @@ private struct DesktopRow: View {
     /// silme o mod etkinleşince yapılır. Gerçekte olmayan (plan/pin) satırda
     /// yalnız numaralar kayar. Bu ikisi ⌘Z ile geri alınır.
     private func remove() {
+        // Bu ekrana açık pin taslağı varsa masaüstü numaraları kayacak:
+        // eski numarayla yanlış masaüstüne pin yazılmasın.
+        if let draft = ui.pinDraft, draft.target.screen == screen.id { ui.panel = nil }
         let existing = desktop <= (realCount ?? 0)
         if isLive && existing {
             let router = router, store = store, screenID = screen.id, desktop = desktop
@@ -585,13 +588,27 @@ struct SetupDifferenceTray: View {
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var router: Router
 
     private var other: Mode { mode == .docked ? .undocked : .docked }
 
+    /// Yalnız bırakma bir şey yapacaksa vurgulanır: bu kurulumda pini olan
+    /// pencere ya da çip. Kutudan başlayan sürükleme kutuya geri bırakılırsa
+    /// hiçbir şey olmaz.
     private var isTargeted: Bool {
-        guard ui.drag?.hover == .tray else { return false }
-        if case .desktop = ui.drag?.item { return false }
-        return true
+        guard let drag = ui.drag, drag.hover == .tray, !drag.fromTray else { return false }
+        switch drag.item {
+        case .desktop:
+            return false
+        case .rule(let id):
+            return store.rule(id)?[mode] != nil
+        case .window(let id):
+            guard let window = ui.windows.first(where: { $0.id == id }) else { return false }
+            return Routing.select(
+                rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
+                windowID: id, bundleID: window.bundleID, appName: window.appName,
+                title: window.title) != nil
+        }
     }
 
     var body: some View {
@@ -626,7 +643,7 @@ struct SetupDifferenceTray: View {
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(groups.placedDifferently) { rule in
                                 VStack(alignment: .leading, spacing: 2) {
-                                    RuleChip(rule: rule, mode: mode)
+                                    RuleChip(rule: rule, mode: mode, inTray: true)
                                     if let there = rule[other] {
                                         Text("→ " + placeLabel(there, mode: other))
                                             .font(.caption2)
@@ -669,7 +686,7 @@ struct SetupDifferenceTray: View {
                 .help(help)
             FlowLayout(spacing: 6) {
                 ForEach(rules) { rule in
-                    RuleChip(rule: rule, mode: mode)
+                    RuleChip(rule: rule, mode: mode, inTray: true)
                 }
             }
         }
@@ -689,7 +706,15 @@ struct UnownedWindowsTray: View {
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var router: Router
 
-    @AppStorage("unownedTrayCollapsed") private var collapsed = false
+    @EnvironmentObject private var permission: AccessibilityPermission
+    @Environment(\.demoRoom) private var demoRoom
+    @AppStorage("unownedTrayCollapsed") private var storedCollapsed = false
+
+    /// Shots modunda kullanıcının tercihi karelere karışmaz: hep açık.
+    private var collapsed: Bool {
+        get { demoRoom == nil && storedCollapsed }
+        nonmutating set { storedCollapsed = newValue }
+    }
 
     var body: some View {
         let windows = ScreenMapView.unownedWindows(
@@ -713,7 +738,10 @@ struct UnownedWindowsTray: View {
 
             if !collapsed {
                 if windows.isEmpty {
-                    Text(L("Every open window has a pin."))
+                    // İzin yokken ya da ilk taramadan önce pencere bilinmiyor.
+                    Text(permission.isTrusted && !ui.windows.isEmpty
+                         ? L("Every open window has a pin.")
+                         : L("Windows are not listed yet."))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 } else {
@@ -775,14 +803,17 @@ extension ScreenMapView {
     }
 
     /// Hiçbir kurulumda pini olmayan pencereler (saf): geçici pini yok ve
-    /// hiçbir modda hedefi olan kural uymuyor.
+    /// hiçbir modda hedefi olan kural uymuyor. Tam ekran ya da yeri
+    /// bilinmeyen pencereler Deskmap'in hiç dokunmadığı pencerelerdir;
+    /// listelenmez (sürüklenip taşınamasın, rozette sayılmasın).
     static func unownedWindows(
         _ windows: [Router.WindowSnapshot], rules: [Rule],
         sessionPins: [CGWindowID: Destination]
     ) -> [Router.WindowSnapshot] {
         let pinned = rules.filter { $0.docked != nil || $0.undocked != nil }
         return windows.filter { window in
-            sessionPins[window.id] == nil && !pinned.contains {
+            window.fullscreen == nil && window.placement != nil
+                && sessionPins[window.id] == nil && !pinned.contains {
                 $0.matches(bundleID: window.bundleID, appName: window.appName, title: window.title)
             }
         }
@@ -846,30 +877,38 @@ struct FlowLayout: SwiftUI.Layout {
         for (index, origin) in result.origins.enumerated() {
             subviews[index].place(
                 at: CGPoint(x: bounds.minX + origin.x, y: bounds.minY + origin.y),
-                proposal: .unspecified)
+                proposal: result.widths[index] > bounds.width
+                    ? ProposedViewSize(width: bounds.width, height: nil) : .unspecified)
         }
     }
 
     private func arrange(width: CGFloat, subviews: Subviews)
-        -> (size: CGSize, origins: [CGPoint]) {
+        -> (size: CGSize, origins: [CGPoint], widths: [CGFloat]) {
         var origins: [CGPoint] = []
+        var widths: [CGFloat] = []
         var x: CGFloat = 0
         var y: CGFloat = 0
         var rowHeight: CGFloat = 0
         var maxX: CGFloat = 0
 
         for subview in subviews {
-            let size = subview.sizeThatFits(.unspecified)
+            // Satırdan geniş öğe satır genişliğine sığdırılır (metin kısalır,
+            // dar kenar çubuğunda taşmaz).
+            let ideal = subview.sizeThatFits(.unspecified)
+            let size = ideal.width > width
+                ? subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
+                : ideal
             if x > 0, x + size.width > width {
                 x = 0
                 y += rowHeight + spacing
                 rowHeight = 0
             }
             origins.append(CGPoint(x: x, y: y))
+            widths.append(subview.sizeThatFits(.unspecified).width)
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
             maxX = max(maxX, x - spacing)
         }
-        return (CGSize(width: maxX, height: y + rowHeight), origins)
+        return (CGSize(width: maxX, height: y + rowHeight), origins, widths)
     }
 }

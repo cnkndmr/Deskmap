@@ -46,7 +46,7 @@ profiles, and so on.
 |---|---|
 | 🎯 | **Title-based pins**: match on the workspace, project or document name in the window title, not just the app. |
 | 🖥️ | **Two setups**: separate targets for *monitor connected* and *laptop only*; everything is re-placed when you plug in or unplug. |
-| 📐 | **Layouts**: full, halves, 70 / 30, centered, or any inset in percent, per pin. |
+| 📐 | **Layouts**: drag an area on a grid of the display, pick a preset (halves, thirds and quarters on ultrawide displays), set insets in percent, or a fixed size in points at an anchor, per pin. |
 | 🗂️ | **Profiles**: named pin sets, switchable from the menu, Shortcuts or Raycast (`deskmap://`). |
 | ↩️ | **No dialogs, just undo**: every destructive action shows *Undo* for 10 seconds (⌘Z). |
 | 🪶 | **Light**: one `.app`, no Hammerspoon, no yabai, ~0.2 % CPU at idle. |
@@ -283,8 +283,11 @@ Each pin has a separate target for each mode:
 - **Laptop only**: only the built-in display.
 
 The mode selector shows the current mode ("now") by default; you can switch it
-to edit the other setup. Live windows are listed only for the current mode;
-the other mode shows its pins as chips. When a monitor is plugged in or
+to edit the other setup. Live windows are listed on the map only for the
+current mode; the other mode shows its pins as chips. The sidebar's
+*Unassigned windows* box is the same in both tabs (open windows are the same
+in both setups): on the other setup's tab, dropping one on a desktop (or
+pressing its pin) opens a pin for that setup and does not move the window. When a monitor is plugged in or
 unplugged, Deskmap waits for the displays to settle (2.5 s, at most
 10 s) and then places every pinned window again.
 
@@ -306,10 +309,15 @@ then by UUID. A pin whose display isn't connected is skipped.
   on that display in this mode (and temporary pins) are renumbered to match,
   and the windows are moved.
 - **Unpinned windows**: dragging an unpinned row to another desktop moves the
-  window once; nothing is saved.
-- **Tray**: the dashed area at the bottom lists pins that have no target in
-  this mode. Dropping a chip or pinned row there removes its target for this
-  mode (a pin with no target in either mode is deleted).
+  window once; nothing is saved. Windows of full-screen apps are never moved
+  and are not listed as unassigned.
+- **Sidebar**: *Different between setups* lists pins with no target in this
+  mode, pins with a target only in this mode, and pins sent to another
+  display or desktop in the other mode. Dropping a pinned row or chip from
+  the map there removes its target for this mode (a pin with no target in
+  either mode is deleted); dropping a chip back into the box does nothing.
+  *Unassigned windows* lists open windows with no pin in either mode; the
+  menu bar icon shows their number.
 
 ### Profiles
 
@@ -443,7 +451,7 @@ See [Required macOS settings](#required-macos-settings).
 - Faded chip: another, more specific pin (or a temporary pin) matches the
   window first; hover over the chip to see which one.
 - The pin's display isn't connected in the current mode, or the pin has no
-  target in this mode (it's in the tray).
+  target in this mode (it's in the sidebar under *Different between setups*).
 - **D5→3** badge: the target desktop doesn't exist; add desktops in Mission
   Control.
 - The window belongs to a full-screen app.

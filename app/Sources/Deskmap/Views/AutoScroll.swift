@@ -19,11 +19,17 @@ final class AutoScroller {
 
     private var timer: Timer?
     private var velocity: CGFloat = 0
+    /// Bu sürüklemede imleç kenar bandının dışında en az bir kez bulundu
+    /// mu? Bantta başlayan sürükleme (ör. haritanın en üst satırını tutmak)
+    /// imleç banttan çıkıp geri gelmeden kaydırmaz.
+    private(set) var armed = false
 
     /// İmleç konumu (harita koordinat uzayında) ve haritanın görünür alanı.
     /// Sürükleme yoksa `point` nil: kaydırma durur.
     func update(point: CGPoint?, viewport: CGRect) {
-        velocity = point.map { Self.velocity(for: $0, in: viewport) } ?? 0
+        let raw = point.map { Self.velocity(for: $0, in: viewport) } ?? 0
+        if point == nil { armed = false } else if raw == 0 { armed = true }
+        velocity = armed ? raw : 0
         if velocity == 0 {
             timer?.invalidate()
             timer = nil

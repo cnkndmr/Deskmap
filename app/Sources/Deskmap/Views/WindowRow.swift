@@ -90,7 +90,8 @@ struct WindowRow: View {
             }
 
             if let layout = pinnedLayout {
-                LayoutGlyph(layout: layout, size: CGSize(width: 14, height: 10))
+                LayoutGlyph(layout: layout, size: CGSize(width: 14, height: 10),
+                            screenSize: store.screenSize(of: pinnedDestination?.screen ?? ""))
                     .foregroundStyle(.tertiary)
                     .help(L("Layout: %@", layout.label))
             }
@@ -135,7 +136,8 @@ struct WindowRow: View {
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)
         .help(isPinned ? L("Click to change the layout; drag to change the pin's target")
-                       : L("Drag to move (does not pin); click the pin to keep it here"))
+              : mode == screens.mode ? L("Drag to move (does not pin); click the pin to keep it here")
+              : L("Drag onto a desktop to pin it for %@; the window is not moved", mode.title))
     }
 
     private var pinButtonHelp: String {
@@ -144,7 +146,7 @@ struct WindowRow: View {
         }
         return isPinned
             ? L("Pinned: %@. Click to remove.", pinnedRule?.title ?? "")
-            : L("Pin to this desktop")
+            : (mode == screens.mode ? L("Pin to this desktop") : L("Pin for %@", mode.title))
     }
 
     private func togglePin() {
@@ -221,8 +223,10 @@ struct WindowRow: View {
                         // Diğer kurulumun haritası: pencere şimdi taşınmaz,
                         // o kurulum için pin taslağı açılır.
                         ui.panel = .pin(PinDraft(window: window, target: placement))
-                    } else if placement != window.placement {
+                    } else if placement != window.placement,
+                              window.fullscreen == nil, window.placement != nil {
                         // Pinsiz pencere: tek seferlik taşınır, kural yazılmaz.
+                        // Tam ekran ya da yeri bilinmeyen pencereye dokunulmaz.
                         router.moveWindow(window.id, to: placement)
                     }
                 case .tray:

@@ -141,11 +141,28 @@ struct MenuBarLabel: View {
             Image(systemName: "pause.rectangle")
         case .ready:
             if let icon = Self.icon {
-                Image(nsImage: unassigned > 0 ? Self.badged(icon, count: unassigned) : icon)
+                Image(nsImage: Self.described(
+                    unassigned > 0 ? Self.badged(icon, count: unassigned) : icon, as: text))
             } else {
                 Image(systemName: "rectangle.on.rectangle")
             }
         }
+    }
+
+    /// Menü çubuğu simgesi resimden çizilir; SwiftUI erişilebilirlik ve
+    /// ipucu değiştiricileri ona ulaşmaz. VoiceOver sayıyı resmin
+    /// açıklamasından okur (önbellekteki resim değişmesin diye kopya).
+    @MainActor private static var describedCache: [String: NSImage] = [:]
+
+    @MainActor static func described(_ image: NSImage, as text: String) -> NSImage {
+        let key = "\(ObjectIdentifier(image).hashValue)|\(text)"
+        if let cached = describedCache[key] { return cached }
+        let copy = image.copy() as? NSImage ?? image
+        copy.accessibilityDescription = text
+        // Durum/sayı birleşimleri azdır; yine de sınırsız büyümesin.
+        if describedCache.count > 64 { describedCache.removeAll() }
+        describedCache[key] = copy
+        return copy
     }
 
     /// Rozet metni (saf): 1…9, fazlası "9+".

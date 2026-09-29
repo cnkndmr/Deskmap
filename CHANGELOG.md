@@ -11,7 +11,8 @@ number comes from the `VERSION` file.
 - **Menu bar badge**: the menu bar icon shows how many open windows have no
   pin in either setup (the *Unassigned windows* count; 9+ above nine, none
   at zero). The badge is cut into the template icon, so it follows light and
-  dark menu bars; the tooltip says the count.
+  dark menu bars; VoiceOver reads the count. Full-screen windows are not
+  counted.
 - **Layout grid**: the layout editor draws the target display at its real
   shape as a grid (12 × 8 cells, 24 × 6 on ultrawide displays); drag across
   it to choose an area. The percent fields stay for fine tuning.
@@ -21,21 +22,27 @@ number comes from the `VERSION` file.
   preset list is mirror-symmetric (checked by a test).
 - **Fixed size**: a layout can be a size in points (e.g. 1400 × 900) at one
   of nine anchor points, the same on every display and fitted to the usable
-  area when larger. Turning it on keeps the current area and picks the
-  anchor from the edges it touches. Older rule files read unchanged.
+  area when larger. Turning it on keeps the current area (edge-to-edge sizes
+  exactly) and picks the anchor from the edges it touches. If an app refuses
+  the size, the window is still placed at the anchor with the size it
+  accepts. *Use current size and position* keeps a fixed layout fixed.
+  Older rule files read unchanged; rules.json is now schema 4, so an older
+  Deskmap opens it read-only instead of dropping fixed sizes, and every
+  fixed layout also stores its proportional equivalent for older readers.
 - **The window grows for the pin panel**: clicking a window or pin opens its
   panel below the map and the window grows downward; the map keeps its
   height. Only when the screen is too short does the map give up the
   difference.
 - **Wider map with a sidebar**, sized relative to the screen it opens on
   (53 % × 70 % of the usable area, 660–1100 × 480–900 pt, never larger than
-  the screen; about 900 × 750 on a 14" MacBook Pro). *Different between setups* and
+  the screen; about 900 × 750 on a display with 1710 × 1074 pt usable). *Different between setups* and
   *Unassigned windows* sit in a left sidebar that is always visible, so a
   window is dragged sideways onto a desktop instead of up the whole map.
 - **Auto-scroll while dragging**: holding a dragged item near the top or
   bottom edge of the map scrolls it, faster the closer to the edge; the
-  desktop under the cursor is highlighted even while the map scrolls.
-- **Two boxes under the map.** *Different between setups* lists pins that are
+  desktop under the cursor is highlighted even while the map scrolls. A drag
+  that starts inside the edge band scrolls only after leaving it once.
+- **Two sidebar boxes.** *Different between setups* lists pins that are
   pinned only in the other setup, only in this one, or sent to another display
   or desktop in the other setup (with that place shown). *Unassigned windows*
   (both setup tabs, collapsible) lists open windows with no pin in either

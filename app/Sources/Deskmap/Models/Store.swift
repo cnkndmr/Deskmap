@@ -12,13 +12,18 @@ struct KnownScreen: Codable, Equatable, Identifiable, Hashable {
     var visibleWidth: Double?
     var visibleHeight: Double?
 
+    /// Kaydedilmiş gerçek kullanılabilir alan; ekran bu sürümde hiç
+    /// bağlanmadıysa nil (sabit boyuta çevirme o zaman kapalı).
+    var knownVisibleSize: CGSize? {
+        guard let visibleWidth, let visibleHeight, visibleWidth > 0, visibleHeight > 0
+        else { return nil }
+        return CGSize(width: visibleWidth, height: visibleHeight)
+    }
+
     /// Önizleme için kullanılabilir alan; bilinmiyorsa en-boy oranından
-    /// 1000 pt yüksekliğe göre tahmin.
+    /// 1000 pt yüksekliğe göre tahmin (yalnız çizim için).
     var visibleSize: CGSize {
-        if let visibleWidth, let visibleHeight, visibleWidth > 0, visibleHeight > 0 {
-            return CGSize(width: visibleWidth, height: visibleHeight)
-        }
-        return CGSize(width: 1000 * max(aspect, 0.5), height: 1000)
+        knownVisibleSize ?? CGSize(width: 1000 * max(aspect, 0.5), height: 1000)
     }
 
     var isBuiltin: Bool { id == "builtin" }
@@ -72,8 +77,10 @@ struct Document: Codable, Equatable {
     /// Okunurken atlanan bozuk kural sayısı (yazılmaz).
     var droppedRuleCount = 0
 
-    /// Bu sürümün yazdığı şema.
-    static let currentVersion = 3
+    /// Bu sürümün yazdığı şema. 4: düzenlerde `fixed` (sabit boyut); eski
+    /// sürüm bu alanı bilmez, dosyayı salt okunur açar (üstüne yazıp sabit
+    /// boyutları silmesin).
+    static let currentVersion = 4
 
     var isFromNewerVersion: Bool { fileVersion > Self.currentVersion }
 
@@ -490,7 +497,8 @@ struct Document: Codable, Equatable {
 /// dışa aktarma yeni adı ve uzantıyı kullanır.
 struct ProfileExport: Codable {
     var kind: String = ProfileExport.kind
-    var version: Int = 1
+    /// 2: düzenlerde `fixed` olabilir (eski sürüm oranlı karşılığı okur).
+    var version: Int = 2
     var name: String
     var exportedAt: Date = Date()
     /// Kuralların hangi ekran rollerine yazıldığını anlamak için.
@@ -921,6 +929,14 @@ final class Store: ObservableObject {
         if known != document.screens {
             document.screens = known
         }
+    }
+
+    /// Ekranın önizleme boyutu (kayıtlı kullanılabilir alan ya da tahmin);
+    /// ekran bilinmiyorsa 1710 × 1074 pt (bu Mac'in dahili ekranı).
+    func screenSize(of screenID: String) -> CGSize {
+        (document.screens.first { $0.id == screenID }
+            ?? screens(for: .docked).first { $0.id == screenID })?.visibleSize
+            ?? CGSize(width: 1710, height: 1074)
     }
 
     /// Verilen modda haritada gösterilecek ekranlar.

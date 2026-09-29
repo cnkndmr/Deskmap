@@ -292,3 +292,7 @@
 "%ld unassigned windows" = "%ld sahipsiz pencere";
 "Not pinned: dropping it opens a pin for this setup; the window is not moved." = "Pinli değil: bırakınca bu kurulum için pin açılır; pencere taşınmaz.";
 "Pin for %@" = "Şu kurulum için pin: %@";
+"Connect this display once so its size is known." = "Boyutu öğrenilsin diye bu ekranı bir kez bağlayın.";
+"Windows are not listed yet." = "Pencereler henüz listelenmedi.";
+"Drag onto a desktop to set this setup's place." = "Bu kurulumdaki yerini belirlemek için bir masaüstüne sürükleyin.";
+"Drag onto a desktop to pin it for %@; the window is not moved" = "%@ için pinlemek üzere bir masaüstüne sürükleyin; pencere taşınmaz";
