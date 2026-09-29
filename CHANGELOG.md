@@ -12,8 +12,9 @@ number comes from the `VERSION` file.
   shape as a grid (12 × 8 cells, 24 × 6 on ultrawide displays); drag across
   it to choose an area. The percent fields stay for fine tuning.
 - **Presets per display shape**: ultrawide displays get thirds, two thirds,
-  quarters and a centered half; other displays get halves, corners and
-  center.
+  quarters and a centered half; other displays get halves, 70 / 30 and
+  30 / 70 on both sides, top and bottom halves, corners and center. Every
+  preset list is mirror-symmetric (checked by a test).
 - **Fixed size**: a layout can be a size in points (e.g. 1400 × 900) at one
   of nine anchor points, the same on every display and fitted to the usable
   area when larger. Turning it on keeps the current area and picks the

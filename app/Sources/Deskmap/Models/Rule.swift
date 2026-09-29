@@ -86,6 +86,8 @@ struct WindowLayout: Codable, Equatable, Hashable {
     static let rightHalf  = WindowLayout(x: 0.5, y: 0,   w: 0.5, h: 1)
     static let left70     = WindowLayout(x: 0,   y: 0,   w: 0.7, h: 1)
     static let right30    = WindowLayout(x: 0.7, y: 0,   w: 0.3, h: 1)
+    static let right70    = WindowLayout(x: 0.3, y: 0,   w: 0.7, h: 1)
+    static let left30     = WindowLayout(x: 0,   y: 0,   w: 0.3, h: 1)
     static let topHalf    = WindowLayout(x: 0,   y: 0,   w: 1,   h: 0.5)
     static let bottomHalf = WindowLayout(x: 0,   y: 0.5, w: 1,   h: 0.5)
     static let center     = WindowLayout(x: 0.1, y: 0.1, w: 0.8, h: 0.8)
@@ -123,8 +125,8 @@ struct WindowLayout: Codable, Equatable, Hashable {
                     .leftTwoThirds, .rightTwoThirds, .centerHalf, .leftQuarter, .rightQuarter,
                     .center]
         }
-        return [.full, .leftHalf, .rightHalf, .left70, .right30, .topHalf, .bottomHalf,
-                .topLeft, .topRight, .bottomLeft, .bottomRight, .center]
+        return [.full, .leftHalf, .rightHalf, .left70, .right70, .left30, .right30,
+                .topHalf, .bottomHalf, .topLeft, .topRight, .bottomLeft, .bottomRight, .center]
     }
 
     var label: String {
@@ -138,6 +140,8 @@ struct WindowLayout: Codable, Equatable, Hashable {
         case .rightHalf:  return L("Right half")
         case .left70:     return L("Left 70%")
         case .right30:    return L("Right 30%")
+        case .right70:    return L("Right 70%")
+        case .left30:     return L("Left 30%")
         case .topHalf:    return L("Top half")
         case .bottomHalf: return L("Bottom half")
         case .center:     return L("Center")

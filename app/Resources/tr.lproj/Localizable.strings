@@ -286,3 +286,5 @@
 "Larger than the display? It is fitted to the usable area." = "Ekrandan büyükse kullanılabilir alana sığdırılır.";
 "Layout grid" = "Düzen ızgarası";
 "Anchor" = "Sabitleme";
+"Right 70%" = "Sağ %70";
+"Left 30%" = "Sol %30";

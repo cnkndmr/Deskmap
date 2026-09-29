@@ -146,6 +146,22 @@ struct LayoutToolTests {
         #expect(laptop.contains(.topLeft) && laptop.contains(.topHalf) && !laptop.contains(.leftThird))
     }
 
+    @Test func presetListsAreMirrorSymmetric() {
+        func mirrored(_ l: WindowLayout) -> WindowLayout {
+            WindowLayout(x: 1 - l.x - l.w, y: l.y, w: l.w, h: l.h)
+        }
+        func close(_ a: WindowLayout, _ b: WindowLayout) -> Bool {
+            abs(a.x - b.x) < 1e-9 && abs(a.y - b.y) < 1e-9 && abs(a.w - b.w) < 1e-9 && abs(a.h - b.h) < 1e-9
+        }
+        for aspect in [1.6, 16.0 / 9, 5120.0 / 1440] {
+            let presets = WindowLayout.presets(aspect: aspect)
+            for preset in presets {
+                #expect(presets.contains { close($0, mirrored(preset)) },
+                        "\(preset.label) has no mirror at aspect \(aspect)")
+            }
+        }
+    }
+
     @Test func gridIsFinerOnUltrawideAndSelectsCellRanges() {
         #expect(LayoutGrid.dimensions(aspect: 1.6) == (12, 8))
         #expect(LayoutGrid.dimensions(aspect: 3.56) == (24, 6))
