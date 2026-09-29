@@ -275,10 +275,13 @@ final class Router: ObservableObject {
             .sink { [weak self] _ in self?.generation.advance() }
             .store(in: &cancellables)
 
+        // @Published willSet'te yayar: tarama bir sonraki turda, yeni kurallar
+        // yazıldıktan sonra başlasın (yoksa eski kural listesini okurdu).
         store.$document
             .map(\.rules)
             .removeDuplicates()
             .dropFirst()
+            .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.reapplyAll() }
             .store(in: &cancellables)
 
@@ -1093,7 +1096,9 @@ final class Router: ObservableObject {
         // Duraklatılmışken de geçici pinli pencereler listelenir ve yaşam
         // denetimi sürer.
         let sessionIDs = Set(self.sessionPins.keys)
-        validateFreeMoves()
+        // Ekranlar yatışırken mod geçici olabilir; izin yatışınca
+        // (`settled` → `reapplyAll`) kalıcı moda göre denetlenir.
+        if routing { validateFreeMoves() }
         let free = Self.activeFreeMoves(freeMoves, now: Date())
         let mode = screens.mode
         let connected = screens.screens
