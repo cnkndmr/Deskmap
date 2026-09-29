@@ -186,3 +186,20 @@ struct AutoScrollTests {
         #expect(UIState.target(at: CGPoint(x: 400, y: -40), targets: targets, viewports: []) == .tray)
     }
 }
+
+struct WindowHeightTests {
+
+    @Test func panelGrowsTheWindowInsteadOfTheMap() {
+        // Büyük ekran: panel açık da olsa harita aynı yükseklikte.
+        let closed = RootView.mapHeight(chrome: 120, panel: 0, screen: 1400)
+        let open = RootView.mapHeight(chrome: 120, panel: 320, screen: 1400)
+        #expect(closed == RootView.windowSize.height - 120)
+        #expect(open == closed)
+    }
+
+    @Test func shrinksOnlyByTheOverflowAndNeverBelowTheMinimum() {
+        // 950 pt ekran: 950 - 12 - 120 - 320 = 498.
+        #expect(RootView.mapHeight(chrome: 120, panel: 320, screen: 950) == 498)
+        #expect(RootView.mapHeight(chrome: 120, panel: 700, screen: 950) == RootView.minMapHeight)
+    }
+}

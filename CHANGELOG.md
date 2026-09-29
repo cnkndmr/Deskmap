@@ -8,6 +8,10 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **The window grows for the pin panel**: clicking a window or pin opens its
+  panel below the map and the window grows downward; the map keeps its
+  height. Only when the screen is too short does the map give up the
+  difference.
 - **Wider map with a sidebar** (900 × 740). *Different between setups* and
   *Unassigned windows* sit in a left sidebar that is always visible, so a
   window is dragged sideways onto a desktop instead of up the whole map.

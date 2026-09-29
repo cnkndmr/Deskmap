@@ -30,6 +30,31 @@ struct RootView: View {
     /// Pencere boyutu ve sol kenar çubuğunun genişliği.
     static let windowSize = CGSize(width: 900, height: 740)
     static let sidebarWidth: CGFloat = 290
+    /// Alt panel açıkken bile haritaya kalan en az yükseklik.
+    static let minMapHeight: CGFloat = 260
+    /// Pencerenin ekranın kullanılabilir alanının altında bıraktığı boşluk.
+    static let screenMargin: CGFloat = 12
+
+    /// Ölçülen yükseklikler: "top" (üst çubuklar), "panel" (alt panel),
+    /// "bottom" (alt çubuk). Harita alanı bunlardan hesaplanır.
+    @State private var heights: [String: CGFloat] = [:]
+
+    /// Harita alanının (kenar çubuğu + harita) yüksekliği (saf): panel
+    /// kapalıyken pencere `windowSize.height` olur; panel açılınca pencere
+    /// aşağı uzar, harita daralmaz. Ekrana sığmazsa yalnız taşan kadar
+    /// harita kısalır (en az `minMapHeight`).
+    nonisolated static func mapHeight(chrome: CGFloat, panel: CGFloat,
+                                      screen: CGFloat) -> CGFloat {
+        let preferred = windowSize.height - chrome
+        let fits = screen - screenMargin - chrome - panel
+        return max(minMapHeight, min(preferred, fits))
+    }
+
+    private var mapHeight: CGFloat {
+        Self.mapHeight(chrome: (heights["top"] ?? 90) + (heights["bottom"] ?? 36),
+                       panel: heights["panel"] ?? 0,
+                       screen: NSScreen.main?.visibleFrame.height ?? 900)
+    }
 
     /// Sürüklerken: pinli pencere bırakılınca kaydedilen hedef güncellenir,
     /// pinsiz pencere yalnız bir kez taşınır.
@@ -47,6 +72,7 @@ struct RootView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            VStack(spacing: 0) {
             header
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
@@ -61,6 +87,8 @@ struct RootView: View {
             }
 
             Divider()
+            }
+            .measuresHeight("top")
 
             HStack(spacing: 0) {
                 // Sol: kurulumlar arası farklar ve sahipsiz pencereler; hep
@@ -123,15 +151,23 @@ struct RootView: View {
                 ui.autoScroll.update(point: drag?.location,
                                      viewport: ui.viewports["map"] ?? .zero)
             }
+            .frame(height: mapHeight)
 
+            // Panel haritadan yer almaz: pencere aşağı doğru uzar.
             bottomPanel
+                .measuresHeight("panel")
 
-            Divider()
-            footer
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+            VStack(spacing: 0) {
+                Divider()
+                footer
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+            }
+            .measuresHeight("bottom")
         }
-        .frame(width: Self.windowSize.width, height: Self.windowSize.height)
+        .frame(width: Self.windowSize.width)
+        .fixedSize(horizontal: false, vertical: true)
+        .onPreferenceChange(HeightPreference.self) { heights = $0 }
         .background(.regularMaterial)
         .onAppear {
             mode = screens.mode
@@ -539,5 +575,23 @@ private struct WindowVisibilityObserver: NSViewRepresentable {
         }
 
         deinit { tokens.forEach(NotificationCenter.default.removeObserver) }
+    }
+}
+
+/// Alt görünümlerin ölçülen yükseklikleri (anahtar → yükseklik).
+struct HeightPreference: PreferenceKey {
+    static let defaultValue: [String: CGFloat] = [:]
+    static func reduce(value: inout [String: CGFloat], nextValue: () -> [String: CGFloat]) {
+        value.merge(nextValue()) { $1 }
+    }
+}
+
+extension View {
+    /// Görünümün yüksekliğini `HeightPreference` ile bildirir.
+    func measuresHeight(_ key: String) -> some View {
+        background(GeometryReader { geometry in
+            Color.clear.preference(key: HeightPreference.self,
+                                   value: [key: geometry.size.height])
+        })
     }
 }
