@@ -45,11 +45,16 @@ struct DeskmapApp: App {
                 .environmentObject(permission)
                 .environmentObject(ui)
         } label: {
-            MenuBarLabel(health: AppHealth.state(
-                enabled: store.document.enabled,
-                trusted: permission.isTrusted,
-                requiredSettingsOK: MacSettings.allRequiredOK(MacSettings.checks()),
-                movesDegraded: router.moveHealth.state == .degraded))
+            MenuBarLabel(
+                health: AppHealth.state(
+                    enabled: store.document.enabled,
+                    trusted: permission.isTrusted,
+                    requiredSettingsOK: MacSettings.allRequiredOK(MacSettings.checks()),
+                    movesDegraded: router.moveHealth.state == .degraded),
+                // Haritanın "Sahipsiz pencereler" kutusuyla aynı sayım.
+                unassigned: ScreenMapView.unownedWindows(
+                    router.windows, rules: store.document.rules,
+                    sessionPins: router.sessionPins).count)
         }
         .menuBarExtraStyle(.window)
     }
@@ -112,11 +117,20 @@ enum SingleInstance {
 /// Menü çubuğu simgesi: paketteki `MenuBarIcon.png` (şablon, @1x/@2x) —
 /// paket dışında (`swift run`) ya da dosya yoksa SF Symbol'a düşer.
 /// Üç durum: hazır (uygulama simgesi), duraklatıldı, ilgi gerekiyor.
-private struct MenuBarLabel: View {
+/// Hazırken hiçbir kurulumda pini olmayan pencere varsa simgenin sağ
+/// üstünde sayı rozeti çıkar.
+struct MenuBarLabel: View {
     let health: AppHealth
+    var unassigned = 0
 
     var body: some View {
-        icon.accessibilityLabel(health.label).help(health.label)
+        icon.accessibilityLabel(text).help(text)
+    }
+
+    private var text: String {
+        guard health == .ready, unassigned > 0 else { return health.label }
+        return health.label + " · " + (unassigned == 1
+            ? L("1 unassigned window") : L("%ld unassigned windows", unassigned))
     }
 
     @ViewBuilder private var icon: some View {
@@ -127,11 +141,60 @@ private struct MenuBarLabel: View {
             Image(systemName: "pause.rectangle")
         case .ready:
             if let icon = Self.icon {
-                Image(nsImage: icon)
+                Image(nsImage: unassigned > 0 ? Self.badged(icon, count: unassigned) : icon)
             } else {
                 Image(systemName: "rectangle.on.rectangle")
             }
         }
+    }
+
+    /// Rozet metni (saf): 1…9, fazlası "9+".
+    static func badgeText(_ count: Int) -> String {
+        count > 9 ? "9+" : "\(max(count, 0))"
+    }
+
+    /// Sayı başına bir kez çizilir.
+    @MainActor private static var badgeCache: [String: NSImage] = [:]
+
+    /// Simgenin sağ üstüne oyulmuş rozet: rozetin çevresi boşaltılır, rozet
+    /// dolu çizilir, rakamlar rozetten oyulur. Şablon resim olarak kalır;
+    /// açık/koyu menü çubuğunda sistem simgeleri gibi renklenir.
+    @MainActor static func badged(_ base: NSImage, count: Int) -> NSImage {
+        let text = badgeText(count)
+        if let cached = badgeCache[text] { return cached }
+        let font = NSFont.systemFont(ofSize: 8, weight: .heavy)
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.black]
+        let textSize = (text as NSString).size(withAttributes: attributes)
+        let height: CGFloat = 10
+        let width = max(height, ceil(textSize.width) + 4)
+        let iconSize = base.size
+        let size = NSSize(width: iconSize.width + width / 2, height: iconSize.height)
+        let badge = NSRect(x: size.width - width, y: size.height - height, width: width, height: height)
+        let image = NSImage(size: size, flipped: false) { _ in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            base.draw(in: NSRect(origin: .zero, size: iconSize))
+            // Rozetin çevresinde ince boşluk (simgeden ayrılsın).
+            context.setBlendMode(.clear)
+            context.addPath(CGPath(roundedRect: badge.insetBy(dx: -1.5, dy: -1.5),
+                                   cornerWidth: height / 2 + 1.5, cornerHeight: height / 2 + 1.5,
+                                   transform: nil))
+            context.fillPath()
+            context.setBlendMode(.normal)
+            context.setFillColor(NSColor.black.cgColor)
+            context.addPath(CGPath(roundedRect: badge, cornerWidth: height / 2,
+                                   cornerHeight: height / 2, transform: nil))
+            context.fillPath()
+            // Rakamlar rozetten oyulur.
+            context.setBlendMode(.destinationOut)
+            (text as NSString).draw(
+                at: NSPoint(x: badge.midX - textSize.width / 2,
+                            y: badge.midY - textSize.height / 2),
+                withAttributes: attributes)
+            return true
+        }
+        image.isTemplate = true
+        badgeCache[text] = image
+        return image
     }
 
     private static let icon: NSImage? = {

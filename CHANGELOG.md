@@ -8,6 +8,10 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Menu bar badge**: the menu bar icon shows how many open windows have no
+  pin in either setup (the *Unassigned windows* count; 9+ above nine, none
+  at zero). The badge is cut into the template icon, so it follows light and
+  dark menu bars; the tooltip says the count.
 - **Layout grid**: the layout editor draws the target display at its real
   shape as a grid (12 × 8 cells, 24 × 6 on ultrawide displays); drag across
   it to choose an area. The percent fields stay for fine tuning.

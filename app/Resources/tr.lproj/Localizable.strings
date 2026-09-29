@@ -288,3 +288,5 @@
 "Anchor" = "Sabitleme";
 "Right 70%" = "Sağ %70";
 "Left 30%" = "Sol %30";
+"1 unassigned window" = "1 sahipsiz pencere";
+"%ld unassigned windows" = "%ld sahipsiz pencere";

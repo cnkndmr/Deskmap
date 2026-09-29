@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import Testing
@@ -250,5 +251,24 @@ struct WindowHeightTests {
         #expect(WindowRoomReader.room(windowTop: 940, visible: visible, margin: 12) == 858)
         // Henüz yerleşmemiş pencere (ekran dışı): kullanılabilir üst kenar.
         #expect(WindowRoomReader.room(windowTop: 5000, visible: visible, margin: 12) == 863)
+    }
+}
+
+@MainActor
+struct MenuBarBadgeTests {
+
+    @Test func badgeTextCapsAtNine() {
+        #expect(MenuBarLabel.badgeText(1) == "1")
+        #expect(MenuBarLabel.badgeText(9) == "9")
+        #expect(MenuBarLabel.badgeText(12) == "9+")
+    }
+
+    @Test func badgedIconIsATemplateAndWiderThanTheIcon() {
+        let base = NSImage(size: NSSize(width: 22, height: 16), flipped: false) { rect in
+            NSColor.black.setFill(); rect.fill(); return true
+        }
+        let badged = MenuBarLabel.badged(base, count: 4)
+        #expect(badged.isTemplate)
+        #expect(badged.size.width > 22 && badged.size.height == 16)
     }
 }
