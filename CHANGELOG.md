@@ -12,7 +12,9 @@ number comes from the `VERSION` file.
   panel below the map and the window grows downward; the map keeps its
   height. Only when the screen is too short does the map give up the
   difference.
-- **Wider map with a sidebar** (900 × 740). *Different between setups* and
+- **Wider map with a sidebar**, sized relative to the screen it opens on
+  (53 % × 70 % of the usable area, 660–1100 × 480–900 pt, never larger than
+  the screen; about 900 × 750 on a 14" MacBook Pro). *Different between setups* and
   *Unassigned windows* sit in a left sidebar that is always visible, so a
   window is dragged sideways onto a desktop instead of up the whole map.
 - **Auto-scroll while dragging**: holding a dragged item near the top or

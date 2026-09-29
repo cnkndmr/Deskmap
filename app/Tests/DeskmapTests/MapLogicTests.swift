@@ -189,27 +189,28 @@ struct AutoScrollTests {
 
 struct WindowHeightTests {
 
-    private func total(_ chrome: CGFloat, _ panel: CGFloat, _ room: CGFloat) -> CGFloat {
-        let h = RootView.heights(chrome: chrome, panel: panel, room: room)
+    private func total(_ chrome: CGFloat, _ panel: CGFloat, _ room: CGFloat,
+                       _ preferred: CGFloat = 740) -> CGFloat {
+        let h = RootView.heights(chrome: chrome, panel: panel, room: room, preferredTotal: preferred)
         return chrome + h.map + min(panel, h.panelCap ?? panel)
     }
 
     @Test func panelGrowsTheWindowInsteadOfTheMap() {
-        let closed = RootView.heights(chrome: 120, panel: 0, room: 1400)
-        let open = RootView.heights(chrome: 120, panel: 320, room: 1400)
-        #expect(closed.map == RootView.windowSize.height - 120)
+        let closed = RootView.heights(chrome: 120, panel: 0, room: 1400, preferredTotal: 740)
+        let open = RootView.heights(chrome: 120, panel: 320, room: 1400, preferredTotal: 740)
+        #expect(closed.map == 620)
         #expect(open.map == closed.map)
         #expect(open.panelCap == nil)
     }
 
     @Test func shrinksTheMapByTheOverflowOnly() {
         // 900 pt alan: 900 - 120 - 320 = 460.
-        let h = RootView.heights(chrome: 120, panel: 320, room: 900)
+        let h = RootView.heights(chrome: 120, panel: 320, room: 900, preferredTotal: 740)
         #expect(h.map == 460 && h.panelCap == nil)
     }
 
     @Test func panelScrollsWhenEvenTheMinimumMapDoesNotFit() {
-        let h = RootView.heights(chrome: 120, panel: 500, room: 700)
+        let h = RootView.heights(chrome: 120, panel: 500, room: 700, preferredTotal: 740)
         #expect(h.map == RootView.minMapHeight)
         #expect(h.panelCap == 700 - 120 - RootView.minMapHeight)
     }
@@ -218,11 +219,30 @@ struct WindowHeightTests {
         for room in stride(from: CGFloat(100), through: 1600, by: 37) {
             for panel in stride(from: CGFloat(0), through: 900, by: 53) {
                 for chrome in [CGFloat(80), 126, 170] {
-                    #expect(total(chrome, panel, room) <= max(room, chrome) + 0.001,
+                    let preferred = RootView.preferredHeight(visibleHeight: room)
+                    #expect(total(chrome, panel, room, preferred) <= max(room, chrome) + 0.001,
                             "room \(room) panel \(panel) chrome \(chrome)")
                 }
             }
         }
+    }
+
+    @Test func sizeIsRelativeToTheScreen() {
+        // Bu Mac'in laptop ekranı (1710×1074 pt): ≈ 906×752.
+        #expect(abs(RootView.windowWidth(visibleWidth: 1710) - 906) < 1)
+        #expect(abs(RootView.preferredHeight(visibleHeight: 1074) - 752) < 1)
+        // Küçük ekran (1280×775, ör. 13" varsayılan): alt sınır, ekrana sığar.
+        #expect(abs(RootView.windowWidth(visibleWidth: 1280) - 678.4) < 0.01)
+        #expect(RootView.windowWidth(visibleWidth: 1024) == RootView.minWindowWidth)
+        #expect(RootView.preferredHeight(visibleHeight: 775) < 775)
+        // Çok dar ekran: ekrandan geniş olmaz.
+        #expect(RootView.windowWidth(visibleWidth: 600) == 600 - 2 * RootView.screenMargin)
+        // Çok büyük ekran: üst sınır.
+        #expect(RootView.windowWidth(visibleWidth: 5120) == RootView.maxWindowWidth)
+        #expect(RootView.preferredHeight(visibleHeight: 1410) == RootView.maxWindowHeight)
+        // Kenar çubuğu pencereyle orantılı, sınırlar içinde.
+        #expect(RootView.sidebarWidth(windowWidth: 660) == 220)
+        #expect(RootView.sidebarWidth(windowWidth: 1100) == 300)
     }
 
     @Test func roomUsesTheWindowTopOrTheVisibleTop() {

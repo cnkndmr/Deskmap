@@ -28,8 +28,34 @@ struct RootView: View {
     /// Router'ın son işlemi alt çubukta bu kadar kalır; sonra genel ipucu döner.
     static let actionFade: TimeInterval = 30
     /// Pencere boyutu ve sol kenar çubuğunun genişliği.
-    static let windowSize = CGSize(width: 900, height: 740)
-    static let sidebarWidth: CGFloat = 290
+    /// Pencere boyutu ekranın kullanılabilir alanına oranlıdır (sabit pt
+    /// değil): 1710×1074 pt'lik ekranda ≈ 900×750. Alt/üst sınırlar küçük
+    /// ekranda okunurluğu, büyük ekranda gereksiz büyümeyi önler; üst sınır
+    /// her zaman ekranın kendisidir (taşma yok).
+    static let widthFraction: CGFloat = 0.53
+    static let heightFraction: CGFloat = 0.70
+    static let minWindowWidth: CGFloat = 660
+    static let maxWindowWidth: CGFloat = 1100
+    static let minWindowHeight: CGFloat = 480
+    static let maxWindowHeight: CGFloat = 900
+
+    /// Pencere genişliği (saf): ekranın oranı, sınırlar içinde, ekrandan
+    /// geniş değil.
+    nonisolated static func windowWidth(visibleWidth: CGFloat) -> CGFloat {
+        let wanted = min(max(visibleWidth * widthFraction, minWindowWidth), maxWindowWidth)
+        return max(min(wanted, visibleWidth - 2 * screenMargin), 0)
+    }
+
+    /// Panel kapalıyken istenen toplam yükseklik (saf); ekrana sığdırma
+    /// `heights` içinde yapılır.
+    nonisolated static func preferredHeight(visibleHeight: CGFloat) -> CGFloat {
+        min(max(visibleHeight * heightFraction, minWindowHeight), maxWindowHeight)
+    }
+
+    /// Sol kenar çubuğu genişliği (saf): pencerenin üçte birine yakın.
+    nonisolated static func sidebarWidth(windowWidth: CGFloat) -> CGFloat {
+        min(max(windowWidth * 0.32, 220), 300)
+    }
     /// Alt panel açıkken bile haritaya kalan en az yükseklik.
     static let minMapHeight: CGFloat = 260
     /// Pencerenin ekranın kullanılabilir alanının altında bıraktığı boşluk.
@@ -43,33 +69,44 @@ struct RootView: View {
     /// kenarına (Dock ve menü çubuğu hariç) kadar olan yükseklik, eksi
     /// `screenMargin`. `WindowRoomReader` pencere ekran değiştirince ya da
     /// çözünürlük değişince yeniler; bilinmiyorsa nil.
-    @State private var room: CGFloat?
+    @State private var room: WindowRoom?
 
     /// Harita alanı (kenar çubuğu + harita) ve alt panelin tavanı (saf).
     /// `room`: pencereye düşen toplam yükseklik; `chrome`: üst ve alt
     /// çubuklar; `panel`: panelin doğal yüksekliği (kapalıysa 0).
     ///
-    /// - Panel kapalıyken pencere `windowSize.height` olur (sığarsa).
+    /// - Panel kapalıyken pencere `preferredTotal` olur (sığarsa).
     /// - Panel açılınca pencere aşağı uzar, harita daralmaz.
     /// - Sığmazsa önce harita taşan kadar kısalır, en az `minMapHeight`
     ///   (çok küçük ekranda alanın yarısı) kalır; panel yine sığmazsa
     ///   `panelCap` yüksekliğinde kendi içinde kayar.
     ///
     /// Sonuç her zaman: chrome + map + min(panel, panelCap) ≤ room.
-    nonisolated static func heights(chrome: CGFloat, panel: CGFloat, room: CGFloat)
+    nonisolated static func heights(chrome: CGFloat, panel: CGFloat, room: CGFloat,
+                                    preferredTotal: CGFloat)
         -> (map: CGFloat, panelCap: CGFloat?) {
-        let preferred = windowSize.height - chrome
+        let preferred = preferredTotal - chrome
         let space = max(room - chrome, 0)
         let map = max(min(preferred, max(space - panel, min(minMapHeight, space / 2))), 0)
         let left = space - map
         return (map, panel > left ? max(left, 0) : nil)
     }
 
+    /// Ölçüm gelene dek ana ekrana göre tahmin.
+    private var currentRoom: WindowRoom {
+        if let room { return room }
+        let visible = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1440, height: 860)
+        return WindowRoom(height: visible.height - Self.screenMargin, visible: visible)
+    }
+
+    private var windowWidth: CGFloat { Self.windowWidth(visibleWidth: currentRoom.visible.width) }
+
     private var layoutHeights: (map: CGFloat, panelCap: CGFloat?) {
-        let fallback = (NSScreen.main?.visibleFrame.height ?? 900) - Self.screenMargin
+        let room = currentRoom
         return Self.heights(chrome: (heights["top"] ?? 90) + (heights["bottom"] ?? 36),
                             panel: heights["panel"] ?? 0,
-                            room: room ?? fallback)
+                            room: room.height,
+                            preferredTotal: Self.preferredHeight(visibleHeight: room.visible.height))
     }
 
     /// Sürüklerken: pinli pencere bırakılınca kaydedilen hedef güncellenir,
@@ -118,9 +155,9 @@ struct RootView: View {
                     }
                     .padding(12)
                     // Uzun içerik (çip + yer) sütunu yana taşırmasın.
-                    .frame(width: Self.sidebarWidth)
+                    .frame(width: Self.sidebarWidth(windowWidth: windowWidth))
                 }
-                .frame(width: Self.sidebarWidth)
+                .frame(width: Self.sidebarWidth(windowWidth: windowWidth))
                 .reportsViewport("sidebar")
 
                 Divider()
@@ -190,7 +227,7 @@ struct RootView: View {
             }
             .measuresHeight("bottom")
         }
-        .frame(width: Self.windowSize.width)
+        .frame(width: windowWidth)
         .fixedSize(horizontal: false, vertical: true)
         .onPreferenceChange(HeightPreference.self) { heights = $0 }
         .background(WindowRoomReader(margin: Self.screenMargin) { room = $0 })
@@ -622,6 +659,13 @@ extension View {
     }
 }
 
+/// Pencerenin ekranındaki yer: üst kenarından aşağı kullanılabilir yükseklik
+/// ve ekranın kullanılabilir alanının boyutu (oranlı pencere boyutu için).
+struct WindowRoom: Equatable {
+    var height: CGFloat
+    var visible: CGSize
+}
+
 /// Pencerenin bulunduğu ekranda aşağıya doğru ne kadar yer olduğunu
 /// bildirir: pencerenin üst kenarı (menü çubuğunun altı) ile ekranın
 /// kullanılabilir alanının alt kenarı arası, eksi pay. Pencere başka ekrana
@@ -629,7 +673,7 @@ extension View {
 struct WindowRoomReader: NSViewRepresentable {
 
     let margin: CGFloat
-    let changed: (CGFloat?) -> Void
+    let changed: (WindowRoom) -> Void
 
     func makeNSView(context: Context) -> NSView { Probe(margin: margin, changed: changed) }
     func updateNSView(_ view: NSView, context: Context) {}
@@ -644,11 +688,11 @@ struct WindowRoomReader: NSViewRepresentable {
 
     private final class Probe: NSView {
         let margin: CGFloat
-        let changed: (CGFloat?) -> Void
-        private var last: CGFloat?
+        let changed: (WindowRoom) -> Void
+        private var last: WindowRoom?
         private var tokens: [NSObjectProtocol] = []
 
-        init(margin: CGFloat, changed: @escaping (CGFloat?) -> Void) {
+        init(margin: CGFloat, changed: @escaping (WindowRoom) -> Void) {
             self.margin = margin
             self.changed = changed
             super.init(frame: .zero)
@@ -676,13 +720,15 @@ struct WindowRoomReader: NSViewRepresentable {
 
         private func measure() {
             guard let window, let screen = window.screen else { return }
-            let room = WindowRoomReader.room(windowTop: window.frame.maxY,
-                                             visible: screen.visibleFrame, margin: margin)
+            let room = WindowRoom(
+                height: WindowRoomReader.room(windowTop: window.frame.maxY,
+                                              visible: screen.visibleFrame, margin: margin),
+                visible: screen.visibleFrame.size)
             guard room != last else { return }
             last = room
             Log.app.notice("""
-                Map window room: \(Int(room)) pt on \(screen.localizedName, privacy: .public) \
-                (visible \(Int(screen.visibleFrame.height)) pt)
+                Map window room: \(Int(room.height)) pt on \(screen.localizedName, privacy: .public) \
+                (visible \(Int(room.visible.width))×\(Int(room.visible.height)) pt)
                 """)
             // Görünüm güncellemesi sırasında durum değiştirilmesin.
             DispatchQueue.main.async { [changed] in changed(room) }
