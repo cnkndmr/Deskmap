@@ -55,6 +55,7 @@ struct RulePanel: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var screens: ScreenService
+    @EnvironmentObject private var router: Router
 
     /// Parça düzenleme taslağı: uyan ilk pencerenin başlık bölümleri ve
     /// seçim. Parçalar kurala aittir, moddan bağımsızdır; bu yüzden diğer
@@ -109,13 +110,21 @@ struct RulePanel: View {
         }
     }
 
-    /// Serbest hareket izninin verileceği pencereler: panel bir satırdan
-    /// açıldıysa o pencere, çipten açıldıysa kurala uyan bütün pencereler.
+    /// Serbest hareket izninin verileceği pencereler: yalnız bu kuralın
+    /// gerçekten yönettiği pencereler (oturum pinli ya da daha özgül bir
+    /// kurala düşen pencere değil). Panel bir satırdan açıldıysa yalnız o
+    /// pencere; o pencere kapandıysa hiçbiri (kapsam sessizce genişlemesin).
     private var freeMoveTargets: [CGWindowID] {
-        if let id = ui.panelSourceWindowID, matching.contains(where: { $0.id == id }) {
-            return [id]
+        guard rule[mode] != nil else { return [] }
+        let governed = ui.windows.filter {
+            Routing.select(rules: store.document.rules, sessionPins: router.sessionPins,
+                           mode: mode, windowID: $0.id, bundleID: $0.bundleID,
+                           appName: $0.appName, title: $0.title)?.rule?.id == rule.id
+        }.map(\.id)
+        if let id = ui.panelSourceWindowID {
+            return governed.contains(id) ? [id] : []
         }
-        return matching.map(\.id)
+        return governed
     }
 
     /// Ölçünün okunacağı pencere: panel bir satırdan açıldıysa o satırın
@@ -190,7 +199,6 @@ struct RulePanel: View {
             }
             .onAppear { reset(title) }
             .onChange(of: title) { reset($0) }
-            .onChange(of: rule.id) { _ in reset(title) }
         } else {
             VStack(alignment: .leading, spacing: 6) {
                 FlowLayout(spacing: 6) {

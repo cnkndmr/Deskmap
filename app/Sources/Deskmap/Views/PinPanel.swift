@@ -113,7 +113,6 @@ struct PinPanel: View {
             }
         }
         .onAppear { reset() }
-        .onChange(of: draft.window.id) { _ in reset() }
     }
 
     private var footnote: String {

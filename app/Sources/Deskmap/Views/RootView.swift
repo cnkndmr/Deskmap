@@ -200,11 +200,18 @@ struct RootView: View {
     private var bottomPanel: some View {
         switch ui.panel {
         case .pin(let draft) where mode == screens.mode:
+            // Kimlik pencereye bağlı: başka pencereye geçince @State
+            // (başlık parçaları, düzen) eski pencereden kalmasın.
             PinPanel(draft: draft, mode: mode)
+                .id(draft.window.id)
                 .bottomPanelChrome()
         case .rule(let id):
             if let rule = store.rule(id) {
+                // Kimlik kurala bağlı: başka kurala geçince parça seçimi
+                // eski kuraldan kalmasın (macOS 13 onChange'i eski
+                // gövdenin kapanışını çağırıp eski başlığı geri yazıyordu).
                 RulePanel(rule: rule, mode: mode)
+                    .id(rule.id)
                     .bottomPanelChrome()
             }
         case .session(let id):

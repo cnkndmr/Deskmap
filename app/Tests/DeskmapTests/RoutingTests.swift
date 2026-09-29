@@ -110,6 +110,17 @@ struct FreeMoveTests {
         #expect(Router.activeFreeMoves(until, now: now) == [1])
     }
 
+    @Test func grantHoldsOnlyForItsTarget() {
+        let d2 = Destination(screen: "builtin", desktop: 2, layout: .full)
+        var moved = d2
+        moved.desktop = 3
+        var resized = d2
+        resized.layout = WindowLayout(x: 0, y: 0, w: 0.5, h: 1)
+        #expect(Router.freeMoveHolds(grantedFor: d2, current: d2))
+        #expect(!Router.freeMoveHolds(grantedFor: d2, current: moved))
+        #expect(!Router.freeMoveHolds(grantedFor: d2, current: resized))
+    }
+
     @Test func remainingText() {
         #expect(Router.freeMoveRemaining(0) == "0:00")
         #expect(Router.freeMoveRemaining(4.2) == "0:05")
