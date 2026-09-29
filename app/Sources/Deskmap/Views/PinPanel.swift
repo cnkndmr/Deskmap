@@ -94,7 +94,8 @@ struct PinPanel: View {
 
             Divider()
 
-            LayoutEditor(layout: $layout)
+            LayoutEditor(layout: $layout,
+                         screen: store.screens(for: mode).first { $0.id == draft.target.screen })
 
             HStack {
                 Text(footnote)

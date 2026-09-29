@@ -2,12 +2,58 @@ import Foundation
 
 // MARK: - Düzen
 
-/// Ekranın kullanılabilir alanına göre 0..1 oranları.
+/// Ekranın kullanılabilir alanına göre 0..1 oranları; ya da `fixed`
+/// verilmişse sabit boyut (pt) ve sabitleme noktası (oranlar yok sayılır).
 struct WindowLayout: Codable, Equatable, Hashable {
     var x: Double = 0
     var y: Double = 0
     var w: Double = 1
     var h: Double = 1
+    /// Sabit boyut: her ekranda aynı boyut (ekrandan büyükse ekrana
+    /// sığdırılır). nil = oranlı düzen. Eski kayıtlarda yok (nil okunur).
+    var fixed: FixedSize?
+
+    /// Sabit boyutlu düzen: pt cinsinden boyut ve kullanılabilir alandaki
+    /// sabitleme noktası.
+    struct FixedSize: Codable, Equatable, Hashable {
+        var width: Double
+        var height: Double
+        var anchor: Anchor = .center
+    }
+
+    /// 3 × 3 sabitleme noktası.
+    enum Anchor: String, Codable, CaseIterable, Hashable {
+        case topLeft, top, topRight, left, center, right, bottomLeft, bottom, bottomRight
+
+        /// Yatay ve dikey konum: 0 = sol/üst, 0,5 = orta, 1 = sağ/alt.
+        var unit: (x: Double, y: Double) {
+            switch self {
+            case .topLeft: return (0, 0)
+            case .top: return (0.5, 0)
+            case .topRight: return (1, 0)
+            case .left: return (0, 0.5)
+            case .center: return (0.5, 0.5)
+            case .right: return (1, 0.5)
+            case .bottomLeft: return (0, 1)
+            case .bottom: return (0.5, 1)
+            case .bottomRight: return (1, 1)
+            }
+        }
+
+        var label: String {
+            switch self {
+            case .topLeft: return L("Top left")
+            case .top: return L("Top")
+            case .topRight: return L("Top right")
+            case .left: return L("Left")
+            case .center: return L("Center")
+            case .right: return L("Right")
+            case .bottomLeft: return L("Bottom left")
+            case .bottom: return L("Bottom")
+            case .bottomRight: return L("Bottom right")
+            }
+        }
+    }
 
     /// Pencerenin gerçek çerçevesinden (AX koordinatları) ekranın
     /// kullanılabilir alanına göre oranlar. Pin, o anki çerçeveyi böyle
@@ -29,6 +75,12 @@ struct WindowLayout: Codable, Equatable, Hashable {
         self.x = x; self.y = y; self.w = w; self.h = h
     }
 
+    /// Sabit boyutlu düzen.
+    init(fixed: FixedSize) {
+        self.init()
+        self.fixed = fixed
+    }
+
     static let full       = WindowLayout(x: 0,   y: 0,   w: 1,   h: 1)
     static let leftHalf   = WindowLayout(x: 0,   y: 0,   w: 0.5, h: 1)
     static let rightHalf  = WindowLayout(x: 0.5, y: 0,   w: 0.5, h: 1)
@@ -38,13 +90,48 @@ struct WindowLayout: Codable, Equatable, Hashable {
     static let bottomHalf = WindowLayout(x: 0,   y: 0.5, w: 1,   h: 0.5)
     static let center     = WindowLayout(x: 0.1, y: 0.1, w: 0.8, h: 0.8)
 
-    /// Düzen seçicide gösterilen hazır seçenekler.
+    static let leftThird       = WindowLayout(x: 0,       y: 0, w: 1.0 / 3, h: 1)
+    static let centerThird     = WindowLayout(x: 1.0 / 3, y: 0, w: 1.0 / 3, h: 1)
+    static let rightThird      = WindowLayout(x: 2.0 / 3, y: 0, w: 1.0 / 3, h: 1)
+    static let leftTwoThirds   = WindowLayout(x: 0,       y: 0, w: 2.0 / 3, h: 1)
+    static let rightTwoThirds  = WindowLayout(x: 1.0 / 3, y: 0, w: 2.0 / 3, h: 1)
+    static let centerHalf      = WindowLayout(x: 0.25,    y: 0, w: 0.5, h: 1)
+    static let leftQuarter     = WindowLayout(x: 0,       y: 0, w: 0.25, h: 1)
+    static let rightQuarter    = WindowLayout(x: 0.75,    y: 0, w: 0.25, h: 1)
+    static let topLeft         = WindowLayout(x: 0,   y: 0,   w: 0.5, h: 0.5)
+    static let topRight        = WindowLayout(x: 0.5, y: 0,   w: 0.5, h: 0.5)
+    static let bottomLeft      = WindowLayout(x: 0,   y: 0.5, w: 0.5, h: 0.5)
+    static let bottomRight     = WindowLayout(x: 0.5, y: 0.5, w: 0.5, h: 0.5)
+
+    /// Bu en-boy oranından (genişlik / yükseklik) itibaren ekran ultra geniş
+    /// sayılır (21:9 ≈ 2,33; 32:9 ≈ 3,56).
+    static let ultrawideAspect = 2.2
+
+    /// Eski sabit liste (belgelerde ve testlerde); seçici `presets(aspect:)`
+    /// kullanır.
     static let presets: [WindowLayout] = [
         .full, .leftHalf, .rightHalf, .left70, .right30,
         .topHalf, .bottomHalf, .center,
     ]
 
+    /// Hedef ekranın şekline göre hazır düzenler: ultra genişte sütunlar
+    /// (üçte bir, üçte iki, çeyrek, ortada yarım), normal ekranda yarımlar,
+    /// köşeler ve orta.
+    static func presets(aspect: Double) -> [WindowLayout] {
+        if aspect >= ultrawideAspect {
+            return [.full, .leftHalf, .rightHalf, .leftThird, .centerThird, .rightThird,
+                    .leftTwoThirds, .rightTwoThirds, .centerHalf, .leftQuarter, .rightQuarter,
+                    .center]
+        }
+        return [.full, .leftHalf, .rightHalf, .left70, .right30, .topHalf, .bottomHalf,
+                .topLeft, .topRight, .bottomLeft, .bottomRight, .center]
+    }
+
     var label: String {
+        if let fixed {
+            return L("%ld × %ld pt · %@", Int(fixed.width.rounded()), Int(fixed.height.rounded()),
+                     fixed.anchor.label)
+        }
         switch self {
         case .full:       return L("Full")
         case .leftHalf:   return L("Left half")
@@ -54,13 +141,36 @@ struct WindowLayout: Codable, Equatable, Hashable {
         case .topHalf:    return L("Top half")
         case .bottomHalf: return L("Bottom half")
         case .center:     return L("Center")
+        case .leftThird:      return L("Left third")
+        case .centerThird:    return L("Center third")
+        case .rightThird:     return L("Right third")
+        case .leftTwoThirds:  return L("Left two thirds")
+        case .rightTwoThirds: return L("Right two thirds")
+        case .centerHalf:     return L("Center half")
+        case .leftQuarter:    return L("Left quarter")
+        case .rightQuarter:   return L("Right quarter")
+        case .topLeft:        return L("Top left quarter")
+        case .topRight:       return L("Top right quarter")
+        case .bottomLeft:     return L("Bottom left quarter")
+        case .bottomRight:    return L("Bottom right quarter")
         default:
             return L("%ld%% × %ld%%", Int((w * 100).rounded()), Int((h * 100).rounded()))
         }
     }
 
     /// Verilen dikdörtgen içinde düzenin karşılık geldiği alan.
-    func rect(in area: CGRect) -> CGRect {
+    /// `pointsPerUnit`: sabit boyutlu düzende 1 pt'nin `area` içinde kaç
+    /// birim olduğu (önizleme küçültülmüş ekran çizer; gerçek yerleşimde 1).
+    func rect(in area: CGRect, pointsPerUnit: CGFloat = 1) -> CGRect {
+        if let fixed {
+            let width = min(CGFloat(fixed.width) * pointsPerUnit, area.width)
+            let height = min(CGFloat(fixed.height) * pointsPerUnit, area.height)
+            let unit = fixed.anchor.unit
+            return CGRect(
+                x: area.minX + (area.width - width) * unit.x,
+                y: area.minY + (area.height - height) * unit.y,
+                width: width, height: height)
+        }
         let cx = min(max(x, 0), 1)
         let cy = min(max(y, 0), 1)
         let cw = min(max(w, 0.05), 1 - cx)

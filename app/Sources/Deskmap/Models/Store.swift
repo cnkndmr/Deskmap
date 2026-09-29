@@ -7,6 +7,19 @@ struct KnownScreen: Codable, Equatable, Identifiable, Hashable {
     var id: String        // builtin, external, external-2 ...
     var name: String
     var aspect: Double    // genişlik / yükseklik
+    /// Kullanılabilir alanın boyutu (pt); sabit boyutlu düzen önizlemesi
+    /// için. Eski kayıtlarda yok.
+    var visibleWidth: Double?
+    var visibleHeight: Double?
+
+    /// Önizleme için kullanılabilir alan; bilinmiyorsa en-boy oranından
+    /// 1000 pt yüksekliğe göre tahmin.
+    var visibleSize: CGSize {
+        if let visibleWidth, let visibleHeight, visibleWidth > 0, visibleHeight > 0 {
+            return CGSize(width: visibleWidth, height: visibleHeight)
+        }
+        return CGSize(width: 1000 * max(aspect, 0.5), height: 1000)
+    }
 
     var isBuiltin: Bool { id == "builtin" }
 }

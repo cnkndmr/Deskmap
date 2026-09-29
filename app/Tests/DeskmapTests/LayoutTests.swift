@@ -109,3 +109,65 @@ struct LayoutTests {
         #expect(Coordinates.close(a, a.offsetBy(dx: 10, dy: 0), tolerance: 10))
     }
 }
+
+struct LayoutToolTests {
+
+    private let area = CGRect(x: 0, y: 0, width: 5120, height: 1410)
+
+    @Test func fixedSizeIsPlacedAtItsAnchorAndFittedToTheArea() {
+        let fixed = WindowLayout(fixed: .init(width: 1400, height: 900, anchor: .center))
+        #expect(fixed.rect(in: area) == CGRect(x: 1860, y: 255, width: 1400, height: 900))
+        let corner = WindowLayout(fixed: .init(width: 1400, height: 900, anchor: .bottomRight))
+        #expect(corner.rect(in: area) == CGRect(x: 3720, y: 510, width: 1400, height: 900))
+        // Ekrandan büyük: alana sığdırılır.
+        let huge = WindowLayout(fixed: .init(width: 9000, height: 3000, anchor: .topLeft))
+        #expect(huge.rect(in: area) == area)
+        // Önizleme ölçeği: 1 pt = 0,1 birim.
+        let preview = CGRect(x: 0, y: 0, width: 512, height: 141)
+        #expect(fixed.rect(in: preview, pointsPerUnit: 0.1).width == 140)
+    }
+
+    @Test func oldLayoutsDecodeWithoutFixedAndRoundTrip() throws {
+        let old = try JSONDecoder().decode(WindowLayout.self,
+                                           from: Data(#"{"x":0,"y":0,"w":0.5,"h":1}"#.utf8))
+        #expect(old == .leftHalf && old.fixed == nil)
+        let fixed = WindowLayout(fixed: .init(width: 1200, height: 800, anchor: .top))
+        let back = try JSONDecoder().decode(WindowLayout.self, from: JSONEncoder().encode(fixed))
+        #expect(back == fixed)
+        // Oranlı düzen kodlanırken "fixed" anahtarı yazılmaz (eski sürümler okuyabilsin).
+        let json = String(decoding: try JSONEncoder().encode(WindowLayout.leftHalf), as: UTF8.self)
+        #expect(!json.contains("fixed"))
+    }
+
+    @Test func presetsFollowTheDisplayShape() {
+        let wide = WindowLayout.presets(aspect: 5120.0 / 1440)
+        #expect(wide.contains(.leftThird) && wide.contains(.centerHalf) && !wide.contains(.topHalf))
+        let laptop = WindowLayout.presets(aspect: 1.6)
+        #expect(laptop.contains(.topLeft) && laptop.contains(.topHalf) && !laptop.contains(.leftThird))
+    }
+
+    @Test func gridIsFinerOnUltrawideAndSelectsCellRanges() {
+        #expect(LayoutGrid.dimensions(aspect: 1.6) == (12, 8))
+        #expect(LayoutGrid.dimensions(aspect: 3.56) == (24, 6))
+        // 24 sütunda 8 sütun = üçte bir; ters yönde sürükleme de aynı alan.
+        let third = LayoutGrid.layout(from: .init(col: 7, row: 5), to: .init(col: 0, row: 0),
+                                      cols: 24, rows: 6)
+        #expect(abs(third.w - 1.0 / 3) < 1e-9 && third.h == 1 && third.x == 0)
+        let cell = LayoutGrid.cell(at: CGPoint(x: 999, y: -5), size: CGSize(width: 420, height: 118),
+                                   cols: 24, rows: 6)
+        #expect(cell == .init(col: 23, row: 0))
+    }
+
+    @Test func togglingFixedKeepsTheArea() {
+        let size = CGSize(width: 1710, height: 1074)
+        let on = LayoutEditor.toggledFixed(.center, on: true, screenSize: size)
+        #expect(on.fixed == .init(width: 1370, height: 860, anchor: .center))
+        let off = LayoutEditor.toggledFixed(on, on: false, screenSize: size)
+        #expect(off.fixed == nil && abs(off.w - 1370.0 / 1710) < 1e-9)
+        // Sabitleme noktası alanın dayandığı kenarlardan.
+        #expect(LayoutEditor.toggledFixed(.topLeft, on: true, screenSize: size).fixed?.anchor == .topLeft)
+        #expect(LayoutEditor.toggledFixed(.rightThird, on: true, screenSize: size).fixed?.anchor == .right)
+        #expect(LayoutEditor.toggledFixed(.bottomHalf, on: true, screenSize: size).fixed?.anchor == .bottom)
+        #expect(LayoutEditor.toggledFixed(.full, on: true, screenSize: size).fixed?.anchor == .center)
+    }
+}

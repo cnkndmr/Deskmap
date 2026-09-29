@@ -91,7 +91,8 @@ struct RulePanel: View {
                         var updated = store.rule(rule.id)?[mode] ?? destination
                         updated.layout = layout
                         store.setDestination(updated, for: rule.id, mode: mode)
-                    }))
+                    }),
+                    screen: store.screens(for: mode).first { $0.id == destination.screen })
                 SaveCurrentLayoutRow(
                     window: layoutSourceWindow,
                     stored: store.rule(rule.id)?[mode]?.layout ?? destination.layout,
@@ -252,6 +253,7 @@ struct SessionPinPanel: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var screens: ScreenService
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -276,7 +278,8 @@ struct SessionPinPanel: View {
                     var updated = router.sessionPins[window.id] ?? destination
                     updated.layout = layout
                     router.pinSession(window.id, destination: updated)
-                }))
+                }),
+                screen: store.screens(for: screens.mode).first { $0.id == destination.screen })
             SaveCurrentLayoutRow(
                 window: window,
                 stored: router.sessionPins[window.id]?.layout ?? destination.layout,

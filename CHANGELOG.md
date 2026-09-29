@@ -8,6 +8,16 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Layout grid**: the layout editor draws the target display at its real
+  shape as a grid (12 × 8 cells, 24 × 6 on ultrawide displays); drag across
+  it to choose an area. The percent fields stay for fine tuning.
+- **Presets per display shape**: ultrawide displays get thirds, two thirds,
+  quarters and a centered half; other displays get halves, corners and
+  center.
+- **Fixed size**: a layout can be a size in points (e.g. 1400 × 900) at one
+  of nine anchor points, the same on every display and fitted to the usable
+  area when larger. Turning it on keeps the current area and picks the
+  anchor from the edges it touches. Older rule files read unchanged.
 - **The window grows for the pin panel**: clicking a window or pin opens its
   panel below the map and the window grows downward; the map keeps its
   height. Only when the screen is too short does the map give up the

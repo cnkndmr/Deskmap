@@ -99,15 +99,28 @@ struct LayoutGlyph: View {
 
     let layout: WindowLayout
     let size: CGSize
+    /// Sabit boyutlu düzeni ölçeklemek için ekranın kullanılabilir alanı
+    /// (pt); bilinmiyorsa 14" MacBook Pro'nunki.
+    var screenSize = CGSize(width: 1710, height: 1074)
 
-    init(layout: WindowLayout, size: CGSize) {
+    init(layout: WindowLayout, size: CGSize,
+         screenSize: CGSize = CGSize(width: 1710, height: 1074)) {
         self.layout = layout
         self.size = size
+        self.screenSize = screenSize
     }
 
     /// Hazır düzen düğmeleri için standart boy.
     init(preset: WindowLayout) {
         self.init(layout: preset, size: CGSize(width: 30, height: 20))
+    }
+
+    /// Hazır düzen düğmesi boyu, ekranın oranında (saf): ultra geniş ekranda
+    /// sütunlar seçilebilsin diye daha geniş.
+    static func presetSize(aspect: Double) -> CGSize {
+        let a = max(aspect, 0.5)
+        let height: CGFloat = a >= WindowLayout.ultrawideAspect ? 14 : 20
+        return CGSize(width: min(max(height * a, 26), 50), height: height)
     }
 
     var body: some View {
@@ -116,7 +129,8 @@ struct LayoutGlyph: View {
             context.stroke(
                 Path(roundedRect: frame, cornerRadius: 2),
                 with: .foreground, lineWidth: 1)
-            let inner = layout.rect(in: frame.insetBy(dx: 1.5, dy: 1.5))
+            let area = frame.insetBy(dx: 1.5, dy: 1.5)
+            let inner = layout.rect(in: area, pointsPerUnit: area.width / max(screenSize.width, 1))
             context.fill(Path(roundedRect: inner, cornerRadius: 1), with: .foreground)
         }
         .frame(width: size.width, height: size.height)

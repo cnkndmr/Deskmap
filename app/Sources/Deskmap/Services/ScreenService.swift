@@ -14,7 +14,8 @@ struct ScreenInfo: Identifiable, Equatable, Hashable {
 
     var known: KnownScreen {
         KnownScreen(id: id, name: name,
-                    aspect: frame.height > 0 ? frame.width / frame.height : 1.6)
+                    aspect: frame.height > 0 ? frame.width / frame.height : 1.6,
+                    visibleWidth: visibleFrame.width, visibleHeight: visibleFrame.height)
     }
 
     static func uuid(of screen: NSScreen?) -> String? {
