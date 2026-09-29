@@ -189,6 +189,11 @@ final class Router: ObservableObject {
     /// (pencere, hedef) başına kaç kez düzen / masaüstü taşıması denendi;
     /// uygulama kabul etmezse belirli sayıdan sonra vazgeçilir.
     private var attempts: [String: Int] = [:]
+    /// Sabit boyutlu düzende uygulamanın gerçekten reddettiği (denemeyle
+    /// görülen) boyut, "<pencere>|refused|<hedef>" anahtarıyla. Düzen belleği
+    /// unutulsa da (yeniden uygulama) kalır: pencere zaten o boyutla doğru
+    /// noktadaysa önce yanlış yere sıçratılmaz. Kapanan pencereyle budanır.
+    private var refusedSizes: [String: CGSize] = [:]
     /// Masaüstü taşıması anahtarı başına son deneme zamanı; sınıra varılmış
     /// taşıma bir süre sonra yeniden tur alır (`Routing.recordMoveAttempt`).
     /// `attempts` ile birlikte budanır.
@@ -1115,6 +1120,7 @@ final class Router: ObservableObject {
         let connected = screens.screens
         let applied = self.applied
         let attempts = self.attempts
+        let refusedSizes = self.refusedSizes
         let lastAttempts = self.lastAttempts
         let movesAllowed = moveHealth.movesAllowed
         let token = generation.token()
@@ -1127,6 +1133,7 @@ final class Router: ObservableObject {
                                      sessionIDs: sessionIDs, free: free,
                                      mode: mode, screens: connected,
                                      applied: applied, attempts: attempts,
+                                     refusedSizes: refusedSizes,
                                      lastAttempts: lastAttempts, movesAllowed: movesAllowed,
                                      token: token)
             Task { @MainActor in
@@ -1164,7 +1171,9 @@ final class Router: ObservableObject {
                     self.appliedFloor = self.appliedFloor.filter { live[$0.key] != nil }
                     attempts = attempts.filter { isLive($0.key) }
                     lastAttempts = lastAttempts.filter { isLive($0.key) }
+                    self.refusedSizes = self.refusedSizes.filter { isLive($0.key) }
                 }
+                self.refusedSizes.merge(outcome.refusedSizes) { $1 }
                 self.applied = applied
                 self.attempts = attempts
                 self.lastAttempts = lastAttempts
@@ -1212,6 +1221,8 @@ final class Router: ObservableObject {
     private struct Outcome {
         var applied: [CGWindowID: AppliedEntry]
         var attempts: [String: Int]
+        /// Bu taramada reddi görülen sabit boyutlar (`refusedSizes`'a eklenir).
+        var refusedSizes: [String: CGSize] = [:]
         var lastAttempts: [String: Date]
         var snapshots: [WindowSnapshot] = []
         /// Pencere sunucusunun bildiği pencere numaraları → pid (oturum
@@ -1283,7 +1294,7 @@ final class Router: ObservableObject {
     nonisolated private static func route(
         rules: [Rule], sessionPins: [CGWindowID: Destination], sessionIDs: Set<CGWindowID>,
         free: Set<CGWindowID>, mode: Mode, screens: [ScreenInfo], applied: [CGWindowID: AppliedEntry],
-        attempts: [String: Int],
+        attempts: [String: Int], refusedSizes: [String: CGSize],
         lastAttempts: [String: Date], movesAllowed: Bool, token: RoutingGeneration.Token
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts, lastAttempts: lastAttempts)
@@ -1374,6 +1385,7 @@ final class Router: ObservableObject {
             let key = "\(window.id)|\(mode.rawValue)|\(destination.hashValue)"
 
             let targetFrame = Self.targetFrame(for: destination.layout, on: screen, screens: screens)
+            let refusedKey = "\(window.id)|refused|\(destination.hashValue)"
             var needsLayout = Self.needsLayout(applied: outcome.applied[window.id],
                                                target: appliedTarget) && !state.isMinimized
 
@@ -1412,11 +1424,15 @@ final class Router: ObservableObject {
                 if let frame = state.frame, Coordinates.close(frame, targetFrame) {
                     placed = true
                 } else if let frame = state.frame,
-                          destination.layout.refusesSize(frame.size, in: area),
+                          let refused = refusedSizes[refusedKey],
+                          Coordinates.close(CGRect(origin: .zero, size: frame.size),
+                                            CGRect(origin: .zero, size: refused)),
                           let anchored = destination.layout.reanchored(actualSize: frame.size, in: area),
-                          Coordinates.close(frame, anchored) {
-                    // Sabit boyutu reddeden pencere zaten doğru noktada:
-                    // yeniden uygulamada önce yanlış yere sıçratılmaz.
+                          Coordinates.close(frame.origin, anchored.origin) {
+                    // Bu hedefin boyutunu daha önce reddetmiş pencere zaten o
+                    // boyutla doğru noktada: yeniden uygulamada önce yanlış
+                    // yere sıçratılmaz. Yalnız denemeyle görülmüş red sayılır
+                    // (büyütülmüş ya da ekranı dolduran pencere küçültülür).
                     placed = true
                 } else {
                     guard token.isCurrent else { outcome.stale = true; break windowLoop }
@@ -1425,8 +1441,8 @@ final class Router: ObservableObject {
                     if let after = AX.frame(of: window) {
                         if Coordinates.close(after, targetFrame) {
                             placed = true
-                        } else if (outcome.attempts[key] ?? 0) >= 1,
-                                  destination.layout.refusesSize(after.size, in: area),
+                        } else if let tries = outcome.attempts[key], tries >= 1,
+                                  destination.layout.refusesSize(after.size, in: area) || tries >= 2,
                                   let anchored = destination.layout.reanchored(
                                     actualSize: after.size, in: area) {
                             // Sabit boyut: uygulama boyutu ikinci denemede de
@@ -1440,6 +1456,7 @@ final class Router: ObservableObject {
                             if let again = AX.frame(of: window),
                                Coordinates.close(again.origin, anchored.origin) {
                                 placed = true
+                                outcome.refusedSizes[refusedKey] = again.size
                             }
                         }
                     }

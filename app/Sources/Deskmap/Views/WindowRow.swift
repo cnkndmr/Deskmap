@@ -186,6 +186,9 @@ struct WindowRow: View {
             .onEnded { value in
                 defer { ui.drag = nil }
                 guard let target = ui.target(at: value.location) else { return }
+                // Pinsiz pencereyi tepsiye bırakmak hiçbir şey yapmaz: açık
+                // panel de kapanmaz.
+                if target == .tray, sessionPin == nil, pinnedRule == nil { return }
                 // Bilgi panelleri kapanır; başka pencerenin pin taslağı ve
                 // profil paneli tek seferlik taşımadan etkilenmez.
                 switch ui.panel {

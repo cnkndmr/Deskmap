@@ -282,7 +282,11 @@ struct RootView: View {
             let key = Document.planKey(mode: mode, screen: draft.target.screen)
             if removals[key] != before[key] { ui.panel = nil }
         }
-        .background(WindowVisibilityObserver { router.setMapVisible($0) })
+        .background(WindowVisibilityObserver { visible in
+            router.setMapVisible(visible)
+            // Pencere sürükleme sürerken kapandı: jest bitişi gelmez.
+            if !visible { ui.drag = nil }
+        })
         .onChange(of: ui.drag == nil) { idle in
             guard idle, let pending = pendingWindows else { return }
             ui.windows = pending
@@ -290,6 +294,9 @@ struct RootView: View {
         }
         .onChange(of: mode) { _ in
             ui.panel = nil
+            // Sürükleme sürerken sekme değişti: kaynağı görünümden kalkan jestin
+            // bitişi gelmez; hayalet, donmuş liste ve kaydırma kalmasın.
+            ui.drag = nil
         }
         .onChange(of: ui.windows) { windows in
             // Taslağın ya da geçici pinin penceresi kapandıysa paneli kapat.
