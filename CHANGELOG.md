@@ -110,6 +110,15 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- Layouts touching the top edge of an external display were given up after
+  every launch ("did not take layout … in 6 attempts"), and centered fixed
+  sizes sat half a menu bar too high: the first screen measurement ran before
+  the app had finished launching, when an external display's usable area
+  still comes back as the full frame (menu bar not subtracted), and nothing
+  re-measured it until the next display change. The usable area is now
+  measured again once launch has finished and shortly after; a change
+  re-applies all pins. Found by trying fixed-size pins on a real 5120 × 1440
+  display.
 - Review fixes for today's desktop features (multi-agent review, each
   finding checked by two skeptics):
   - Add/remove through Mission Control failed when "Displays have separate

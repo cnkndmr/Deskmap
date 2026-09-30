@@ -60,6 +60,9 @@ final class ScreenService: ObservableObject {
     // kaldırılır; gözlemci belirteci Sendable olmadığı için deinit erişimi
     // başka türlü sıkı eşzamanlılık uyarısı verir.
     nonisolated(unsafe) private var observer: NSObjectProtocol?
+    nonisolated(unsafe) private var launchObserver: NSObjectProtocol?
+    /// Açılış bittikten sonra ikinci ölçüme kadar beklenen süre.
+    nonisolated static let launchRecheckDelay: TimeInterval = 2
     private var settleTask: Task<Void, Never>?
     /// Süren yatışma bölümünün ilk ekran değişimi (üst sınır için).
     private var settleEpisodeStart: Date?
@@ -79,6 +82,42 @@ final class ScreenService: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor in self?.screensChanged() }
         }
+        // İlk ölçüm `AppModel` kurulurken, uygulama pencere sunucusuna tam
+        // bağlanmadan yapılır: o anda harici ekranın kullanılabilir alanı
+        // menü çubuğu düşülmeden (tam çerçeve) gelir ve ekran bildirimi
+        // olmadan düzelmez. Üst kenara dayanan her düzen menü çubuğunun
+        // altına hedeflenir, pencere tutmaz ("Layout given up"); ortalanan
+        // sabit boyut yarım menü çubuğu kadar yukarı kayar. Açılış bitince
+        // ve kısa bir süre sonra yeniden ölçülür.
+        launchObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didFinishLaunchingNotification,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.remeasureAfterLaunch() }
+        }
+    }
+
+    private func remeasureAfterLaunch() {
+        adoptIfChanged()
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(Self.launchRecheckDelay * 1_000_000_000))
+            self?.adoptIfChanged()
+        }
+    }
+
+    /// Ölçüm değiştiyse benimser ve yeniden yerleştirmeyi tetikler. Ekran
+    /// değişimi yatışırken dokunmaz: yatışma zaten yeniden ölçer.
+    private func adoptIfChanged() {
+        guard !isSettling else { return }
+        let detected = Self.detect()
+        guard detected != screens else { return }
+        screens = detected
+        Log.screens.notice("""
+            Usable area re-measured after launch: \
+            \(detected.map { "\($0.id) \(Int($0.visibleFrame.width))×\(Int($0.visibleFrame.height))" }
+                .joined(separator: ", "), privacy: .public)
+            """)
+        settled.send()
     }
 
     /// Shots modu (`--shots`): `NSScreen` gözlemcisi eklenmez, `refresh()`
@@ -90,6 +129,7 @@ final class ScreenService: ObservableObject {
 
     deinit {
         if let observer { NotificationCenter.default.removeObserver(observer) }
+        if let launchObserver { NotificationCenter.default.removeObserver(launchObserver) }
     }
 
     var isDocked: Bool { screens.contains { !$0.isBuiltin } }
