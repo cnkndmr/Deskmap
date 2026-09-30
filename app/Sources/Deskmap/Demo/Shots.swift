@@ -146,6 +146,16 @@ enum Shots {
         ui.panel = .rule(DemoData.messagesRuleID)
         capture("03-layout")
 
+        // 06 — serbest hareket: pinli pencerenin panelinde kalan süre ve
+        // satırında sayaç. (Numara sonradan eklendi; sıra burada çünkü aynı
+        // panel açık.)
+        let freed = world.windows
+            .filter { $0.appName == "Messages" && $0.id != DemoData.unpinnedMessagesWindowID }
+            .map(\.id)
+        router.allowFreeMove(freed, for: 15 * 60)
+        capture("06-free-move")
+        router.endFreeMove(freed)
+
         // 04 — profiller: profil paneli, iki profil görünür.
         ui.panel = .profile
         capture("04-profiles")

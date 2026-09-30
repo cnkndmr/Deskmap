@@ -39,6 +39,14 @@ Integrity Protection stays on.
     <td align="center"><b>The map</b><br><sub>One card per display, one row per desktop, every window where it lives.</sub></td>
     <td align="center"><b>Pin by title</b><br><sub>Pick the part of the title that names the workspace; choose a layout.</sub></td>
   </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/images/en/03-layout.png" alt="A pin's panel: title parts, a layout grid and presets"></td>
+    <td width="50%" align="center"><img src="docs/images/en/06-free-move.png" alt="A pinned window with 15 minutes of free movement; the row shows the time left"></td>
+  </tr>
+  <tr>
+    <td align="center"><b>Layouts</b><br><sub>Drag an area on the grid, pick a preset, or set a fixed size.</sub></td>
+    <td align="center"><b>Free move</b><br><sub>Let a pinned window roam for a while; it goes home when the time is up.</sub></td>
+  </tr>
 </table>
 
 ## What it does
@@ -90,6 +98,9 @@ Integrity Protection stays on.
   resize it, take it to another desktop; when the time is up it goes home.
 - **Right-click the menu bar icon** to start a free move for the window in
   front, without opening the map.
+
+  <img src="docs/images/en/07-menu.png" width="372" alt="The right-click menu: the window in front and a Free move submenu with durations">
+
 - **Pause** everything with one switch.
 
 ### Everything else
