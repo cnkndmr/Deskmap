@@ -8,6 +8,10 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Opens on the window you were using**: clicking the menu bar icon selects
+  the window you last clicked, as if you had clicked its row: the map scrolls
+  to it and its panel opens (pin settings, or a pin draft if it has no pin).
+  A panel left open from last time no longer stays on an unrelated window.
 - **Menu bar badge**: the menu bar icon shows how many open windows have no
   pin in either setup (the *Unassigned windows* count; 9+ above nine, none
   at zero). The badge is cut into the template icon, so it follows light and

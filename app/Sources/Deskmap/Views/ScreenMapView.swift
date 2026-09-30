@@ -228,6 +228,7 @@ private struct FullscreenRow: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
+                    .id(WindowAnchor(id: window.id))
                 }
             }
             Spacer(minLength: 0)
@@ -453,6 +454,7 @@ private struct DesktopRow: View {
     private func groupView(_ group: AppGroup) -> some View {
         if group.windows.count == 1, let window = group.windows.first {
             WindowRow(window: window, mode: mode, showsApp: true)
+                .id(WindowAnchor(id: window.id))
         } else {
             let key = "\(screen.id)|\(desktop)|\(group.id)"
             let collapsed = ui.collapsed.contains(key)
@@ -494,6 +496,7 @@ private struct DesktopRow: View {
                     ForEach(group.windows) { window in
                         WindowRow(window: window, mode: mode, showsApp: false)
                             .padding(.leading, 16)
+                            .id(WindowAnchor(id: window.id))
                     }
                 }
             }

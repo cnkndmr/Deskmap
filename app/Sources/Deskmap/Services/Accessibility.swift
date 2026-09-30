@@ -603,6 +603,27 @@ enum AX {
         return ServerWindow(id: number, pid: pid, name: name)
     }
 
+    /// Bir uygulamanın en öndeki normal penceresi (saf). `list` önden arkaya
+    /// sıralı olmalı (`optionOnScreenOnly` okuması); süzgeç `serverWindow`
+    /// ile aynı: katman 0, görünür, 50 pt'den büyük.
+    static func frontWindowID(in list: [[String: Any]], pid: pid_t) -> CGWindowID? {
+        list.lazy.compactMap(serverWindow(from:)).first { $0.pid == pid }?.id
+    }
+
+    /// Kullanıcının en son tıkladığı pencere: menü çubuğunun sahibi
+    /// uygulamanın en öndeki penceresi. Menü çubuğu penceremiz açılınca
+    /// Deskmap öne geçse de menü çubuğu sahibi önceki uygulama kalır
+    /// (aksesuar uygulama menü çubuğunu almaz). AX'e sorulmaz.
+    static func frontWindowID() -> CGWindowID? {
+        guard let app = NSWorkspace.shared.menuBarOwningApplication,
+              app.processIdentifier != ProcessInfo.processInfo.processIdentifier,
+              let list = CGWindowListCopyWindowInfo(
+                [.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)
+                as? [[String: Any]]
+        else { return nil }
+        return frontWindowID(in: list, pid: app.processIdentifier)
+    }
+
     /// Pencere sunucusunun şu an bildiği bütün pencere numaraları → sahip
     /// pid (bkz. `WindowServerList.live`). Açılışta oturum pinleri için.
     static func liveWindowIDs() -> [CGWindowID: pid_t] {

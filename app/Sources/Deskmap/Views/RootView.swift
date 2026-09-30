@@ -21,6 +21,13 @@ struct RootView: View {
     @State private var loginStatus: SMAppService.Status = SMAppService.mainApp.status
     /// Sürükleme sırasında gelen tarama sonucu; sürükleme bitince uygulanır.
     @State private var pendingWindows: [Router.WindowSnapshot]?
+    /// Harita ekranda mı (örtülme bildirimi aynı durumu yineleyebilir).
+    @State private var mapShown = false
+    /// Harita açıldığında öndeki pencere; listede görününce seçilir. Yeni
+    /// açılmış pencere ilk taramayı bekleyebilir; süre dolunca vazgeçilir.
+    @State private var pendingFront: (id: CGWindowID, until: Date, applied: Bool)?
+    @State private var mapShownAt = Date.distantPast
+    @State private var revealSeq = 0
     /// Alt çubuktaki süreli iletiler ("Geri al", son işlem) için saat;
     /// yalnızca bir ileti düşeceği anda yenilenir, sürekli zamanlayıcı yok.
     @State private var now = Date()
@@ -170,6 +177,7 @@ struct RootView: View {
 
                 Divider()
 
+            ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 14) {
                     if !permission.isTrusted {
@@ -192,6 +200,16 @@ struct RootView: View {
                 .background(EnclosingScrollViewReader { ui.autoScroll.scrollView = $0 })
             }
             .reportsViewport("map")
+            .onChange(of: ui.reveal) { request in
+                guard let request else { return }
+                // Panel açılınca harita daralır; yerleşim bittikten sonra kaydır.
+                DispatchQueue.main.async {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(WindowAnchor(id: request.window), anchor: .center)
+                    }
+                }
+            }
+            }
             }
             // Sürükleme koordinatları ve bırakma hedefleri iki sütunu da
             // kapsar; hayalet de burada çizilir (sütunlar arasında kırpılmaz).
@@ -254,6 +272,7 @@ struct RootView: View {
             } else {
                 pendingWindows = windows
             }
+            selectFrontWindow(in: windows)
             // Kullanıcı Sistem Ayarları'nda düzeltince kart kendiliğinden güncellensin.
             let checks = MacSettings.checks()
             if checks != settingChecks { settingChecks = checks }
@@ -282,6 +301,9 @@ struct RootView: View {
             router.setMapVisible(visible)
             // Pencere sürükleme sürerken kapandı: jest bitişi gelmez.
             if !visible { ui.drag = nil }
+            guard visible != mapShown else { return }
+            mapShown = visible
+            if visible { showFrontWindow() } else { pendingFront = nil }
         })
         .onChange(of: ui.drag == nil) { idle in
             guard idle, let pending = pendingWindows else { return }
@@ -293,6 +315,9 @@ struct RootView: View {
             // Sürükleme sürerken sekme değişti: kaynağı görünümden kalkan jestin
             // bitişi gelmez; hayalet, donmuş liste ve kaydırma kalmasın.
             ui.drag = nil
+            // Harita açılışı canlı sekmeye geçirdiyse öndeki pencere şimdi seçilir.
+            selectFrontWindow(in: router.windows,
+                              reapply: Date().timeIntervalSince(mapShownAt) < 0.5)
         }
         .onChange(of: ui.windows) { windows in
             // Taslağın ya da geçici pinin penceresi kapandıysa paneli kapat.
@@ -351,6 +376,47 @@ struct RootView: View {
         guard let action = router.status.lastAction, let at = router.status.lastActionAt,
               now.timeIntervalSince(at) < Self.actionFade else { return nil }
         return action
+    }
+
+    /// Harita açıldı: önceki açılıştan kalan panel kapanır, kullanıcının en
+    /// son tıkladığı pencere satırına tıklanmış gibi seçilir ve görünür
+    /// yere kaydırılır. Öndeki pencere yoksa (masaüstü, penceresiz uygulama)
+    /// yalnız panel kapanır.
+    private func showFrontWindow() {
+        ui.panel = nil
+        ui.panelSourceWindowID = nil
+        mapShownAt = Date()
+        pendingFront = AX.frontWindowID().map { ($0, Date().addingTimeInterval(2), false) }
+        selectFrontWindow(in: router.windows)
+    }
+
+    /// `reapply`: seçim yapıldıktan sonra sekme değişimi paneli kapattıysa
+    /// yeniden seçilir (uygulamanın ilk açılışında `onAppear` sekmeyi ayarlar,
+    /// `onChange` seçimden sonra gelebilir).
+    private func selectFrontWindow(in windows: [Router.WindowSnapshot], reapply: Bool = false) {
+        guard let pending = pendingFront else { return }
+        guard Date() < pending.until else { pendingFront = nil; return }
+        guard !pending.applied || reapply else { return }
+        guard let window = windows.first(where: { $0.id == pending.id }) else { return }
+        // Canlı pencereler yalnız canlı kurulumun sekmesinde listelenir;
+        // sekme değişimi paneli kapattıktan sonra burası yeniden çağrılır.
+        if mode != screens.mode { mode = screens.mode; return }
+        pendingFront?.applied = true
+        let sessionPinned = router.sessionPins[window.id] != nil
+        let rule: Rule? = Routing.select(
+            rules: store.document.rules, sessionPins: [:], mode: mode,
+            windowID: window.id, bundleID: window.bundleID,
+            appName: window.appName, title: window.title)?.rule
+        ui.panel = UIState.openingPanel(for: window, sessionPinned: sessionPinned,
+                                        ruleID: rule?.id)
+        ui.panelSourceWindowID = sessionPinned || rule == nil ? nil : window.id
+        if let placement = window.placement {
+            let group = window.bundleID.isEmpty ? window.appName : window.bundleID
+            ui.collapsed.remove("\(placement.screen)|\(placement.desktop)|\(group)")
+        }
+        revealSeq += 1
+        ui.reveal = RevealRequest(window: window.id, seq: revealSeq)
+        Log.app.notice("Map opened on front window \(window.id) (\(window.appName, privacy: .public))")
     }
 
     private func syncScreens() {

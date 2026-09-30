@@ -31,6 +31,16 @@ struct PinDraft: Equatable {
     }
 }
 
+/// Haritadaki pencere satırının kaydırma kimliği (`ScrollViewReader`).
+struct WindowAnchor: Hashable {
+    let id: CGWindowID
+}
+
+struct RevealRequest: Equatable {
+    let window: CGWindowID
+    let seq: Int
+}
+
 /// Haritanın altında açılan panel. Aynı anda yalnızca biri açık olur;
 /// tek bir değer olduğu için biri açılınca diğeri kendiliğinden kapanır.
 enum BottomPanel: Equatable {
@@ -54,6 +64,9 @@ final class UIState: ObservableObject {
     /// açıldıysa nil. "Şu anki boyutu kullan" düğmesi ölçüyü bu pencereden
     /// okur; yoksa kurala uyan ilk pencereden.
     @Published var panelSourceWindowID: CGWindowID?
+    /// Haritada görünür yere kaydırılacak pencere satırı; `seq` aynı
+    /// pencere için isteği yeniler.
+    @Published var reveal: RevealRequest?
     /// Daraltılmış uygulama grupları ("ekran|masaüstü|bundleID").
     @Published var collapsed: Set<String> = []
     /// Haritada gösterilen pencereler. Sürükleme sürerken yenilenmez.
@@ -111,6 +124,18 @@ final class UIState: ObservableObject {
     }
 
     var isProfilePanelOpen: Bool { panel == .profile }
+
+    /// Harita açılınca öndeki pencere için açılacak panel (saf): satırına
+    /// tıklanmış gibi. Geçici pinliyse onun paneli, kurala uyuyorsa kuralın
+    /// paneli, pinsizse bulunduğu masaüstüne taslak; yeri bilinmeyen ya da
+    /// tam ekrandaki pinsiz pencerede panel açılmaz.
+    nonisolated static func openingPanel(for window: Router.WindowSnapshot,
+                                         sessionPinned: Bool, ruleID: String?) -> BottomPanel? {
+        if sessionPinned { return .session(window.id) }
+        if let ruleID { return .rule(ruleID) }
+        guard window.fullscreen == nil, let placement = window.placement else { return nil }
+        return .pin(PinDraft(window: window, target: placement))
+    }
 
     /// Aynı panele tekrar tıklamak kapatır, başkasına tıklamak onu açar.
     /// `from`: paneli açan pencere satırı (çipten açılıyorsa nil).

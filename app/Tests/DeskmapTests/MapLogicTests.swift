@@ -366,4 +366,39 @@ struct UnpinnedDropTests {
         #expect(WindowRow.unpinnedDropActs(.desktop(screen: "builtin", desktop: 3), window: window, isLive: true))
         #expect(WindowRow.unpinnedDropActs(.desktop(screen: "builtin", desktop: 2), window: window, isLive: false))
     }
+
+    // MARK: Harita açılışında öndeki pencere
+
+    private func entry(_ id: UInt32, pid: Int32, layer: Int = 0,
+                       size: (Double, Double) = (800, 600)) -> [String: Any] {
+        [kCGWindowNumber as String: id, kCGWindowOwnerPID as String: pid,
+         kCGWindowLayer as String: layer,
+         kCGWindowBounds as String: ["X": 0.0, "Y": 0.0, "Width": size.0, "Height": size.1]]
+    }
+
+    @Test func frontWindowIsFirstNormalWindowOfTheApp() {
+        // Önden arkaya: başka uygulama, menü katmanı, küçük yardımcı, sonra asıl pencereler.
+        let list = [entry(1, pid: 9), entry(2, pid: 7, layer: 25),
+                    entry(3, pid: 7, size: (30, 30)), entry(4, pid: 7), entry(5, pid: 7)]
+        #expect(AX.frontWindowID(in: list, pid: 7) == 4)
+        #expect(AX.frontWindowID(in: list, pid: 8) == nil)
+    }
+
+    @Test func openingPanelMatchesClickingTheRow() {
+        let place = Router.Placement(screen: "external", desktop: 2)
+        let placed = Router.WindowSnapshot(id: 5, pid: 1, appName: "Code", bundleID: "c",
+                                           title: "t", placement: place, frame: nil,
+                                           isMinimized: false)
+        #expect(UIState.openingPanel(for: placed, sessionPinned: true, ruleID: "r")
+                == .session(5))
+        #expect(UIState.openingPanel(for: placed, sessionPinned: false, ruleID: "r")
+                == .rule("r"))
+        #expect(UIState.openingPanel(for: placed, sessionPinned: false, ruleID: nil)
+                == .pin(PinDraft(window: placed, target: place)))
+        // Yeri bilinmeyen pinsiz pencerede taslak açılmaz.
+        let unplaced = Router.WindowSnapshot(id: 6, pid: 1, appName: "Code", bundleID: "c",
+                                             title: "t", placement: nil, frame: nil,
+                                             isMinimized: false)
+        #expect(UIState.openingPanel(for: unplaced, sessionPinned: false, ruleID: nil) == nil)
+    }
 }
