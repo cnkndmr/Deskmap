@@ -20,20 +20,16 @@
 ---
 
 > [!NOTE]
-> **This is a vibe-coded project.** Deskmap was written almost entirely by AI
-> coding agents (Claude Code) under my direction. I use it every day and it is
-> covered by tests, but I have not read every line. Treat it accordingly.
-
-You open your laptop at a desk, plug in the monitor, and spend the next two
-minutes dragging windows back to where they were. Deskmap does that for you.
+> **This is a vibe-coded project.** Deskmap was written by AI coding agents in
+> Claude Code. I directed the work and use the app every day, but I have not
+> read every line.
+>
+> **Models used:** Claude Opus 5.5, Claude Opus 5, Claude Fable 5.1, Claude
+> Sonnet 5 and Claude Haiku 4.5.
 
 Pin a window once. From then on it lives on that display, that desktop
-(Space), in that layout: when it opens, when it wanders off, and when you
-plug in or unplug a monitor. Pins match the **window title**, so two VS Code
-workspaces or two Safari tab groups can live in two different places.
-
-One menu bar app. No scripts, no config file, no helper program, and System
-Integrity Protection stays on.
+(Space), in that layout: when it opens, when it wanders off, and when you plug
+in or unplug a monitor.
 
 <table>
   <tr>
@@ -41,91 +37,39 @@ Integrity Protection stays on.
     <td width="50%" align="center"><img src="docs/images/en/02-pin.png" alt="Pinning a window by the part of its title that names the workspace"></td>
   </tr>
   <tr>
-    <td align="center"><b>The map</b><br><sub>One card per display, one row per desktop, every window where it lives.</sub></td>
-    <td align="center"><b>Pin by title</b><br><sub>Pick the part of the title that names the workspace; choose a layout.</sub></td>
+    <td align="center"><b>The map</b></td>
+    <td align="center"><b>Pin by title</b></td>
   </tr>
   <tr>
     <td width="50%" align="center"><img src="docs/images/en/03-layout.png" alt="A pin's panel: title parts, a layout grid and presets"></td>
     <td width="50%" align="center"><img src="docs/images/en/06-free-move.png" alt="A pinned window with 15 minutes of free movement; the row shows the time left"></td>
   </tr>
   <tr>
-    <td align="center"><b>Layouts</b><br><sub>Drag an area on the grid, pick a preset, or set a fixed size.</sub></td>
-    <td align="center"><b>Free move</b><br><sub>Let a pinned window roam for a while; it goes home when the time is up.</sub></td>
+    <td align="center"><b>Layouts</b></td>
+    <td align="center"><b>Free move</b></td>
   </tr>
 </table>
 
-## What it does
+## Features
 
-### Pin
-
-- **By title.** Pick the part of the title that names the project, workspace
-  or tab group. Every window that carries it goes to the same place.
-- **By app.** *All windows* pins the whole app, whatever the title says.
-- **This window only.** A temporary pin for one window; it ends when the
-  window closes and leaves no rule behind.
-- **Most specific wins.** A pin with more title parts beats a broader one, so
-  "all of Safari here, but the *Work* tab group there" just works.
-
-### Place
-
-- **Display, desktop and layout in one pin.** The window is kept on its
-  desktop and gets its size and position.
-- **Draw the layout.** Drag an area on a grid shaped like the real display,
-  or pick a preset: halves, 70/30, corners; thirds and quarters on ultrawide
-  displays.
-- **Fixed size.** 1400 × 900 points at a corner, an edge or the center, the
-  same on every display.
-- **Use current size and position.** Arrange the window by hand, press one
-  button, and that becomes the pin's layout.
-
-### Two setups
-
-- **Monitor connected** and **Laptop only** are separate. Each pin has its own
-  target in each.
-- **Plug in, unplug: everything moves.** Deskmap waits for the displays to
-  settle and places every pinned window again. No hotkey, no "restore".
-
-### The map
-
-- **See everything.** One card per display, one row per desktop, every open
-  window on its row. Full-screen spaces are shown too.
-- **Drag to move.** Drag a row to another desktop or another display. A pinned
-  window's pin follows; an unpinned window just moves once.
-- **Opens on the window you were using.** Click the menu bar icon and that
-  window is already selected, its panel open.
-- **Nothing gets lost.** *Unassigned windows* lists what has no pin yet; the
-  menu bar icon shows how many.
-- **Manage desktops from the map.** Add one, remove one, drag to reorder.
-
-### Let go for a while
-
-- **Free move.** Give a pinned window 1 to 60 minutes of freedom. Move it,
-  resize it, take it to another desktop; when the time is up it goes home.
-- **Right-click the menu bar icon** to start a free move for the window in
-  front, without opening the map.
-
-  <img src="docs/images/en/07-menu.png" width="372" alt="The right-click menu: the window in front and a Free move submenu with durations">
-
-- **Pause** everything with one switch.
-
-### Everything else
-
-- **Profiles.** Named sets of pins: *Office*, *Home*, *Café*. Switch with a
-  click; export and import as a file.
-- **Undo instead of dialogs.** No "Are you sure?". Every destructive action
-  shows *Undo* for ten seconds (⌘Z).
-- **Automation.** `deskmap://` URLs for Shortcuts, Raycast, Keyboard Maestro
-  or a terminal: apply, pause, switch profile, add or remove a desktop.
-- **Light.** One `.app`, no dependencies, about 0.2 % CPU at idle.
-- **Private.** Nothing is collected, nothing is sent. Pins live in one JSON
-  file on your Mac.
-- **English and Turkish.**
+- **Pin by window title.** Two VS Code workspaces or two Safari tab groups can
+  live in two different places. Or pin the whole app, or just one window.
+- **Display, desktop and layout in one pin.** Draw the area on a grid, pick a
+  preset, or set a fixed size.
+- **Two setups.** *Monitor connected* and *Laptop only* have separate targets.
+  Plug in or unplug, and every window moves to its place.
+- **The map.** Every display, every desktop, every window. Drag a row to move
+  it. Add, remove and reorder desktops.
+- **Free move.** Let a pinned window roam for 1 to 60 minutes; then it goes
+  home. Also from a right-click on the menu bar icon.
+- **Profiles.** *Office*, *Home*, *Café*: switch with a click.
+- **Undo instead of dialogs.** ⌘Z for ten seconds after every destructive
+  action.
+- **Automation.** `deskmap://` URLs for Shortcuts, Raycast or a terminal.
+- **One small app.** No scripts, no config file, no dependencies; System
+  Integrity Protection stays on. Nothing is collected or sent.
 
 ## How it compares
-
-Deskmap is not a tiling window manager and not a snapping tool. It answers
-one question: *where does this window live?* The table lists what Deskmap
-does and whether other tools do the same.
 
 | | **Deskmap** | macOS | Rectangle Pro | Moom | Stay | ShiftPlus | yabai | AeroSpace | Hammerspoon |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
@@ -145,12 +89,9 @@ does and whether other tools do the same.
 
 ✅ built in · 🟡 partly, or with a limitation (see the notes) · ❌ not available · — does not apply (the tool does not move windows between desktops)
 
-**In short.** Rectangle Pro and Stay come closest on window titles and
-display changes, but neither moves a window to another desktop. yabai does
-move windows between desktops by rule, but it is set up in a shell script and
-has no display setups. Hammerspoon can be scripted to do most of this; you
-write and maintain the Lua. The map, temporary pins and timed free move are
-built into none of them.
+Rectangle Pro and Stay come closest, but neither moves a window to another
+desktop. yabai does, from a shell script. The map, temporary pins and timed
+free move are built into none of them.
 
 <details>
 <summary><b>Notes and sources</b> (checked on 30 September 2026 against each product's own documentation)</summary>
@@ -220,76 +161,31 @@ Products change. If something here is out of date, open an issue.
 ## Install
 
 **[Download the latest release](https://github.com/cnkndmr/Deskmap/releases/latest)**,
-unzip it and drag `Deskmap.app` to `/Applications`. It runs on macOS 13 or
-later, on Apple silicon and Intel.
+unzip it and drag `Deskmap.app` to `/Applications` (macOS 13 or later, Apple
+silicon and Intel).
 
-The app is not notarized by Apple yet, so macOS blocks the first launch:
+The app is not notarized, so macOS blocks the first launch. Open it once,
+then go to System Settings › Privacy & Security and click **Open Anyway**.
+After that, click **Grant Access** and turn on **Deskmap** under
+Accessibility. macOS asks for this permission again after each update.
 
-1. Open `Deskmap.app` once and dismiss the warning.
-2. Go to System Settings › Privacy & Security, scroll down and click
-   **Open Anyway**.
-
-Or, in a terminal: `xattr -dr com.apple.quarantine /Applications/Deskmap.app`
-
-Then click **Grant Access** and turn on **Deskmap** under System Settings ›
-Privacy & Security › Accessibility. Deskmap also checks four Mission Control
-settings and tells you which one to change
-([details](docs/reference.md#required-macos-settings)). After updating to a
-new version, macOS asks for the Accessibility permission again.
-
-<details>
-<summary>Build from source</summary>
-
-```sh
-git clone https://github.com/cnkndmr/Deskmap.git
-cd Deskmap
-make app                           # release build → build/Deskmap.app
-cp -R build/Deskmap.app /Applications/
-open /Applications/Deskmap.app
-```
-
-You need the Xcode Command Line Tools (`xcode-select --install`).
-
-</details>
-
-## Your first pin
-
-1. Click the menu bar icon. The window you were using is already selected.
-2. Choose the part of its title that identifies it, and a layout if you want
-   one.
-3. Press **Pin**.
-
-That window, and every later window with that title, now goes to this
-desktop in this layout. Switch to the other setup with ⌘1 / ⌘2 and pin it
-there too.
+To build from source: `make app` (needs the Xcode Command Line Tools).
 
 ## Documentation
 
-| | |
-|---|---|
-| [User guide](docs/guide.md) · [Türkçe kılavuz](docs/kilavuz.md) | Setup and your first pins in ten minutes |
-| [Reference](docs/reference.md) | Every rule, setting, URL command, shortcut and failure mode |
-| [Architecture](docs/architecture.md) | How the engine works and what is stored where |
-| [Privacy](docs/privacy.md) | Nothing is collected or sent |
-| [Distribution](docs/distribution.md) | Signed builds, and why the Mac App Store is not an option |
-| [Changelog](CHANGELOG.md) | What changed in each version |
+[User guide](docs/guide.md) ([Türkçe](docs/kilavuz.md)) ·
+[Reference](docs/reference.md) ·
+[Architecture](docs/architecture.md) ·
+[Privacy](docs/privacy.md) ·
+[Changelog](CHANGELOG.md)
 
 ## Good to know
 
-- **Private APIs.** macOS has no public way to move a window to another
-  desktop. Deskmap uses private system functions for that, without touching
-  System Integrity Protection. A macOS update can break them; Deskmap checks
-  every move and, if moves stop working, falls back to display and layout
-  only and tells you.
-- **Titles must tell windows apart.** If an app shows the same title on every
-  window, pin the whole app or use *This window only*.
-- **Two setups.** Monitor connected and laptop only. External displays are
-  told apart by position, left to right.
-- **Full-screen windows are left alone.**
-- **Not instant.** Windows are placed on window events, with a light check
-  every five seconds for whatever the events miss.
-
-The full list is in the [reference](docs/reference.md#limitations).
+- Moving a window to another desktop uses private macOS functions. An update
+  can break them; Deskmap then falls back to display and layout only and
+  tells you.
+- Full-screen windows are left alone.
+- [All limitations](docs/reference.md#limitations)
 
 ## License
 
