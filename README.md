@@ -17,6 +17,14 @@
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="MIT license">
 </p>
 
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=NUnXxh5U25Y">
+    <img src="https://img.youtube.com/vi/NUnXxh5U25Y/hqdefault.jpg" width="360" alt="Radiohead: Everything In Its Right Place (YouTube)">
+  </a>
+  <br>
+  <sub>▶ Radiohead, <i>Everything In Its Right Place</i></sub>
+</p>
+
 ---
 
 > [!NOTE]
