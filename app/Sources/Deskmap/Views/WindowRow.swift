@@ -159,7 +159,8 @@ struct WindowRow: View {
         } else if !wasDrafting,
                   let target = Self.draftTarget(window.placement, isLive: mode == screens.mode,
                                                 screens: store.screens(for: mode)) {
-            ui.panel = .pin(PinDraft(window: window, target: target))
+            ui.panel = .pin(PinDraft(window: window, target: target,
+                                     followsWindow: mode == screens.mode))
         }
     }
 
@@ -241,7 +242,8 @@ struct WindowRow: View {
                     } else if mode != screens.mode {
                         // Diğer kurulumun haritası: pencere şimdi taşınmaz,
                         // o kurulum için pin taslağı açılır.
-                        ui.panel = .pin(PinDraft(window: window, target: placement))
+                        ui.panel = .pin(PinDraft(window: window, target: placement,
+                                                 followsWindow: false))
                     } else if placement != window.placement,
                               window.fullscreen == nil, window.placement != nil {
                         // Pinsiz pencere: tek seferlik taşınır, kural yazılmaz.

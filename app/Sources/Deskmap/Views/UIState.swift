@@ -5,15 +5,22 @@ import SwiftUI
 struct PinDraft: Equatable {
     var window: Router.WindowSnapshot
     var target: Router.Placement
+    /// Taslak canlı kurulumun sekmesinde mi açıldı. Diğer kurulumun
+    /// sekmesinde açılan taslağın hedefini kullanıcı seçti (pencerenin yeri
+    /// değil); o kurulum sonradan canlı olsa da (monitör takılıp çıkarılınca
+    /// sekme değişmez, taslak açık kalır) hedef pencereyi izlemez.
+    var followsWindow = true
 
     /// Canlı kurulumda taslak penceresini izler (saf): pencere taslak açıkken
     /// başka masaüstüne geçtiyse (haritada sürükleme, Mission Control, masaüstü
     /// sırasının geri alınması) hedef de oraya geçer; yoksa Pin pencereyi eski
     /// masaüstüne geri çekerdi. Başlık taslağın açıldığı andaki hâliyle kalır
     /// (seçilen parçalar ona ait). Yeri bilinmeyen tarama (tam ekran, geçiş
-    /// anı) ve diğer kurulumun taslağı hedefi değiştirmez.
+    /// anı) ve diğer kurulumun taslağı (açıldığı anda ya da şimdi) hedefi
+    /// değiştirmez.
     func following(_ current: Router.WindowSnapshot, isLive: Bool) -> PinDraft {
-        guard isLive, current.id == window.id, let placement = current.placement,
+        guard followsWindow, isLive, current.id == window.id,
+              let placement = current.placement,
               placement != window.placement else { return self }
         let moved = Router.WindowSnapshot(
             id: window.id, pid: window.pid, appName: window.appName,

@@ -43,6 +43,18 @@ struct PlannedAttemptsTests {
         #expect(shorter)
     }
 
+    @Test func failedTargetIsReleasedWhenThePlanIsMetAnotherWay() {
+        // Ekleme başarısız oldu, masaüstü elle eklendi: plan silinirken hedef
+        // de bırakılır, aynı sayı sonradan yeniden planlanabilir.
+        var attempts = PlannedAttempts()
+        let add = "add|docked|external|3"
+        _ = attempts.begin(add)
+        attempts.finish(add, .failed)
+        attempts.finish(add, .done)
+        let again = attempts.begin(add)
+        #expect(again)
+    }
+
     @Test func addOutcomeFollowsTheLiveCount() {
         #expect(PlannedAttempts.addOutcome(live: 3, want: 3, interrupted: false) == .done)
         #expect(PlannedAttempts.addOutcome(live: 4, want: 3, interrupted: true) == .done)

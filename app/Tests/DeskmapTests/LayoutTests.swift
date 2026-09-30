@@ -221,6 +221,44 @@ struct BugFixTests {
             actualSize: CGSize(width: 1200, height: 900), in: shifted).origin == shifted.origin)
     }
 
+    @Test func refusedSizeIsKeptOnlyWhereARetryWouldJump() {
+        // Sağ %30, reddi görülmüş 760 pt: içeri çekilmiş pencere (x = 950)
+        // yeniden denenmez, hedef köşeye sıçratılmaz.
+        let wide = CGSize(width: 760, height: 1074)
+        let pulled = CGRect(origin: CGPoint(x: 950, y: 0), size: wide)
+        #expect(WindowLayout.right30.holdsRefused(pulled, refused: wide, in: area))
+        // Başka boyut ya da başka yer: kayıt tutmaz.
+        #expect(!WindowLayout.right30.holdsRefused(
+            pulled, refused: CGSize(width: 900, height: 1074), in: area))
+        #expect(!WindowLayout.right30.holdsRefused(
+            pulled.offsetBy(dx: -200, dy: 0), refused: wide, in: area))
+        // Sol yarı, reddi görülmüş 1000 pt: köşe hedefle aynı, yeniden deneme
+        // pencereyi oynatmaz; en küçük boyutu düşmüşse 855'e iner.
+        let grown = CGRect(x: 0, y: 0, width: 1000, height: 1074)
+        #expect(!WindowLayout.leftHalf.holdsRefused(grown, refused: grown.size, in: area))
+        // Sabit boyutta kayıt köşe aynı olsa da tutar (bilinçli, b506257).
+        let fixed = WindowLayout(fixed: .init(width: 600, height: 400, anchor: .topLeft))
+        #expect(fixed.holdsRefused(CGRect(x: 0, y: 0, width: 900, height: 700),
+                                   refused: CGSize(width: 900, height: 700), in: area))
+    }
+
+    @Test func manualMoveOverflowIsPulledBack() {
+        // Elle taşıma: geniş ekranda sağ %30'daki pencere dahili ekrana
+        // oranlarıyla gelir (x = 1197, genişlik 513); uygulama 760'ta kalır.
+        let layout = WindowLayout(frame: CGRect(x: 1792, y: 0, width: 768, height: 1074),
+                                  in: CGRect(x: 0, y: 0, width: 2560, height: 1074))
+        let kept = CGRect(x: 1197, y: 0, width: 760, height: 1074)
+        #expect(layout.overflowFix(for: kept, in: area)
+                == CGRect(x: 950, y: 0, width: 760, height: 1074))
+        // Boyut kabul edildi ya da küçük kaldı: dokunulmaz.
+        #expect(layout.overflowFix(for: layout.rect(in: area), in: area) == nil)
+        #expect(layout.overflowFix(
+            for: CGRect(x: 1197, y: 0, width: 400, height: 900), in: area) == nil)
+        // Köşesi hedefte olmayan okuma bayat: eski boyutla çerçeve verilmez.
+        #expect(layout.overflowFix(
+            for: CGRect(x: 1792, y: 0, width: 768, height: 1074), in: area) == nil)
+    }
+
     @Test func fixedLayoutsCarryAProportionalFallbackForOlderVersions() {
         let layout = WindowLayout(fixed: .init(width: 855, height: 1074, anchor: .left),
                                   screenSize: area.size)

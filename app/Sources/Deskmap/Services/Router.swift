@@ -189,10 +189,11 @@ final class Router: ObservableObject {
     /// (pencere, hedef) başına kaç kez düzen / masaüstü taşıması denendi;
     /// uygulama kabul etmezse belirli sayıdan sonra vazgeçilir.
     private var attempts: [String: Int] = [:]
-    /// Sabit boyutlu düzende uygulamanın gerçekten reddettiği (denemeyle
-    /// görülen) boyut, "<pencere>|refused|<hedef>" anahtarıyla. Düzen belleği
-    /// unutulsa da (yeniden uygulama) kalır: pencere zaten o boyutla doğru
-    /// noktadaysa önce yanlış yere sıçratılmaz. Kapanan pencereyle budanır.
+    /// Uygulamanın gerçekten reddettiği (denemeyle görülen) boyut,
+    /// "<pencere>|refused|<hedef>" anahtarıyla; sabit boyutlu ve oranlı
+    /// düzende. Düzen belleği unutulsa da (yeniden uygulama) kalır: pencere
+    /// zaten o boyutla doğru noktadaysa önce yanlış yere sıçratılmaz
+    /// (`WindowLayout.holdsRefused`). Kapanan pencereyle budanır.
     private var refusedSizes: [String: CGSize] = [:]
     /// Masaüstü taşıması anahtarı başına son deneme zamanı; sınıra varılmış
     /// taşıma bir süre sonra yeniden tur alır (`Routing.recordMoveAttempt`).
@@ -972,6 +973,12 @@ final class Router: ObservableObject {
                         continue
                     }
                     guard await self.removeDesktopNow(on: screenID, desktop: index) else {
+                        // İşlem sürerken ekran değiştiyse başarısızlık gerçek
+                        // değil: bildirilmez, hedef bırakılır.
+                        guard self.screens.mode == mode, !self.screens.isSettling else {
+                            outcome = .interrupted
+                            return
+                        }
                         self.store.report(L("Could not remove desktop %ld on %@", index, screenID))
                         outcome = .failed
                         return
@@ -988,11 +995,15 @@ final class Router: ObservableObject {
         for screen in screens.screens {
             let want = store.document.plannedDesktops(mode: mode, screen: screen.id)
             guard want > 0, let have = desktopCounts[screen.id] else { continue }
+            let key = "add|\(mode.rawValue)|\(screen.id)|\(want)"
             guard want > have else {
+                // Plan başka yoldan karşılandı (elle eklenen masaüstü):
+                // önceki başarısız denemenin hedefi de bırakılır, aynı sayı
+                // sonradan yeniden planlanabilsin.
                 store.clearPlannedDesktops(mode: mode, screen: screen.id)
+                plannedAttempts.finish(key, .done)
                 continue
             }
-            let key = "add|\(mode.rawValue)|\(screen.id)|\(want)"
             guard plannedAttempts.begin(key) else { continue }
             desktopOpInFlight = true
             let uuid = screen.uuid, screenID = screen.id
@@ -1013,6 +1024,11 @@ final class Router: ObservableObject {
                     // Tarama anlık görüntüsü değil, o anki sayı (ekranlar yeni yatışmış olabilir).
                     guard let now = self.liveDesktopCount(uuid: uuid), now < want else { break }
                     guard await self.addDesktopNow(on: screenID) else {
+                        // İşlem sürerken ekran değiştiyse kesilme sayılır.
+                        guard self.screens.mode == mode, !self.screens.isSettling else {
+                            interrupted = true
+                            break
+                        }
                         self.store.report(L("Could not add a desktop to %@", screenID))
                         return
                     }
@@ -1085,6 +1101,17 @@ final class Router: ObservableObject {
                     return
                 }
                 AX.setFrame(layout.rect(in: targetArea), of: window)
+                // Uygulama boyutu reddettiyse (en küçük boyutu hedeften
+                // büyük) pencere hedef ekranın sağından/altından taşar;
+                // pinsiz pencereye tarama düzen vermez, burada içeri çekilir.
+                if let after = AX.frame(of: window),
+                   let pulled = layout.overflowFix(for: after, in: targetArea) {
+                    guard token.isCurrent else {
+                        Log.routing.notice("Manual move dropped: routing changed (window \(windowID))")
+                        return
+                    }
+                    AX.setFrame(pulled, of: window)
+                }
             }
 
             let appName = window?.appName ?? snapshot?.appName ?? "?"
@@ -1237,7 +1264,7 @@ final class Router: ObservableObject {
     private struct Outcome {
         var applied: [CGWindowID: AppliedEntry]
         var attempts: [String: Int]
-        /// Bu taramada reddi görülen sabit boyutlar (`refusedSizes`'a eklenir).
+        /// Bu taramada reddi görülen boyutlar (`refusedSizes`'a eklenir).
         var refusedSizes: [String: CGSize] = [:]
         var lastAttempts: [String: Date]
         var snapshots: [WindowSnapshot] = []
@@ -1444,14 +1471,13 @@ final class Router: ObservableObject {
                     placed = true
                 } else if let frame = state.frame,
                           let refused = refusedSizes[refusedKey],
-                          Coordinates.close(CGRect(origin: .zero, size: frame.size),
-                                            CGRect(origin: .zero, size: refused)),
-                          Coordinates.close(frame.origin, destination.layout.reanchored(
-                            actualSize: frame.size, in: area).origin) {
+                          destination.layout.holdsRefused(frame, refused: refused, in: area) {
                     // Bu hedefin boyutunu daha önce reddetmiş pencere zaten o
                     // boyutla doğru noktada: yeniden uygulamada önce yanlış
                     // yere sıçratılmaz. Yalnız denemeyle görülmüş red sayılır
                     // (büyütülmüş ya da ekranı dolduran pencere küçültülür).
+                    // Oranlı düzende köşesi hedefte duran pencere yeniden
+                    // denenir (sıçramaz; en küçük boyutu düşmüş olabilir).
                     placed = true
                 } else {
                     guard token.isCurrent else { outcome.stale = true; break windowLoop }

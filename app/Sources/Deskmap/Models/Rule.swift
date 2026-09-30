@@ -142,7 +142,32 @@ struct WindowLayout: Codable, Equatable, Hashable {
             width: actualSize.width, height: actualSize.height)
     }
 
-    static let full       = WindowLayout(x: 0,   y: 0,   w: 1,   h: 1)
+    /// Reddi denemeyle görülmüş boyuttaki pencere yeniden denenmeden yerleşmiş
+    /// sayılır mı (saf): o boyutla `reanchored` noktasında duruyorsa hedef
+    /// çerçeveyi yeniden vermek onu önce yanlış yere sıçratır. Oranlı düzende
+    /// bu yalnız pencere içeri çekilmişken geçerli; köşesi hedefin köşesiyse
+    /// yeniden deneme pencereyi oynatmaz ve uygulama artık hedef boyutu kabul
+    /// ediyorsa (en küçük boyutu düşmüşse) pencere küçülür.
+    func holdsRefused(_ frame: CGRect, refused: CGSize, in area: CGRect) -> Bool {
+        guard Coordinates.close(CGRect(origin: .zero, size: frame.size),
+                                CGRect(origin: .zero, size: refused)) else { return false }
+        let anchored = reanchored(actualSize: frame.size, in: area).origin
+        guard Coordinates.close(frame.origin, anchored) else { return false }
+        return fixed != nil || !Coordinates.close(anchored, rect(in: area).origin)
+    }
+
+    /// Tek seferlik yerleştirmeden (elle taşıma) sonra okunan çerçeve için
+    /// düzeltme (saf): uygulama boyutu reddedip alanın sağından/altından
+    /// taşıyorsa gerçek boyutla içeri çekilmiş çerçeve, gerekmiyorsa nil.
+    /// Köşesi hedefte olmayan okuma bayat sayılır (gecikmeli AX): eski
+    /// boyutla çerçeve verilmez.
+    func overflowFix(for actual: CGRect, in area: CGRect) -> CGRect? {
+        guard Coordinates.close(actual.origin, rect(in: area).origin) else { return nil }
+        let anchored = reanchored(actualSize: actual.size, in: area)
+        return Coordinates.close(actual, anchored) ? nil : anchored
+    }
+
+    static let full      = WindowLayout(x: 0,   y: 0,   w: 1,   h: 1)
     static let leftHalf   = WindowLayout(x: 0,   y: 0,   w: 0.5, h: 1)
     static let rightHalf  = WindowLayout(x: 0.5, y: 0,   w: 0.5, h: 1)
     static let left70     = WindowLayout(x: 0,   y: 0,   w: 0.7, h: 1)

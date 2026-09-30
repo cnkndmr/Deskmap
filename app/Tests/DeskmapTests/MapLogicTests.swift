@@ -331,6 +331,15 @@ struct LiveDraftFollowTests {
         #expect(draft.following(window(second), isLive: false) == draft)
     }
 
+    @Test func draftOpenedInTheOtherSetupKeepsItsTargetWhenThatSetupGoesLive() {
+        // Undocked sekmesinde harici ekrandaki pencere dahili · Masaüstü 2'ye
+        // bırakıldı; monitör çıkınca sekme canlı olur, macOS pencereyi
+        // dahili · Masaüstü 1'e alır. Kullanıcının seçtiği hedef kalır.
+        let external = Router.Placement(screen: "external", desktop: 1)
+        let draft = PinDraft(window: window(external), target: second, followsWindow: false)
+        #expect(draft.following(window(first), isLive: true) == draft)
+    }
+
     @Test func droppedDraftSurvivesAStaleScanAndSettlesOnTheMove() {
         // Bırakma hedefi hemen yeni masaüstüne alır; pencere eski yerinde
         // görünen ara tarama taslağı geri çevirmez.
