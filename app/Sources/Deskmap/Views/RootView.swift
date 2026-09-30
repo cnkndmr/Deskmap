@@ -25,7 +25,7 @@ struct RootView: View {
     @State private var mapShown = false
     /// Harita açıldığında öndeki pencere; listede görününce seçilir. Yeni
     /// açılmış pencere ilk taramayı bekleyebilir; süre dolunca vazgeçilir.
-    @State private var pendingFront: (id: CGWindowID, until: Date, applied: Bool, draft: PinDraft?)?
+    @State private var pendingFront: (id: CGWindowID, until: Date, applied: Bool)?
     @State private var mapShownAt = Date.distantPast
     @State private var revealSeq = 0
     /// Alt çubuktaki süreli iletiler ("Geri al", son işlem) için saat;
@@ -273,7 +273,6 @@ struct RootView: View {
                 pendingWindows = windows
             }
             selectFrontWindow(in: windows)
-            refreshFrontDraft(in: windows)
             // Kullanıcı Sistem Ayarları'nda düzeltince kart kendiliğinden güncellensin.
             let checks = MacSettings.checks()
             if checks != settingChecks { settingChecks = checks }
@@ -304,7 +303,12 @@ struct RootView: View {
             if !visible { ui.drag = nil }
             guard visible != mapShown else { return }
             mapShown = visible
-            if visible { showFrontWindow() } else { pendingFront = nil }
+            if visible {
+                showFrontWindow()
+            } else {
+                pendingFront = nil
+                ui.releaseFocus()
+            }
         })
         .onChange(of: ui.drag == nil) { idle in
             guard idle, let pending = pendingWindows else { return }
@@ -325,8 +329,8 @@ struct RootView: View {
             switch ui.panel {
             case .pin(let draft):
                 if let current = windows.first(where: { $0.id == draft.window.id }) {
-                    // Canlı kurulumda pencere başka masaüstüne geçtiyse
-                    // taslağın hedefi onu izler.
+                    // Canlı kurulumda taslak penceresini izler: masaüstü
+                    // değiştiyse hedef, çerçeve değiştiyse varsayılan düzen.
                     let followed = draft.following(current, isLive: mode == screens.mode)
                     if followed != draft { ui.panel = .pin(followed) }
                 } else {
@@ -387,7 +391,7 @@ struct RootView: View {
         ui.panel = nil
         ui.panelSourceWindowID = nil
         mapShownAt = Date()
-        pendingFront = AX.frontWindowID().map { ($0, Date().addingTimeInterval(2), false, nil) }
+        pendingFront = AX.frontWindowID().map { ($0, Date().addingTimeInterval(2), false) }
         selectFrontWindow(in: router.windows)
     }
 
@@ -410,7 +414,6 @@ struct RootView: View {
             appName: window.appName, title: window.title)?.rule
         ui.panel = UIState.openingPanel(for: window, sessionPinned: sessionPinned,
                                         ruleID: rule?.id)
-        pendingFront?.draft = ui.pinDraft
         ui.panelSourceWindowID = sessionPinned || rule == nil ? nil : window.id
         if let placement = window.placement {
             let group = window.bundleID.isEmpty ? window.appName : window.bundleID
@@ -419,17 +422,6 @@ struct RootView: View {
         revealSeq += 1
         ui.reveal = RevealRequest(window: window.id, seq: revealSeq)
         Log.app.notice("Map opened on front window \(window.id) (\(window.appName, privacy: .public))")
-    }
-
-    /// Açılışta kendiliğinden açılan taslak hâlâ açıksa (kullanıcı başka
-    /// panele geçmediyse) açılış taramasının taze ölçümüyle yenilenir.
-    private func refreshFrontDraft(in windows: [Router.WindowSnapshot]) {
-        guard let pending = pendingFront, pending.applied, Date() < pending.until,
-              let draft = pending.draft, ui.panel == .pin(draft),
-              let fresh = windows.first(where: { $0.id == pending.id }),
-              let renewed = draft.refreshed(with: fresh) else { return }
-        ui.panel = .pin(renewed)
-        pendingFront?.draft = renewed
     }
 
     private func syncScreens() {
@@ -449,7 +441,7 @@ struct RootView: View {
             // Kimlik pencereye bağlı: başka pencereye geçince @State
             // (başlık parçaları, düzen) eski pencereden kalmasın.
             PinPanel(draft: draft, mode: mode)
-                .id("\(draft.window.id)-\(draft.revision)")
+                .id(draft.window.id)
                 .bottomPanelChrome()
         case .rule(let id):
             if let rule = store.rule(id) {

@@ -77,6 +77,7 @@ struct RuleChip: View {
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
             .onChanged { value in
+                if ui.drag == nil { ui.holdFocusForDrag() }
                 ui.drag = ChipDrag(
                     item: .rule(rule.id),
                     location: value.location,

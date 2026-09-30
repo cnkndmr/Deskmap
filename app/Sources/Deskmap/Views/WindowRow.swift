@@ -191,6 +191,7 @@ struct WindowRow: View {
     private var dragGesture: some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
             .onChanged { value in
+                if ui.drag == nil { ui.holdFocusForDrag() }
                 ui.drag = ChipDrag(
                     item: .window(window.id),
                     location: value.location,

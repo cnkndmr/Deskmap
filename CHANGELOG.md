@@ -17,8 +17,8 @@ number comes from the `VERSION` file.
   the window you last clicked, as if you had clicked its row: the map scrolls
   to it and its panel opens (pin settings, or a pin draft if it has no pin).
   A panel left open from last time no longer stays on an unrelated window.
-  The draft uses the window's size at that moment, also right after it was
-  moved or resized.
+  The draft follows the window's size and position while it is open, until
+  you choose a layout yourself.
 - **Menu bar badge**: the menu bar icon shows how many open windows have no
   pin in either setup (the *Unassigned windows* count; 9+ above nine, none
   at zero). The badge is cut into the template icon, so it follows light and
@@ -121,6 +121,10 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- The map no longer closes when you drag the row of the window you were
+  just using to a desktop on another display. macOS handed focus back to that
+  window as it changed displays; Deskmap now comes to the front while a row
+  or chip is dragged and returns focus when the map closes.
 - Starting to drag a window no longer pushes the map down by a line: the drag
   hint moved to the footer, so a click with a slight slip cannot drop the
   window (or its pin) on the desktop above.

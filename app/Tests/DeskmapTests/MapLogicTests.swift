@@ -326,6 +326,28 @@ struct LiveDraftFollowTests {
         #expect(draft.following(window(second, id: 2), isLive: true) == draft)
     }
 
+    @Test func liveDraftFollowsTheWindowFrameButKeepsADroppedTarget() {
+        func sized(_ width: CGFloat, _ placement: Router.Placement) -> Router.WindowSnapshot {
+            Router.WindowSnapshot(id: 1, pid: 1, appName: "a", bundleID: "a", title: "t",
+                                  placement: placement,
+                                  frame: CGRect(x: 0, y: 0, width: width, height: 500),
+                                  isMinimized: false)
+        }
+        // Harita kapalıyken boyutu değişen pencere: taze ölçüm taslağa geçer.
+        let stale = PinDraft(window: sized(840, first), target: first)
+        let fresh = stale.following(sized(1000, first), isLive: true)
+        #expect(fresh.window.frame?.width == 1000)
+        #expect(fresh.target == first)
+        #expect(fresh.following(sized(1000, first), isLive: true) == fresh)
+        // Bırakmayla seçilen hedef, pencere henüz eski masaüstündeyken gelen
+        // çerçeve değişimiyle geri dönmez.
+        let dropped = PinDraft(window: sized(840, first), target: second)
+        #expect(dropped.following(sized(1000, first), isLive: true).target == second)
+        // Diğer kurulumun taslağı çerçeveyi de izlemez.
+        let other = PinDraft(window: sized(840, first), target: second, followsWindow: false)
+        #expect(other.following(sized(1000, first), isLive: true) == other)
+    }
+
     @Test func otherSetupDraftKeepsItsTarget() {
         let draft = PinDraft(window: window(first), target: second)
         #expect(draft.following(window(second), isLive: false) == draft)
@@ -442,24 +464,4 @@ struct UnpinnedDropTests {
         #expect(long == "Safari — aaaaaaaaa…")
     }
 
-    @Test func openingDraftIsRefreshedWithTheFreshMeasurement() {
-        let place = Router.Placement(screen: "builtin", desktop: 4)
-        func snapshot(_ frame: CGRect, placement: Router.Placement? = place) -> Router.WindowSnapshot {
-            Router.WindowSnapshot(id: 5, pid: 1, appName: "Shortcuts", bundleID: "s", title: "t",
-                                  placement: placement, frame: frame, isMinimized: false)
-        }
-        let stale = snapshot(CGRect(x: 870, y: 122, width: 840, height: 818))
-        let fresh = snapshot(CGRect(x: 355, y: 136, width: 1000, height: 682))
-        let draft = PinDraft(window: stale, target: place)
-        // Aynı ölçüm: yenilenmez.
-        #expect(draft.refreshed(with: stale) == nil)
-        let renewed = draft.refreshed(with: fresh)
-        #expect(renewed?.window.frame == fresh.frame)
-        #expect(renewed?.revision == 1)
-        // Yeri bilinmeyen tarama taslağı bozmaz.
-        #expect(draft.refreshed(with: snapshot(fresh.frame!, placement: nil)) == nil)
-        // Sürüklemeyle izlenen taslak sürümünü korur (panel seçimleri sıfırlanmaz).
-        let moved = snapshot(fresh.frame!, placement: Router.Placement(screen: "builtin", desktop: 5))
-        #expect(renewed?.following(moved, isLive: true).revision == 1)
-    }
 }

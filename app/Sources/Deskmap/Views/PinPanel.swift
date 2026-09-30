@@ -32,6 +32,10 @@ struct PinPanel: View {
     @State private var appWide = false
     /// Varsayılan: pencerenin şu anki çerçevesi; hazır düzenle değiştirilebilir.
     @State private var layout: WindowLayout = .full
+    /// Pencereden okunan son varsayılan düzen. `layout` hâlâ buna eşitse
+    /// kullanıcı düzeni değiştirmemiştir; pencerenin taze ölçümü gelince
+    /// (taşındı, boyutu değişti) varsayılan ona uyar.
+    @State private var measuredLayout: WindowLayout?
 
     private var window: Router.WindowSnapshot { draft.window }
 
@@ -122,6 +126,15 @@ struct PinPanel: View {
             }
         }
         .onAppear { reset() }
+        .onChange(of: draft) { fresh in
+            // Kapanış eski gövdenin `draft`'ını tutar; taze ölçüm parametreden okunur.
+            guard layout == measuredLayout,
+                  let measured = fresh.window.currentLayout(
+                    screens: screens.screens, fallbackScreen: fresh.target.screen),
+                  measured != layout else { return }
+            layout = measured
+            measuredLayout = measured
+        }
     }
 
     private var footnote: String {
@@ -140,6 +153,7 @@ struct PinPanel: View {
 
     private func reset() {
         layout = currentLayout
+        measuredLayout = layout
         kind = .title
         segments = Rule.split(title: window.title)
         if segments.isEmpty {

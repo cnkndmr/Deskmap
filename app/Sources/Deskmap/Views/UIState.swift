@@ -10,42 +10,30 @@ struct PinDraft: Equatable {
     /// değil); o kurulum sonradan canlı olsa da (monitör takılıp çıkarılınca
     /// sekme değişmez, taslak açık kalır) hedef pencereyi izlemez.
     var followsWindow = true
-    /// Taslak aynı pencere için taze ölçümle yeniden kurulunca artar; panel
-    /// kimliği bununla değişir ve düzen/başlık parçaları yeniden okunur.
-    var revision = 0
-
     /// Canlı kurulumda taslak penceresini izler (saf): pencere taslak açıkken
     /// başka masaüstüne geçtiyse (haritada sürükleme, Mission Control, masaüstü
     /// sırasının geri alınması) hedef de oraya geçer; yoksa Pin pencereyi eski
     /// masaüstüne geri çekerdi. Başlık taslağın açıldığı andaki hâliyle kalır
-    /// (seçilen parçalar ona ait). Yeri bilinmeyen tarama (tam ekran, geçiş
-    /// anı) ve diğer kurulumun taslağı (açıldığı anda ya da şimdi) hedefi
-    /// değiştirmez.
+    /// (seçilen parçalar ona ait). Çerçeve de izlenir: taslak açıkken (ya da
+    /// harita kapalıyken, son taramadan sonra) taşınan/boyutu değişen
+    /// pencerenin taze ölçümü gelince panelin varsayılan düzeni ona uyar;
+    /// hedef masaüstü yalnız pencere masaüstü değiştirdiyse değişir. Yeri
+    /// bilinmeyen tarama (tam ekran, geçiş anı) ve diğer kurulumun taslağı
+    /// (açıldığı anda ya da şimdi) taslağı değiştirmez.
     func following(_ current: Router.WindowSnapshot, isLive: Bool) -> PinDraft {
         guard followsWindow, isLive, current.id == window.id,
-              let placement = current.placement,
-              placement != window.placement else { return self }
-        let moved = Router.WindowSnapshot(
+              let placement = current.placement else { return self }
+        let moved = placement != window.placement
+        let frame = current.frame ?? window.frame
+        guard moved || frame != window.frame else { return self }
+        var followed = self
+        followed.window = Router.WindowSnapshot(
             id: window.id, pid: window.pid, appName: window.appName,
             bundleID: window.bundleID, title: window.title, placement: placement,
-            frame: window.frame, isMinimized: window.isMinimized,
+            frame: frame, isMinimized: window.isMinimized,
             fullscreen: window.fullscreen)
-        var followed = self
-        followed.window = moved
-        followed.target = placement
+        if moved { followed.target = placement }
         return followed
-    }
-
-    /// Harita açılışında kendiliğinden açılan taslak, açılış taramasının
-    /// taze ölçümüyle yenilenir (saf): harita kapalıyken taşınan ya da
-    /// boyutu değişen pencerenin son bilinen çerçevesi birkaç saniye eski
-    /// olabilir; Pin eski boyutu kaydetmesin. Ölçüm aynıysa ya da pencere
-    /// artık yersiz/tam ekransa nil.
-    func refreshed(with fresh: Router.WindowSnapshot) -> PinDraft? {
-        guard fresh.id == window.id, fresh != window, fresh.fullscreen == nil,
-              let placement = fresh.placement else { return nil }
-        return PinDraft(window: fresh, target: followsWindow ? placement : target,
-                        followsWindow: followsWindow, revision: revision + 1)
     }
 }
 
@@ -153,6 +141,34 @@ final class UIState: ObservableObject {
         if let ruleID { return .rule(ruleID) }
         guard window.fullscreen == nil, let placement = window.placement else { return nil }
         return .pin(PinDraft(window: window, target: placement))
+    }
+
+    // MARK: Sürükleme sırasında odak
+
+    /// Sürükleme başlarken öndeki uygulama; harita kapanınca odak ona döner.
+    private var focusOwner: NSRunningApplication?
+
+    /// Satır ya da çip sürüklenmeye başlayınca Deskmap öndeki uygulama olur.
+    /// Menü çubuğu penceresi açıkken önceki uygulama önde kalır (pencere
+    /// etkinleştirmeyen paneldir); o uygulamanın penceresi başka ekranın
+    /// görünen masaüstüne taşınınca macOS odağı o pencereye verir ve harita
+    /// kapanır. Taşınan pencerenin uygulaması önde değilken bu olmaz.
+    func holdFocusForDrag() {
+        let front = NSWorkspace.shared.frontmostApplication
+        guard front != .current else { return }
+        focusOwner = front
+        NSRunningApplication.current.activate(options: [])
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Harita kapandı: öne biz geçtiysek ve hâlâ öndeysek (kullanıcı başka
+    /// uygulamaya tıklamadıysa) önceki uygulama yeniden öne alınır.
+    func releaseFocus() {
+        guard let owner = focusOwner else { return }
+        focusOwner = nil
+        if NSWorkspace.shared.frontmostApplication == .current, !owner.isTerminated {
+            owner.activate()
+        }
     }
 
     /// Aynı panele tekrar tıklamak kapatır, başkasına tıklamak onu açar.
