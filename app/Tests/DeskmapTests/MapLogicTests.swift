@@ -299,6 +299,49 @@ struct OtherSetupDraftTests {
     }
 }
 
+struct LiveDraftFollowTests {
+
+    private let first = Router.Placement(screen: "builtin", desktop: 1)
+    private let second = Router.Placement(screen: "builtin", desktop: 2)
+
+    private func window(_ placement: Router.Placement?, title: String = "t",
+                        id: CGWindowID = 1) -> Router.WindowSnapshot {
+        Router.WindowSnapshot(id: id, pid: 1, appName: "a", bundleID: "a", title: title,
+                              placement: placement, frame: nil, isMinimized: false)
+    }
+
+    @Test func liveDraftFollowsTheWindowToAnotherDesktop() {
+        let draft = PinDraft(window: window(first), target: first)
+        let followed = draft.following(window(second, title: "renamed"), isLive: true)
+        #expect(followed.target == second)
+        #expect(followed.window.placement == second)
+        // Seçilen parçalar taslağın açıldığı başlığa ait.
+        #expect(followed.window.title == "t")
+    }
+
+    @Test func unmovedUnknownOrOtherWindowLeavesTheDraftAlone() {
+        let draft = PinDraft(window: window(first), target: first)
+        #expect(draft.following(window(first, title: "renamed"), isLive: true) == draft)
+        #expect(draft.following(window(nil), isLive: true) == draft)
+        #expect(draft.following(window(second, id: 2), isLive: true) == draft)
+    }
+
+    @Test func otherSetupDraftKeepsItsTarget() {
+        let draft = PinDraft(window: window(first), target: second)
+        #expect(draft.following(window(second), isLive: false) == draft)
+    }
+
+    @Test func droppedDraftSurvivesAStaleScanAndSettlesOnTheMove() {
+        // Bırakma hedefi hemen yeni masaüstüne alır; pencere eski yerinde
+        // görünen ara tarama taslağı geri çevirmez.
+        let dropped = PinDraft(window: window(first), target: second)
+        #expect(dropped.following(window(first), isLive: true) == dropped)
+        let settled = dropped.following(window(second), isLive: true)
+        #expect(settled.target == second)
+        #expect(settled.following(window(second), isLive: true) == settled)
+    }
+}
+
 struct UnpinnedDropTests {
 
     private let here = Router.Placement(screen: "builtin", desktop: 2)

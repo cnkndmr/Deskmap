@@ -301,8 +301,15 @@ struct RootView: View {
         .onChange(of: ui.windows) { windows in
             // Taslağın ya da geçici pinin penceresi kapandıysa paneli kapat.
             switch ui.panel {
-            case .pin(let draft) where !windows.contains(where: { $0.id == draft.window.id }):
-                ui.panel = nil
+            case .pin(let draft):
+                if let current = windows.first(where: { $0.id == draft.window.id }) {
+                    // Canlı kurulumda pencere başka masaüstüne geçtiyse
+                    // taslağın hedefi onu izler.
+                    let followed = draft.following(current, isLive: mode == screens.mode)
+                    if followed != draft { ui.panel = .pin(followed) }
+                } else {
+                    ui.panel = nil
+                }
             case .session(let id) where !windows.contains(where: { $0.id == id }):
                 ui.panel = nil
             default:

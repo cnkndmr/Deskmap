@@ -247,6 +247,12 @@ struct WindowRow: View {
                         // Pinsiz pencere: tek seferlik taşınır, kural yazılmaz.
                         // Tam ekran ya da yeri bilinmeyen pencereye dokunulmaz.
                         router.moveWindow(window.id, to: placement)
+                        // Bu pencerenin açık taslağı yeni masaüstünü hedefler;
+                        // eski hedefle Pin pencereyi geri çekerdi.
+                        if var draft = ui.pinDraft, draft.window.id == window.id {
+                            draft.target = placement
+                            ui.panel = .pin(draft)
+                        }
                     }
                 case .tray:
                     // Yalnız bir pin kalktıysa panel kapanır; pinsiz pencere
