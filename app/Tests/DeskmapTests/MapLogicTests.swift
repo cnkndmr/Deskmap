@@ -401,4 +401,44 @@ struct UnpinnedDropTests {
                                              isMinimized: false)
         #expect(UIState.openingPanel(for: unplaced, sessionPinned: false, ruleID: nil) == nil)
     }
+
+    // MARK: Simgeye sağ tık menüsü
+
+    @Test func statusMenuOnlyForPinnedFrontWindow() {
+        let place = Router.Placement(screen: "external", desktop: 2)
+        let code = Router.WindowSnapshot(id: 5, pid: 1, appName: "Code", bundleID: "c",
+                                         title: "atlas", placement: place, frame: nil,
+                                         isMinimized: false)
+        let other = Router.WindowSnapshot(id: 6, pid: 2, appName: "Notes", bundleID: "n",
+                                          title: "note", placement: place, frame: nil,
+                                          isMinimized: false)
+        let target = Destination(screen: "external", desktop: 2)
+        let rule = Rule(id: "r", appName: "Code", bundleID: "c", tokens: [], docked: target)
+        func front(_ id: CGWindowID?, pins: [CGWindowID: Destination] = [:],
+                   mode: Mode = .docked) -> CGWindowID? {
+            StatusItemMenu.pinnedFront(id, windows: [code, other], rules: [rule],
+                                       sessionPins: pins, mode: mode)?.id
+        }
+        #expect(front(5) == 5)
+        // Pinsiz pencere, bilinmeyen pencere, öndeki pencere yok: menü yok.
+        #expect(front(6) == nil)
+        #expect(front(99) == nil)
+        #expect(front(nil) == nil)
+        // Kuralın bu kurulumda hedefi yok.
+        #expect(front(5, mode: .undocked) == nil)
+        // Geçici pin de pin sayılır.
+        #expect(front(6, pins: [6: target]) == 6)
+    }
+
+    @Test func statusMenuHeaderShortensLongTitles() {
+        func snapshot(_ title: String) -> Router.WindowSnapshot {
+            Router.WindowSnapshot(id: 1, pid: 1, appName: "Safari", bundleID: "s", title: title,
+                                  placement: nil, frame: nil, isMinimized: false)
+        }
+        #expect(StatusItemMenu.header(for: snapshot("")) == "Safari")
+        #expect(StatusItemMenu.header(for: snapshot("Safari")) == "Safari")
+        #expect(StatusItemMenu.header(for: snapshot("Docs")) == "Safari — Docs")
+        let long = StatusItemMenu.header(for: snapshot(String(repeating: "a", count: 80)), limit: 10)
+        #expect(long == "Safari — aaaaaaaaa…")
+    }
 }

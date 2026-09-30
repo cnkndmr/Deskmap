@@ -89,6 +89,10 @@ final class AppModel {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        StatusItemMenu.shared.install()
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         let model = AppModel.shared
         URLCommands.handle(urls, store: model.store, router: model.router)

@@ -8,6 +8,11 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Right-click menu**: right-click the menu bar icon while a pinned window
+  is in front to give it free movement without opening the map: *Free move*
+  lists the same durations as the panel. While the window is free the menu
+  shows the time left and *End now*. With no pinned window in front the
+  right-click does nothing, as before.
 - **Opens on the window you were using**: clicking the menu bar icon selects
   the window you last clicked, as if you had clicked its row: the map scrolls
   to it and its panel opens (pin settings, or a pin draft if it has no pin).
