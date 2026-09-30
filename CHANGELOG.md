@@ -123,6 +123,10 @@ number comes from the `VERSION` file.
   measured again once launch has finished and shortly after; a change
   re-applies all pins. Found by trying fixed-size pins on a real 5120 × 1440
   display.
+- A queued desktop removal or a desktop plan ran only once per session for
+  the same setup, display and count: after it succeeded, or was cut short by
+  a display change, the same request was silently skipped until the next
+  launch. Only a real failure now blocks a retry.
 - Review fixes for today's desktop features (multi-agent review, each
   finding checked by two skeptics):
   - Add/remove through Mission Control failed when "Displays have separate

@@ -153,3 +153,39 @@ final class RoutingGeneration: @unchecked Sendable {
 
     func token() -> Token { Token(owner: self, value: current) }
 }
+
+/// Bu oturumda denenmiş plan/silme hedefleri. Hedef deneme sürerken ve
+/// başarısız olduktan sonra tutulur (başarısızlık döngüsü olmasın); biten
+/// ya da yarıda kesilen deneme hedefi bırakır, çünkü aynı mod|ekran|sayı
+/// sonradan meşru olarak yeniden planlanabilir.
+struct PlannedAttempts {
+
+    enum Outcome: Equatable {
+        /// Kuyruk boşaldı ya da plan karşılandı.
+        case done
+        /// Ekran değişimi araya girdi; hiçbir şey başarısız olmadı.
+        case interrupted
+        /// Gerçek başarısızlık: bu oturumda yeniden denenmez.
+        case failed
+    }
+
+    private var keys: Set<String> = []
+
+    /// Deneme başlayabilir mi; başlarsa hedef tutulur.
+    mutating func begin(_ key: String) -> Bool {
+        keys.insert(key).inserted
+    }
+
+    mutating func finish(_ key: String, _ outcome: Outcome) {
+        if outcome != .failed { keys.remove(key) }
+    }
+
+    /// Ekleme döngüsünün sonucu (saf): plan karşılandıysa bitti; araya
+    /// ekran değişimi girdiyse ya da ekran artık okunamıyorsa kesildi;
+    /// deneme tavanı dolup sayı hâlâ eksikse başarısız.
+    static func addOutcome(live: Int?, want: Int, interrupted: Bool) -> Outcome {
+        guard let live else { return .interrupted }
+        if live >= want { return .done }
+        return interrupted ? .interrupted : .failed
+    }
+}

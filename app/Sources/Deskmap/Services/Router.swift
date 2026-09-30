@@ -132,7 +132,7 @@ final class Router: ObservableObject {
     /// yansısın).
     @Published private(set) var desktopCounts: [String: Int] = [:]
     /// Bu oturumda denenmiş plan/silme hedefleri (başarısızlık döngüsü olmasın).
-    private var plannedAttempts: Set<String> = []
+    private var plannedAttempts = PlannedAttempts()
     private static let maxPlannedCreations = 8
     /// Masaüstü taşımasının doğrulanmış durumu; devre kesici açıksa
     /// (`degraded`) taşıma durur, ekran ve düzen sürer.
@@ -934,6 +934,8 @@ final class Router: ObservableObject {
     /// düşer, öbür modların pinleri ve oturum pinleri o an kayar; başarısız
     /// girdi ve sonrakiler kuyrukta kalır, kullanıcıya bildirilir, bu
     /// oturumda aynı kuyruk bir kez denenir (sonraki açılışta yeniden).
+    /// Biten ya da ekran değişimiyle yarıda kesilen deneme hedefi bırakır:
+    /// aynı mod|ekran|sayı sonradan yeniden planlanabilir.
     /// Plan: karşılanınca silinir (kalıcı alt sınır değil; sonradan
     /// silinen masaüstü yeniden yaratılmaz).
     private func createPlannedDesktops() {
@@ -943,19 +945,23 @@ final class Router: ObservableObject {
             let removals = store.document.pendingRemovals(mode: mode, screen: screen.id)
             guard !removals.isEmpty else { continue }
             let key = "remove|\(mode.rawValue)|\(screen.id)|\(removals.count)"
-            guard !plannedAttempts.contains(key) else { continue }
-            plannedAttempts.insert(key)
+            guard plannedAttempts.begin(key) else { continue }
             desktopOpInFlight = true
             let uuid = screen.uuid, screenID = screen.id
             Log.app.notice("Removing \(removals.count) desktop(s) planned for \(screenID, privacy: .public)")
             Task { [weak self] in
                 guard let self else { return }
+                var outcome = PlannedAttempts.Outcome.done
                 defer {
+                    self.plannedAttempts.finish(key, outcome)
                     self.desktopOpInFlight = false
                     self.scheduleFollowUp(after: 300)
                 }
                 for removal in removals {
-                    guard self.screens.mode == mode, !self.screens.isSettling else { return }
+                    guard self.screens.mode == mode, !self.screens.isSettling else {
+                        outcome = .interrupted
+                        return
+                    }
                     let desktops = SkyLight.shared
                         .displaySpaces(mainUUID: Self.primaryUUID(self.screens.screens))
                         .first { $0.displayUUID == uuid }?.desktops.map(\.id) ?? []
@@ -967,6 +973,7 @@ final class Router: ObservableObject {
                     }
                     guard await self.removeDesktopNow(on: screenID, desktop: index) else {
                         self.store.report(L("Could not remove desktop %ld on %@", index, screenID))
+                        outcome = .failed
                         return
                     }
                     self.store.dropFirstPendingRemoval(mode: mode, screen: screenID)
@@ -986,24 +993,33 @@ final class Router: ObservableObject {
                 continue
             }
             let key = "add|\(mode.rawValue)|\(screen.id)|\(want)"
-            guard !plannedAttempts.contains(key) else { continue }
-            plannedAttempts.insert(key)
+            guard plannedAttempts.begin(key) else { continue }
             desktopOpInFlight = true
             let uuid = screen.uuid, screenID = screen.id
             Log.app.notice("Creating planned desktops on \(screenID, privacy: .public): \(have) → \(want)")
             Task { [weak self] in
                 guard let self else { return }
-                defer { self.desktopOpInFlight = false }
+                var outcome = PlannedAttempts.Outcome.failed
+                defer {
+                    self.plannedAttempts.finish(key, outcome)
+                    self.desktopOpInFlight = false
+                }
+                var interrupted = false
                 for _ in 0..<Self.maxPlannedCreations {
+                    guard self.screens.mode == mode, !self.screens.isSettling else {
+                        interrupted = true
+                        break
+                    }
                     // Tarama anlık görüntüsü değil, o anki sayı (ekranlar yeni yatışmış olabilir).
-                    guard self.screens.mode == mode, !self.screens.isSettling,
-                          let now = self.liveDesktopCount(uuid: uuid), now < want else { break }
+                    guard let now = self.liveDesktopCount(uuid: uuid), now < want else { break }
                     guard await self.addDesktopNow(on: screenID) else {
                         self.store.report(L("Could not add a desktop to %@", screenID))
                         return
                     }
                 }
-                if let now = self.liveDesktopCount(uuid: uuid), now >= want {
+                let now = self.liveDesktopCount(uuid: uuid)
+                outcome = PlannedAttempts.addOutcome(live: now, want: want, interrupted: interrupted)
+                if let now, now >= want {
                     self.store.clearPlannedDesktops(mode: mode, screen: screenID)
                 }
             }
