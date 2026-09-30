@@ -110,6 +110,9 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- A window opened shortly after its app was last scanned no longer drops out
+  of the map and sidebar for up to 30 seconds when it moves to another
+  desktop; only windows the scan could not find wait for the next rescan.
 - A proportional layout whose size the app refuses (minimum size larger than
   e.g. *Right 30%* or *Bottom half*) left the window hanging off the right or
   bottom edge of the display; it is now pulled back inside the usable area
