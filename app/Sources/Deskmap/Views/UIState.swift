@@ -10,6 +10,9 @@ struct PinDraft: Equatable {
     /// değil); o kurulum sonradan canlı olsa da (monitör takılıp çıkarılınca
     /// sekme değişmez, taslak açık kalır) hedef pencereyi izlemez.
     var followsWindow = true
+    /// Taslak aynı pencere için taze ölçümle yeniden kurulunca artar; panel
+    /// kimliği bununla değişir ve düzen/başlık parçaları yeniden okunur.
+    var revision = 0
 
     /// Canlı kurulumda taslak penceresini izler (saf): pencere taslak açıkken
     /// başka masaüstüne geçtiyse (haritada sürükleme, Mission Control, masaüstü
@@ -27,7 +30,22 @@ struct PinDraft: Equatable {
             bundleID: window.bundleID, title: window.title, placement: placement,
             frame: window.frame, isMinimized: window.isMinimized,
             fullscreen: window.fullscreen)
-        return PinDraft(window: moved, target: placement)
+        var followed = self
+        followed.window = moved
+        followed.target = placement
+        return followed
+    }
+
+    /// Harita açılışında kendiliğinden açılan taslak, açılış taramasının
+    /// taze ölçümüyle yenilenir (saf): harita kapalıyken taşınan ya da
+    /// boyutu değişen pencerenin son bilinen çerçevesi birkaç saniye eski
+    /// olabilir; Pin eski boyutu kaydetmesin. Ölçüm aynıysa ya da pencere
+    /// artık yersiz/tam ekransa nil.
+    func refreshed(with fresh: Router.WindowSnapshot) -> PinDraft? {
+        guard fresh.id == window.id, fresh != window, fresh.fullscreen == nil,
+              let placement = fresh.placement else { return nil }
+        return PinDraft(window: fresh, target: followsWindow ? placement : target,
+                        followsWindow: followsWindow, revision: revision + 1)
     }
 }
 

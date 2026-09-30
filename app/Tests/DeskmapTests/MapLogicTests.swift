@@ -441,4 +441,25 @@ struct UnpinnedDropTests {
         let long = StatusItemMenu.header(for: snapshot(String(repeating: "a", count: 80)), limit: 10)
         #expect(long == "Safari — aaaaaaaaa…")
     }
+
+    @Test func openingDraftIsRefreshedWithTheFreshMeasurement() {
+        let place = Router.Placement(screen: "builtin", desktop: 4)
+        func snapshot(_ frame: CGRect, placement: Router.Placement? = place) -> Router.WindowSnapshot {
+            Router.WindowSnapshot(id: 5, pid: 1, appName: "Shortcuts", bundleID: "s", title: "t",
+                                  placement: placement, frame: frame, isMinimized: false)
+        }
+        let stale = snapshot(CGRect(x: 870, y: 122, width: 840, height: 818))
+        let fresh = snapshot(CGRect(x: 355, y: 136, width: 1000, height: 682))
+        let draft = PinDraft(window: stale, target: place)
+        // Aynı ölçüm: yenilenmez.
+        #expect(draft.refreshed(with: stale) == nil)
+        let renewed = draft.refreshed(with: fresh)
+        #expect(renewed?.window.frame == fresh.frame)
+        #expect(renewed?.revision == 1)
+        // Yeri bilinmeyen tarama taslağı bozmaz.
+        #expect(draft.refreshed(with: snapshot(fresh.frame!, placement: nil)) == nil)
+        // Sürüklemeyle izlenen taslak sürümünü korur (panel seçimleri sıfırlanmaz).
+        let moved = snapshot(fresh.frame!, placement: Router.Placement(screen: "builtin", desktop: 5))
+        #expect(renewed?.following(moved, isLive: true).revision == 1)
+    }
 }
