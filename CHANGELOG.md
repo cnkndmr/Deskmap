@@ -6,6 +6,14 @@ number comes from the `VERSION` file.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-09-30
+
+The first release with a download: a universal `Deskmap.app` on the
+[releases page](https://github.com/cnkndmr/Deskmap/releases). The map grew a
+sidebar and a layout grid, pinned windows can be set free for a while, desktops
+can be added, removed and reordered from the map, and the menu bar icon opens
+on the window you were using.
+
 ### Added
 
 - **Right-click menu**: right-click the menu bar icon while a pinned window

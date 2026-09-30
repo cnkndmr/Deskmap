@@ -12,12 +12,17 @@
   <img src="https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white" alt="Swift 5.9">
   <img src="https://img.shields.io/badge/SwiftUI-menu%20bar%20app-0A84FF" alt="SwiftUI menu bar app">
-  <img src="https://img.shields.io/badge/version-0.4.0-5E5CE6" alt="Version 0.4.0">
+  <img src="https://img.shields.io/badge/version-0.5.0-5E5CE6" alt="Version 0.5.0">
   <img src="https://img.shields.io/badge/dependencies-none-30D158" alt="No dependencies">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="MIT license">
 </p>
 
 ---
+
+> [!NOTE]
+> **This is a vibe-coded project.** Deskmap was written almost entirely by AI
+> coding agents (Claude Code) under my direction. I use it every day and it is
+> covered by tests, but I have not read every line. Treat it accordingly.
 
 You open your laptop at a desk, plug in the monitor, and spend the next two
 minutes dragging windows back to where they were. Deskmap does that for you.
@@ -214,7 +219,26 @@ Products change. If something here is out of date, open an issue.
 
 ## Install
 
-Deskmap is built from source; there is no download yet.
+**[Download the latest release](https://github.com/cnkndmr/Deskmap/releases/latest)**,
+unzip it and drag `Deskmap.app` to `/Applications`. It runs on macOS 13 or
+later, on Apple silicon and Intel.
+
+The app is not notarized by Apple yet, so macOS blocks the first launch:
+
+1. Open `Deskmap.app` once and dismiss the warning.
+2. Go to System Settings › Privacy & Security, scroll down and click
+   **Open Anyway**.
+
+Or, in a terminal: `xattr -dr com.apple.quarantine /Applications/Deskmap.app`
+
+Then click **Grant Access** and turn on **Deskmap** under System Settings ›
+Privacy & Security › Accessibility. Deskmap also checks four Mission Control
+settings and tells you which one to change
+([details](docs/reference.md#required-macos-settings)). After updating to a
+new version, macOS asks for the Accessibility permission again.
+
+<details>
+<summary>Build from source</summary>
 
 ```sh
 git clone https://github.com/cnkndmr/Deskmap.git
@@ -224,13 +248,9 @@ cp -R build/Deskmap.app /Applications/
 open /Applications/Deskmap.app
 ```
 
-You need macOS 13 or later and the Xcode Command Line Tools
-(`xcode-select --install`).
+You need the Xcode Command Line Tools (`xcode-select --install`).
 
-On first launch, click **Grant Access** and turn on **Deskmap** under System
-Settings › Privacy & Security › Accessibility. Deskmap also checks four
-Mission Control settings and tells you which one to change
-([details](docs/reference.md#required-macos-settings)).
+</details>
 
 ## Your first pin
 
