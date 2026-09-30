@@ -110,6 +110,10 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- A proportional layout whose size the app refuses (minimum size larger than
+  e.g. *Right 30%* or *Bottom half*) left the window hanging off the right or
+  bottom edge of the display; it is now pulled back inside the usable area
+  with the size the app accepts, as fixed sizes already were.
 - Layouts touching the top edge of an external display were given up after
   every launch ("did not take layout … in 6 attempts"), and centered fixed
   sizes sat half a menu bar too high: the first screen measurement ran before

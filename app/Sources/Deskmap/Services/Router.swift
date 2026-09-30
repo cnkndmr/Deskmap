@@ -1430,8 +1430,8 @@ final class Router: ObservableObject {
                           let refused = refusedSizes[refusedKey],
                           Coordinates.close(CGRect(origin: .zero, size: frame.size),
                                             CGRect(origin: .zero, size: refused)),
-                          let anchored = destination.layout.reanchored(actualSize: frame.size, in: area),
-                          Coordinates.close(frame.origin, anchored.origin) {
+                          Coordinates.close(frame.origin, destination.layout.reanchored(
+                            actualSize: frame.size, in: area).origin) {
                     // Bu hedefin boyutunu daha önce reddetmiş pencere zaten o
                     // boyutla doğru noktada: yeniden uygulamada önce yanlış
                     // yere sıçratılmaz. Yalnız denemeyle görülmüş red sayılır
@@ -1445,14 +1445,14 @@ final class Router: ObservableObject {
                         if Coordinates.close(after, targetFrame) {
                             placed = true
                         } else if let tries = outcome.attempts[key], tries >= 1,
-                                  destination.layout.refusesSize(after.size, in: area) || tries >= 2,
-                                  let anchored = destination.layout.reanchored(
-                                    actualSize: after.size, in: area) {
-                            // Sabit boyut: uygulama boyutu ikinci denemede de
-                            // reddetti (en küçük boyut vb.; ilk okuma gecikmeli
-                            // AX olabilir); gerçek boyutla aynı noktaya hizala,
-                            // konum tutunca yerleşmiş say (boyut için sonsuz
-                            // deneme olmasın).
+                                  destination.layout.refusesSize(after.size, in: area) || tries >= 2 {
+                            // Uygulama boyutu ikinci denemede de reddetti (en
+                            // küçük boyut vb.; ilk okuma gecikmeli AX olabilir);
+                            // gerçek boyutla hizala (sabit boyut aynı noktaya,
+                            // oranlı düzen ekranın içine), konum tutunca
+                            // yerleşmiş say (boyut için sonsuz deneme olmasın).
+                            let anchored = destination.layout.reanchored(
+                                actualSize: after.size, in: area)
                             if !Coordinates.close(after, anchored) {
                                 AX.setFrame(anchored, of: window)
                             }

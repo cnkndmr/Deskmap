@@ -198,7 +198,27 @@ struct BugFixTests {
         // Uygulama en az 900 × 700 kabul ediyor: yine sağ alt köşeye oturur.
         let frame = layout.reanchored(actualSize: CGSize(width: 900, height: 700), in: area)
         #expect(frame == CGRect(x: 810, y: 374, width: 900, height: 700))
-        #expect(WindowLayout.leftHalf.reanchored(actualSize: .zero, in: area) == nil)
+    }
+
+    @Test func refusedProportionalSizeIsPulledBackOntoTheScreen() {
+        // Sağ %30 (hedef x = 1197, genişlik 513), uygulama en az 760 pt:
+        // sağ kenara hizalanır, 247 pt taşmaz.
+        let wide = CGSize(width: 760, height: 1074)
+        #expect(WindowLayout.right30.refusesSize(wide, in: area))
+        #expect(WindowLayout.right30.reanchored(actualSize: wide, in: area)
+                == CGRect(x: 950, y: 0, width: 760, height: 1074))
+        // Alt yarı, en küçük yükseklik 700: alt kenara hizalanır.
+        #expect(WindowLayout.bottomHalf.reanchored(
+            actualSize: CGSize(width: 1710, height: 700), in: area).origin == CGPoint(x: 0, y: 374))
+        // Taşmayan pencere hedefin köşesinde kalır (büyük ya da küçük).
+        #expect(WindowLayout.leftHalf.reanchored(
+            actualSize: CGSize(width: 1000, height: 1074), in: area).origin == .zero)
+        #expect(WindowLayout.bottomRight.reanchored(
+            actualSize: CGSize(width: 400, height: 300), in: area).origin == CGPoint(x: 855, y: 537))
+        // Alandan büyük pencere: sol üst köşe alanın içinde kalır.
+        let shifted = CGRect(x: 1710, y: 25, width: 1000, height: 800)
+        #expect(WindowLayout.right30.reanchored(
+            actualSize: CGSize(width: 1200, height: 900), in: shifted).origin == shifted.origin)
     }
 
     @Test func fixedLayoutsCarryAProportionalFallbackForOlderVersions() {
@@ -234,7 +254,10 @@ struct BugFixTests {
         // Küçük okuma: henüz uygulanmadı (animasyon), reddedilmiş sayılmaz.
         #expect(!layout.refusesSize(CGSize(width: 300, height: 200), in: area))
         #expect(!layout.refusesSize(CGSize(width: 600, height: 400), in: area))
+        // Oranlı düzende ölçü hedef dikdörtgen (sol yarı 855 × 1074).
         #expect(!WindowLayout.leftHalf.refusesSize(CGSize(width: 900, height: 700), in: area))
+        #expect(WindowLayout.leftHalf.refusesSize(CGSize(width: 900, height: 1074), in: area))
+        #expect(!WindowLayout.leftHalf.refusesSize(CGSize(width: 855, height: 1074), in: area))
     }
 
     @Test func unknownScreenKeepsTheProportionsWhenEditingFixed() {

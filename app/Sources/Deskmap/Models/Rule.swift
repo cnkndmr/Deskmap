@@ -99,15 +99,13 @@ struct WindowLayout: Codable, Equatable, Hashable {
         self.fixed = fixed
     }
 
-    /// Uygulama sabit boyutu reddetti mi (saf): okunan boyut istenenden
-    /// (ekrana sığdırılmış hâlinden) iki eksende de küçük değil ama ona da
-    /// eşit değil — en küçük boyutu daha büyük ya da boyutlanamayan pencere.
-    /// İstenenden küçük boyut "henüz uygulanmadı" sayılır (animasyon,
-    /// gecikmeli AX), yeniden denenir.
+    /// Uygulama istenen boyutu reddetti mi (saf): okunan boyut istenenden
+    /// (sabit boyutta ekrana sığdırılmış hâlinden) iki eksende de küçük değil
+    /// ama ona da eşit değil — en küçük boyutu daha büyük ya da
+    /// boyutlanamayan pencere. İstenenden küçük boyut "henüz uygulanmadı"
+    /// sayılır (animasyon, gecikmeli AX), yeniden denenir.
     func refusesSize(_ actual: CGSize, in area: CGRect, tolerance: CGFloat = 4) -> Bool {
-        guard let fixed else { return false }
-        let wanted = CGSize(width: min(CGFloat(fixed.width), area.width),
-                            height: min(CGFloat(fixed.height), area.height))
+        let wanted = rect(in: area).size
         let notSmaller = actual.width >= wanted.width - tolerance
             && actual.height >= wanted.height - tolerance
         let same = abs(actual.width - wanted.width) <= tolerance
@@ -125,15 +123,23 @@ struct WindowLayout: Codable, Equatable, Hashable {
         return result
     }
 
-    /// Sabit boyutlu düzende uygulamanın kabul ettiği gerçek boyutla aynı
-    /// sabitleme noktasına göre çerçeve (saf); oranlı düzende nil. Uygulama
-    /// istenen boyutu kabul etmezse (en küçük boyut, boyutlanamaz pencere)
-    /// pencere yine doğru köşeye/kenara oturur.
-    func reanchored(actualSize: CGSize, in area: CGRect) -> CGRect? {
-        guard let fixed else { return nil }
-        return WindowLayout(fixed: FixedSize(width: Double(actualSize.width),
-                                             height: Double(actualSize.height),
-                                             anchor: fixed.anchor)).rect(in: area)
+    /// Uygulamanın kabul ettiği gerçek boyutla çerçeve (saf). Sabit boyutlu
+    /// düzende aynı sabitleme noktasına göre: uygulama istenen boyutu kabul
+    /// etmezse (en küçük boyut, boyutlanamaz pencere) pencere yine doğru
+    /// köşeye/kenara oturur. Oranlı düzende hedefin sol üst köşesinden;
+    /// alanın sağından/altından taşacaksa yalnız taştığı kadar geri çekilir
+    /// (sağa/alta dayanan düzen o kenara hizalanır, ekran dışına çıkmaz).
+    func reanchored(actualSize: CGSize, in area: CGRect) -> CGRect {
+        if let fixed {
+            return WindowLayout(fixed: FixedSize(width: Double(actualSize.width),
+                                                 height: Double(actualSize.height),
+                                                 anchor: fixed.anchor)).rect(in: area)
+        }
+        let target = rect(in: area)
+        return CGRect(
+            x: max(area.minX, min(target.minX, area.maxX - actualSize.width)),
+            y: max(area.minY, min(target.minY, area.maxY - actualSize.height)),
+            width: actualSize.width, height: actualSize.height)
     }
 
     static let full       = WindowLayout(x: 0,   y: 0,   w: 1,   h: 1)
