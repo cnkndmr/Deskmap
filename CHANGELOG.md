@@ -110,6 +110,9 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- Starting to drag a window no longer pushes the map down by a line: the drag
+  hint moved to the footer, so a click with a slight slip cannot drop the
+  window (or its pin) on the desktop above.
 - An open pin draft now follows its window when the window moves to another
   desktop (dragged on the live map or moved outside Deskmap); *Pin* used to
   save the old desktop and pull the window back.

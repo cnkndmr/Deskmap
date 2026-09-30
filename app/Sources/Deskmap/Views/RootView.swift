@@ -116,7 +116,9 @@ struct RootView: View {
     }
 
     /// Sürüklerken: pinli pencere bırakılınca kaydedilen hedef güncellenir,
-    /// pinsiz pencere yalnız bir kez taşınır.
+    /// pinsiz pencere yalnız bir kez taşınır. Alt çubukta gösterilir:
+    /// haritanın akışına eklenen satır bırakma hedeflerini imlecin altından
+    /// kaydırıyor, kaymalı tıklama pencereyi bir üst masaüstüne taşıyordu.
     private var dragHint: String? {
         guard case .window(let id)? = ui.drag?.item,
               let window = ui.windows.first(where: { $0.id == id }) else { return nil }
@@ -183,12 +185,6 @@ struct RootView: View {
                     if permission.isTrusted && store.document.rules.isEmpty
                         && router.sessionPins.isEmpty {
                         FirstStepsCard()
-                    }
-                    if let hint = dragHint {
-                        Label(hint, systemImage: "hand.draw")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
                     }
                     ScreenMapView(mode: mode)
                 }
@@ -518,7 +514,9 @@ struct RootView: View {
     private var footer: some View {
         HStack(spacing: 10) {
             Group {
-                if let error = store.lastError {
+                if let hint = dragHint {
+                    Label(hint, systemImage: "hand.draw")
+                } else if let error = store.lastError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
                 } else if !router.status.unresponsive.isEmpty {
