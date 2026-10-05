@@ -13,6 +13,8 @@ final class WindowEvents {
     /// Başlık değişimi ayrı: değişen pencerenin sahibi (pid) ile. Router
     /// yalnız başlığın önemli olduğu uygulamalarda tarar.
     let titleChanged = PassthroughSubject<pid_t, Never>()
+    /// Pencere taşındı (sürükleme sırasında art arda gelir).
+    let moved = PassthroughSubject<Void, Never>()
 
     private var observers: [pid_t: AXObserver] = [:]
     /// Kaydı arka kuyrukta sürenler (ikinci kez gönderilmesin).
@@ -49,6 +51,7 @@ final class WindowEvents {
         kAXFocusedWindowChangedNotification,
         kAXWindowDeminiaturizedNotification,
         kAXTitleChangedNotification,
+        kAXWindowMovedNotification,
     ]
 
     init() {
@@ -298,6 +301,10 @@ final class WindowEvents {
             var pid: pid_t = 0
             _ = AXUIElementGetPid(element, &pid)
             Task { @MainActor in events.titleChanged.send(pid) }
+            return
+        }
+        if name == kAXWindowMovedNotification {
+            Task { @MainActor in events.moved.send() }
             return
         }
         Task { @MainActor in events.changed.send(name) }

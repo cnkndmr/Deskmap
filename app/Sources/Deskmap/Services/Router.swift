@@ -169,6 +169,10 @@ final class Router: ObservableObject {
     private let store: Store
     private let screens: ScreenService
     private let events: WindowEvents
+    /// Pencere ekran değiştirince kullanıcı komutları (`hooks.json`).
+    private let screenHooks = ScreenHooks(url: Store.directoryURL.appendingPathComponent("hooks.json"))
+    /// Son taramanın ekran listesi: ekran takılıp çıkarılırken kanca tetiklenmez.
+    private var hookScreens: [ScreenInfo] = []
     private let queue = DispatchQueue(label: "deskmap.router", qos: .utility)
     // nonisolated(unsafe): ikisi de yalnızca init'te (ana aktör) doldurulur,
     // deinit'te kapatılır; `Timer` ve gözlemci belirteci Sendable olmadığı
@@ -267,6 +271,15 @@ final class Router: ObservableObject {
             .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.countSweepReason("event:title")
+                self?.sweep()
+            }
+            .store(in: &cancellables)
+        // Sürükleme sürerken taşınma olayı sürekli gelir; bırakınca bir tarama
+        // (ekran değişimi kancası beklemeden tetiklensin).
+        events.moved
+            .debounce(for: .milliseconds(300), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.countSweepReason("event:moved")
                 self?.sweep()
             }
             .store(in: &cancellables)
@@ -1220,7 +1233,14 @@ final class Router: ObservableObject {
                 self.applied = applied
                 self.attempts = attempts
                 self.lastAttempts = lastAttempts
+                let hookScreens = self.hookScreens
+                self.hookScreens = connected
                 if outcome.snapshots != self.windows {
+                    if !self.isDemo {
+                        self.screenHooks.fire(ScreenChange.detect(
+                            old: self.windows, new: outcome.snapshots,
+                            oldScreens: hookScreens, newScreens: connected))
+                    }
                     Self.logFullscreenChange(from: self.windows, to: outcome.snapshots)
                     self.windows = outcome.snapshots
                 }
