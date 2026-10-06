@@ -50,7 +50,9 @@ ID1=$(st '[r["id"] for r in d["rules"] if r["appName"]=="HookProbe"][0]')
 [ $code -eq 0 ] && grep -q "1/1 window(s) in place" "$OUT/b.out" && ok "apply b: in place" || bad "apply b (exit $code)"
 [ "$(st 'len(d["rules"])')" == "$((COUNT + 1))" ] && [ "$(st '[r["id"] for r in d["rules"] if r["appName"]=="HookProbe"][0]')" == "$ID1" ] \
     && ok "same rule updated (id kept)" || bad "rule not updated in place"
-"$CLI" check "$OUT/b.yaml" > /dev/null && ok "check" || bad "check"
+# Test penceresi gerçek pencerelerin üstüne düşebilir; örtülme uyarısı
+# burada beklenen, yalnız konum denetlenir.
+"$CLI" check "$OUT/b.yaml" | grep -q "1/1 window(s) in place" && ok "check" || bad "check"
 
 "$CLI" apply "$OUT/c.yaml" > "$OUT/c.out"; code=$?; sed 's/^/    /' "$OUT/c.out"
 [ $code -eq 0 ] && [ "$(st 'd.get("profile")')" == "Deskmap Test" ] && [ "$(st 'len(d["rules"])')" == "1" ] \
