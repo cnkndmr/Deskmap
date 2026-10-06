@@ -27,7 +27,10 @@ hata verdi mi).
   deskmap save-layout KURAL [--window PENCERE]  pencerenin şu anki boyut/konumu → kuralın yerleşimi
   deskmap apply DÜZEN.yaml [--dry-run]   düzen dosyasını profil olarak kur, raporla
   deskmap apply --undo              son apply'ı geri al
+  deskmap apply DÜZEN.yaml --remove dosyadaki kuralları profilden kaldır
   deskmap check DÜZEN.yaml          düzen yerinde mi (değiştirmeden)
+  deskmap dump [--docked EKRAN/N ...] [--undocked ...] [--title PARÇA ...] [-o DOSYA]
+                                    etkin profilin kurallarını düzen dosyası olarak yaz
   deskmap layouts                   hazır yerleşim adları (left-half, top-right…)
 
 PENCERE: pencere kimliği ya da uygulama adı/başlığı parçası (tek eşleşme).
@@ -265,10 +268,18 @@ def parse_layout(value):
     if value is None:
         value = "full"
     if isinstance(value, dict):
+        # Sabit boyutlu yerleşim (Deskmap'in "fixed" alanı) olduğu gibi korunur.
         try:
-            return {k: float(value[k]) for k in ("x", "y", "w", "h")}
+            out = {k: float(value[k]) for k in ("x", "y", "w", "h")}
         except (KeyError, ValueError):
             raise ValueError(f"layout needs x, y, w, h: {value}")
+        if value.get("fixed"):
+            f = value["fixed"]
+            if not {"anchor", "width", "height"} <= set(f):
+                raise ValueError(f"fixed needs anchor, width, height: {f}")
+            out["fixed"] = {"anchor": str(f["anchor"]), "width": float(f["width"]),
+                            "height": float(f["height"])}
+        return out
     text = str(value).strip().lower()
     if text in NAMED_LAYOUTS:
         x, y, w, h = NAMED_LAYOUTS[text]
@@ -279,7 +290,7 @@ def parse_layout(value):
             raise ValueError(f"unknown layout '{value}' (names: {', '.join(NAMED_LAYOUTS)})")
     if not (0 <= x < 1 and 0 <= y < 1 and 0 < w <= 1 and 0 < h <= 1 and x + w <= 1.001 and y + h <= 1.001):
         raise ValueError(f"layout out of range: {value}")
-    return {"x": round(x, 6), "y": round(y, 6), "w": round(w, 6), "h": round(h, 6)}
+    return {"x": x, "y": y, "w": w, "h": h}
 
 
 def parse_place(value):
@@ -512,8 +523,18 @@ def apply_layout(args):
     if not name:
         die("no active profile; name one with 'profile:'")
     old = profile_rules(name)
-    rules, file_ids = merge_rules(old, plan["rules"], plan["replace"])
-    kind = "new" if old is None else ("replace" if plan["replace"] else "edit")
+    if args.remove:
+        if old is None:
+            die(f"profile '{name}' does not exist")
+        gone = {rule_key(r) for r in plan["rules"]}
+        rules, file_ids = [r for r in old if rule_key(r) not in gone], []
+        plan["desktops"], plan["launches"] = [], []
+        missing = len(gone) - (len(old) - len(rules))
+        if missing:
+            print(f"  note: {missing} rule(s) from the file are not in the profile")
+    else:
+        rules, file_ids = merge_rules(old, plan["rules"], plan["replace"])
+    kind = "new" if old is None else ("remove" if args.remove else "replace" if plan["replace"] else "edit")
     active = " (active)" if name == status.get("profile") else ""
     print(f"Profile '{name}'{active}: {kind}, {len(plan['rules'])} rule(s) from file, "
           f"{len(rules)} in profile; mode {status['mode']}")
@@ -566,6 +587,72 @@ def apply_undo():
     last.rename(last.with_suffix(".undone"))
     print(f"restored profile '{rec.get('previousProfile')}'"
           + ("" if rec.get("previousRules") is None else f", '{rec['profile']}' rules reverted"))
+
+
+def layout_name(lay):
+    """Hazır ada denk düşen yerleşimin adı, yoksa sözlüğün kendisi."""
+    if not lay.get("fixed"):
+        for name, xywh in NAMED_LAYOUTS.items():
+            if all(abs(lay.get(k, 0) - v) < 1e-4 for k, v in zip("xywh", xywh)):
+                return name
+    out = {k: lay.get(k, 0) for k in "xywh"}
+    if lay.get("fixed"):
+        f = lay["fixed"]
+        out["fixed"] = {"anchor": f["anchor"], "width": f["width"], "height": f["height"]}
+    return out
+
+
+def dump_layout(args):
+    """Etkin profilin seçilen kurallarını düzen dosyası olarak yazar."""
+    s = fresh_status()
+    picked = []
+    for r in s["rules"]:
+        hit = False
+        for spec, mode in ((args.docked, "docked"), (args.undocked, "undocked")):
+            for target in spec or []:
+                scr, _, desk = target.partition("/")
+                d = r.get(mode)
+                if d and d["screen"] == scr.lower() and (not desk or d["desktop"] == int(desk)):
+                    hit = True
+        if args.title and any(t.lower() in " ".join(r.get("tokens", [])).lower() for t in args.title):
+            hit = True
+        if hit:
+            picked.append(r)
+    windows = []
+    for r in picked:
+        item = {"app": r["appName"]}
+        if r.get("bundleID"):
+            item["bundle"] = r["bundleID"]
+        if r.get("tokens"):
+            item["title"] = r["tokens"][0] if len(r["tokens"]) == 1 else r["tokens"]
+        for mode in MODES:
+            d = r.get(mode)
+            if d:
+                lay = layout_name(d.get("layout") or {})
+                item[mode] = (f"{d['screen']}/{d['desktop']} {lay}" if isinstance(lay, str)
+                              else {"screen": d["screen"], "desktop": d["desktop"], "layout": lay})
+        windows.append(item)
+    if not windows:
+        die("no rule matches")
+    try:
+        import yaml
+
+        class Dumper(yaml.SafeDumper):
+            pass
+        # Yerleşim sözlükleri tek satırda: {x: 0, y: 0, w: 0.5, h: 1}
+        Dumper.add_representer(dict, lambda d, data: d.represent_mapping(
+            "tag:yaml.org,2002:map", data.items(),
+            flow_style=set(data) <= {"x", "y", "w", "h", "fixed", "anchor", "width", "height"}))
+        text = yaml.dump({"windows": windows}, Dumper=Dumper, allow_unicode=True,
+                         sort_keys=False, width=120)
+    except ImportError:
+        text = json.dumps({"windows": windows}, indent=2, ensure_ascii=False) + "\n"
+    header = f"# {s.get('profile')} profilinden, {time.strftime('%Y-%m-%d')}\n"
+    if args.output:
+        Path(args.output).expanduser().write_text(header + text)
+        print(f"{len(windows)} rule(s) → {args.output}")
+    else:
+        print(header + text, end="")
 
 
 def check_layout(args):
@@ -657,9 +744,12 @@ def main():
     sp.set_defaults(fn=save_layout)
     sp = sub.add_parser("apply"); sp.add_argument("file", nargs="?")
     sp.add_argument("--dry-run", action="store_true"); sp.add_argument("--undo", action="store_true")
+    sp.add_argument("--remove", action="store_true", help="remove the file's rules from the profile")
     sp.add_argument("--wait", type=float, default=8.0, help="seconds to wait for launched apps")
     sp.set_defaults(fn=lambda a: apply_layout(a) if a.undo or a.file else die("apply needs a file or --undo"))
     sp = sub.add_parser("check"); sp.add_argument("file"); sp.set_defaults(fn=check_layout)
+    sp = sub.add_parser("dump"); sp.add_argument("--docked", nargs="+"); sp.add_argument("--undocked", nargs="+")
+    sp.add_argument("--title", nargs="+"); sp.add_argument("-o", "--output"); sp.set_defaults(fn=dump_layout)
     sub.add_parser("layouts").set_defaults(fn=lambda a: print("\n".join(
         f"{k:<18} {','.join(f'{v:g}' for v in xywh)}" for k, xywh in NAMED_LAYOUTS.items())))
     args = p.parse_args()

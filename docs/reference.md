@@ -410,6 +410,8 @@ deskmap apply desk.yaml            # edit the active profile (or the named one),
 deskmap check desk.yaml            # is everything where the file says? (no changes)
 deskmap apply --undo               # back to the previous profile and rules
 deskmap layouts                    # layout names: left-half, top-right, center-third…
+deskmap apply desk.yaml --remove   # remove the file's rules from the profile
+deskmap dump --docked external/2 -o desk.yaml   # write existing rules as a layout file
 ```
 
 The report lists every open window the file's rules pick (same choice as
