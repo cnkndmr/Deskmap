@@ -244,6 +244,44 @@ struct Document: Codable, Equatable {
         return "\(base) (\(n))"
     }
 
+    /// Profili ada göre (tam eşleşme) ekler ya da kurallarını değiştirir;
+    /// mevcut profilin kimliği korunur, diğer profillere dokunulmaz. Hedef
+    /// aktif profilse canlı `rules` da güncellenir. `activate`: ona geçer.
+    @discardableResult
+    mutating func upsertProfile(_ incoming: Profile, activate: Bool) -> Profile {
+        let target: Profile
+        if let i = profiles.firstIndex(where: { $0.name == incoming.name }) {
+            profiles[i].rules = incoming.rules
+            if profiles[i].id == activeProfileID { rules = incoming.rules }
+            target = profiles[i]
+        } else {
+            var created = incoming
+            if profiles.contains(where: { $0.id == created.id }) {
+                created.id = UUID().uuidString
+            }
+            syncActiveProfile()
+            profiles.append(created)
+            target = created
+        }
+        if activate { switchProfile(to: target.id) }
+        return target
+    }
+
+    /// `keeping`'den büyük masaüstülerinden (`total`'a dek) kural ya da
+    /// oturum pini bakan ilk (en büyük) numarayı döndürür; yoksa nil. Bütün
+    /// profillerin bu moddaki pinlerine bakar.
+    func desktopBlockingRemoval(on screen: String, mode: Mode, keeping: Int, total: Int,
+                                sessionPins: [Destination] = []) -> Int? {
+        var used = Set<Int>()
+        for list in [rules] + profiles.map(\.rules) {
+            for rule in list {
+                if let d = rule[mode], d.screen == screen { used.insert(d.desktop) }
+            }
+        }
+        for d in sessionPins where d.screen == screen { used.insert(d.desktop) }
+        return used.filter { $0 > keeping && $0 <= max(total, used.max() ?? 0) }.max()
+    }
+
     /// Aktif profilin kayıtlı kurallarını üst düzey `rules` ile eşitler.
     mutating func syncActiveProfile() {
         guard let i = profiles.firstIndex(where: { $0.id == activeProfileID }) else {
@@ -905,6 +943,13 @@ final class Store: ObservableObject {
     /// yeniden yerleştirir.
     func switchProfile(to id: String) {
         document.switchProfile(to: id)
+    }
+
+    /// Profili ada göre ekler/günceller (bkz. `Document.upsertProfile`).
+    func upsertProfile(_ profile: Profile, activate: Bool) {
+        var doc = document
+        doc.upsertProfile(profile, activate: activate)
+        document = doc
     }
 
     /// Yeni profil ekler ve ona geçer. `copyingCurrent`: mevcut pinlerle başla.

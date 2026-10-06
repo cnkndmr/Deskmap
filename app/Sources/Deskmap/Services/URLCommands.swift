@@ -22,6 +22,8 @@ import Foundation
 ///     deskmap://move/<pencere>/<ekran>/<n>   pencereyi bir kez taşı
 ///     deskmap://rule-add?json=<kural>        kural ekle (Rule JSON'u)
 ///     deskmap://rule-remove/<kimlik> kuralı sil
+///     deskmap://profile-set?json=<profil>&activate=1  profili ada göre ekle/güncelle
+///     deskmap://plan-desktops/<ekran>/<n>?mode=docked|undocked  ekranda n masaüstü olsun
 ///
 /// Her komut `?req=<n>` alabilir: işlendikten sonra status.json `request: n`
 /// ile yazılır (`deskmap` komut satırı aracı bununla bekler).
@@ -45,6 +47,8 @@ enum URLCommand: Equatable {
     case move(window: CGWindowID, screen: String, desktop: Int)
     case addRule(Rule)
     case removeRule(id: String)
+    case setProfile(Profile, activate: Bool)
+    case planDesktops(screen: String, count: Int, mode: Mode?)
 
     static let scheme = "deskmap"
     /// Eski uygulama adı; süresiz kabul edilir (bkz. tip belgesi).
@@ -103,6 +107,30 @@ enum URLCommand: Equatable {
         case "rule-remove":
             guard parts.count == 1 else { return nil }
             return .removeRule(id: parts[0])
+        case "profile-set":
+            struct Payload: Decodable {
+                var id: String?
+                var name: String
+                var rules: [Rule]
+            }
+            guard let json = query.first(where: { $0.name == "json" })?.value,
+                  let payload = try? JSONDecoder().decode(Payload.self, from: Data(json.utf8))
+            else { return nil }
+            let name = payload.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !name.isEmpty else { return nil }
+            let flag = query.first { $0.name == "activate" }?.value?.lowercased()
+            var profile = Profile(name: name, rules: payload.rules)
+            if let id = payload.id, !id.isEmpty { profile.id = id }
+            return .setProfile(profile, activate: flag == "1" || flag == "true")
+        case "plan-desktops":
+            guard parts.count == 2, let count = Int(parts[1]), (1...16).contains(count)
+            else { return nil }
+            var mode: Mode?
+            if let raw = query.first(where: { $0.name == "mode" })?.value {
+                guard let parsed = Mode(rawValue: raw.lowercased()) else { return nil }
+                mode = parsed
+            }
+            return .planDesktops(screen: parts[0].lowercased(), count: count, mode: mode)
         case "reapply":      return .reapply
         case "pause":        return .pause
         case "resume":       return .resume
@@ -210,6 +238,10 @@ enum URLCommands {
                 return
             }
             store.remove(id)
+        case .setProfile(let profile, let activate):
+            store.upsertProfile(profile, activate: activate)
+        case .planDesktops(let screen, let count, let mode):
+            planDesktops(screen: screen, count: count, mode: mode, store: store, router: router)
         case .addDesktop(let screen):
             Task {
                 if await !router.addDesktop(on: screen) {
@@ -223,5 +255,67 @@ enum URLCommands {
     static func profile(named name: String, in profiles: [Profile]) -> Profile? {
         profiles.first { $0.name == name }
             ?? profiles.first { $0.name.caseInsensitiveCompare(name) == .orderedSame }
+    }
+
+    /// Ekranda `count` masaüstü olsun. Etkin modda Mission Control ile
+    /// ekler/siler; etkin olmayan modda plana yazar / silmeyi sıraya alır
+    /// (haritadaki + ve sil yollarıyla aynı). Silinecek masaüstüne kural
+    /// ya da oturum pini bakıyorsa hata bildirir, hiçbir şey yapmaz.
+    private static func planDesktops(screen: String, count: Int, mode: Mode?,
+                                     store: Store, router: Router) {
+        let screens = AppModel.shared.screens
+        let mode = mode ?? screens.mode
+        let isLive = mode == screens.mode
+        let real = router.desktopCounts[screen]
+        let pending = store.document.pendingRemovals(mode: mode, screen: screen)
+            .filter { $0.space != nil }.count
+        let shown = real.map { isLive ? $0 : max($0 - pending, 0) }
+        let planned = isLive ? 0 : store.document.plannedDesktops(mode: mode, screen: screen)
+        let have = max(shown ?? 0, planned)
+        if isLive && real == nil {
+            store.report(L("Could not add a desktop to %@", screen))
+            return
+        }
+        guard count != have else { return }
+        if count > have {
+            guard isLive else {
+                store.planDesktop(on: screen, mode: mode, count: count)
+                return
+            }
+            Task {
+                for _ in have..<count {
+                    if await !router.addDesktop(on: screen) {
+                        store.report(L("Could not add a desktop to %@", screen))
+                        return
+                    }
+                }
+            }
+            return
+        }
+        if let blocked = store.document.desktopBlockingRemoval(
+            on: screen, mode: mode, keeping: count, total: have,
+            sessionPins: isLive ? Array(router.sessionPins.values) : []) {
+            store.report(L("Desktop %ld on %@ still has pinned rules", blocked, screen))
+            return
+        }
+        if isLive {
+            Task {
+                for desktop in stride(from: have, to: count, by: -1) {
+                    if await !router.removeDesktop(on: screen, desktop: desktop) {
+                        store.report(L("Could not remove desktop %ld on %@", desktop, screen))
+                        return
+                    }
+                }
+            }
+        } else {
+            for desktop in stride(from: have, to: count, by: -1) {
+                let existing = desktop <= (shown ?? 0)
+                store.removeDesktopLater(
+                    on: screen, desktop: desktop, mode: mode, existing: existing,
+                    space: existing
+                        ? router.spaceForPendingRemoval(on: screen, desktop: desktop, mode: mode)
+                        : nil)
+            }
+        }
     }
 }

@@ -301,3 +301,4 @@
 "No open windows." = "Açık pencere yok.";
 "Full-screen windows without a pin are left alone." = "Pinsiz tam ekran pencerelere dokunulmaz.";
 "Window now: %@ (the anchor sets the position)" = "Pencere şu an: %@ (konumu sabitleme belirler)";
+"Desktop %ld on %@ still has pinned rules" = "%2$@ ekranındaki %1$ld. masaüstünde hâlâ pinli kurallar var";

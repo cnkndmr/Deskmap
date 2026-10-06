@@ -88,3 +88,92 @@ struct URLCommandCLITests {
         #expect(URLCommands.requestID(URL(string: "deskmap://pause")!) == nil)
     }
 }
+
+struct URLCommandProfileAndPlanTests {
+
+    private func setURL(_ json: String, extra: String = "") -> URL {
+        var c = URLComponents(string: "deskmap://profile-set")!
+        c.queryItems = [URLQueryItem(name: "json", value: json)]
+            + (extra.isEmpty ? [] : [URLQueryItem(name: "activate", value: extra)])
+        return c.url!
+    }
+
+    @Test func profileSetParses() {
+        guard case .setProfile(let p, let activate)? =
+                URLCommand.parse(setURL(#"{"name":"Ofis","rules":[]}"#, extra: "1")) else {
+            Issue.record("profile-set did not parse"); return
+        }
+        #expect(p.name == "Ofis" && p.rules.isEmpty && activate)
+        guard case .setProfile(let q, let a2)? =
+                URLCommand.parse(setURL(#"{"id":"X","name":"Ev","rules":[]}"#)) else {
+            Issue.record("profile-set did not parse"); return
+        }
+        #expect(q.id == "X" && !a2)
+        #expect(URLCommand.parse(setURL("nope")) == nil)
+        #expect(URLCommand.parse(setURL(#"{"name":" ","rules":[]}"#)) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://profile-set")!) == nil)
+    }
+
+    @Test func planDesktopsParses() {
+        #expect(URLCommand.parse(URL(string: "deskmap://plan-desktops/External/4?mode=docked&req=1")!)
+                == .planDesktops(screen: "external", count: 4, mode: .docked))
+        #expect(URLCommand.parse(URL(string: "deskmap://plan-desktops/builtin/2")!)
+                == .planDesktops(screen: "builtin", count: 2, mode: nil))
+        #expect(URLCommand.parse(URL(string: "deskmap://plan-desktops/builtin/0")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://plan-desktops/builtin/17")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://plan-desktops/builtin")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://plan-desktops/builtin/2?mode=x")!) == nil)
+    }
+
+    private func rule(_ id: String, desktop: Int) -> Rule {
+        var r = Rule(appName: id, bundleID: "", tokens: [])
+        r.id = id
+        r.docked = Destination(screen: "external", desktop: desktop)
+        return r
+    }
+
+    private func document() -> Document {
+        var doc = Document()
+        doc.profiles = [Profile(id: "A", name: "A", rules: [rule("a", desktop: 1)]),
+                        Profile(id: "B", name: "B", rules: [rule("b", desktop: 3)])]
+        doc.activeProfileID = "A"
+        doc.rules = doc.profiles[0].rules
+        return doc
+    }
+
+    @Test func upsertCreatesNew() {
+        var doc = document()
+        doc.upsertProfile(Profile(name: "C", rules: [rule("c", desktop: 2)]), activate: false)
+        #expect(doc.profiles.count == 3 && doc.profiles[2].name == "C")
+        #expect(doc.activeProfileID == "A" && doc.rules.map(\.id) == ["a"])
+    }
+
+    @Test func upsertReplacesByNameKeepingID() {
+        var doc = document()
+        doc.upsertProfile(Profile(id: "ZZ", name: "B", rules: []), activate: false)
+        #expect(doc.profiles.count == 2)
+        #expect(doc.profiles[1].id == "B" && doc.profiles[1].rules.isEmpty)
+        #expect(doc.profiles[0].rules.map(\.id) == ["a"])
+    }
+
+    @Test func upsertActiveUpdatesLiveRules() {
+        var doc = document()
+        doc.upsertProfile(Profile(name: "A", rules: [rule("n", desktop: 2)]), activate: false)
+        #expect(doc.rules.map(\.id) == ["n"] && doc.profiles[0].rules.map(\.id) == ["n"])
+        #expect(doc.profiles[1].rules.map(\.id) == ["b"])
+    }
+
+    @Test func upsertActivateSwitches() {
+        var doc = document()
+        doc.upsertProfile(Profile(name: "B", rules: [rule("q", desktop: 1)]), activate: true)
+        #expect(doc.activeProfileID == "B" && doc.rules.map(\.id) == ["q"])
+        #expect(doc.profiles[0].rules.map(\.id) == ["a"])
+    }
+
+    @Test func removalBlockedByPinnedRules() {
+        let doc = document()
+        #expect(doc.desktopBlockingRemoval(on: "external", mode: .docked, keeping: 2, total: 4) == 3)
+        #expect(doc.desktopBlockingRemoval(on: "external", mode: .docked, keeping: 3, total: 4) == nil)
+        #expect(doc.desktopBlockingRemoval(on: "builtin", mode: .docked, keeping: 1, total: 4) == nil)
+    }
+}

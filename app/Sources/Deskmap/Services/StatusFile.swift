@@ -16,6 +16,10 @@ final class StatusFile {
             let name: String
             let builtin: Bool
             let frame: [Double]
+            let visible: [Double]
+            let desktops: Int?
+            /// Mod başına planlanan masaüstü sayısı (docked / undocked).
+            let planned: [String: Int]
         }
         struct Window: Codable {
             let id: CGWindowID
@@ -41,6 +45,7 @@ final class StatusFile {
         let profile: String?
         let profiles: [String]
         let lastError: String?
+        let primaryHeight: Double?
         let screens: [Screen]
         let windows: [Window]
         let rules: [Rule]
@@ -70,8 +75,24 @@ final class StatusFile {
             .store(in: &cancellables)
     }
 
+    private func screenEntry(_ screen: ScreenInfo) -> Snapshot.Screen {
+        let frame: [Double] = [screen.frame.minX, screen.frame.minY,
+                               screen.frame.width, screen.frame.height]
+        let visible: [Double] = [screen.visibleFrame.minX, screen.visibleFrame.minY,
+                                 screen.visibleFrame.width, screen.visibleFrame.height]
+        var planned: [String: Int] = [:]
+        for mode in Mode.allCases {
+            planned[mode.rawValue] = store.document.plannedDesktops(mode: mode, screen: screen.id)
+        }
+        return Snapshot.Screen(id: screen.id, name: screen.name, builtin: screen.isBuiltin,
+                               frame: frame, visible: visible,
+                               desktops: router.desktopCounts[screen.id], planned: planned)
+    }
+
     func write(request: String?) {
         let pins = router.sessionPins
+        let primary: ScreenInfo? = screens.screens.first { $0.frame.origin == CGPoint.zero }
+        let primaryHeight: Double? = primary.map { Double($0.frame.height) }
         let snapshot = Snapshot(
             pid: ProcessInfo.processInfo.processIdentifier,
             updated: Date(),
@@ -81,10 +102,8 @@ final class StatusFile {
             profile: store.document.activeProfile?.name,
             profiles: store.profiles.map(\.name),
             lastError: store.lastError,
-            screens: screens.screens.map {
-                .init(id: $0.id, name: $0.name, builtin: $0.isBuiltin,
-                      frame: [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height])
-            },
+            primaryHeight: primaryHeight,
+            screens: screens.screens.map(screenEntry),
             windows: router.windows.map { window in
                 .init(id: window.id, app: window.appName, bundleID: window.bundleID,
                       title: window.title,
