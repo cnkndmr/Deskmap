@@ -519,7 +519,7 @@ EXPOSED_MIN = 200   # px: her pencerenin hiçbir şeyin altında kalmayan en az 
 GRID = 20
 
 
-def exposure_issues(status, rules):
+def exposure_issues(status, rules, desks=None):
     """Etkin modda açık pencerelerin hedef dikdörtgenleri: hangi pencere,
     ön/arka sırasından bağımsız olarak tamamen örtülebilir (EXPOSED_MIN
     karelik açık alanı yok). Ekran ve masaüstü başına bakılır."""
@@ -544,6 +544,8 @@ def exposure_issues(status, rules):
     issues = []
     block = EXPOSED_MIN // GRID
     for (screen, desktop), rects in sorted(groups.items()):
+        if desks is not None and (screen, desktop) not in desks:
+            continue
         cells = {}
         for label, (x, y, w, h) in rects.items():
             for cx in range(int(x // GRID), int((x + w) // GRID)):
@@ -591,8 +593,9 @@ def apply_layout(args):
     pending = [e for e in plan["launches"] if not app_running(e, status)]
     for e in pending:
         print(f"  launch {e['app']}" + (f" ({e['launch']})" if e["launch"] is not True else ""))
-    preview = dict(status, rules=rules)
-    for issue in exposure_issues(preview, rules):
+    desks = {(r[status["mode"]]["screen"], r[status["mode"]]["desktop"])
+             for r in plan["rules"] if r.get(status["mode"])}
+    for issue in exposure_issues(status, rules, desks):
         print(f"  ⚠ {issue}")
     if args.dry_run:
         print("(dry run, nothing changed)")
@@ -715,7 +718,9 @@ def check_layout(args):
     ok_count, total, rows = report(status, rules, only=set(ids))
     print(f"{ok_count}/{total} window(s) in place ({status['mode']})")
     print("\n".join(rows))
-    issues = exposure_issues(status, rules)
+    desks = {(r[status["mode"]]["screen"], r[status["mode"]]["desktop"])
+             for r in plan["rules"] if r.get(status["mode"])}
+    issues = exposure_issues(status, rules, desks)
     for issue in issues:
         print(f"  ⚠ {issue}")
     if issues:
