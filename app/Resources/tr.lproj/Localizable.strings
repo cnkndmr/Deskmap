@@ -49,6 +49,10 @@
 "Profile not found: %@" = "Profil bulunamadı: %@";
 "Window not found: %@" = "Pencere bulunamadı: %@";
 "Rule not found: %@" = "Kural bulunamadı: %@";
+"A profile named %@ already exists" = "%@ adlı bir profil zaten var";
+"Desktop %ld on %@ does not exist" = "%2$@ üzerinde %1$ld. masaüstü yok";
+"Rule has no target in this setup: %@" = "Kuralın bu düzende hedefi yok: %@";
+"No open window for rule: %@" = "Kurala uyan açık pencere yok: %@";
 
 /* Services/MacSettings.swift (ayar adları macOS'taki İngilizce adlarıyla kalır) */
 "Automatically rearrange Spaces based on most recent use" = "Alanları en son kullanıma göre otomatik olarak yeniden düzenle";

@@ -20,6 +20,11 @@ hata verdi mi).
                    [--screen EKRAN] [--desktop N] [--layout x,y,w,h]
                    [--undocked-screen EKRAN] [--undocked-desktop N]
   deskmap rule rm KİMLİK
+  deskmap profile-rename ESKİ YENİ    profilin adını değiştir
+  deskmap export DOSYA [--profile AD] profili .deskmap.json olarak dışa aktar (varsayılan etkin)
+  deskmap desktop-move EKRAN N M [--mode docked|undocked]  N. masaüstünü M. sıraya taşı
+                                    (kurallar, pinler ve etkin modda pencereler birlikte)
+  deskmap save-layout KURAL [--window PENCERE]  pencerenin şu anki boyut/konumu → kuralın yerleşimi
   deskmap apply DÜZEN.yaml [--dry-run]   düzen dosyasını profil olarak kur, raporla
   deskmap apply --undo              son apply'ı geri al
   deskmap check DÜZEN.yaml          düzen yerinde mi (değiştirmeden)
@@ -577,6 +582,46 @@ def check_layout(args):
     sys.exit(0 if ok_count == total else 2)
 
 
+def resolve_rule(status, text):
+    rules = status["rules"]
+    if any(r["id"] == text for r in rules):
+        return text
+    t = text.lower()
+    hits = [r for r in rules if t == r["appName"].lower()
+            or t in (r["appName"] + " " + " ".join(r.get("tokens", []))).lower()]
+    if len(hits) == 1:
+        return hits[0]["id"]
+    if not hits:
+        die(f"no rule matches '{text}'")
+    lines = "\n".join(f"  {r['id']}  {r['appName']} {' '.join(r.get('tokens', []))}" for r in hits)
+    die(f"'{text}' matches {len(hits)} rules, use an id:\n{lines}")
+
+
+def export_profile(args):
+    path = str(Path(args.file).expanduser().resolve())
+    query = {"path": path}
+    if args.profile:
+        query["name"] = args.profile
+    send("profile-export", **query)
+    print(path)
+
+
+def desktop_move(args):
+    s = fresh_status()
+    query = {"mode": args.mode} if args.mode else {}
+    send(f"desktop-move/{resolve_screen(s, args.screen)}/{args.src}/{args.dst}", **query)
+
+
+def save_layout(args):
+    s = fresh_status()
+    rule = resolve_rule(s, args.rule)
+    before = next(r for r in s["rules"] if r["id"] == rule).get(s["mode"])
+    query = {"window": str(resolve_window(s, args.window))} if args.window else {}
+    after = send(f"rule-save-layout/{rule}", **query)
+    now = next(r for r in after["rules"] if r["id"] == rule).get(after["mode"])
+    print(f"{place_text(before)}  →  {place_text(now)}")
+
+
 def main():
     p = argparse.ArgumentParser(prog="deskmap", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -602,6 +647,14 @@ def main():
     sp.add_argument("--undocked-screen"); sp.add_argument("--undocked-desktop", type=int, default=1)
     sp.set_defaults(fn=rule_add)
     sp = rp.add_parser("rm"); sp.add_argument("id"); sp.set_defaults(fn=rule_rm)
+    sp = sub.add_parser("profile-rename"); sp.add_argument("old"); sp.add_argument("new")
+    sp.set_defaults(fn=lambda a: send(f"profile-rename/{urllib.parse.quote(a.old, safe='')}", name=a.new))
+    sp = sub.add_parser("export"); sp.add_argument("file"); sp.add_argument("--profile")
+    sp.set_defaults(fn=export_profile)
+    sp = sub.add_parser("desktop-move"); sp.add_argument("screen"); sp.add_argument("src", type=int)
+    sp.add_argument("dst", type=int); sp.add_argument("--mode", choices=MODES); sp.set_defaults(fn=desktop_move)
+    sp = sub.add_parser("save-layout"); sp.add_argument("rule"); sp.add_argument("--window")
+    sp.set_defaults(fn=save_layout)
     sp = sub.add_parser("apply"); sp.add_argument("file", nargs="?")
     sp.add_argument("--dry-run", action="store_true"); sp.add_argument("--undo", action="store_true")
     sp.add_argument("--wait", type=float, default=8.0, help="seconds to wait for launched apps")

@@ -22,6 +22,11 @@ import Foundation
 ///     deskmap://move/<pencere>/<ekran>/<n>   pencereyi bir kez taşı
 ///     deskmap://rule-add?json=<kural>        kural ekle (Rule JSON'u)
 ///     deskmap://rule-remove/<kimlik> kuralı sil
+///     deskmap://profile-rename/<ad>?name=<yeni>   profilin adını değiştir
+///     deskmap://profile-export?path=</mutlak/yol>[&name=<ad>]  profili dışa aktar
+///     deskmap://desktop-move/<ekran>/<n>/<m>[?mode=]  n. masaüstünü m. sıraya taşı
+///     deskmap://rule-save-layout/<kimlik>[?window=<pencere>]  pencerenin şu anki
+///                                    boyut/konumunu kuralın yerleşimi yap
 ///     deskmap://profile-set?json=<profil>&activate=1  profili ada göre ekle/güncelle
 ///     deskmap://plan-desktops/<ekran>/<n>?mode=docked|undocked  ekranda n masaüstü olsun
 ///
@@ -49,6 +54,10 @@ enum URLCommand: Equatable {
     case removeRule(id: String)
     case setProfile(Profile, activate: Bool)
     case planDesktops(screen: String, count: Int, mode: Mode?)
+    case renameProfile(from: String, to: String)
+    case exportProfile(name: String?, path: String)
+    case moveDesktop(screen: String, from: Int, to: Int, mode: Mode?)
+    case saveLayout(rule: String, window: CGWindowID?)
 
     static let scheme = "deskmap"
     /// Eski uygulama adı; süresiz kabul edilir (bkz. tip belgesi).
@@ -122,6 +131,34 @@ enum URLCommand: Equatable {
             var profile = Profile(name: name, rules: payload.rules)
             if let id = payload.id, !id.isEmpty { profile.id = id }
             return .setProfile(profile, activate: flag == "1" || flag == "true")
+        case "profile-rename":
+            let old = parts.joined(separator: "/").trimmingCharacters(in: .whitespacesAndNewlines)
+            let new = (query.first { $0.name == "name" }?.value ?? "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !old.isEmpty, !new.isEmpty else { return nil }
+            return .renameProfile(from: old, to: new)
+        case "profile-export":
+            guard let path = query.first(where: { $0.name == "path" })?.value,
+                  path.hasPrefix("/") else { return nil }
+            let name = query.first { $0.name == "name" }?.value
+            return .exportProfile(name: name?.isEmpty == true ? nil : name, path: path)
+        case "desktop-move":
+            guard parts.count == 3, let from = Int(parts[1]), let to = Int(parts[2]),
+                  from >= 1, to >= 1, from != to else { return nil }
+            var mode: Mode?
+            if let raw = query.first(where: { $0.name == "mode" })?.value {
+                guard let parsed = Mode(rawValue: raw.lowercased()) else { return nil }
+                mode = parsed
+            }
+            return .moveDesktop(screen: parts[0].lowercased(), from: from, to: to, mode: mode)
+        case "rule-save-layout":
+            guard parts.count == 1 else { return nil }
+            var window: CGWindowID?
+            if let raw = query.first(where: { $0.name == "window" })?.value {
+                guard let id = CGWindowID(raw) else { return nil }
+                window = id
+            }
+            return .saveLayout(rule: parts[0], window: window)
         case "plan-desktops":
             guard parts.count == 2, let count = Int(parts[1]), (1...16).contains(count)
             else { return nil }
@@ -242,6 +279,32 @@ enum URLCommands {
             store.upsertProfile(profile, activate: activate)
         case .planDesktops(let screen, let count, let mode):
             planDesktops(screen: screen, count: count, mode: mode, store: store, router: router)
+        case .renameProfile(let from, let to):
+            guard let profile = profile(named: from, in: store.profiles) else {
+                store.report(L("Profile not found: %@", from))
+                return
+            }
+            if store.profiles.contains(where: { $0.id != profile.id && $0.name == to }) {
+                store.report(L("A profile named %@ already exists", to))
+                return
+            }
+            store.renameProfile(profile.id, to: to)
+        case .exportProfile(let name, let path):
+            let target = name.flatMap { profile(named: $0, in: store.profiles) }
+                ?? (name == nil ? store.document.activeProfile : nil)
+            guard let target else {
+                store.report(L("Profile not found: %@", name ?? ""))
+                return
+            }
+            do {
+                try store.exportData(for: target.id).write(to: URL(fileURLWithPath: path), options: .atomic)
+            } catch {
+                store.report(L("Could not export: %@", error.localizedDescription))
+            }
+        case .moveDesktop(let screen, let from, let to, let mode):
+            moveDesktop(screen: screen, from: from, to: to, mode: mode, store: store, router: router)
+        case .saveLayout(let ruleID, let windowID):
+            saveLayout(ruleID: ruleID, windowID: windowID, store: store, router: router)
         case .addDesktop(let screen):
             Task {
                 if await !router.addDesktop(on: screen) {
@@ -249,6 +312,65 @@ enum URLCommands {
                 }
             }
         }
+    }
+
+    /// Haritadaki sürükle-bırak ile aynı: hem kural hedefleri hem (etkin
+    /// modda) pencereler ve oturum pinleri yeni sıraya geçer. Satır sayısı
+    /// haritadaki gibi: gerçek, kural, pencere, pin ve plan sayılarının en büyüğü.
+    private static func moveDesktop(screen: String, from: Int, to: Int, mode: Mode?,
+                                    store: Store, router: Router) {
+        let screens = AppModel.shared.screens
+        let mode = mode ?? screens.mode
+        let live = mode == screens.mode
+        let used = store.document.rules.compactMap { $0[mode] }
+            .filter { $0.screen == screen }.map(\.desktop).max() ?? 0
+        let windows = live ? router.windows.compactMap(\.placement)
+            .filter { $0.screen == screen }.map(\.desktop).max() ?? 0 : 0
+        let session = live ? router.sessionPins.values
+            .filter { $0.screen == screen }.map(\.desktop).max() ?? 0 : 0
+        let real = live ? router.desktopCounts[screen] ?? 0 : 0
+        let planned = store.document.plannedDesktops(mode: mode, screen: screen)
+        let count = max(real, used, windows, session, planned, 1)
+        guard from <= count, to <= count else {
+            store.report(L("Desktop %ld on %@ does not exist", max(from, to), screen))
+            return
+        }
+        let sessionMoved = router.moveDesktop(on: screen, from: from, to: to, count: count,
+                                              reorderWindows: live)
+        store.moveDesktop(
+            on: screen, from: from, to: to, count: count, mode: mode,
+            undoingSessionPins: sessionMoved
+                ? { router.moveDesktop(on: screen, from: to, to: from, count: count,
+                                       reorderWindows: live) }
+                : nil)
+    }
+
+    /// Paneldeki "Şu anki boyut ve konumu kullan" ile aynı: kuralın etkin
+    /// moddaki yerleşimi, kurala uyan pencerenin (ya da verilen pencerenin)
+    /// şu anki çerçevesinden. Ekran ve masaüstü değişmez.
+    private static func saveLayout(ruleID: String, windowID: CGWindowID?,
+                                   store: Store, router: Router) {
+        let mode = AppModel.shared.screens.mode
+        guard let rule = store.rule(ruleID) else {
+            store.report(L("Rule not found: %@", ruleID))
+            return
+        }
+        guard let destination = rule[mode] else {
+            store.report(L("Rule has no target in this setup: %@", ruleID))
+            return
+        }
+        let matching = router.windows.filter {
+            rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
+        }
+        let window = windowID.map { id in matching.first { $0.id == id } } ?? matching.first
+        guard let window,
+              let layout = window.currentLayout(like: destination.layout,
+                                                screens: AppModel.shared.screens.screens)
+        else {
+            store.report(L("No open window for rule: %@", ruleID))
+            return
+        }
+        _ = store.saveLayout(layout, for: ruleID, mode: mode)
     }
 
     /// Önce tam eşleşme, sonra büyük/küçük harfe duyarsız eşleşme.

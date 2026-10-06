@@ -337,6 +337,12 @@ running, macOS starts it first.
 | `deskmap://move/<window>/<screen>/<n>` | Move the window once |
 | `deskmap://rule-add?json=<rule>` | Add a rule (percent-encoded rule JSON, same shape as in `rules.json`) |
 | `deskmap://rule-remove/<id>` | Remove a rule |
+| `deskmap://profile-rename/<name>?name=<new>` | Rename a profile |
+| `deskmap://profile-export?path=<absolute path>[&name=<profile>]` | Export a profile (default: active) as `.deskmap.json` |
+| `deskmap://desktop-move/<screen>/<n>/<m>[?mode=docked\|undocked]` | Move desktop *n* to position *m*, like dragging its label: pins follow; in the live mode windows move too |
+| `deskmap://rule-save-layout/<rule id>[?window=<id>]` | Use a matching window's current size and position as the rule's layout (live mode) |
+| `deskmap://profile-set?json=<profile>&activate=1` | Create or update a profile by name |
+| `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Make a display have *count* desktops |
 
 Any command accepts `?req=<id>`: after handling it Deskmap writes
 `status.json` with `"request": "<id>"`, so a script can wait for the command
@@ -366,6 +372,10 @@ deskmap pin 12345 builtin 1 && deskmap unpin 12345
 deskmap rule add --app cmux --screen external --undocked-screen builtin --layout 0,0,0.5,1
 deskmap rule rm <id>
 deskmap pause | resume | reload | profile Office
+deskmap profile-rename Office "Office desk"
+deskmap export ~/office.deskmap.json [--profile Office]
+deskmap desktop-move external 1 3          # desktop 1 becomes desktop 3
+deskmap save-layout Safari [--window 12345] # keep the size you just dragged
 ```
 
 ### Layout files (`deskmap apply`)

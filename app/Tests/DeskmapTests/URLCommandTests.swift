@@ -177,3 +177,38 @@ struct URLCommandProfileAndPlanTests {
         #expect(doc.desktopBlockingRemoval(on: "builtin", mode: .docked, keeping: 1, total: 4) == nil)
     }
 }
+
+/// Profil adı, dışa aktarma, masaüstü sırası, şu anki boyutu kullan.
+struct URLCommandEditingTests {
+
+    @Test func profileRenameAndExport() {
+        #expect(URLCommand.parse(URL(string: "deskmap://profile-rename/Ofis?name=Ev%20Masas%C4%B1")!)
+                == .renameProfile(from: "Ofis", to: "Ev Masası"))
+        #expect(URLCommand.parse(URL(string: "deskmap://profile-rename/Ofis")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://profile-rename?name=X")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://profile-export?path=/tmp/a.deskmap.json")!)
+                == .exportProfile(name: nil, path: "/tmp/a.deskmap.json"))
+        #expect(URLCommand.parse(URL(string: "deskmap://profile-export?path=/tmp/a.json&name=Ofis")!)
+                == .exportProfile(name: "Ofis", path: "/tmp/a.json"))
+        #expect(URLCommand.parse(URL(string: "deskmap://profile-export?path=relative.json")!) == nil)
+    }
+
+    @Test func desktopMove() {
+        #expect(URLCommand.parse(URL(string: "deskmap://desktop-move/External/1/3")!)
+                == .moveDesktop(screen: "external", from: 1, to: 3, mode: nil))
+        #expect(URLCommand.parse(URL(string: "deskmap://desktop-move/builtin/2/1?mode=undocked")!)
+                == .moveDesktop(screen: "builtin", from: 2, to: 1, mode: .undocked))
+        #expect(URLCommand.parse(URL(string: "deskmap://desktop-move/builtin/2/2")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://desktop-move/builtin/0/2")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://desktop-move/builtin/1/2?mode=x")!) == nil)
+    }
+
+    @Test func saveLayout() {
+        #expect(URLCommand.parse(URL(string: "deskmap://rule-save-layout/R1")!)
+                == .saveLayout(rule: "R1", window: nil))
+        #expect(URLCommand.parse(URL(string: "deskmap://rule-save-layout/R1?window=42")!)
+                == .saveLayout(rule: "R1", window: 42))
+        #expect(URLCommand.parse(URL(string: "deskmap://rule-save-layout/R1?window=x")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://rule-save-layout")!) == nil)
+    }
+}

@@ -26,3 +26,4 @@ appstore/screenshots/
 *.swp
 scripts/hooktest/vdisplay
 scripts/hooktest/HookProbe
+scripts/hooktest/resize
