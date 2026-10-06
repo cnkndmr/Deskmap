@@ -1,41 +1,69 @@
 #!/usr/bin/env python3
-"""deskmap: çalışan Deskmap'i komut satırından okur ve yönetir.
+"""deskmap: read and control the running Deskmap app (macOS window/desktop router).
 
-Durum status.json'dan okunur (Deskmap her değişiklikte yazar). Komutlar
-deskmap:// URL'si olarak gönderilir; her komut bir istek kimliği taşır ve
-araç Deskmap'in o kimlikle status.json yazmasını bekler (komut işlendi mi,
-hata verdi mi).
+Deskmap keeps windows on fixed desktops and screens through RULES: app (+ optional
+title fragments) -> screen/desktop/layout, separately for two MODES: "docked"
+(external monitor connected) and "undocked" (laptop only). Rules live in PROFILES;
+one profile is active. A rule's layout is applied once per window; the user may
+move windows freely afterwards.
 
-  deskmap status                    özet: mod, profil, ekranlar, pencere sayısı
-  deskmap windows [--app AD]        pencereler: kimlik, uygulama, ekran, masaüstü
-  deskmap screens                   ekranlar
-  deskmap rules                     kurallar
-  deskmap hooks                     ekran değişimi kancaları (hooks.json)
-  deskmap pause|resume|toggle|reapply|reload|next-profile
-  deskmap profile AD
-  deskmap pin PENCERE EKRAN [MASAÜSTÜ]   pencere kapanana dek orada tut
-  deskmap unpin PENCERE
-  deskmap move PENCERE EKRAN [MASAÜSTÜ]  bir kez taşı
-  deskmap rule add --app AD [--bundle ID] [--title PARÇA ...]
-                   [--screen EKRAN] [--desktop N] [--layout x,y,w,h]
-                   [--undocked-screen EKRAN] [--undocked-desktop N]
-  deskmap rule rm KİMLİK
-  deskmap profile-rename ESKİ YENİ    profilin adını değiştir
-  deskmap export DOSYA [--profile AD] profili .deskmap.json olarak dışa aktar (varsayılan etkin)
-  deskmap desktop-move EKRAN N M [--mode docked|undocked]  N. masaüstünü M. sıraya taşı
-                                    (kurallar, pinler ve etkin modda pencereler birlikte)
-  deskmap save-layout KURAL [--window PENCERE]  pencerenin şu anki boyut/konumu → kuralın yerleşimi
-  deskmap apply DÜZEN.yaml [--dry-run]   düzen dosyasını profil olarak kur, raporla
-  deskmap apply --undo              son apply'ı geri al
-  deskmap apply DÜZEN.yaml --remove dosyadaki kuralları profilden kaldır
-  deskmap check DÜZEN.yaml          düzen yerinde mi (değiştirmeden)
-  deskmap dump [--docked EKRAN/N ...] [--undocked ...] [--title PARÇA ...] [-o DOSYA]
-                                    etkin profilin kurallarını düzen dosyası olarak yaz
-  deskmap layouts                   hazır yerleşim adları (left-half, top-right…)
+TO ARRANGE THE USER'S DESKTOPS ("organize my desktop/windows with deskmap"):
+  1. Read the user's preferences first: LAYOUTS/README.md (if it exists).
+     LAYOUTS = ~/Library/Application Support/Deskmap/layouts (layout files live there).
+  2. Look at the current state:  deskmap status ; deskmap windows ; deskmap rules
+  3. Write a layout file (YAML, format below), or edit an existing one in LAYOUTS.
+     `deskmap dump --docked external/2 -o FILE` writes existing rules as a file.
+  4. deskmap apply FILE --dry-run   shows rule changes and ⚠ warnings; show the
+     user what will change before applying.
+  5. deskmap apply FILE             edits the ACTIVE profile (other rules stay),
+     reapplies and reports every window ✓/✗.  Undo: deskmap apply --undo
+  6. deskmap check FILE             later: is everything still in place?
+  Know:
+  - Layout files are COPIES of rules; the user also edits rules in the app. If
+    --dry-run shows a file would change rules the user did not ask about, the
+    file is probably stale: ask before overwriting, refresh it with `dump`.
+  - Editing means the ACTIVE profile. Only add `profile:`/`replace: true` when the
+    user explicitly asks for another/new profile or a full replacement.
+  - macOS cannot resize windows on a desktop that is not currently shown: those
+    windows take their layout when the user next visits that desktop (✗ in the
+    report until then). Do not switch desktops while the user is working.
+  - A temporary pin (windows list: pin→) overrides rules; `deskmap unpin` it if
+    the rule should win.
+  - ⚠ "can be completely covered": with some stacking order a window would be
+    fully hidden (less than 200x200 px of it is free of other windows).
 
-PENCERE: pencere kimliği ya da uygulama adı/başlığı parçası (tek eşleşme).
-EKRAN: rol kimliği (builtin, external, external-2) ya da ekran adı parçası.
---json: ham JSON çıktı (status/windows/screens/rules).
+LAYOUT FILE (YAML or JSON):
+  profile: Name        # optional; default: active profile
+  replace: false       # optional; true = the file is the profile's whole rule list
+  desktops:            # optional desktop counts per mode and screen
+    docked: {external: 4}
+  windows:
+    - app: Code                   # app name (or bundle: com.microsoft.VSCode)
+      title: Orion     # optional title fragment(s), string or list
+      docked: external/2 left-half            # "screen/desktop layout"
+      undocked: {screen: builtin, desktop: 3, layout: {x: 0, y: 0, w: 0.7, h: 1}}
+      place: builtin/1 full       # instead of docked+undocked: same for both
+      launch: true                # open the app if no window is open (or a path/command)
+  Layouts: a name (`deskmap layouts`) or x,y,w,h as fractions of the screen's
+  usable area, top-left origin. The most specific rule (most title fragments) wins.
+
+COMMANDS:
+  status | windows [--app A] | screens | rules | hooks      (--json for raw data)
+  apply FILE [--dry-run] | apply FILE --remove | apply --undo | check FILE | dump
+  layouts                          layout names
+  move W SCREEN [N] | pin W SCREEN [N] | unpin W            one window
+  rule add --app A [--title T ...] --screen S [--desktop N] [--layout L]
+           [--undocked-screen S --undocked-desktop N] | rule rm ID
+  save-layout RULE [--window W]    use the window's current frame as the rule's layout
+  pause | resume | toggle | reapply | reload | next-profile | profile NAME
+  profile-rename OLD NEW | export FILE [--profile P]
+  desktop-move SCREEN N M [--mode M]   reorder desktops (rules/pins/windows follow)
+  W: window id or a unique app/title fragment. SCREEN: builtin, external,
+  external-2… or part of the display name. `deskmap CMD --help` for options.
+
+FILES: ~/Library/Application Support/Deskmap/: rules.json (rules, profiles),
+status.json (live state), hooks.json (commands run when a window changes screen,
+see docs/reference.md), apply-history/ (undo records), layouts/ (layout files).
 """
 import argparse
 import json
@@ -811,6 +839,9 @@ def main():
     sp.add_argument("--title", nargs="+"); sp.add_argument("-o", "--output"); sp.set_defaults(fn=dump_layout)
     sub.add_parser("layouts").set_defaults(fn=lambda a: print("\n".join(
         f"{k:<18} {','.join(f'{v:g}' for v in xywh)}" for k, xywh in NAMED_LAYOUTS.items())))
+    if len(sys.argv) == 1:
+        p.print_help()
+        return
     args = p.parse_args()
     args.fn(args)
 
