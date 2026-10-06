@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -41,29 +42,6 @@ struct ScreenChange: Equatable {
     let from: Screen
     let to: Screen
 
-    /// İki tarama arasında ekranı değişen pencereler. Yalnız iki taramada da
-    /// görülen, ikisinde de normal masaüstünde olan pencereler sayılır (yeni
-    /// açılan, tam ekrana geçen, simge durumundaki pencere tetiklemez). Ekran
-    /// listesi değiştiyse (monitör takıldı/çıkarıldı) hiç sayılmaz: o
-    /// taşımayı kullanıcı değil sistem yapmıştır.
-    static func detect(old: [Router.WindowSnapshot], new: [Router.WindowSnapshot],
-                       oldScreens: [ScreenInfo], newScreens: [ScreenInfo]) -> [ScreenChange] {
-        guard !old.isEmpty, oldScreens.map(\.id) == newScreens.map(\.id) else { return [] }
-        let before = Dictionary(old.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        let names = Dictionary(newScreens.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
-        return new.compactMap { window in
-            guard let prev = before[window.id],
-                  !window.isMinimized, !prev.isMinimized,
-                  window.fullscreen == nil, prev.fullscreen == nil,
-                  let to = window.placement?.screen, let from = prev.placement?.screen,
-                  to != from
-            else { return nil }
-            return ScreenChange(windowID: window.id, pid: window.pid,
-                                appName: window.appName, bundleID: window.bundleID,
-                                from: Screen(id: from, name: names[from] ?? from),
-                                to: Screen(id: to, name: names[to] ?? to))
-        }
-    }
 
     /// Komuta verilen ortam değişkenleri.
     var environment: [String: String] {
@@ -71,6 +49,50 @@ struct ScreenChange: Equatable {
          "DESKMAP_PID": String(pid), "DESKMAP_WINDOW_ID": String(windowID),
          "DESKMAP_FROM": from.id, "DESKMAP_FROM_NAME": from.name,
          "DESKMAP_TO": to.id, "DESKMAP_TO_NAME": to.name]
+    }
+}
+
+/// Her pencerenin en son görüldüğü ekran. Yalnız bir önceki taramayla
+/// karşılaştırmak yetmez: yanıt vermeyen uygulama birkaç tarama atlanır, o
+/// arada pencere listeden düşer ve geri gelince yeni sanılırdı (geçiş
+/// kaybolurdu). Burada `forgetAfter` boyunca hatırlanır.
+struct ScreenMemory {
+    struct Entry: Equatable {
+        var screen: String
+        var seen: Date
+    }
+
+    static let forgetAfter: TimeInterval = 60
+
+    private(set) var entries: [CGWindowID: Entry] = [:]
+    private var screenIDs: [String]?
+
+    /// Taramayı işler, ekranı değişen pencereleri döner. Yalnız normal
+    /// masaüstündeki pencereler sayılır (simge durumundaki ve tam ekran
+    /// pencere ne tetikler ne kaydedilir); ilk kez görülen pencere tetiklemez.
+    /// Ekran listesi değiştiyse (monitör takıldı/çıkarıldı) hiç sayılmaz: o
+    /// taşımayı kullanıcı değil sistem yapmıştır.
+    mutating func update(windows: [Router.WindowSnapshot], screens: [ScreenInfo],
+                         now: Date = Date()) -> [ScreenChange] {
+        let ids = screens.map(\.id)
+        let screensStable = screenIDs == ids
+        screenIDs = ids
+        let names = Dictionary(screens.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
+        var changes: [ScreenChange] = []
+        for window in windows {
+            guard !window.isMinimized, window.fullscreen == nil,
+                  let to = window.placement?.screen else { continue }
+            if screensStable, let from = entries[window.id]?.screen, from != to {
+                changes.append(ScreenChange(
+                    windowID: window.id, pid: window.pid,
+                    appName: window.appName, bundleID: window.bundleID,
+                    from: .init(id: from, name: names[from] ?? from),
+                    to: .init(id: to, name: names[to] ?? to)))
+            }
+            entries[window.id] = Entry(screen: to, seen: now)
+        }
+        entries = entries.filter { now.timeIntervalSince($0.value.seen) < Self.forgetAfter }
+        return changes
     }
 }
 
@@ -87,16 +109,62 @@ final class ScreenHooks {
         self.url = url
     }
 
+    /// Sürükleme sürerken (sol fare tuşu basılı) gelen değişimler bekletilir,
+    /// tuş bırakılınca pencere başına tek değişim olarak çalışır; pencere
+    /// başladığı ekrana geri bırakıldıysa hiç çalışmaz.
+    private var pending: [ScreenChange] = []
+    private var releaseWatch: Timer?
+
     func fire(_ changes: [ScreenChange]) {
-        guard !changes.isEmpty else { return }
+        guard !changes.isEmpty || !pending.isEmpty else { return }
+        pending = Self.coalesce(pending + changes)
+        if NSEvent.pressedMouseButtons & 1 != 0 {
+            watchForRelease()
+            return
+        }
+        let ready = pending.filter { $0.from != $0.to }
+        pending = []
+        guard !ready.isEmpty else { return }
         reloadIfNeeded()
-        for change in changes {
+        for change in ready {
             Log.routing.notice("""
                 Screen change: \(change.appName, privacy: .public) window \(change.windowID) \
                 \(change.from.id, privacy: .public) → \(change.to.id, privacy: .public)
                 """)
             for hook in hooks where hook.matches(change) {
                 Self.launch(hook.run, environment: change.environment)
+            }
+        }
+    }
+
+    /// Aynı pencerenin art arda değişimleri tek değişime iner: ilkinin
+    /// çıkışı, sonuncusunun varışı (sıra korunur). Çıkış ve varış aynıysa
+    /// değişim yine listede kalır; çağıran ayıklar.
+    nonisolated static func coalesce(_ changes: [ScreenChange]) -> [ScreenChange] {
+        var order: [CGWindowID] = []
+        var merged: [CGWindowID: ScreenChange] = [:]
+        for change in changes {
+            if let first = merged[change.windowID] {
+                merged[change.windowID] = ScreenChange(
+                    windowID: change.windowID, pid: change.pid, appName: change.appName,
+                    bundleID: change.bundleID, from: first.from, to: change.to)
+            } else {
+                order.append(change.windowID)
+                merged[change.windowID] = change
+            }
+        }
+        return order.compactMap { merged[$0] }
+    }
+
+    private func watchForRelease() {
+        guard releaseWatch == nil else { return }
+        releaseWatch = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] timer in
+            guard NSEvent.pressedMouseButtons & 1 == 0 else { return }
+            timer.invalidate()
+            Task { @MainActor in
+                guard let self else { return }
+                self.releaseWatch = nil
+                self.fire([])
             }
         }
     }
@@ -119,6 +187,9 @@ final class ScreenHooks {
         }
     }
 
+    /// Bu süreyi aşan komut durdurulur.
+    nonisolated static let timeout: TimeInterval = 30
+
     private static func launch(_ command: String, environment: [String: String]) {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -137,6 +208,12 @@ final class ScreenHooks {
         do {
             try process.run()
             Log.app.notice("Screen hook started: \(command, privacy: .public)")
+            // Takılan komut her geçişte birikmesin.
+            DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+                guard process.isRunning else { return }
+                process.terminate()
+                Log.app.error("Screen hook timed out after \(Int(timeout)) s: \(command, privacy: .public)")
+            }
         } catch {
             Log.app.error("Screen hook failed to start: \(error.localizedDescription, privacy: .public)")
         }
