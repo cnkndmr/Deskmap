@@ -384,9 +384,12 @@ def merge_rules(old, new, replace):
             merged.append(dict(r))
             ids.append(r["id"])
         else:
-            kept = merged[i]["id"]
-            merged[i] = {**r, "id": kept}
-            ids.append(kept)
+            # Dosyada yazmayan modun hedefi korunur (ör. yalnız docked verilmişse
+            # undocked kalır); kimlik de korunur.
+            old_rule = merged[i]
+            merged[i] = {**old_rule, **{k: v for k, v in r.items() if k not in MODES and k != "id"},
+                         **{m: r[m] for m in MODES if m in r}}
+            ids.append(old_rule["id"])
     return merged, ids
 
 
@@ -512,6 +515,49 @@ def report(status, rules, only=None):
     return ok_count, total, rows
 
 
+EXPOSED_MIN = 200   # px: her pencerenin hiçbir şeyin altında kalmayan en az bu kadar karesi
+GRID = 20
+
+
+def exposure_issues(status, rules):
+    """Etkin modda açık pencerelerin hedef dikdörtgenleri: hangi pencere,
+    ön/arka sırasından bağımsız olarak tamamen örtülebilir (EXPOSED_MIN
+    karelik açık alanı yok). Ekran ve masaüstü başına bakılır."""
+    mode = status["mode"]
+    ordered = sorted((r for r in rules if r.get(mode)), key=lambda r: -len(r.get("tokens", [])))
+    groups = {}
+    for w in status["windows"]:
+        if w["minimized"] or w.get("fullscreen"):
+            continue
+        r = next((r for r in ordered if rule_matches(r, w)), None)
+        if w.get("pinned"):
+            dest = {"screen": w["pinned"]["screen"], "desktop": w["pinned"]["desktop"], "layout": None}
+            label = f"{w['app']} [{w['id']}] (temporary pin)"
+        elif r:
+            dest = r[mode]
+            label = r["appName"] + (f" ~{' '.join(r['tokens'])}" if r.get("tokens") else "")
+        else:
+            continue
+        rect = target_rect(status, dest["screen"], dest["layout"]) if dest.get("layout") else w.get("frame")
+        if rect:
+            groups.setdefault((dest["screen"], dest["desktop"]), {})[label] = rect
+    issues = []
+    block = EXPOSED_MIN // GRID
+    for (screen, desktop), rects in sorted(groups.items()):
+        cells = {}
+        for label, (x, y, w, h) in rects.items():
+            for cx in range(int(x // GRID), int((x + w) // GRID)):
+                for cy in range(int(y // GRID), int((y + h) // GRID)):
+                    cells.setdefault((cx, cy), set()).add(label)
+        for label, (x, y, w, h) in rects.items():
+            own = {c for c, owners in cells.items() if owners == {label}}
+            ok = any(all((cx + i, cy + j) in own for i in range(block) for j in range(block))
+                     for cx, cy in own)
+            if not ok:
+                issues.append(f"{screen}/{desktop}: {label} can be completely covered")
+    return issues
+
+
 def apply_layout(args):
     if args.undo:
         return apply_undo()
@@ -545,6 +591,9 @@ def apply_layout(args):
     pending = [e for e in plan["launches"] if not app_running(e, status)]
     for e in pending:
         print(f"  launch {e['app']}" + (f" ({e['launch']})" if e["launch"] is not True else ""))
+    preview = dict(status, rules=rules)
+    for issue in exposure_issues(preview, rules):
+        print(f"  ⚠ {issue}")
     if args.dry_run:
         print("(dry run, nothing changed)")
         return
@@ -666,6 +715,11 @@ def check_layout(args):
     ok_count, total, rows = report(status, rules, only=set(ids))
     print(f"{ok_count}/{total} window(s) in place ({status['mode']})")
     print("\n".join(rows))
+    issues = exposure_issues(status, rules)
+    for issue in issues:
+        print(f"  ⚠ {issue}")
+    if issues:
+        sys.exit(2)
     sys.exit(0 if ok_count == total else 2)
 
 
