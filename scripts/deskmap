@@ -307,8 +307,8 @@ def load_spec(path):
         spec = yaml.safe_load(text)
     else:
         spec = json.loads(text)
-    if not isinstance(spec, dict) or not spec.get("profile"):
-        die("layout file needs a 'profile' name")
+    if not isinstance(spec, dict):
+        die("layout file must be a mapping (profile/desktops/windows)")
     return spec
 
 
@@ -348,8 +348,30 @@ def build_plan(spec):
                 desktops.append((mode, str(screen).lower(), count))
     if errors:
         die("layout file errors:\n  " + "\n  ".join(errors))
-    return {"profile": str(spec["profile"]), "rules": rules,
+    return {"profile": str(spec["profile"]) if spec.get("profile") else None,
+            "replace": bool(spec.get("replace")), "rules": rules,
             "desktops": desktops, "launches": launches}
+
+
+def merge_rules(old, new, replace):
+    """Varsayılan: profilin öteki kuralları kalır; dosyadaki pencerenin kuralı
+    (aynı uygulama + başlık parçaları) güncellenir, yoksa eklenir. Güncellenen
+    kural kimliğini korur. `replace` ise liste dosyadakiyle değişir."""
+    if replace or not old:
+        return [dict(r) for r in new], [r["id"] for r in new]
+    merged = [dict(r) for r in old]
+    index = {rule_key(r): i for i, r in enumerate(merged)}
+    ids = []
+    for r in new:
+        i = index.get(rule_key(r))
+        if i is None:
+            merged.append(dict(r))
+            ids.append(r["id"])
+        else:
+            kept = merged[i]["id"]
+            merged[i] = {**r, "id": kept}
+            ids.append(kept)
+    return merged, ids
 
 
 def rule_key(r):
@@ -430,7 +452,7 @@ def rule_matches(r, w):
     return all(t.lower() in w["title"].lower() for t in r.get("tokens", []))
 
 
-def report(status, rules):
+def report(status, rules, only=None):
     """Etkin moddaki pencereler kurallarının hedefinde mi. Seçim Deskmap'inki
     gibi: oturum pini önce, sonra en çok başlık parçalı uyan kural."""
     mode = status["mode"]
@@ -441,7 +463,7 @@ def report(status, rules):
         if w["minimized"]:
             continue
         r = next((r for r in ordered if rule_matches(r, w)), None)
-        if not r:
+        if not r or (only is not None and r["id"] not in only):
             continue
         used.add(r["id"])
         total += 1
@@ -469,7 +491,7 @@ def report(status, rules):
             ok_count += 1
             rows.append(f"  ✓  {label(r)} [{w['id']}]{title}: {dest['screen']}/{dest['desktop']}")
     for r in ordered:
-        if r["id"] not in used:
+        if r["id"] not in used and (only is None or r["id"] in only):
             rows.append(f"  ·  {label(r)}: no open window")
     return ok_count, total, rows
 
@@ -480,11 +502,17 @@ def apply_layout(args):
     spec = load_spec(args.file)
     plan = build_plan(spec)
     status = fresh_status()
-    name = plan["profile"]
+    # Profil yazılmadıysa etkin profil değişir .
+    name = plan["profile"] or status.get("profile")
+    if not name:
+        die("no active profile; name one with 'profile:'")
     old = profile_rules(name)
-    print(f"Profile '{name}' ({'update' if old is not None else 'new'}), "
-          f"{len(plan['rules'])} rule(s); current profile '{status.get('profile')}', mode {status['mode']}")
-    changes = diff_rules(old, plan["rules"])
+    rules, file_ids = merge_rules(old, plan["rules"], plan["replace"])
+    kind = "new" if old is None else ("replace" if plan["replace"] else "edit")
+    active = " (active)" if name == status.get("profile") else ""
+    print(f"Profile '{name}'{active}: {kind}, {len(plan['rules'])} rule(s) from file, "
+          f"{len(rules)} in profile; mode {status['mode']}")
+    changes = diff_rules(old, rules)
     print("\n".join(changes) if changes else "  (rules unchanged)")
     for mode, screen, count in plan["desktops"]:
         print(f"  desktops {mode} {screen}: {count}")
@@ -504,13 +532,13 @@ def apply_layout(args):
         print(f"  launched {e['app']}" if ok else f"  could not launch {e['app']}: {err}")
     for mode, screen, count in plan["desktops"]:
         send(f"plan-desktops/{screen}/{count}", mode=mode)
-    profile = {"name": name, "rules": plan["rules"]}
+    profile = {"name": name, "rules": rules}
     send("profile-set", json=json.dumps(profile, separators=(",", ":"), ensure_ascii=False), activate="1")
     send("reapply")
     wait = args.wait if pending else min(args.wait, 4.0)
     time.sleep(wait)
     after = fresh_status()
-    ok_count, total, rows = report(after, plan["rules"])
+    ok_count, total, rows = report(after, rules, only=set(file_ids))
     print(f"Result ({after['mode']}): {ok_count}/{total} window(s) in place")
     print("\n".join(rows))
     print(f"undo: deskmap apply --undo   (record {HISTORY / (stamp + '.json')})")
@@ -539,7 +567,11 @@ def check_layout(args):
     """Düzen dosyasını uygulamadan, şu anki pencerelere göre raporla."""
     plan = build_plan(load_spec(args.file))
     status = fresh_status()
-    ok_count, total, rows = report(status, plan["rules"])
+    name = plan["profile"] or status.get("profile")
+    rules, ids = merge_rules(profile_rules(name), plan["rules"], plan["replace"])
+    if name != status.get("profile"):
+        print(f"(profile '{name}' is not active; showing where its rules would apply)")
+    ok_count, total, rows = report(status, rules, only=set(ids))
     print(f"{ok_count}/{total} window(s) in place ({status['mode']})")
     print("\n".join(rows))
     sys.exit(0 if ok_count == total else 2)

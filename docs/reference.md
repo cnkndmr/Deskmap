@@ -370,11 +370,15 @@ deskmap pause | resume | reload | profile Office
 
 ### Layout files (`deskmap apply`)
 
-Describe a whole setup in one file and let Deskmap build it as a profile
-(see [`examples/layout.yaml`](examples/layout.yaml)):
+Describe a setup in one file and let Deskmap build it
+(see [`examples/layout.yaml`](examples/layout.yaml)). By default the
+**active profile** is edited: rules for the windows in the file are added or
+updated (same app + title fragments keeps the rule's id), every other rule
+stays. Add `profile: <name>` to edit or create another profile (`apply`
+switches to it), and `replace: true` to make the file the profile's whole rule
+list.
 
 ```yaml
-profile: Writing desk
 desktops:
   docked:   {external: 3, builtin: 2}
   undocked: {builtin: 4}
@@ -392,7 +396,7 @@ windows:
 
 ```sh
 deskmap apply desk.yaml --dry-run  # what would change (rules, desktops, launches)
-deskmap apply desk.yaml            # create/update the profile, switch to it, report
+deskmap apply desk.yaml            # edit the active profile (or the named one), report
 deskmap check desk.yaml            # is everything where the file says? (no changes)
 deskmap apply --undo               # back to the previous profile and rules
 deskmap layouts                    # layout names: left-half, top-right, center-third…
@@ -401,8 +405,8 @@ deskmap layouts                    # layout names: left-half, top-right, center-
 The report lists every open window the file's rules pick (same choice as
 Deskmap: temporary pin first, then the rule with the most title fragments)
 and marks it ✓ or ✗ with the reason (wrong desktop, size off, full screen).
-`apply` exits 2 when something is not in place. Only the named profile is
-written; other profiles are never touched. `--undo` does not revert desktop
+`apply` exits 2 when something is not in place. Only one profile is written;
+other profiles are never touched. `--undo` does not revert desktop
 counts. `launch` may be `true`, a file/folder path to open with the app, or a
 shell command. YAML needs PyYAML; `.json` files work without it.
 

@@ -1,9 +1,9 @@
-# Deskmap düzen dosyası: `deskmap apply layout.yaml` bunu bir profil olarak kurar.
+# Deskmap düzen dosyası: `deskmap apply layout.yaml` etkin profili düzenler
+# (dosyadaki pencerelerin kuralları eklenir/güncellenir, ötekiler kalır).
+# Başka profil için `profile: Ad`, bütün listeyi değiştirmek için `replace: true`.
 # Yerleşim: hazır ad (deskmap layouts) ya da "x,y,w,h" (ekranın kesri).
 # Hedef: "ekran/masaüstü yerleşim" kısaltması ya da {screen, desktop, layout}.
 # docked = harici monitör bağlı, undocked = yalnız laptop; place = ikisi için aynı.
-profile: Yazı masası
-
 desktops:
   docked:   {external: 3, builtin: 2}
   undocked: {builtin: 4}
