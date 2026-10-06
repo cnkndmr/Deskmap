@@ -24,3 +24,5 @@ appstore/screenshots/
 .vscode/
 .idea/
 *.swp
+scripts/hooktest/vdisplay
+scripts/hooktest/HookProbe
