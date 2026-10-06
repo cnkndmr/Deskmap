@@ -9,7 +9,9 @@ import Foundation
 ///
 /// `app` bundle kimliği ya da uygulama adı; `from`/`to` ekran rol kimliği
 /// (builtin, external, external-2 …) ya da ekran adı. `*` ya da alanın hiç
-/// olmaması her şeye uyar. Komut `/bin/sh -c` ile, arka planda çalışır.
+/// olmaması her şeye uyar. Komut `/bin/sh -c` ile, arka planda çalışır;
+/// sürükleme, kural taşıması ve monitör takma/çıkarma hepsi tetikler
+/// (`DESKMAP_CAUSE` ayırır).
 struct ScreenHook: Codable, Equatable {
     var app: String?
     var from: String?
@@ -41,14 +43,20 @@ struct ScreenChange: Equatable {
     let bundleID: String
     let from: Screen
     let to: Screen
+    /// `move`: pencere sürüklendi ya da kuralla taşındı; `display`: ekran
+    /// takıldı/çıkarıldı, pencereyi macOS taşıdı.
+    var cause: Cause = .move
 
+    enum Cause: String {
+        case move, display
+    }
 
     /// Komuta verilen ortam değişkenleri.
     var environment: [String: String] {
         ["DESKMAP_APP": appName, "DESKMAP_BUNDLE_ID": bundleID,
          "DESKMAP_PID": String(pid), "DESKMAP_WINDOW_ID": String(windowID),
          "DESKMAP_FROM": from.id, "DESKMAP_FROM_NAME": from.name,
-         "DESKMAP_TO": to.id, "DESKMAP_TO_NAME": to.name]
+         "DESKMAP_TO": to.id, "DESKMAP_TO_NAME": to.name, "DESKMAP_CAUSE": cause.rawValue]
     }
 }
 
@@ -66,28 +74,33 @@ struct ScreenMemory {
 
     private(set) var entries: [CGWindowID: Entry] = [:]
     private var screenIDs: [String]?
+    /// Çıkarılan ekranın adı da `from` olarak verilebilsin.
+    private var names: [String: String] = [:]
 
     /// Taramayı işler, ekranı değişen pencereleri döner. Yalnız normal
     /// masaüstündeki pencereler sayılır (simge durumundaki ve tam ekran
     /// pencere ne tetikler ne kaydedilir); ilk kez görülen pencere tetiklemez.
-    /// Ekran listesi değiştiyse (monitör takıldı/çıkarıldı) hiç sayılmaz: o
-    /// taşımayı kullanıcı değil sistem yapmıştır.
+    /// Ekranlar yatışırken (`settling`, monitör takıldı/çıkarıldı) hiçbir şey
+    /// sayılmaz ve kaydedilmez: pencereler o arada ekrandan ekrana sıçrar.
+    /// Yatışınca son bilinen ekranla karşılaştırılır; ekran listesi bir önceki
+    /// taramadan farklıysa değişim `display` nedeniyle döner.
     mutating func update(windows: [Router.WindowSnapshot], screens: [ScreenInfo],
-                         now: Date = Date()) -> [ScreenChange] {
+                         settling: Bool = false, now: Date = Date()) -> [ScreenChange] {
+        guard !settling else { return [] }
         let ids = screens.map(\.id)
-        let screensStable = screenIDs == ids
+        let cause: ScreenChange.Cause = screenIDs == nil || screenIDs == ids ? .move : .display
         screenIDs = ids
-        let names = Dictionary(screens.map { ($0.id, $0.name) }, uniquingKeysWith: { a, _ in a })
+        for screen in screens { names[screen.id] = screen.name }
         var changes: [ScreenChange] = []
         for window in windows {
             guard !window.isMinimized, window.fullscreen == nil,
                   let to = window.placement?.screen else { continue }
-            if screensStable, let from = entries[window.id]?.screen, from != to {
+            if let from = entries[window.id]?.screen, from != to {
                 changes.append(ScreenChange(
                     windowID: window.id, pid: window.pid,
                     appName: window.appName, bundleID: window.bundleID,
                     from: .init(id: from, name: names[from] ?? from),
-                    to: .init(id: to, name: names[to] ?? to)))
+                    to: .init(id: to, name: names[to] ?? to), cause: cause))
             }
             entries[window.id] = Entry(screen: to, seen: now)
         }
@@ -129,7 +142,8 @@ final class ScreenHooks {
         for change in ready {
             Log.routing.notice("""
                 Screen change: \(change.appName, privacy: .public) window \(change.windowID) \
-                \(change.from.id, privacy: .public) → \(change.to.id, privacy: .public)
+                \(change.from.id, privacy: .public) → \(change.to.id, privacy: .public) \
+                (\(change.cause.rawValue, privacy: .public))
                 """)
             for hook in hooks where hook.matches(change) {
                 Self.launch(hook.run, environment: change.environment)
@@ -147,7 +161,8 @@ final class ScreenHooks {
             if let first = merged[change.windowID] {
                 merged[change.windowID] = ScreenChange(
                     windowID: change.windowID, pid: change.pid, appName: change.appName,
-                    bundleID: change.bundleID, from: first.from, to: change.to)
+                    bundleID: change.bundleID, from: first.from, to: change.to,
+                    cause: first.cause == .display ? .display : change.cause)
             } else {
                 order.append(change.windowID)
                 merged[change.windowID] = change

@@ -1234,7 +1234,8 @@ final class Router: ObservableObject {
                 self.attempts = attempts
                 self.lastAttempts = lastAttempts
                 self.screenHooks.fire(self.screenMemory.update(
-                    windows: outcome.snapshots, screens: connected))
+                    windows: outcome.snapshots, screens: connected,
+                    settling: self.screens.isSettling))
                 if outcome.snapshots != self.windows {
                     Self.logFullscreenChange(from: self.windows, to: outcome.snapshots)
                     self.windows = outcome.snapshots

@@ -53,10 +53,44 @@ struct ScreenHookTests {
         #expect(detect([window(1, on: nil)], [window(1, on: "builtin")]).isEmpty)
     }
 
-    @Test func screenListChangeSuppressesHooks() {
-        let changes = detect([window(1, on: "external")], [window(1, on: "builtin")],
-                             screens: [builtin])
-        #expect(changes.isEmpty)
+    /// Monitör çıkarılınca macOS pencereyi laptop ekranına taşır: tetikler,
+    /// nedeni `display`, çıkış ekranının adı hatırlanır.
+    @Test func unpluggingMonitorFiresWithDisplayCause() {
+        var memory = ScreenMemory()
+        _ = memory.update(windows: [window(1, on: "external")], screens: [builtin, external])
+        let changes = memory.update(windows: [window(1, on: "builtin")], screens: [builtin])
+        #expect(changes.count == 1)
+        #expect(changes.first?.cause == .display)
+        #expect(changes.first?.from.name == "External Monitor")
+        #expect(changes.first?.environment["DESKMAP_CAUSE"] == "display")
+    }
+
+    /// Yatışma sırasında pencereler sıçrar; yatışınca tek değişim, ara
+    /// konumlar sayılmaz.
+    @Test func settlingIsIgnoredThenComparedOnce() {
+        var memory = ScreenMemory()
+        _ = memory.update(windows: [window(1, on: "external")], screens: [builtin, external])
+        #expect(memory.update(windows: [window(1, on: "builtin")], screens: [builtin], settling: true).isEmpty)
+        #expect(memory.update(windows: [window(1, on: "external")], screens: [builtin], settling: true).isEmpty)
+        let changes = memory.update(windows: [window(1, on: "builtin")], screens: [builtin])
+        #expect(changes.map(\.to.id) == ["builtin"])
+        #expect(changes.first?.cause == .display)
+        // Sonraki elle sürükleme yine `move`.
+        _ = memory.update(windows: [window(1, on: "builtin")], screens: [builtin])
+        #expect(memory.update(windows: [window(1, on: "builtin")], screens: [builtin]).isEmpty)
+    }
+
+    /// Monitör takılıp macOS pencereyi geri götürünce de tetikler.
+    @Test func pluggingMonitorBackFires() {
+        var memory = ScreenMemory()
+        _ = memory.update(windows: [window(1, on: "builtin")], screens: [builtin])
+        let changes = memory.update(windows: [window(1, on: "external")], screens: [builtin, external])
+        #expect(changes.map(\.to.id) == ["external"])
+        #expect(changes.first?.cause == .display)
+    }
+
+    @Test func userDragIsMoveCause() {
+        #expect(detect([window(1, on: "external")], [window(1, on: "builtin")]).first?.cause == .move)
     }
 
     /// Yanıt vermeyen uygulamanın penceresi bir iki tarama listeden düşer;
@@ -123,9 +157,10 @@ struct ScreenHookTests {
 
 /// Sürükleme sırasında biriken değişimlerin birleşmesi.
 struct ScreenHookCoalesceTests {
-    private func change(_ id: CGWindowID, _ from: String, _ to: String) -> ScreenChange {
+    private func change(_ id: CGWindowID, _ from: String, _ to: String,
+                        _ cause: ScreenChange.Cause = .move) -> ScreenChange {
         ScreenChange(windowID: id, pid: 1, appName: "a", bundleID: "b",
-                     from: .init(id: from, name: from), to: .init(id: to, name: to))
+                     from: .init(id: from, name: from), to: .init(id: to, name: to), cause: cause)
     }
 
     @Test func dragThereAndBackCancelsOut() {
@@ -136,11 +171,12 @@ struct ScreenHookCoalesceTests {
     }
 
     @Test func multipleHopsKeepFirstOriginAndLastTarget() {
-        let merged = ScreenHooks.coalesce([change(1, "builtin", "external"),
+        let merged = ScreenHooks.coalesce([change(1, "builtin", "external", .display),
                                            change(2, "external", "builtin"),
                                            change(1, "external", "external-2")])
         #expect(merged.map(\.windowID) == [1, 2])
         #expect(merged[0].from.id == "builtin" && merged[0].to.id == "external-2")
-        #expect(merged[1].to.id == "builtin")
+        #expect(merged[0].cause == .display)
+        #expect(merged[1].to.id == "builtin" && merged[1].cause == .move)
     }
 }
