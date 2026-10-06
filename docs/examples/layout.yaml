@@ -1,0 +1,24 @@
+# Deskmap düzen dosyası: `deskmap apply layout.yaml` bunu bir profil olarak kurar.
+# Yerleşim: hazır ad (deskmap layouts) ya da "x,y,w,h" (ekranın kesri).
+# Hedef: "ekran/masaüstü yerleşim" kısaltması ya da {screen, desktop, layout}.
+# docked = harici monitör bağlı, undocked = yalnız laptop; place = ikisi için aynı.
+profile: Yazı masası
+
+desktops:
+  docked:   {external: 3, builtin: 2}
+  undocked: {builtin: 4}
+
+windows:
+  - app: Code
+    title: Orion            # başlıkta geçmesi gereken parça(lar)
+    docked: external/1 left-half
+    undocked: builtin/1 full
+  - app: Safari
+    docked: external/1 right-half
+    undocked: builtin/2 full
+  - app: cmux
+    docked: {screen: external, desktop: 2, layout: center-two-thirds}
+    undocked: builtin/3 full
+    launch: true                       # açık değilse aç
+  - app: Microsoft Teams
+    place: builtin/2 center            # iki modda da aynı

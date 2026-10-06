@@ -20,6 +20,10 @@ hata verdi mi).
                    [--screen EKRAN] [--desktop N] [--layout x,y,w,h]
                    [--undocked-screen EKRAN] [--undocked-desktop N]
   deskmap rule rm KİMLİK
+  deskmap apply DÜZEN.yaml [--dry-run]   düzen dosyasını profil olarak kur, raporla
+  deskmap apply --undo              son apply'ı geri al
+  deskmap check DÜZEN.yaml          düzen yerinde mi (değiştirmeden)
+  deskmap layouts                   hazır yerleşim adları (left-half, top-right…)
 
 PENCERE: pencere kimliği ya da uygulama adı/başlığı parçası (tek eşleşme).
 EKRAN: rol kimliği (builtin, external, external-2) ya da ekran adı parçası.
@@ -187,10 +191,9 @@ def show_hooks(args):
 
 def layout(text):
     try:
-        x, y, w, h = (float(v) for v in text.split(","))
-    except ValueError:
-        die("--layout must be x,y,w,h (fractions, e.g. 0,0,0.5,1)")
-    return {"x": x, "y": y, "w": w, "h": h}
+        return parse_layout(text)
+    except ValueError as error:
+        die(str(error))
 
 
 def rule_add(args):
@@ -234,6 +237,314 @@ def window_command(name):
     return run
 
 
+# ---------------------------------------------------------------- düzen dosyası
+
+NAMED_LAYOUTS = {
+    "full": (0, 0, 1, 1), "center": (0.1, 0.1, 0.8, 0.8),
+    "left-half": (0, 0, 0.5, 1), "right-half": (0.5, 0, 0.5, 1),
+    "top-half": (0, 0, 1, 0.5), "bottom-half": (0, 0.5, 1, 0.5),
+    "left-third": (0, 0, 1 / 3, 1), "center-third": (1 / 3, 0, 1 / 3, 1),
+    "right-third": (2 / 3, 0, 1 / 3, 1),
+    "left-two-thirds": (0, 0, 2 / 3, 1), "right-two-thirds": (1 / 3, 0, 2 / 3, 1),
+    "center-two-thirds": (1 / 6, 0, 2 / 3, 1),
+    "top-left": (0, 0, 0.5, 0.5), "top-right": (0.5, 0, 0.5, 0.5),
+    "bottom-left": (0, 0.5, 0.5, 0.5), "bottom-right": (0.5, 0.5, 0.5, 0.5),
+    "left-quarter": (0, 0, 0.25, 1), "right-quarter": (0.75, 0, 0.25, 1),
+}
+HISTORY = DIR / "apply-history"
+MODES = ("docked", "undocked")
+
+
+def parse_layout(value):
+    """Ad (left-half…), "x,y,w,h" metni ya da {x,y,w,h} → {x,y,w,h}."""
+    if value is None:
+        value = "full"
+    if isinstance(value, dict):
+        try:
+            return {k: float(value[k]) for k in ("x", "y", "w", "h")}
+        except (KeyError, ValueError):
+            raise ValueError(f"layout needs x, y, w, h: {value}")
+    text = str(value).strip().lower()
+    if text in NAMED_LAYOUTS:
+        x, y, w, h = NAMED_LAYOUTS[text]
+    else:
+        try:
+            x, y, w, h = (float(v) for v in text.split(","))
+        except ValueError:
+            raise ValueError(f"unknown layout '{value}' (names: {', '.join(NAMED_LAYOUTS)})")
+    if not (0 <= x < 1 and 0 <= y < 1 and 0 < w <= 1 and 0 < h <= 1 and x + w <= 1.001 and y + h <= 1.001):
+        raise ValueError(f"layout out of range: {value}")
+    return {"x": round(x, 6), "y": round(y, 6), "w": round(w, 6), "h": round(h, 6)}
+
+
+def parse_place(value):
+    """'external/2 left-half' ya da {screen, desktop, layout} → hedef."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        parts = value.split()
+        if not parts:
+            raise ValueError("empty placement")
+        screen, _, desktop = parts[0].partition("/")
+        value = {"screen": screen, "desktop": int(desktop or 1),
+                 "layout": parts[1] if len(parts) > 1 else "full"}
+    if "screen" not in value:
+        raise ValueError(f"placement needs a screen: {value}")
+    desktop = int(value.get("desktop", 1))
+    if desktop < 1:
+        raise ValueError(f"desktop must be ≥ 1: {value}")
+    return {"screen": str(value["screen"]).lower(), "desktop": desktop,
+            "layout": parse_layout(value.get("layout"))}
+
+
+def load_spec(path):
+    text = Path(path).read_text()
+    if path.endswith((".yaml", ".yml")):
+        try:
+            import yaml
+        except ImportError:
+            die("YAML needs PyYAML (pip install pyyaml) or use a .json file")
+        spec = yaml.safe_load(text)
+    else:
+        spec = json.loads(text)
+    if not isinstance(spec, dict) or not spec.get("profile"):
+        die("layout file needs a 'profile' name")
+    return spec
+
+
+def build_plan(spec):
+    """Düzen dosyası → profil kuralları, masaüstü sayıları, açılacak uygulamalar."""
+    rules, launches, errors = [], [], []
+    for i, item in enumerate(spec.get("windows") or [], 1):
+        try:
+            if not item.get("app"):
+                raise ValueError("needs 'app'")
+            title = item.get("title") or []
+            tokens = [title] if isinstance(title, str) else [str(t) for t in title]
+            rule = {"id": str(uuid.uuid4()).upper(), "appName": item["app"],
+                    "bundleID": item.get("bundle", ""), "tokens": tokens}
+            both = item.get("place")
+            for mode in MODES:
+                place = parse_place(item.get(mode, both))
+                if place:
+                    rule[mode] = place
+            if not any(m in rule for m in MODES):
+                raise ValueError("needs 'docked', 'undocked' or 'place'")
+            rules.append(rule)
+            if item.get("launch"):
+                launches.append({"app": item["app"], "bundle": item.get("bundle"),
+                                 "launch": item["launch"], "tokens": tokens})
+        except (ValueError, TypeError) as error:
+            errors.append(f"windows[{i}] ({item.get('app', '?') if isinstance(item, dict) else item}): {error}")
+    desktops = []
+    for mode, screens in (spec.get("desktops") or {}).items():
+        if mode not in MODES:
+            errors.append(f"desktops: unknown mode '{mode}' (docked/undocked)")
+            continue
+        for screen, count in (screens or {}).items():
+            if not isinstance(count, int) or not 1 <= count <= 16:
+                errors.append(f"desktops.{mode}.{screen}: count must be 1…16")
+            else:
+                desktops.append((mode, str(screen).lower(), count))
+    if errors:
+        die("layout file errors:\n  " + "\n  ".join(errors))
+    return {"profile": str(spec["profile"]), "rules": rules,
+            "desktops": desktops, "launches": launches}
+
+
+def rule_key(r):
+    return (r["appName"].lower(), r.get("bundleID", ""), tuple(t.lower() for t in r.get("tokens", [])))
+
+
+def profile_rules(name):
+    """Profilin diskteki kuralları (yoksa None). Etkin profilin canlı hâli status'ta."""
+    try:
+        doc = json.loads((DIR / "rules.json").read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    for p in doc.get("profiles", []):
+        if p.get("name") == name:
+            if p.get("id") == doc.get("activeProfileID"):
+                return doc.get("rules", p.get("rules", []))
+            return p.get("rules", [])
+    return None
+
+
+def place_text(d):
+    return dest_text(d) if d else "-"
+
+
+def diff_rules(old, new):
+    old_by, new_by = {rule_key(r): r for r in old or []}, {rule_key(r): r for r in new}
+    lines = []
+    for k, r in new_by.items():
+        label = r["appName"] + (f" ~{' '.join(r['tokens'])}" if r["tokens"] else "")
+        before = old_by.get(k)
+        now = f"docked {place_text(r.get('docked'))}, undocked {place_text(r.get('undocked'))}"
+        if not before:
+            lines.append(f"  + {label}: {now}")
+        elif any(before.get(m) != r.get(m) for m in MODES):
+            was = f"docked {place_text(before.get('docked'))}, undocked {place_text(before.get('undocked'))}"
+            lines.append(f"  ~ {label}: {was}  →  {now}")
+    for k, r in old_by.items():
+        if k not in new_by:
+            lines.append(f"  - {r['appName']}" + (f" ~{' '.join(r['tokens'])}" if r.get("tokens") else ""))
+    return lines
+
+
+def app_running(entry, status):
+    name, tokens = entry["app"].lower(), [t.lower() for t in entry["tokens"]]
+    return any(w["app"].lower() == name and all(t in w["title"].lower() for t in tokens)
+               for w in status["windows"])
+
+
+def launch(entry):
+    how = entry["launch"]
+    if how is True:
+        cmd = ["open", "-g", "-b", entry["bundle"]] if entry.get("bundle") else ["open", "-g", "-a", entry["app"]]
+    elif isinstance(how, str) and how.startswith(("/", "~")):
+        cmd = ["open", "-g", "-a", entry["app"], str(Path(how).expanduser())]
+    else:
+        cmd = ["/bin/sh", "-c", str(how)]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return result.returncode == 0, (result.stderr or "").strip()
+
+
+def target_rect(status, screen_id, layout):
+    sc = next((s for s in status["screens"] if s["id"] == screen_id), None)
+    if not sc or "visible" not in sc:
+        return None
+    x, y, w, h = sc["visible"]
+    primary = status.get("primaryHeight") or next(
+        (s["frame"][3] for s in status["screens"] if s["frame"][:2] == [0, 0]), 0)
+    top = primary - (y + h)
+    return [x + layout["x"] * w, top + layout["y"] * h, layout["w"] * w, layout["h"] * h]
+
+
+def rule_matches(r, w):
+    if r.get("bundleID"):
+        if w["bundleID"] != r["bundleID"]:
+            return False
+    elif w["app"].lower() != r["appName"].lower():
+        return False
+    return all(t.lower() in w["title"].lower() for t in r.get("tokens", []))
+
+
+def report(status, rules):
+    """Etkin moddaki pencereler kurallarının hedefinde mi. Seçim Deskmap'inki
+    gibi: oturum pini önce, sonra en çok başlık parçalı uyan kural."""
+    mode = status["mode"]
+    ordered = sorted((r for r in rules if r.get(mode)), key=lambda r: -len(r.get("tokens", [])))
+    label = lambda r: r["appName"] + (f" ~{' '.join(r['tokens'])}" if r.get("tokens") else "")
+    rows, ok_count, total, used = [], 0, 0, set()
+    for w in status["windows"]:
+        if w["minimized"]:
+            continue
+        r = next((r for r in ordered if rule_matches(r, w)), None)
+        if not r:
+            continue
+        used.add(r["id"])
+        total += 1
+        if w.get("pinned"):
+            rows.append(f"  ·  {label(r)} [{w['id']}]: temporary pin wins ({w['pinned']['screen']}/{w['pinned']['desktop']})")
+            total -= 1
+            continue
+        dest = r[mode]
+        problems = []
+        if w.get("fullscreen"):
+            problems.append("fullscreen (Deskmap leaves it alone)")
+        elif w.get("screen") != dest["screen"] or w.get("desktop") != dest["desktop"]:
+            problems.append(f"at {where(w)}, want {dest['screen']}/{dest['desktop']}")
+        want = target_rect(status, dest["screen"], dest["layout"])
+        if want and w.get("frame") and not problems:
+            off = max(abs(a - b) for a, b in zip(w["frame"], want))
+            if off > 40:
+                problems.append("size/position off by %dpx (want %dx%d at %d,%d, is %dx%d at %d,%d)"
+                                % (off, want[2], want[3], want[0], want[1],
+                                   w["frame"][2], w["frame"][3], w["frame"][0], w["frame"][1]))
+        title = f" \"{w['title'][:40]}\"" if not r.get("tokens") else ""
+        if problems:
+            rows.append(f"  ✗  {label(r)} [{w['id']}]{title}: " + "; ".join(problems))
+        else:
+            ok_count += 1
+            rows.append(f"  ✓  {label(r)} [{w['id']}]{title}: {dest['screen']}/{dest['desktop']}")
+    for r in ordered:
+        if r["id"] not in used:
+            rows.append(f"  ·  {label(r)}: no open window")
+    return ok_count, total, rows
+
+
+def apply_layout(args):
+    if args.undo:
+        return apply_undo()
+    spec = load_spec(args.file)
+    plan = build_plan(spec)
+    status = fresh_status()
+    name = plan["profile"]
+    old = profile_rules(name)
+    print(f"Profile '{name}' ({'update' if old is not None else 'new'}), "
+          f"{len(plan['rules'])} rule(s); current profile '{status.get('profile')}', mode {status['mode']}")
+    changes = diff_rules(old, plan["rules"])
+    print("\n".join(changes) if changes else "  (rules unchanged)")
+    for mode, screen, count in plan["desktops"]:
+        print(f"  desktops {mode} {screen}: {count}")
+    pending = [e for e in plan["launches"] if not app_running(e, status)]
+    for e in pending:
+        print(f"  launch {e['app']}" + (f" ({e['launch']})" if e["launch"] is not True else ""))
+    if args.dry_run:
+        print("(dry run, nothing changed)")
+        return
+    HISTORY.mkdir(parents=True, exist_ok=True)
+    record = {"time": time.strftime("%Y-%m-%dT%H:%M:%S"), "file": str(Path(args.file).resolve()),
+              "previousProfile": status.get("profile"), "profile": name, "previousRules": old}
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    (HISTORY / f"{stamp}.json").write_text(json.dumps(record, indent=2, ensure_ascii=False))
+    for e in pending:
+        ok, err = launch(e)
+        print(f"  launched {e['app']}" if ok else f"  could not launch {e['app']}: {err}")
+    for mode, screen, count in plan["desktops"]:
+        send(f"plan-desktops/{screen}/{count}", mode=mode)
+    profile = {"name": name, "rules": plan["rules"]}
+    send("profile-set", json=json.dumps(profile, separators=(",", ":"), ensure_ascii=False), activate="1")
+    send("reapply")
+    wait = args.wait if pending else min(args.wait, 4.0)
+    time.sleep(wait)
+    after = fresh_status()
+    ok_count, total, rows = report(after, plan["rules"])
+    print(f"Result ({after['mode']}): {ok_count}/{total} window(s) in place")
+    print("\n".join(rows))
+    print(f"undo: deskmap apply --undo   (record {HISTORY / (stamp + '.json')})")
+    if ok_count < total:
+        sys.exit(2)
+
+
+def apply_undo():
+    records = sorted(HISTORY.glob("*.json")) if HISTORY.exists() else []
+    if not records:
+        die("nothing to undo")
+    last = records[-1]
+    rec = json.loads(last.read_text())
+    if rec.get("previousRules") is not None:
+        send("profile-set", json=json.dumps({"name": rec["profile"], "rules": rec["previousRules"]},
+                                            separators=(",", ":"), ensure_ascii=False))
+    if rec.get("previousProfile"):
+        send("profile", name=rec["previousProfile"])
+    send("reapply")
+    last.rename(last.with_suffix(".undone"))
+    print(f"restored profile '{rec.get('previousProfile')}'"
+          + ("" if rec.get("previousRules") is None else f", '{rec['profile']}' rules reverted"))
+
+
+def check_layout(args):
+    """Düzen dosyasını uygulamadan, şu anki pencerelere göre raporla."""
+    plan = build_plan(load_spec(args.file))
+    status = fresh_status()
+    ok_count, total, rows = report(status, plan["rules"])
+    print(f"{ok_count}/{total} window(s) in place ({status['mode']})")
+    print("\n".join(rows))
+    sys.exit(0 if ok_count == total else 2)
+
+
 def main():
     p = argparse.ArgumentParser(prog="deskmap", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -259,6 +570,13 @@ def main():
     sp.add_argument("--undocked-screen"); sp.add_argument("--undocked-desktop", type=int, default=1)
     sp.set_defaults(fn=rule_add)
     sp = rp.add_parser("rm"); sp.add_argument("id"); sp.set_defaults(fn=rule_rm)
+    sp = sub.add_parser("apply"); sp.add_argument("file", nargs="?")
+    sp.add_argument("--dry-run", action="store_true"); sp.add_argument("--undo", action="store_true")
+    sp.add_argument("--wait", type=float, default=8.0, help="seconds to wait for launched apps")
+    sp.set_defaults(fn=lambda a: apply_layout(a) if a.undo or a.file else die("apply needs a file or --undo"))
+    sp = sub.add_parser("check"); sp.add_argument("file"); sp.set_defaults(fn=check_layout)
+    sub.add_parser("layouts").set_defaults(fn=lambda a: print("\n".join(
+        f"{k:<18} {','.join(f'{v:g}' for v in xywh)}" for k, xywh in NAMED_LAYOUTS.items())))
     args = p.parse_args()
     args.fn(args)
 

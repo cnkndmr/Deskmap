@@ -368,6 +368,44 @@ deskmap rule rm <id>
 deskmap pause | resume | reload | profile Office
 ```
 
+### Layout files (`deskmap apply`)
+
+Describe a whole setup in one file and let Deskmap build it as a profile
+(see [`examples/layout.yaml`](examples/layout.yaml)):
+
+```yaml
+profile: Writing desk
+desktops:
+  docked:   {external: 3, builtin: 2}
+  undocked: {builtin: 4}
+windows:
+  - app: Code
+    title: Orion        # title fragment(s), optional
+    docked: external/1 left-half   # screen/desktop layout
+    undocked: builtin/1 full
+  - app: cmux
+    docked: {screen: external, desktop: 2, layout: center-two-thirds}
+    launch: true                   # open it if no window is open
+  - app: Microsoft Teams
+    place: builtin/2 center        # same in both modes
+```
+
+```sh
+deskmap apply desk.yaml --dry-run  # what would change (rules, desktops, launches)
+deskmap apply desk.yaml            # create/update the profile, switch to it, report
+deskmap check desk.yaml            # is everything where the file says? (no changes)
+deskmap apply --undo               # back to the previous profile and rules
+deskmap layouts                    # layout names: left-half, top-right, center-third…
+```
+
+The report lists every open window the file's rules pick (same choice as
+Deskmap: temporary pin first, then the rule with the most title fragments)
+and marks it ✓ or ✗ with the reason (wrong desktop, size off, full screen).
+`apply` exits 2 when something is not in place. Only the named profile is
+written; other profiles are never touched. `--undo` does not revert desktop
+counts. `launch` may be `true`, a file/folder path to open with the app, or a
+shell command. YAML needs PyYAML; `.json` files work without it.
+
 `status.json` (next to `rules.json`) holds the live state: screens, windows
 with their placement and temporary pin, rules, active profile, whether
 routing is paused, and the last error.
