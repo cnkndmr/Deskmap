@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// `deskmap://` URL şemasıyla gelen otomasyon komutları (Shortcuts
@@ -14,6 +15,16 @@ import Foundation
 ///     deskmap://next-profile         sıradaki profile geç (döner)
 ///     deskmap://add-desktop/<ekran>  ekrana masaüstü ekle (builtin, external…)
 ///     deskmap://remove-desktop/<ekran>/<n>  ekranın n. masaüstünü sil
+///     deskmap://reload               rules.json'u diskten yeniden oku
+///     deskmap://status               status.json'u hemen yaz
+///     deskmap://pin/<pencere>/<ekran>/<n>    pencereyi kapanana dek orada tut
+///     deskmap://unpin/<pencere>      oturum pinini kaldır
+///     deskmap://move/<pencere>/<ekran>/<n>   pencereyi bir kez taşı
+///     deskmap://rule-add?json=<kural>        kural ekle (Rule JSON'u)
+///     deskmap://rule-remove/<kimlik> kuralı sil
+///
+/// Her komut `?req=<n>` alabilir: işlendikten sonra status.json `request: n`
+/// ile yazılır (`deskmap` komut satırı aracı bununla bekler).
 ///
 /// Ayrıştırma saf bir işlevdir (`parse`), ne Store'a ne de AppKit'e
 /// dokunur; böylece tek başına test edilebilir. Çalıştırma `URLCommands`
@@ -27,6 +38,13 @@ enum URLCommand: Equatable {
     case nextProfile
     case addDesktop(screen: String)
     case removeDesktop(screen: String, desktop: Int)
+    case reload
+    case status
+    case pin(window: CGWindowID, screen: String, desktop: Int)
+    case unpin(window: CGWindowID)
+    case move(window: CGWindowID, screen: String, desktop: Int)
+    case addRule(Rule)
+    case removeRule(id: String)
 
     static let scheme = "deskmap"
     /// Eski uygulama adı; süresiz kabul edilir (bkz. tip belgesi).
@@ -60,7 +78,31 @@ enum URLCommand: Equatable {
             return nil
         }
 
+        func windowTarget() -> (CGWindowID, String, Int)? {
+            guard parts.count == 3, let window = CGWindowID(parts[0]),
+                  let desktop = Int(parts[2]), desktop >= 1 else { return nil }
+            return (window, parts[1].lowercased(), desktop)
+        }
+        let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+
         switch command {
+        case "reload":       return .reload
+        case "status":       return .status
+        case "pin":
+            return windowTarget().map { .pin(window: $0.0, screen: $0.1, desktop: $0.2) }
+        case "move":
+            return windowTarget().map { .move(window: $0.0, screen: $0.1, desktop: $0.2) }
+        case "unpin":
+            guard parts.count == 1, let window = CGWindowID(parts[0]) else { return nil }
+            return .unpin(window: window)
+        case "rule-add":
+            guard let json = query.first(where: { $0.name == "json" })?.value,
+                  let rule = try? JSONDecoder().decode(Rule.self, from: Data(json.utf8))
+            else { return nil }
+            return .addRule(rule)
+        case "rule-remove":
+            guard parts.count == 1 else { return nil }
+            return .removeRule(id: parts[0])
         case "reapply":      return .reapply
         case "pause":        return .pause
         case "resume":       return .resume
@@ -91,16 +133,27 @@ enum URLCommand: Equatable {
 @MainActor
 enum URLCommands {
 
-    static func handle(_ urls: [URL], store: Store, router: Router) {
-        for url in urls { handle(url, store: store, router: router) }
+    static func handle(_ urls: [URL], store: Store, router: Router, status: StatusFile? = nil) {
+        for url in urls { handle(url, store: store, router: router, status: status) }
     }
 
-    static func handle(_ url: URL, store: Store, router: Router) {
+    static func handle(_ url: URL, store: Store, router: Router, status: StatusFile? = nil) {
+        let request = requestID(url)
         guard let command = URLCommand.parse(url) else {
             store.report(L("Unknown URL command: %@", url.absoluteString))
+            status?.write(request: request)
             return
         }
+        // Komut satırı aracı hatayı bu komuttan ayırt edebilsin.
+        if request != nil { store.clearError() }
         run(command, store: store, router: router)
+        status?.write(request: request)
+    }
+
+    /// `?req=<n>`: komut satırı aracının istek kimliği.
+    nonisolated static func requestID(_ url: URL) -> String? {
+        URLComponents(url: url, resolvingAgainstBaseURL: false)?
+            .queryItems?.first { $0.name == "req" }?.value
     }
 
     static func run(_ command: URLCommand, store: Store, router: Router) {
@@ -131,6 +184,32 @@ enum URLCommands {
                     store.report(L("Could not remove desktop %ld on %@", desktop, screen))
                 }
             }
+        case .reload:
+            store.load()
+        case .status:
+            break
+        case .pin(let window, let screen, let desktop):
+            guard router.windows.contains(where: { $0.id == window }) else {
+                store.report(L("Window not found: %@", String(window)))
+                return
+            }
+            router.pinSession(window, destination: Destination(screen: screen, desktop: desktop))
+        case .unpin(let window):
+            router.unpinSession(window)
+        case .move(let window, let screen, let desktop):
+            guard router.windows.contains(where: { $0.id == window }) else {
+                store.report(L("Window not found: %@", String(window)))
+                return
+            }
+            router.moveWindow(window, to: Router.Placement(screen: screen, desktop: desktop))
+        case .addRule(let rule):
+            store.add(rule)
+        case .removeRule(let id):
+            guard store.rule(id) != nil else {
+                store.report(L("Rule not found: %@", id))
+                return
+            }
+            store.remove(id)
         case .addDesktop(let screen):
             Task {
                 if await !router.addDesktop(on: screen) {

@@ -49,3 +49,42 @@ struct URLCommandTests {
         #expect(URLCommand.scheme != URLCommand.legacyScheme)
     }
 }
+
+/// Komut satırı aracının (`deskmap`) kullandığı komutlar.
+struct URLCommandCLITests {
+
+    @Test func windowCommands() {
+        #expect(URLCommand.parse(URL(string: "deskmap://pin/1234/External/2?req=7")!)
+                == .pin(window: 1234, screen: "external", desktop: 2))
+        #expect(URLCommand.parse(URL(string: "deskmap://move/1234/builtin/1")!)
+                == .move(window: 1234, screen: "builtin", desktop: 1))
+        #expect(URLCommand.parse(URL(string: "deskmap://unpin/1234")!) == .unpin(window: 1234))
+        #expect(URLCommand.parse(URL(string: "deskmap://pin/abc/builtin/1")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://move/1234/builtin/0")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://pin/1234/builtin")!) == nil)
+    }
+
+    @Test func reloadStatusAndRuleRemove() {
+        #expect(URLCommand.parse(URL(string: "deskmap://reload")!) == .reload)
+        #expect(URLCommand.parse(URL(string: "deskmap://status?req=x1")!) == .status)
+        #expect(URLCommand.parse(URL(string: "deskmap://rule-remove/ABC-1")!) == .removeRule(id: "ABC-1"))
+        #expect(URLCommand.parse(URL(string: "deskmap://rule-remove")!) == nil)
+    }
+
+    @Test func ruleAddDecodesJSON() throws {
+        let json = #"{"id":"R1","appName":"cmux","bundleID":"","tokens":[],"docked":{"screen":"external","desktop":2,"layout":{"x":0,"y":0,"w":1,"h":1}}}"#
+        var components = URLComponents(string: "deskmap://rule-add")!
+        components.queryItems = [URLQueryItem(name: "json", value: json), URLQueryItem(name: "req", value: "9")]
+        guard case .addRule(let rule)? = URLCommand.parse(components.url!) else {
+            Issue.record("rule-add did not parse"); return
+        }
+        #expect(rule.id == "R1" && rule.appName == "cmux")
+        #expect(rule.docked?.screen == "external" && rule.docked?.desktop == 2)
+        #expect(URLCommand.parse(URL(string: "deskmap://rule-add?json=notjson")!) == nil)
+    }
+
+    @Test func requestIDIsRead() {
+        #expect(URLCommands.requestID(URL(string: "deskmap://pause?req=42")!) == "42")
+        #expect(URLCommands.requestID(URL(string: "deskmap://pause")!) == nil)
+    }
+}

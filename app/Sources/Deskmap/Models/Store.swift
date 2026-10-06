@@ -586,6 +586,7 @@ final class Store: ObservableObject {
 
     /// Alt çubukta gösterilecek bir hata; bir sonraki başarılı kayıtta silinir.
     func report(_ message: String) { lastError = message }
+    func clearError() { lastError = nil }
 
     static let directoryURL = FileManager.default
         .homeDirectoryForCurrentUser

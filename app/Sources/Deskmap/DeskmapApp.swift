@@ -74,11 +74,14 @@ final class AppModel {
     let store: Store
     let screens: ScreenService
     let router: Router
+    let status: StatusFile
 
     private init() {
         store = Store()
         screens = ScreenService()
         router = Router(store: store, screens: screens)
+        status = StatusFile(url: Store.directoryURL.appendingPathComponent("status.json"),
+                            store: store, router: router, screens: screens)
     }
 }
 
@@ -95,7 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func application(_ application: NSApplication, open urls: [URL]) {
         let model = AppModel.shared
-        URLCommands.handle(urls, store: model.store, router: model.router)
+        URLCommands.handle(urls, store: model.store, router: model.router, status: model.status)
     }
 }
 

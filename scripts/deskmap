@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+"""deskmap: çalışan Deskmap'i komut satırından okur ve yönetir.
+
+Durum status.json'dan okunur (Deskmap her değişiklikte yazar). Komutlar
+deskmap:// URL'si olarak gönderilir; her komut bir istek kimliği taşır ve
+araç Deskmap'in o kimlikle status.json yazmasını bekler (komut işlendi mi,
+hata verdi mi).
+
+  deskmap status                    özet: mod, profil, ekranlar, pencere sayısı
+  deskmap windows [--app AD]        pencereler: kimlik, uygulama, ekran, masaüstü
+  deskmap screens                   ekranlar
+  deskmap rules                     kurallar
+  deskmap hooks                     ekran değişimi kancaları (hooks.json)
+  deskmap pause|resume|toggle|reapply|reload|next-profile
+  deskmap profile AD
+  deskmap pin PENCERE EKRAN [MASAÜSTÜ]   pencere kapanana dek orada tut
+  deskmap unpin PENCERE
+  deskmap move PENCERE EKRAN [MASAÜSTÜ]  bir kez taşı
+  deskmap rule add --app AD [--bundle ID] [--title PARÇA ...]
+                   [--screen EKRAN] [--desktop N] [--layout x,y,w,h]
+                   [--undocked-screen EKRAN] [--undocked-desktop N]
+  deskmap rule rm KİMLİK
+
+PENCERE: pencere kimliği ya da uygulama adı/başlığı parçası (tek eşleşme).
+EKRAN: rol kimliği (builtin, external, external-2) ya da ekran adı parçası.
+--json: ham JSON çıktı (status/windows/screens/rules).
+"""
+import argparse
+import json
+import subprocess
+import sys
+import time
+import urllib.parse
+import uuid
+from pathlib import Path
+
+DIR = Path.home() / "Library/Application Support/Deskmap"
+STATUS = DIR / "status.json"
+HOOKS = DIR / "hooks.json"
+TIMEOUT = 5.0
+
+
+def die(message):
+    print(f"deskmap: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+def running():
+    return subprocess.run(["pgrep", "-x", "Deskmap"], capture_output=True).returncode == 0
+
+
+def read_status():
+    try:
+        return json.loads(STATUS.read_text())
+    except FileNotFoundError:
+        return None
+    except json.JSONDecodeError:
+        time.sleep(0.1)  # yazılırken okunduysa bir kez daha
+        return json.loads(STATUS.read_text())
+
+
+def send(command, **query):
+    """URL komutunu gönderir, işlenmesini bekler, güncel durumu döner."""
+    if not running():
+        die("Deskmap is not running")
+    request = uuid.uuid4().hex[:8]
+    query["req"] = request
+    # quote (quote_plus değil): Foundation "+"yı boşluğa çevirmez.
+    url = f"deskmap://{command}?{urllib.parse.urlencode(query, quote_via=urllib.parse.quote)}"
+    subprocess.run(["open", "-g", url], check=True)
+    deadline = time.time() + TIMEOUT
+    while time.time() < deadline:
+        status = read_status()
+        if status and status.get("request") == request:
+            if status.get("lastError"):
+                die(status["lastError"])
+            return status
+        time.sleep(0.05)
+    die(f"no answer from Deskmap within {TIMEOUT:.0f} s ({command})")
+
+
+def fresh_status():
+    if not running():
+        die("Deskmap is not running")
+    return send("status")
+
+
+def resolve_screen(status, text):
+    text_l = text.lower()
+    screens = status["screens"]
+    for s in screens:
+        if s["id"] == text_l:
+            return s["id"]
+    hits = [s for s in screens if text_l in s["name"].lower()]
+    if len(hits) == 1:
+        return hits[0]["id"]
+    if not hits:
+        # Bağlı olmayan ekran da hedef olabilir (kural, ileride takılacak monitör).
+        return text_l
+    die(f"screen '{text}' is ambiguous: " + ", ".join(f"{s['id']} ({s['name']})" for s in hits))
+
+
+def resolve_window(status, text):
+    windows = status["windows"]
+    if text.isdigit():
+        if any(w["id"] == int(text) for w in windows):
+            return int(text)
+        die(f"window {text} not found")
+    text_l = text.lower()
+    hits = [w for w in windows if text_l in w["app"].lower() or text_l in w["title"].lower()]
+    if len(hits) == 1:
+        return hits[0]["id"]
+    if not hits:
+        die(f"no window matches '{text}'")
+    lines = "\n".join(f"  {w['id']}  {w['app']}: {w['title'][:60]}" for w in hits)
+    die(f"'{text}' matches {len(hits)} windows, use an id:\n{lines}")
+
+
+def where(w):
+    if w["fullscreen"]:
+        return f"{w['screen']} (fullscreen)"
+    if w["minimized"]:
+        return "minimized"
+    if w.get("screen") is None:
+        return "?"
+    return f"{w['screen']}/{w['desktop']}"
+
+
+def show_status(args):
+    s = fresh_status()
+    if args.json:
+        print(json.dumps(s, indent=2, ensure_ascii=False)); return
+    state = "routing" if s["enabled"] else "PAUSED"
+    print(f"Deskmap pid {s['pid']}  {state}  mode {s['mode']}  profile {s.get('profile') or '-'}")
+    for sc in s["screens"]:
+        n = sum(1 for w in s["windows"] if w.get("screen") == sc["id"])
+        print(f"  {sc['id']:<11} {sc['name']:<28} {n} window(s)")
+    pins = sum(1 for w in s["windows"] if w.get("pinned"))
+    print(f"  {len(s['windows'])} windows, {pins} pinned, {len(s['rules'])} rules")
+
+
+def show_windows(args):
+    s = fresh_status()
+    windows = s["windows"]
+    if args.app:
+        windows = [w for w in windows if args.app.lower() in w["app"].lower()]
+    if args.json:
+        print(json.dumps(windows, indent=2, ensure_ascii=False)); return
+    for w in windows:
+        pin = f"  pin→{w['pinned']['screen']}/{w['pinned']['desktop']}" if w.get("pinned") else ""
+        print(f"{w['id']:>7}  {w['app'][:18]:<18} {where(w):<16} {w['title'][:50]}{pin}")
+
+
+def show_screens(args):
+    s = fresh_status()
+    if args.json:
+        print(json.dumps(s["screens"], indent=2, ensure_ascii=False)); return
+    for sc in s["screens"]:
+        x, y, w, h = sc["frame"]
+        print(f"{sc['id']:<11} {sc['name']:<28} {int(w)}x{int(h)} at {int(x)},{int(y)}")
+
+
+def dest_text(d):
+    if not d:
+        return "-"
+    lay = d.get("layout") or {}
+    full = all(lay.get(k) == v for k, v in (("x", 0), ("y", 0), ("w", 1), ("h", 1)))
+    return f"{d['screen']}/{d['desktop']}" + ("" if full else
+        f" [{lay.get('x', 0):g},{lay.get('y', 0):g},{lay.get('w', 1):g},{lay.get('h', 1):g}]")
+
+
+def show_rules(args):
+    s = fresh_status()
+    if args.json:
+        print(json.dumps(s["rules"], indent=2, ensure_ascii=False)); return
+    for r in s["rules"]:
+        title = f" title~{' '.join(r['tokens'])}" if r.get("tokens") else ""
+        print(f"{r['id']}  {r['appName']}{title}\n    docked {dest_text(r.get('docked'))}"
+              f"  undocked {dest_text(r.get('undocked'))}")
+
+
+def show_hooks(args):
+    if not HOOKS.exists():
+        print("(no hooks.json)"); return
+    print(HOOKS.read_text().rstrip())
+
+
+def layout(text):
+    try:
+        x, y, w, h = (float(v) for v in text.split(","))
+    except ValueError:
+        die("--layout must be x,y,w,h (fractions, e.g. 0,0,0.5,1)")
+    return {"x": x, "y": y, "w": w, "h": h}
+
+
+def rule_add(args):
+    s = fresh_status()
+    if not args.screen and not args.undocked_screen:
+        die("give --screen and/or --undocked-screen")
+    lay = layout(args.layout) if args.layout else {"x": 0, "y": 0, "w": 1, "h": 1}
+    rule = {"id": str(uuid.uuid4()).upper(), "appName": args.app,
+            "bundleID": args.bundle or "", "tokens": args.title or []}
+    if args.screen:
+        rule["docked"] = {"screen": resolve_screen(s, args.screen), "desktop": args.desktop,
+                          "layout": lay}
+    if args.undocked_screen:
+        rule["undocked"] = {"screen": resolve_screen(s, args.undocked_screen),
+                            "desktop": args.undocked_desktop, "layout": lay}
+    after = send("rule-add", json=json.dumps(rule, separators=(",", ":"), ensure_ascii=False))
+    if not any(r["id"] == rule["id"] for r in after["rules"]):
+        die("rule was not added")
+    print(rule["id"])
+
+
+def rule_rm(args):
+    after = send(f"rule-remove/{args.id}")
+    if any(r["id"] == args.id for r in after["rules"]):
+        die("rule is still there")
+
+
+def window_command(name):
+    def run(args):
+        s = fresh_status()
+        window = resolve_window(s, args.window)
+        if name == "unpin":
+            send(f"unpin/{window}")
+        else:
+            send(f"{name}/{window}/{resolve_screen(s, args.screen)}/{args.desktop}")
+        if name == "move":
+            # Taşıma arka planda; sonucu bir sonraki taramada görünür.
+            time.sleep(1.0)
+            w = next((w for w in fresh_status()["windows"] if w["id"] == window), None)
+            print(f"{window}: {where(w) if w else 'gone'}")
+    return run
+
+
+def main():
+    p = argparse.ArgumentParser(prog="deskmap", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    for name, fn in (("status", show_status), ("screens", show_screens), ("rules", show_rules)):
+        sp = sub.add_parser(name); sp.add_argument("--json", action="store_true"); sp.set_defaults(fn=fn)
+    sp = sub.add_parser("windows"); sp.add_argument("--app"); sp.add_argument("--json", action="store_true")
+    sp.set_defaults(fn=show_windows)
+    sub.add_parser("hooks").set_defaults(fn=show_hooks)
+    for name in ("pause", "resume", "toggle", "reapply", "reload", "next-profile"):
+        sub.add_parser(name).set_defaults(fn=lambda a, n=name: send(n))
+    sp = sub.add_parser("profile"); sp.add_argument("name")
+    sp.set_defaults(fn=lambda a: send("profile", name=a.name))
+    for name in ("pin", "move"):
+        sp = sub.add_parser(name); sp.add_argument("window"); sp.add_argument("screen")
+        sp.add_argument("desktop", nargs="?", type=int, default=1); sp.set_defaults(fn=window_command(name))
+    sp = sub.add_parser("unpin"); sp.add_argument("window"); sp.set_defaults(fn=window_command("unpin"))
+    rp = sub.add_parser("rule").add_subparsers(dest="rcmd", required=True)
+    sp = rp.add_parser("add")
+    sp.add_argument("--app", required=True); sp.add_argument("--bundle")
+    sp.add_argument("--title", nargs="+"); sp.add_argument("--screen")
+    sp.add_argument("--desktop", type=int, default=1); sp.add_argument("--layout")
+    sp.add_argument("--undocked-screen"); sp.add_argument("--undocked-desktop", type=int, default=1)
+    sp.set_defaults(fn=rule_add)
+    sp = rp.add_parser("rm"); sp.add_argument("id"); sp.set_defaults(fn=rule_rm)
+    args = p.parse_args()
+    args.fn(args)
+
+
+if __name__ == "__main__":
+    main()

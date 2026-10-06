@@ -330,6 +330,17 @@ running, macOS starts it first.
 | `deskmap://next-profile` | Switch to the next profile, wrapping around (`next` and `nextprofile` also work) |
 | `deskmap://add-desktop/<screen>` | Add a desktop to a connected display (`builtin`, `external`, …); opens Mission Control briefly and presses its **+** |
 | `deskmap://remove-desktop/<screen>/<n>` | Remove desktop *n* of a connected display through Mission Control; pins shift like the map does |
+| `deskmap://reload` | Re-read `rules.json` from disk |
+| `deskmap://status` | Write `status.json` now |
+| `deskmap://pin/<window>/<screen>/<n>` | Temporary pin: keep window id *window* on desktop *n* of *screen* until it closes |
+| `deskmap://unpin/<window>` | Remove the temporary pin |
+| `deskmap://move/<window>/<screen>/<n>` | Move the window once |
+| `deskmap://rule-add?json=<rule>` | Add a rule (percent-encoded rule JSON, same shape as in `rules.json`) |
+| `deskmap://rule-remove/<id>` | Remove a rule |
+
+Any command accepts `?req=<id>`: after handling it Deskmap writes
+`status.json` with `"request": "<id>"`, so a script can wait for the command
+and read `lastError`.
 
 Command names are case-insensitive, and `deskmap:reapply` (without `//`)
 works too. Spaces and non-ASCII characters must be percent-encoded:
@@ -341,6 +352,45 @@ notification.
 open "deskmap://profile/Office"
 open "deskmap://reapply"
 ```
+
+### Command line (`deskmap`)
+
+`scripts/deskmap` wraps the URLs and `status.json` (link it into your `PATH`).
+It waits for each command and exits non-zero with Deskmap's error message.
+
+```sh
+deskmap status                      # mode, profile, screens, counts
+deskmap windows --app Code          # id, app, screen/desktop, title
+deskmap move Safari external 2      # window id or a unique app/title fragment
+deskmap pin 12345 builtin 1 && deskmap unpin 12345
+deskmap rule add --app cmux --screen external --undocked-screen builtin --layout 0,0,0.5,1
+deskmap rule rm <id>
+deskmap pause | resume | reload | profile Office
+```
+
+`status.json` (next to `rules.json`) holds the live state: screens, windows
+with their placement and temporary pin, rules, active profile, whether
+routing is paused, and the last error.
+
+### Screen change hooks (`hooks.json`)
+
+When a window ends up on another display, Deskmap runs matching commands
+from `hooks.json` (next to `rules.json`, re-read when it changes):
+
+```json
+[{"app": "cmux", "from": "*", "to": "builtin", "run": "~/bin/cmux-layout grid"}]
+```
+
+`app` is a bundle id or app name, `from`/`to` a screen role (`builtin`,
+`external`, …) or display name; `*` or a missing field matches anything.
+The command runs through `/bin/sh -c` in the background (stopped after
+30 s) with `DESKMAP_APP`, `DESKMAP_BUNDLE_ID`, `DESKMAP_PID`,
+`DESKMAP_WINDOW_ID`, `DESKMAP_FROM`, `DESKMAP_TO` (and `_NAME` variants)
+and `DESKMAP_CAUSE`: `move` (dragged or moved by a rule) or `display` (a
+display was connected or removed and macOS moved the window). While the
+mouse button is down the hook waits; dropping the window back where it
+started runs nothing. `scripts/hooktest/run.sh` tests this end to end with a
+virtual display.
 
 - **Shortcuts**: add an **Open URLs** action with `deskmap://profile/Home`,
   then attach a keyboard shortcut or a Focus automation.

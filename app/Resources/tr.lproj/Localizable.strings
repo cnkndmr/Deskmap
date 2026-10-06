@@ -47,6 +47,8 @@
 /* Services/URLCommands.swift */
 "Unknown URL command: %@" = "Bilinmeyen URL komutu: %@";
 "Profile not found: %@" = "Profil bulunamadı: %@";
+"Window not found: %@" = "Pencere bulunamadı: %@";
+"Rule not found: %@" = "Kural bulunamadı: %@";
 
 /* Services/MacSettings.swift (ayar adları macOS'taki İngilizce adlarıyla kalır) */
 "Automatically rearrange Spaces based on most recent use" = "Alanları en son kullanıma göre otomatik olarak yeniden düzenle";
