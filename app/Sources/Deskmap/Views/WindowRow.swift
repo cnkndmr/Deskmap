@@ -18,6 +18,7 @@ struct WindowRow: View {
     @EnvironmentObject private var ui: UIState
     /// Haritanın her ekran için gösterdiği masaüstü satırı sayısı ("Gönder" menüsü).
     @Environment(\.mapTileCounts) private var tileCounts
+    @Environment(\.dismiss) private var dismiss
 
     /// Bu pencereye uyan ve bu modda hedefi olan kural; router ile aynı
     /// seçim. Oturum pini ayrı tutulduğu için burada verilmez.
@@ -129,8 +130,12 @@ struct WindowRow: View {
         .contentShape(Rectangle())
         .opacity(isBeingDragged ? 0.35 : 1)
         .onTapGesture(count: 2) {
-            // Çift tıklama: pencere öne gelir, masaüstüne geçilir.
+            // Çift tıklama: harita kapanır, pencere öne gelir, masaüstüne
+            // geçilir. Harita odak gidince kendiliğinden kapanmıyor; `dismiss`
+            // simgenin durumunu da günceller (`close()`/`hide` sonraki tıkı
+            // boşa düşürüyor; ölçüldü 07.10).
             guard !isGhost else { return }
+            dismiss()
             AX.focus(windowID: window.id, pid: window.pid)
         }
         .onTapGesture {
