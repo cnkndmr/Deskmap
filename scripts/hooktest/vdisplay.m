@@ -1,6 +1,7 @@
 // Sanal monitör: çalıştığı sürece macOS'a bir ekran ekler, çıkınca kaldırır.
 // Kanca testleri gerçek monitör olmadan "monitör takıldı/çıkarıldı" denesin diye.
-// Kullanım: vdisplay [saniye] [genişlik] [yükseklik]   (saniye 0 = SIGTERM'e kadar)
+// Kullanım: vdisplay [saniye] [genişlik] [yükseklik]   (saniye 0 = SIGTERM'e kadar, en fazla 300;
+// başlatan süreç ölünce kendiliğinden kapanır)
 // CGVirtualDisplay özel bir CoreGraphics arayüzü (DeskPad/BetterDisplay de kullanır).
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
@@ -63,8 +64,13 @@ int main(int argc, const char *argv[]) {
         printf("display %u %ux%u\n", display.displayID, width, height);
         fflush(stdout);
 
-        NSDate *end = seconds > 0 ? [NSDate dateWithTimeIntervalSinceNow:seconds] : [NSDate distantFuture];
-        while (!stop && [end timeIntervalSinceNow] > 0) {
+        // Asla açık kalmasın: en fazla MAX_SECONDS, ve başlatan süreç
+        // (test betiği) ölürse hemen kapan (ebeveyn launchd'ye geçer).
+        const double MAX_SECONDS = 300;
+        if (seconds <= 0 || seconds > MAX_SECONDS) seconds = MAX_SECONDS;
+        pid_t parent = getppid();
+        NSDate *end = [NSDate dateWithTimeIntervalSinceNow:seconds];
+        while (!stop && [end timeIntervalSinceNow] > 0 && getppid() == parent && parent != 1) {
             [[NSRunLoop mainRunLoop] runMode:NSDefaultRunLoopMode
                                   beforeDate:[NSDate dateWithTimeIntervalSinceNow:0.2]];
         }

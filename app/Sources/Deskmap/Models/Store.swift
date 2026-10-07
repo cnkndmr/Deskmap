@@ -989,9 +989,13 @@ final class Store: ObservableObject {
     // MARK: - Ekranlar
 
     /// Bağlı ekranları bilinen ekranlara işler; bağlı olmayanlar silinmez.
+    /// Kanca testlerinin sanal ekranı (scripts/hooktest/vdisplay): yalnız
+    /// test sürerken bağlıdır; hatırlanmaz, haritada kalıcı yer tutmaz.
+    nonisolated static let testDisplayName = "Deskmap Test Display"
+
     func remember(_ screens: [KnownScreen]) {
-        var known = document.screens
-        for screen in screens {
+        var known = document.screens.filter { $0.name != Self.testDisplayName }
+        for screen in screens where screen.name != Self.testDisplayName {
             if let i = known.firstIndex(where: { $0.id == screen.id }) {
                 known[i] = screen
             } else {
