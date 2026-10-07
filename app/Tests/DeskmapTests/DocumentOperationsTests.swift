@@ -122,6 +122,72 @@ struct DocumentOperationsTests {
         #expect(doc.rules[2].undocked?.desktop == 1)   // başka mod
     }
 
+    @Test func desktopsToAddAcrossMakesRoomForDisplacedDesktops() {
+        // Plan 3, gerçek 2, konum 1: gerçek 2 → 3'e kayacağı için bir masaüstü gerekir.
+        #expect(Document.desktopsToAddAcross(real: 2, at: 1) == 1)
+        #expect(Document.desktopsToAddAcross(real: 2, at: 2) == 1)
+        #expect(Document.desktopsToAddAcross(real: 2, at: 3) == 1)
+        #expect(Document.desktopsToAddAcross(real: 2, at: 4) == 2)
+        #expect(Document.desktopsToAddAcross(real: 0, at: 1) == 0)
+    }
+
+    @Test func acrossPlacementCases() {
+        func at(_ screen: String, _ desktop: Int) -> String? {
+            Document.acrossPlacement(screen: screen, desktop: desktop,
+                                     from: "builtin", desktop: 2, to: "external", at: 1)
+                .map { "\($0.screen)/\($0.desktop)" }
+        }
+        #expect(at("builtin", 1) == nil)
+        #expect(at("builtin", 2) == "external/1")
+        #expect(at("builtin", 4) == "builtin/3")
+        #expect(at("external", 1) == "external/2")
+        #expect(at("external", 3) == "external/4")
+        #expect(at("other", 2) == nil)
+        // Aynı ekranda bu işlev hiçbir şey yapmaz.
+        #expect(Document.acrossPlacement(screen: "builtin", desktop: 2, from: "builtin",
+                                         desktop: 2, to: "builtin", at: 1) == nil)
+        // Sona ekleme: hedefte kimse kaymaz.
+        #expect(Document.acrossPlacement(screen: "external", desktop: 3, from: "builtin",
+                                         desktop: 1, to: "external", at: 4) == nil)
+    }
+
+    @Test func moveDesktopAcrossRemapsBothScreensAndPlans() {
+        var doc = Document()
+        doc.rules = [
+            rule("a", docked: Destination(screen: "builtin", desktop: 2)),
+            rule("b", tokens: ["B"], docked: Destination(screen: "builtin", desktop: 3),
+                 undocked: Destination(screen: "builtin", desktop: 3)),
+            rule("c", tokens: ["C"], docked: Destination(screen: "external", desktop: 1)),
+            rule("d", tokens: ["D"], docked: Destination(screen: "builtin", desktop: 1)),
+        ]
+        doc.setPlannedDesktops(3, mode: .docked, screen: "builtin")
+        let before = doc
+        doc.moveDesktopAcross(from: "builtin", desktop: 2, to: "external", at: 1,
+                              toCount: 2, mode: .docked)
+        #expect(doc.rules[0].docked == Destination(screen: "external", desktop: 1))
+        #expect(doc.rules[1].docked == Destination(screen: "builtin", desktop: 2))
+        #expect(doc.rules[1].undocked == Destination(screen: "builtin", desktop: 3)) // başka mod
+        #expect(doc.rules[2].docked == Destination(screen: "external", desktop: 2))
+        #expect(doc.rules[3].docked == Destination(screen: "builtin", desktop: 1))
+        #expect(doc.plannedDesktops(mode: .docked, screen: "builtin") == 2)
+        #expect(doc.plannedDesktops(mode: .docked, screen: "external") == 3)
+        // Ters taşıma pinleri geri getirir.
+        doc.moveDesktopAcross(from: "external", desktop: 1, to: "builtin", at: 2,
+                              toCount: 2, mode: .docked)
+        #expect(doc.rules == before.rules)
+    }
+
+    @Test func moveDesktopAcrossRemapsInactiveProfiles() {
+        var doc = Document()
+        var other = Profile(name: "Diğer")
+        other.rules = [rule("x", docked: Destination(screen: "builtin", desktop: 1))]
+        doc.profiles.append(other)
+        doc.moveDesktopAcross(from: "builtin", desktop: 1, to: "external", at: 3,
+                              toCount: 2, mode: .docked)
+        let moved = doc.profiles.first { $0.id == other.id }?.rules.first?.docked
+        #expect(moved == Destination(screen: "external", desktop: 3))
+    }
+
     // MARK: Adlar ve eşitleme
 
     @Test func uniqueNameAppendsCounter() {

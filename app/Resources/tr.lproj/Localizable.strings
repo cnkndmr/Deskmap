@@ -102,7 +102,8 @@
 /* Views/ScreenMapView.swift: harita */
 "Desktop %ld" = "Masaüstü %ld";
 "not connected" = "bağlı değil";
-"Drag to move this desktop (with its pins) up or down" = "Sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı taşıyın";
+"Drag to move this desktop (with its pins) up, down or to another display" = "Sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı ya da başka ekrana taşıyın";
+"Desktop moved to another display" = "Masaüstü başka ekrana taşındı";
 "empty" = "boş";
 "doesn't exist yet" = "henüz yok";
 "%ld windows" = "%ld pencere";
@@ -266,7 +267,6 @@
 "Unassigned windows" = "Sahipsiz pencereler";
 "Open windows with no pin in either setup" = "İki kurulumda da pini olmayan açık pencereler";
 "Every open window has a pin." = "Açık her pencerenin pini var.";
-"Placed differently for %@" = "Şu kurulumda başka yerde: %@";
 "Top left" = "Sol üst";
 "Top right" = "Sağ üst";
 "Bottom left" = "Sol alt";
@@ -306,3 +306,6 @@
 "Full-screen windows without a pin are left alone." = "Pinsiz tam ekran pencerelere dokunulmaz.";
 "Window now: %@ (the anchor sets the position)" = "Pencere şu an: %@ (konumu sabitleme belirler)";
 "Desktop %ld on %@ still has pinned rules" = "%2$@ ekranındaki %1$ld. masaüstünde hâlâ pinli kurallar var";
+"Send to" = "Gönder";
+"Moves the pin for all %@ windows" = "Tüm %@ pencerelerinin pinini taşır";
+"Moves the pin \"%@\" (all matching windows)" = "\"%@\" pinini taşır (uyan tüm pencereler)";

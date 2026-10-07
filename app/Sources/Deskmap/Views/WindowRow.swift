@@ -16,6 +16,8 @@ struct WindowRow: View {
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var screens: ScreenService
     @EnvironmentObject private var ui: UIState
+    /// Haritanın her ekran için gösterdiği masaüstü satırı sayısı ("Gönder" menüsü).
+    @Environment(\.mapTileCounts) private var tileCounts
 
     /// Bu pencereye uyan ve bu modda hedefi olan kural; router ile aynı
     /// seçim. Oturum pini ayrı tutulduğu için burada verilmez.
@@ -135,9 +137,102 @@ struct WindowRow: View {
             }
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)
+        .contextMenu {
+            if !isGhost, isPinned { sendMenu }
+        }
         .help(isPinned ? L("Click to change the layout; drag to change the pin's target")
               : mode == screens.mode ? L("Drag to move (does not pin); click the pin to keep it here")
               : L("Drag onto a desktop to pin it for %@; the window is not moved", mode.title))
+    }
+
+    // MARK: - "Gönder" menüsü
+
+    /// Sağ tık menüsündeki hedef listesi: haritadaki her ekran ve masaüstleri,
+    /// pinin şu anki hedefi işaretli. Tam ekran pencerede devre dışı.
+    @ViewBuilder private var sendMenu: some View {
+        let targets = Self.sendTargets(screens: store.screens(for: mode),
+                                       tileCounts: tileCounts, current: pinnedDestination)
+        Menu(L("Send to")) {
+            if sessionPin == nil, let rule = pinnedRule {
+                // Kural birden çok pencereye uyabilir: taşınan kuralın kendisi.
+                Section(rule.isAppWide ? L("Moves the pin for all %@ windows", rule.appName)
+                                       : L("Moves the pin \"%@\" (all matching windows)", rule.title)) {
+                    targetButtons(targets)
+                }
+            } else {
+                targetButtons(targets)
+            }
+        }
+        .disabled(window.fullscreen != nil || targets.isEmpty)
+    }
+
+    @ViewBuilder private func targetButtons(_ targets: [SendTargetScreen]) -> some View {
+        ForEach(targets, id: \.screen) { target in
+            Menu(target.name) {
+                ForEach(target.desktops, id: \.desktop) { item in
+                    Button {
+                        send(to: Router.Placement(screen: target.screen, desktop: item.desktop))
+                    } label: {
+                        if item.isCurrent {
+                            Label(L("Desktop %ld", item.desktop), systemImage: "checkmark")
+                        } else {
+                            Text(L("Desktop %ld", item.desktop))
+                        }
+                    }
+                    .disabled(item.isCurrent)
+                }
+            }
+        }
+    }
+
+    /// Menüde bir ekranın hedefleri.
+    struct SendTargetScreen: Equatable {
+        struct Desktop: Equatable { var desktop: Int; var isCurrent: Bool }
+        var screen: String
+        var name: String
+        var desktops: [Desktop]
+    }
+
+    /// "Gönder" hedefleri (saf): haritanın sırasıyla ekranlar, her biri
+    /// haritadaki satır sayısı kadar masaüstü (en az 1; hedef daha ilerideyse
+    /// o da listelenir), şu anki hedef işaretli.
+    static func sendTargets(screens: [KnownScreen], tileCounts: [String: Int],
+                            current: Destination?) -> [SendTargetScreen] {
+        screens.map { screen in
+            var count = max(tileCounts[screen.id] ?? 1, 1)
+            if let current, current.screen == screen.id { count = max(count, current.desktop) }
+            return SendTargetScreen(
+                screen: screen.id, name: screen.name,
+                desktops: (1...count).map {
+                    .init(desktop: $0,
+                          isCurrent: current?.screen == screen.id && current?.desktop == $0)
+                })
+        }
+    }
+
+    /// Pinin bu moddaki hedefini değiştirir (düzen korunur, geri alınabilir);
+    /// canlı modda pencere kural değişikliğiyle birlikte taşınır.
+    private func send(to placement: Router.Placement) {
+        guard window.fullscreen == nil else { return }
+        switch ui.panel {
+        case .rule, .session: ui.panel = nil
+        default: break
+        }
+        if let current = sessionPin {
+            let next = Destination(screen: placement.screen, desktop: placement.desktop,
+                                   layout: current.layout)
+            guard next != current else { return }
+            router.pinSession(window.id, destination: next)
+            let router = router, id = window.id
+            store.recordSessionChange(L("Temporary pin moved")) {
+                if router.sessionPins[id] != nil { router.pinSession(id, destination: current) }
+            }
+        } else if let rule = pinnedRule, let current = rule[mode] {
+            let next = Destination(screen: placement.screen, desktop: placement.desktop,
+                                   layout: current.layout)
+            guard next != current else { return }
+            store.moveRule(rule.id, to: next, mode: mode)
+        }
     }
 
     private var pinButtonHelp: String {
@@ -269,5 +364,17 @@ struct WindowRow: View {
                     }
                 }
             }
+    }
+}
+
+private struct MapTileCountsKey: EnvironmentKey {
+    static let defaultValue: [String: Int] = [:]
+}
+
+extension EnvironmentValues {
+    /// Ekran haritasının ekran başına gösterdiği masaüstü satırı sayısı.
+    var mapTileCounts: [String: Int] {
+        get { self[MapTileCountsKey.self] }
+        set { self[MapTileCountsKey.self] = newValue }
     }
 }

@@ -403,6 +403,69 @@ struct Document: Codable, Equatable {
         if moved != rules { rules = moved }
     }
 
+    /// Bir masaüstünü (pinleriyle) başka ekrana taşır: hedef ekranda `to`
+    /// sırasına girer, hedefin `to` ve sonrası bir aşağı kayar; kaynakta
+    /// boşluk kapanır (sonrakiler bir yukarı). Bütün profiller, yalnız bu
+    /// mod. `toCount`: hedefteki satır sayısı; hedefte bir satır artacağı
+    /// için plan en az `toCount + 1` olur (masaüstü boşsa da satır kalsın,
+    /// etkin modda eksik masaüstü plan mekanizmasıyla açılır). Kaynakta
+    /// gerçek masaüstü silinmez; yalnız plan bir azalır.
+    mutating func moveDesktopAcross(from fromScreen: String, desktop from: Int,
+                                    to toScreen: String, at to: Int, toCount: Int, mode: Mode) {
+        guard fromScreen != toScreen, from >= 1, to >= 1 else { return }
+        func remap(_ list: [Rule]) -> [Rule] {
+            var moved = list
+            for i in moved.indices {
+                guard var destination = moved[i][mode],
+                      let next = Self.acrossPlacement(
+                        screen: destination.screen, desktop: destination.desktop,
+                        from: fromScreen, desktop: from, to: toScreen, at: to)
+                else { continue }
+                destination.screen = next.screen
+                destination.desktop = next.desktop
+                moved[i][mode] = destination
+            }
+            return moved
+        }
+        let moved = remap(rules)
+        if moved != rules { rules = moved }
+        for i in profiles.indices where profiles[i].id != activeProfileID {
+            let other = remap(profiles[i].rules)
+            if other != profiles[i].rules { profiles[i].rules = other }
+        }
+        let planned = plannedDesktops(mode: mode, screen: fromScreen)
+        if planned >= from { setPlannedDesktops(planned - 1, mode: mode, screen: fromScreen) }
+        let target = plannedDesktops(mode: mode, screen: toScreen)
+        let needed = max(toCount, to - 1) + 1
+        if target < needed { setPlannedDesktops(needed, mode: mode, screen: toScreen) }
+    }
+
+    /// Canlı ekranlar arası taşımadan önce hedef ekrana eklenecek gerçek
+    /// masaüstü sayısı. `to` gerçek bir masaüstünü itiyorsa son gerçek
+    /// masaüstü `real + 1`'e kayar; itmiyorsa taşınan pencereler `to`'ya iner.
+    /// Plan (`toCount`) gerçek sayıdan büyük olsa da yer açılır. Saf.
+    static func desktopsToAddAcross(real: Int, at to: Int) -> Int {
+        guard real > 0 else { return 0 }
+        return max(0, (to <= real ? real + 1 : to) - real)
+    }
+
+    /// Ekranlar arası masaüstü taşımasında bir yerin yeni hâli; değişmiyorsa
+    /// nil. Taşınan masaüstü → (hedef, `to`); hedefte `to` ve sonrası +1;
+    /// kaynakta `from` sonrası -1. Tersi aynı işlevin uçları değişmiş hâli. Saf.
+    static func acrossPlacement(screen: String, desktop: Int,
+                                from fromScreen: String, desktop from: Int,
+                                to toScreen: String, at to: Int)
+        -> (screen: String, desktop: Int)? {
+        guard fromScreen != toScreen else { return nil }
+        if screen == fromScreen {
+            if desktop == from { return (toScreen, to) }
+            if desktop > from { return (fromScreen, desktop - 1) }
+        } else if screen == toScreen, desktop >= to {
+            return (toScreen, desktop + 1)
+        }
+        return nil
+    }
+
     /// Bir ekrandaki masaüstü silinince: o ekranın bu moddaki pinleri
     /// `removalMapping`'e göre kayar, plan bir azalır.
     mutating func removeDesktop(on screen: String, desktop: Int, mode: Mode) {
@@ -895,6 +958,17 @@ final class Store: ObservableObject {
                      undoingSessionPins companion: (() -> Void)? = nil) {
         recording(L("Desktop order changed"), companion: companion) {
             document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode)
+        }
+    }
+
+    /// Masaüstünü başka ekrana taşır (bkz. `Document.moveDesktopAcross`);
+    /// pinler ve planlar tek adımda ⌘Z ile geri gelir.
+    func moveDesktopAcross(from fromScreen: String, desktop from: Int,
+                           to toScreen: String, at to: Int, toCount: Int, mode: Mode,
+                           undoingSessionPins companion: (() -> Void)? = nil) {
+        recording(L("Desktop moved to another display"), companion: companion) {
+            document.moveDesktopAcross(from: fromScreen, desktop: from, to: toScreen, at: to,
+                                       toCount: toCount, mode: mode)
         }
     }
 

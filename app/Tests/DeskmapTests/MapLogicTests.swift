@@ -138,11 +138,28 @@ struct TrayLogicTests {
         halfLayout.layout = WindowLayout(x: 0, y: 0, w: 0.5, h: 1)
         let moved = Rule(id: "moved", appName: "D", bundleID: "d", tokens: [], docked: d, undocked: elsewhere)
         let resized = Rule(id: "resized", appName: "E", bundleID: "e", tokens: [], docked: d, undocked: halfLayout)
-        let groups = ScreenMapView.setupDifferences(
-            rules: [both, dockedOnly, laptopOnly, moved, resized], mode: .docked)
+        var external = d
+        external.screen = "external"
+        let otherScreen = Rule(id: "screen", appName: "F", bundleID: "f", tokens: [],
+                               docked: external, undocked: d)
+        let empty = Rule(id: "empty", appName: "G", bundleID: "g", tokens: [])
+        let rules = [both, dockedOnly, laptopOnly, moved, resized, otherScreen, empty]
+        // İki modda da yeri olanlar (başka yerde bile) ve boş kural listelenmez.
+        let groups = ScreenMapView.setupDifferences(rules: rules, mode: .docked)
         #expect(groups.onlyOther.map(\.id) == ["lap"])
         #expect(groups.onlyThis.map(\.id) == ["dock"])
-        #expect(groups.placedDifferently.map(\.id) == ["moved"])
+        let laptop = ScreenMapView.setupDifferences(rules: rules, mode: .undocked)
+        #expect(laptop.onlyOther.map(\.id) == ["dock"])
+        #expect(laptop.onlyThis.map(\.id) == ["lap"])
+    }
+
+    @Test func desktopDropAcceptsOtherDisplays() {
+        #expect(!ScreenMapView.acceptsDesktopDrop(fromScreen: "builtin", from: 2,
+                                                  toScreen: "builtin", to: 2))
+        #expect(ScreenMapView.acceptsDesktopDrop(fromScreen: "builtin", from: 2,
+                                                 toScreen: "builtin", to: 1))
+        #expect(ScreenMapView.acceptsDesktopDrop(fromScreen: "builtin", from: 2,
+                                                 toScreen: "external", to: 2))
     }
 
     @Test func unownedExcludesAnyPinInEitherMode() {

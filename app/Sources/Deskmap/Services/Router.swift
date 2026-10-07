@@ -747,6 +747,87 @@ final class Router: ObservableObject {
         return changed
     }
 
+    /// Bir masaüstünü başka ekrana taşır: oturum pinleri
+    /// `Document.acrossPlacement`'a göre yeniden yazılır; `moveWindows`
+    /// (etkin mod) ise iki ekrandaki pencereler de yeni yerlerine taşınır.
+    /// Hedefte gerekli gerçek masaüstü yoksa o pencereler yerinde kalır
+    /// (çağıran önce `addDesktop` ile açar). Tam ekran ve "All Desktops"
+    /// pencereleri taşınmaz.
+    @discardableResult
+    func moveDesktopAcross(from fromScreen: String, desktop from: Int,
+                           to toScreen: String, at to: Int, moveWindows: Bool = false) -> Bool {
+        guard fromScreen != toScreen else { return false }
+        let moves = moveWindows && moveHealth.movesAllowed && SkyLight.shared.canMove
+        if moves { moveWindowsAcross(from: fromScreen, desktop: from, to: toScreen, at: to) }
+        var changed = moves
+        for (id, record) in sessionRecords {
+            guard let next = Document.acrossPlacement(
+                screen: record.destination.screen, desktop: record.destination.desktop,
+                from: fromScreen, desktop: from, to: toScreen, at: to) else { continue }
+            var updated = record
+            updated.destination.screen = next.screen
+            updated.destination.desktop = next.desktop
+            sessionRecords[id] = updated
+            sessionPins[id] = updated.destination
+            forgetApplied(for: id)
+            changed = true
+        }
+        if changed {
+            saveSessionPins()
+            sweep()
+        }
+        return changed
+    }
+
+    /// İki ekrandaki pencereleri taşımaya göre yeni masaüstülerine götürür.
+    /// Her pencerenin yeri SkyLight'tan taze okunur ve bir kez taşınır
+    /// (sıra önemsiz: her pencere doğrudan son yerine gider).
+    private func moveWindowsAcross(from fromScreen: String, desktop from: Int,
+                                   to toScreen: String, at to: Int) {
+        let connected = screens.screens
+        let ids = [fromScreen, toScreen]
+        let candidates = windows.filter { ids.contains($0.placement?.screen ?? "") }.map(\.id)
+        guard !candidates.isEmpty else { return }
+        queue.async {
+            let sky = SkyLight.shared
+            guard sky.canRead, sky.canMove else { return }
+            let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(connected))
+            var desktopsOf: [String: [UInt64]] = [:]
+            for id in ids {
+                guard let screen = connected.first(where: { $0.id == id }),
+                      let display = displays.first(where: { $0.displayUUID == screen.uuid })
+                // Bağlı olmayan hedef: kaynak yine sıkışır (pinlerle aynı hizada kalsın).
+                else { continue }
+                desktopsOf[id] = display.desktops.map(\.id)
+            }
+            var moved = 0
+            var crossing: [(CGWindowID, Placement)] = []
+            for window in candidates {
+                guard let current = sky.spaces(of: window), current.count == 1,
+                      let screen = ids.first(where: { desktopsOf[$0]?.contains(current[0]) == true }),
+                      let index = desktopsOf[screen]?.firstIndex(of: current[0]),
+                      let next = Document.acrossPlacement(
+                        screen: screen, desktop: index + 1,
+                        from: fromScreen, desktop: from, to: toScreen, at: to),
+                      let desktops = desktopsOf[next.screen], next.desktop <= desktops.count
+                else { continue }
+                if next.screen == screen {
+                    sky.move(window: window, to: desktops[next.desktop - 1])
+                    moved += 1
+                } else {
+                    // Ekran değişiyor: çerçeve de hedef ekrana oranlanmalı.
+                    crossing.append((window, Placement(screen: next.screen, desktop: next.desktop)))
+                }
+            }
+            let handOff = crossing
+            Task { @MainActor [weak self] in
+                for (window, placement) in handOff { self?.moveWindow(window, to: placement) }
+            }
+            Log.routing.notice("Desktop move \(fromScreen, privacy: .public) → \(toScreen, privacy: .public): moved \(moved) window(s), \(handOff.count) to the other display")
+            Task { @MainActor [weak self] in self?.scheduleFollowUp(after: 300) }
+        }
+    }
+
     /// Pencereler yalnız iki uç da gerçek masaüstüyse taşınır (saf).
     nonisolated static func canReorderWindows(from: Int, to: Int, realCount: Int) -> Bool {
         from >= 1 && to >= 1 && max(from, to) <= realCount

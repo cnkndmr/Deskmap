@@ -22,19 +22,25 @@ struct ScreenMapView: View {
             ? Self.shadows(rules: store.document.rules, windows: ui.windows,
                            sessionPins: router.sessionPins, mode: mode).shadowedBy
             : [:]
+        let shown = store.screens(for: mode)
+        // Ekranlar arası masaüstü sürüklemesi hedef ekranın satır sayısını ister.
+        let counts = Dictionary(shown.map { ($0.id, tileCount(for: $0)) },
+                                uniquingKeysWith: { first, _ in first })
         VStack(spacing: 12) {
-            ForEach(store.screens(for: mode)) { screen in
+            ForEach(shown) { screen in
                 ScreenCard(
                     screen: screen,
                     mode: mode,
                     isLive: isLive,
                     isConnected: screens.screens.contains { $0.id == screen.id },
-                    tileCount: tileCount(for: screen),
+                    tileCount: counts[screen.id] ?? 1,
                     realCount: realCount(for: screen),
+                    tileCounts: counts,
                     shadowed: shadowed)
             }
 
         }
+        .environment(\.mapTileCounts, counts)
     }
 
     /// Bağlı ekrandaki masaüstü sayısı; etkin olmayan modda o moda
@@ -115,6 +121,8 @@ private struct ScreenCard: View {
     let isConnected: Bool
     let tileCount: Int
     let realCount: Int?
+    /// Haritadaki her ekranın satır sayısı (ekranlar arası sürükleme için).
+    let tileCounts: [String: Int]
     /// Gölgede kalan kural → onu geçen kural (ScreenMapView.shadows).
     let shadowed: [String: String]
 
@@ -147,7 +155,7 @@ private struct ScreenCard: View {
                     screen: screen, desktop: desktop, mode: mode, isLive: isLive,
                     exists: realCount.map { desktop <= $0 } ?? true,
                     realCount: realCount,
-                    rowCount: tileCount, shadowed: shadowed)
+                    rowCount: tileCount, tileCounts: tileCounts, shadowed: shadowed)
                 ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0) }
             }
             GhostRow(screen: screen, desktop: tileCount + 1, mode: mode,
@@ -261,6 +269,8 @@ private struct DesktopRow: View {
     let realCount: Int?
     /// Bu ekran kartındaki satır sayısı (sıralama için).
     let rowCount: Int
+    /// Haritadaki her ekranın satır sayısı (ekranlar arası sürükleme için).
+    let tileCounts: [String: Int]
     /// Gölgede kalan kural → onu geçen kural; soluk çip olarak gösterilir.
     let shadowed: [String: String]
 
@@ -274,10 +284,11 @@ private struct DesktopRow: View {
         Router.Placement(screen: screen.id, desktop: desktop)
     }
 
-    /// Masaüstü sürüklemesi yalnızca aynı ekran içinde kabul edilir.
+    /// Masaüstü sürüklemesi kendi satırına bırakılamaz; başka ekrana olur.
     private var acceptsDrag: Bool {
         if case .desktop(let fromScreen, let from) = ui.drag?.item {
-            return fromScreen == screen.id && from != desktop
+            return ScreenMapView.acceptsDesktopDrop(fromScreen: fromScreen, from: from,
+                                           toScreen: screen.id, to: desktop)
         }
         return true
     }
@@ -343,7 +354,7 @@ private struct DesktopRow: View {
             .padding(.top, 2)
             .contentShape(Rectangle())
             .gesture(desktopDrag)
-            .help(L("Drag to move this desktop (with its pins) up or down"))
+            .help(L("Drag to move this desktop (with its pins) up, down or to another display"))
 
             if groups.isEmpty && orphanRules.isEmpty {
                 Text(exists ? L("empty") : L("doesn't exist yet"))
@@ -425,8 +436,12 @@ private struct DesktopRow: View {
             }
             .onEnded { value in
                 defer { ui.drag = nil }
-                guard case .desktop(let toScreen, let dropped)? = ui.target(at: value.location),
-                      toScreen == screen.id else { return }
+                guard case .desktop(let toScreen, let dropped)? = ui.target(at: value.location)
+                else { return }
+                if toScreen != screen.id {
+                    moveAcross(to: toScreen, at: dropped)
+                    return
+                }
                 // "+ Masaüstü N" satırına bırakmak = en sona.
                 let to = min(dropped, rowCount)
                 guard to != desktop else { return }
@@ -448,6 +463,43 @@ private struct DesktopRow: View {
                                                reorderWindows: live) }
                         : nil)
             }
+    }
+
+    /// Masaüstünü başka ekranın `at` sırasına taşır (bkz.
+    /// `Document.moveDesktopAcross`). Etkin modda hedefte bir gerçek
+    /// masaüstü eksikse önce Mission Control ile eklenir; eklenemezse hiçbir
+    /// şey değişmez. Kaynakta kalan boş gerçek masaüstü silinmez.
+    private func moveAcross(to toScreen: String, at dropped: Int) {
+        guard let toCount = tileCounts[toScreen] else { return }
+        let to = min(max(dropped, 1), toCount + 1)
+        switch ui.panel {
+        case .rule, .pin: ui.panel = nil
+        default: break
+        }
+        let router = router, store = store, mode = mode, live = isLive
+        let fromScreen = screen.id, from = desktop
+        let apply = {
+            let sessionMoved = router.moveDesktopAcross(
+                from: fromScreen, desktop: from, to: toScreen, at: to, moveWindows: live)
+            store.moveDesktopAcross(
+                from: fromScreen, desktop: from, to: toScreen, at: to, toCount: toCount, mode: mode,
+                undoingSessionPins: sessionMoved
+                    ? { router.moveDesktopAcross(from: toScreen, desktop: to, to: fromScreen,
+                                                 at: from, moveWindows: live) }
+                    : nil)
+        }
+        let real = router.desktopCounts[toScreen] ?? 0
+        let missing = live ? Document.desktopsToAddAcross(real: real, at: to) : 0
+        guard missing > 0 else { apply(); return }
+        Task {
+            for _ in 0..<missing {
+                guard await router.addDesktop(on: toScreen) else {
+                    store.report(L("Could not add a desktop to %@", toScreen))
+                    return
+                }
+            }
+            apply()
+        }
     }
 
     @ViewBuilder
@@ -530,7 +582,7 @@ private struct GhostRow: View {
     private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
     private var isTargeted: Bool {
         guard ui.drag?.hover == target else { return false }
-        if case .desktop(let fromScreen, _) = ui.drag?.item { return fromScreen == screen.id }
+        // Masaüstü sürüklemesinde de her ekranın "+ Masaüstü" satırı hedeftir.
         return true
     }
 
@@ -583,8 +635,8 @@ private struct GhostRow: View {
 /// İki kurulum (monitör bağlı / yalnız laptop) arasında farklı kalan
 /// pinler: yalnız diğer kurulumda yeri olanlar (bu haritada yerleri yok;
 /// bir masaüstüne sürüklemek burada da pinler), yalnız bu kurulumda yeri
-/// olanlar (diğer kurulumda dokunulmaz) ve iki kurulumda başka ekrana ya da
-/// masaüstüne gidenler. Bir öğeyi buraya bırakmak bu moddaki pini kaldırır.
+/// olanlar (diğer kurulumda dokunulmaz). İki kurulumda da yeri olan pinler
+/// (başka ekran ya da masaüstü olsa bile) listelenmez. Bir öğeyi buraya bırakmak bu moddaki pini kaldırır.
 struct SetupDifferenceTray: View {
 
     let mode: Mode
@@ -619,11 +671,9 @@ struct SetupDifferenceTray: View {
         VStack(alignment: .leading, spacing: 8) {
             TrayHeader(systemImage: "rectangle.2.swap",
                        title: L("Different between setups"),
-                       count: groups.onlyOther.count + groups.onlyThis.count
-                           + groups.placedDifferently.count)
+                       count: groups.onlyOther.count + groups.onlyThis.count)
 
-            if groups.onlyOther.isEmpty && groups.onlyThis.isEmpty
-                && groups.placedDifferently.isEmpty {
+            if groups.onlyOther.isEmpty && groups.onlyThis.isEmpty {
                 Text(mode == .docked
                      ? L("Drop a window here to unpin it while a monitor is connected.")
                      : L("Drop a window here to unpin it while on the laptop only."))
@@ -638,28 +688,6 @@ struct SetupDifferenceTray: View {
                     section(L("Pinned only for %@", mode.title), rules: groups.onlyThis,
                             help: L("Left alone in the other setup."))
                 }
-                if !groups.placedDifferently.isEmpty {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(L("Placed differently for %@", other.title))
-                            .font(.caption2.weight(.medium))
-                            .foregroundStyle(.secondary)
-                        VStack(alignment: .leading, spacing: 6) {
-                            ForEach(groups.placedDifferently) { rule in
-                                VStack(alignment: .leading, spacing: 2) {
-                                    RuleChip(rule: rule, mode: mode, inTray: true)
-                                    if let there = rule[other] {
-                                        Text("→ " + placeLabel(there, mode: other))
-                                            .font(.caption2)
-                                            .foregroundStyle(.tertiary)
-                                            .lineLimit(1)
-                                            .truncationMode(.middle)
-                                            .padding(.leading, 8)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         }
         .padding(8)
@@ -672,13 +700,6 @@ struct SetupDifferenceTray: View {
                 .strokeBorder(isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
                               style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
         .dropTarget(.tray)
-    }
-
-    /// "Ekran · Masaüstü N" (diğer kurulumdaki yer).
-    private func placeLabel(_ destination: Destination, mode: Mode) -> String {
-        let name = store.screens(for: mode).first { $0.id == destination.screen }?.name
-            ?? destination.screen
-        return L("%@ · Desktop %ld", name, destination.desktop)
     }
 
     private func section(_ title: String, rules: [Rule], help: String) -> some View {
@@ -811,19 +832,21 @@ private struct TrayHeader: View {
 
 extension ScreenMapView {
 
-    /// Kurulumlar arasında farklı kalan pinler (saf): bu modda yeri
-    /// olmayanlar, yalnız bu modda yeri olanlar ve iki modda başka ekrana ya
-    /// da masaüstüne gidenler (yalnız düzen farkı sayılmaz). Kural sırası
-    /// korunur.
+    /// Masaüstü satırı buraya bırakılabilir mi: yalnız kendi yerine değil. Saf.
+    static func acceptsDesktopDrop(fromScreen: String, from: Int,
+                                   toScreen: String, to: Int) -> Bool {
+        fromScreen != toScreen || from != to
+    }
+
+    /// Kurulumlar arasında farklı kalan pinler (saf): yalnız diğer modda
+    /// yeri olanlar ve yalnız bu modda yeri olanlar. İki modda da yeri olan
+    /// (başka ekran/masaüstü olsa bile) ve hiçbir modda yeri olmayan kurallar
+    /// listelenmez. Kural sırası korunur.
     static func setupDifferences(rules: [Rule], mode: Mode)
-        -> (onlyOther: [Rule], onlyThis: [Rule], placedDifferently: [Rule]) {
+        -> (onlyOther: [Rule], onlyThis: [Rule]) {
         let other: Mode = mode == .docked ? .undocked : .docked
-        return (rules.filter { $0[mode] == nil },
-                rules.filter { $0[mode] != nil && $0[other] == nil },
-                rules.filter {
-                    guard let here = $0[mode], let there = $0[other] else { return false }
-                    return here.screen != there.screen || here.desktop != there.desktop
-                })
+        return (rules.filter { $0[mode] == nil && $0[other] != nil },
+                rules.filter { $0[mode] != nil && $0[other] == nil })
     }
 
     /// Hiçbir kurulumda pini olmayan pencereler (saf): geçici pini yok ve
