@@ -179,8 +179,8 @@
 /* Views/WindowRow.swift: pencere satırı */
 "Minimized" = "Simge durumunda";
 "Layout: %@" = "Düzen: %@";
-"Click to change the layout; drag to change the pin's target" = "Tıklayarak düzeni, sürükleyerek pinin hedefini değiştirin";
-"Drag to move (does not pin); click the pin to keep it here" = "Sürükleyerek taşıyın (pinlenmez); sabitlemek için pin düğmesine tıklayın";
+"Click to change the layout; drag to change the pin's target; double-click to go to the window" = "Tıklayarak düzeni, sürükleyerek pinin hedefini değiştirin; pencereye gitmek için çift tıklayın";
+"Drag to move (does not pin); click the pin to keep it here; double-click to go to the window" = "Sürükleyerek taşıyın (pinlenmez); sabitlemek için pin düğmesine tıklayın; pencereye gitmek için çift tıklayın";
 "Temporary pin (this window only, this session). Click to remove." = "Geçici pin (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın.";
 "Pinned: %@. Click to remove." = "Pinli: %@. Kaldırmak için tıklayın.";
 "Pin to this desktop" = "Bu masaüstüne pinle";

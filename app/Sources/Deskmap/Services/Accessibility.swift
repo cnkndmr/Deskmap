@@ -672,6 +672,68 @@ enum AX {
         AXUIElementSetAttributeValue(window.element, kAXSizeAttribute as CFString, sizeValue)
     }
 
+    // MARK: - Öne getirme
+
+    private typealias SetFrontProcessFn =
+        @convention(c) (UnsafeMutablePointer<ProcessSerialNumber>, CGWindowID, UInt32) -> CGError
+    private typealias PostEventRecordFn =
+        @convention(c) (UnsafeMutablePointer<ProcessSerialNumber>, UnsafeMutablePointer<UInt8>) -> CGError
+
+    private static let skyLight = dlopen(
+        "/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", RTLD_NOW)
+    private static let setFrontProcess: SetFrontProcessFn? = {
+        guard let skyLight, let pointer = dlsym(skyLight, "_SLPSSetFrontProcessWithOptions")
+        else { return nil }
+        return unsafeBitCast(pointer, to: SetFrontProcessFn.self)
+    }()
+    private static let postEventRecord: PostEventRecordFn? = {
+        guard let skyLight, let pointer = dlsym(skyLight, "SLPSPostEventRecordTo")
+        else { return nil }
+        return unsafeBitCast(pointer, to: PostEventRecordFn.self)
+    }()
+
+    private typealias ProcessForPIDFn =
+        @convention(c) (pid_t, UnsafeMutablePointer<ProcessSerialNumber>) -> OSStatus
+    /// Swift'te kapalı (10.9 öncesi API) ama hâlâ çalışıyor; dlsym ile.
+    private static let processForPID: ProcessForPIDFn? = {
+        guard let pointer = dlsym(dlopen(nil, RTLD_NOW), "GetProcessForPID") else { return nil }
+        return unsafeBitCast(pointer, to: ProcessForPIDFn.self)
+    }()
+
+    /// Pencereyi öne getirir; başka masaüstündeyse macOS o masaüstüne geçer.
+    /// alt-tab-macos yöntemi: süreç bu pencereyle öne alınır, pencereye
+    /// "anahtar pencere ol" olayı gönderilir, sonra AXRaise. Küçültülmüş
+    /// pencere önce açılır. Özel simgeler yoksa uygulama yalnızca etkinleşir.
+    static func focus(windowID: CGWindowID, pid: pid_t) {
+        let element = element(pid: pid, windowID: windowID)
+        if let element {
+            AXUIElementSetAttributeValue(element, kAXMinimizedAttribute as CFString, kCFBooleanFalse)
+        }
+        var psn = ProcessSerialNumber()
+        if let setFrontProcess, let processForPID, processForPID(pid, &psn) == noErr {
+            _ = setFrontProcess(&psn, windowID, 0x200)   // kCPSUserGenerated
+            if let postEventRecord {
+                var bytes = [UInt8](repeating: 0, count: 0xf8)
+                bytes[0x04] = 0xf8
+                bytes[0x3a] = 0x10
+                var wid = windowID
+                withUnsafeBytes(of: &wid) { raw in
+                    for (i, byte) in raw.enumerated() { bytes[0x3c + i] = byte }
+                }
+                bytes[0x20..<0x30] = ArraySlice(repeating: 0xff, count: 0x10)
+                bytes[0x08] = 0x01
+                _ = postEventRecord(&psn, &bytes)
+                bytes[0x08] = 0x02
+                _ = postEventRecord(&psn, &bytes)
+            }
+        } else {
+            NSRunningApplication(processIdentifier: pid)?.activate()
+        }
+        if let element {
+            AXUIElementPerformAction(element, kAXRaiseAction as CFString)
+        }
+    }
+
     private static func attribute<T>(_ element: AXUIElement, _ name: String) -> T? {
         var raw: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, name as CFString, &raw) == .success

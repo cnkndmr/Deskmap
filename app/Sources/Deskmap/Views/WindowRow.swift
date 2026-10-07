@@ -128,6 +128,11 @@ struct WindowRow: View {
                               lineWidth: 1))
         .contentShape(Rectangle())
         .opacity(isBeingDragged ? 0.35 : 1)
+        .onTapGesture(count: 2) {
+            // Çift tıklama: pencere öne gelir, masaüstüne geçilir.
+            guard !isGhost else { return }
+            AX.focus(windowID: window.id, pid: window.pid)
+        }
         .onTapGesture {
             // Pinli satıra tıklamak düzen panelini açar (tekrar tıklamak kapatır).
             if sessionPin != nil {
@@ -140,8 +145,8 @@ struct WindowRow: View {
         .contextMenu {
             if !isGhost, isPinned { sendMenu }
         }
-        .help(isPinned ? L("Click to change the layout; drag to change the pin's target")
-              : mode == screens.mode ? L("Drag to move (does not pin); click the pin to keep it here")
+        .help(isPinned ? L("Click to change the layout; drag to change the pin's target; double-click to go to the window")
+              : mode == screens.mode ? L("Drag to move (does not pin); click the pin to keep it here; double-click to go to the window")
               : L("Drag onto a desktop to pin it for %@; the window is not moved", mode.title))
     }
 
