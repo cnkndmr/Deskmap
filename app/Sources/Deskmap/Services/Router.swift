@@ -1102,6 +1102,14 @@ final class Router: ObservableObject {
     /// Son kararlı taramanın kurulumu ve pencereleri.
     private var lastStableWindows: (mode: Mode, windows: [WindowSnapshot])?
 
+    /// Ekran kilitli mi: kilitliyken macOS erişilebilirlikten pencere
+    /// vermez (liste boş gelir); kilitlenmeden önceki liste korunmalı, yoksa
+    /// kilitliyken çıkarılan monitörde taşınacak pencere kalmaz (08.10).
+    nonisolated static func screenIsLocked() -> Bool {
+        guard let session = CGSessionCopyCurrentDictionary() as? [String: Any] else { return false }
+        return (session["CGSSessionScreenIsLocked"] as? Bool) == true
+    }
+
     /// Kurulum değişti (monitör takıldı/çıktı): eski kurulumda adlı bir
     /// masaüstünde duran pencereler, yeni kurulumda aynı adlı masaüstüne
     /// taşınır. "Nova" monitörlü kurulumda Dell'deyse monitör çıkınca
@@ -1590,7 +1598,7 @@ final class Router: ObservableObject {
                 // Kurulum değişiminde adlı masaüstüyle taşınacak pencereler
                 // için son kararlı liste (ekranlar yatışmışken, aynı kurulumda).
                 if !self.screens.isSettling, mode == self.screens.mode,
-                   connected == self.screens.screens {
+                   connected == self.screens.screens, !Self.screenIsLocked() {
                     self.lastStableWindows = (mode, outcome.snapshots)
                 }
                 if outcome.snapshots != self.windows {

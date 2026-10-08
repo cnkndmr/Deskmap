@@ -234,7 +234,11 @@ enum AX {
 
         var discovered: [CGWindowID: UInt64] = [:]
         var aborted = false
-        for id in UInt64(0)..<remoteScanLimit {
+        // Kesilen geçiş kaldığı yerden sürer.
+        let start = gate.resumeFrom
+        var reached = start
+        for id in start..<remoteScanLimit {
+            reached = id
             if Date().timeIntervalSince(now) > remoteScanBudget { aborted = true; break }
             guard let element = remoteElement(pid: pid, elementID: id) else { continue }
             AXUIElementSetMessagingTimeout(element, 0.2)
@@ -250,12 +254,14 @@ enum AX {
         }
         remoteLock.lock()
         remoteGates[pid, default: RemoteScanGate()].record(
-            discovered, aborted: aborted, wanted: unlisted.union([windowID]), now: now)
+            discovered, aborted: aborted, wanted: unlisted.union([windowID]), now: now,
+            stoppedAt: reached)
+        let known = remoteGates[pid]?.ids[windowID]
         remoteLock.unlock()
         if aborted {
             Log.ax.notice("Remote window scan cut short for pid \(pid) (timeout or budget)")
         }
-        return discovered[windowID].flatMap { remoteElement(pid: pid, elementID: $0) }
+        return (discovered[windowID] ?? known).flatMap { remoteElement(pid: pid, elementID: $0) }
     }
 
     private static func remoteElement(pid: pid_t, elementID: UInt64) -> AXUIElement? {
@@ -281,7 +287,11 @@ enum AX {
     /// Kesilen taramadan sonra yeniden deneme.
     static let remoteAbortRetry: TimeInterval = 5
     /// Tek taramanın süre bütçesi (yavaş ama yanıt veren uygulama).
-    private static let remoteScanBudget: TimeInterval = 0.6
+    /// Yanıt vermeyen uygulama eşiğinin (0,5 sn) altında kalmalı: tarama
+    /// süresi uygulamanın hesabına yazılır; 0,6 sn'de her uygulama "yanıt
+    /// vermiyor" sayılıp atlanıyor, pencere listesi boşalıyordu (08.10).
+    /// Bütçeye sığmayan geçiş sonraki turda kaldığı yerden sürer.
+    private static let remoteScanBudget: TimeInterval = 0.3
     nonisolated(unsafe) private static var remoteGates: [pid_t: RemoteScanGate] = [:]
     private static let remoteLock = NSLock()
 
@@ -299,6 +309,10 @@ enum AX {
         /// Son tarama kesildi: `nextScan`'e kadar hiçbir numara taranmaz
         /// (yanıt vermeyen uygulama pencere başına yeniden taranmasın).
         var cutShort = false
+        /// Kesilen geçişin süreceği öğe kimliği (0 = baştan); kesilen
+        /// geçişlerin bulduğu kimlikler `partial`'da birikir.
+        var resumeFrom: UInt64 = 0
+        var partial: [CGWindowID: UInt64] = [:]
 
         func shouldScan(for windowID: CGWindowID, now: Date) -> Bool {
             guard let nextScan, now < nextScan else { return true }
@@ -308,19 +322,25 @@ enum AX {
         /// Biten taramayı işler. `wanted`: bu geçişin yanıtladığı numaralar
         /// (aranan pencere ve aynı uygulamanın listelenmeyen öbür pencereleri).
         mutating func record(_ discovered: [CGWindowID: UInt64], aborted: Bool,
-                             wanted: Set<CGWindowID>, now: Date) {
+                             wanted: Set<CGWindowID>, now: Date, stoppedAt: UInt64 = 0) {
             let expired = nextScan.map { now >= $0 } ?? true
             cutShort = aborted
             if aborted {
                 ids.merge(discovered) { _, new in new }
+                partial.merge(discovered) { _, new in new }
+                resumeFrom = stoppedAt
                 nextScan = now.addingTimeInterval(AX.remoteAbortRetry)
                 return
             }
-            // Tam geçiş: kimlikler yeniden kullanılabilir, eski harita atılır.
-            ids = discovered
+            // Tam geçiş (kesilen parçalarla birlikte): kimlikler yeniden
+            // kullanılabilir, eski harita atılır.
+            let complete = partial.merging(discovered) { _, new in new }
+            partial = [:]
+            resumeFrom = 0
+            ids = complete
             // Süresi dolan kayıtlar atılır (kapanmış pencereler birikmesin);
             // süre içindeki geçiş öncekileri de yeniden aramış sayılır.
-            misses = (expired ? [] : misses).union(wanted).subtracting(discovered.keys)
+            misses = (expired ? [] : misses).union(wanted).subtracting(complete.keys)
             nextScan = now.addingTimeInterval(AX.remoteRescan)
         }
     }
