@@ -198,6 +198,12 @@ struct LayoutGlyph: View {
                 Path(roundedRect: frame, cornerRadius: 2),
                 with: .foreground, lineWidth: 1)
             let area = frame.insetBy(dx: 1.5, dy: 1.5)
+            // Yalnız masaüstü: düzen yok, kesikli iç çerçeve.
+            if layout.isDesktopOnly {
+                context.stroke(Path(roundedRect: area.insetBy(dx: 1, dy: 1), cornerRadius: 1),
+                               with: .foreground, style: StrokeStyle(lineWidth: 1, dash: [2, 1.5]))
+                return
+            }
             let inner = layout.rect(in: area, pointsPerUnit: area.width / max(screenSize.width, 1))
             context.fill(Path(roundedRect: inner, cornerRadius: 1), with: .foreground)
         }

@@ -14,6 +14,23 @@ struct LayoutEditor: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(L("Desktop only (keep position and size)"), isOn: desktopOnlyBinding)
+                .toggleStyle(.checkbox)
+                .controlSize(.small)
+                .help(L("The window follows this desktop; Deskmap never moves or resizes it there"))
+            editor
+                .disabled(layout.isDesktopOnly)
+                .opacity(layout.isDesktopOnly ? 0.4 : 1)
+        }
+    }
+
+    private var desktopOnlyBinding: Binding<Bool> {
+        Binding(get: { layout.isDesktopOnly },
+                set: { layout = $0 ? .anyFrame : .full })
+    }
+
+    private var editor: some View {
         // Dar pencerede ızgara üstte, denetimler altta.
         ViewThatFits(in: .horizontal) {
             HStack(alignment: .top, spacing: 18) {

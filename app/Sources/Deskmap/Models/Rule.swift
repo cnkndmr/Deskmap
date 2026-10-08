@@ -12,6 +12,19 @@ struct WindowLayout: Codable, Equatable, Hashable {
     /// Sabit boyut: her ekranda aynı boyut (ekrandan büyükse ekrana
     /// sığdırılır). nil = oranlı düzen. Eski kayıtlarda yok (nil okunur).
     var fixed: FixedSize?
+    /// Yalnız masaüstü: pencere hedef masaüstünü izler, konumuna ve
+    /// boyutuna dokunulmaz (başka ekrandan gelirse oranıyla taşınır).
+    /// Eski kayıtlarda yok (nil); kapalıyken yazılmaz.
+    var desktopOnly: Bool?
+
+    var isDesktopOnly: Bool { desktopOnly == true }
+
+    /// Yalnız masaüstü pini.
+    static let anyFrame: WindowLayout = {
+        var layout = WindowLayout.full
+        layout.desktopOnly = true
+        return layout
+    }()
 
     /// Sabit boyutlu düzen: pt cinsinden boyut ve kullanılabilir alandaki
     /// sabitleme noktası.
@@ -216,6 +229,7 @@ struct WindowLayout: Codable, Equatable, Hashable {
     }
 
     var label: String {
+        if isDesktopOnly { return L("Desktop only") }
         if let fixed {
             return L("%ld × %ld pt · %@", Int(fixed.width.rounded()), Int(fixed.height.rounded()),
                      fixed.anchor.label)

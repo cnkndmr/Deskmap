@@ -18,6 +18,7 @@ import Foundation
 ///     deskmap://reload               rules.json'u diskten yeniden oku
 ///     deskmap://status               status.json'u hemen yaz
 ///     deskmap://pin/<pencere>/<ekran>/<n>    pencereyi kapanana dek orada tut
+///         [?layout=desktop-only]            yalnız masaüstü (konum/boyut serbest)
 ///     deskmap://unpin/<pencere>      oturum pinini kaldır
 ///     deskmap://move/<pencere>/<ekran>/<n>   pencereyi bir kez taşı
 ///     deskmap://rule-add?json=<kural>        kural ekle (Rule JSON'u)
@@ -48,7 +49,7 @@ enum URLCommand: Equatable {
     case removeDesktop(screen: String, desktop: Int)
     case reload
     case status
-    case pin(window: CGWindowID, screen: String, desktop: Int)
+    case pin(window: CGWindowID, screen: String, desktop: Int, desktopOnly: Bool = false)
     case unpin(window: CGWindowID)
     case move(window: CGWindowID, screen: String, desktop: Int)
     case addRule(Rule)
@@ -104,7 +105,10 @@ enum URLCommand: Equatable {
         case "reload":       return .reload
         case "status":       return .status
         case "pin":
-            return windowTarget().map { .pin(window: $0.0, screen: $0.1, desktop: $0.2) }
+            let desktopOnly = query.first { $0.name == "layout" }?.value == "desktop-only"
+            return windowTarget().map {
+                .pin(window: $0.0, screen: $0.1, desktop: $0.2, desktopOnly: desktopOnly)
+            }
         case "move":
             return windowTarget().map { .move(window: $0.0, screen: $0.1, desktop: $0.2) }
         case "unpin":
@@ -264,12 +268,13 @@ enum URLCommands {
             store.load()
         case .status:
             break
-        case .pin(let window, let screen, let desktop):
+        case .pin(let window, let screen, let desktop, let desktopOnly):
             guard router.windows.contains(where: { $0.id == window }) else {
                 store.report(L("Window not found: %@", String(window)))
                 return
             }
-            router.pinSession(window, destination: Destination(screen: screen, desktop: desktop))
+            router.pinSession(window, destination: Destination(
+                screen: screen, desktop: desktop, layout: desktopOnly ? .anyFrame : .full))
         case .unpin(let window):
             router.unpinSession(window)
         case .move(let window, let screen, let desktop):

@@ -45,20 +45,21 @@ LAYOUT FILE (YAML or JSON):
       place: builtin/1 full       # instead of docked+undocked: same for both
       launch: true                # open the app if no window is open (or a path/command)
   Layouts: a name (`deskmap layouts`) or x,y,w,h as fractions of the screen's
-  usable area, top-left origin. The most specific rule (most title fragments) wins.
+  usable area, top-left origin; `desktop-only` keeps the window's own frame. The most specific rule (most title fragments) wins.
 
 COMMANDS:
   status | windows [--app A] | screens | rules | hooks      (--json for raw data)
   apply FILE [--dry-run] | apply FILE --remove | apply --undo | check FILE | dump
   layouts                          layout names
   move W SCREEN [N] | pin W SCREEN [N] | unpin W            one window
-  move W DESKTOP-NAME | pin W DESKTOP-NAME                  target by desktop name
+  move W DESKTOP-NAME | pin W DESKTOP-NAME [--desktop-only] target by desktop name
+                                   (--desktop-only: follow the desktop, keep position/size)
   desktops | name SCREEN N [NAME] [--mode M]  list desktop names | name a desktop (no NAME:
                                    remove). Names belong to a setup like pins: a laptop desktop's
                                    name is in both setups; moving a named desktop to the monitor
                                    moves the monitor setup's name only, and on unplug/plug its
                                    windows follow to the same-named desktop of the new setup.
-  rule add --app A [--title T ...] --screen S [--desktop N] [--layout L]
+  rule add --app A [--title T ...] --screen S [--desktop N] [--layout L|desktop-only]
            [--undocked-screen S --undocked-desktop N] | rule rm ID
   save-layout RULE [--window W]    use the window's current frame as the rule's layout
   pause | resume | toggle | reapply | reload | next-profile | profile NAME
@@ -358,7 +359,8 @@ def window_command(name):
             send(f"unpin/{window}")
         else:
             screen, desktop = resolve_place(s, args.screen, args.desktop)
-            send(f"{name}/{window}/{screen}/{desktop}")
+            extra = {"layout": "desktop-only"} if getattr(args, "desktop_only", False) else {}
+            send(f"{name}/{window}/{screen}/{desktop}", **extra)
             print(f"{window} → {desktop_label(s, screen, desktop)}"
                   + (" (pinned until the window closes)" if name == "pin" else ""))
         if name == "move":
@@ -383,6 +385,8 @@ NAMED_LAYOUTS = {
     "bottom-left": (0, 0.5, 0.5, 0.5), "bottom-right": (0.5, 0.5, 0.5, 0.5),
     "left-quarter": (0, 0, 0.25, 1), "right-quarter": (0.75, 0, 0.25, 1),
 }
+# Yalnız masaüstü: pencere masaüstünü izler, konum/boyut serbest.
+DESKTOP_ONLY = {"x": 0, "y": 0, "w": 1, "h": 1, "desktopOnly": True}
 HISTORY = DIR / "apply-history"
 MODES = ("docked", "undocked")
 
@@ -391,6 +395,8 @@ def parse_layout(value):
     """Ad (left-half…), "x,y,w,h" metni ya da {x,y,w,h} → {x,y,w,h}."""
     if value is None:
         value = "full"
+    if isinstance(value, dict) and value.get("desktopOnly"):
+        return dict(DESKTOP_ONLY)
     if isinstance(value, dict):
         # Sabit boyutlu yerleşim (Deskmap'in "fixed" alanı) olduğu gibi korunur.
         try:
@@ -405,6 +411,8 @@ def parse_layout(value):
                             "height": float(f["height"])}
         return out
     text = str(value).strip().lower()
+    if text == "desktop-only":
+        return dict(DESKTOP_ONLY)
     if text in NAMED_LAYOUTS:
         x, y, w, h = NAMED_LAYOUTS[text]
     else:
@@ -576,6 +584,8 @@ def launch(entry):
 
 
 def target_rect(status, screen_id, layout):
+    if layout.get("desktopOnly"):
+        return None
     sc = next((s for s in status["screens"] if s["id"] == screen_id), None)
     if not sc or "visible" not in sc:
         return None
@@ -767,6 +777,8 @@ def apply_undo():
 
 def layout_name(lay):
     """Hazır ada denk düşen yerleşimin adı, yoksa sözlüğün kendisi."""
+    if lay.get("desktopOnly"):
+        return "desktop-only"
     if not lay.get("fixed"):
         for name, xywh in NAMED_LAYOUTS.items():
             if all(abs(lay.get(k, 0) - v) < 1e-4 for k, v in zip("xywh", xywh)):
@@ -908,6 +920,9 @@ def main():
     for name in ("pin", "move"):
         sp = sub.add_parser(name); sp.add_argument("window"); sp.add_argument("screen")
         sp.add_argument("desktop", nargs="?", type=int); sp.set_defaults(fn=window_command(name))
+        if name == "pin":
+            sp.add_argument("--desktop-only", action="store_true",
+                            help="follow the desktop only; keep the window's position and size")
     sp = sub.add_parser("unpin"); sp.add_argument("window"); sp.set_defaults(fn=window_command("unpin"))
     sp = sub.add_parser("desktops"); sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=show_desktops)
@@ -939,7 +954,8 @@ def main():
     sp = sub.add_parser("dump"); sp.add_argument("--docked", nargs="+"); sp.add_argument("--undocked", nargs="+")
     sp.add_argument("--title", nargs="+"); sp.add_argument("-o", "--output"); sp.set_defaults(fn=dump_layout)
     sub.add_parser("layouts").set_defaults(fn=lambda a: print("\n".join(
-        f"{k:<18} {','.join(f'{v:g}' for v in xywh)}" for k, xywh in NAMED_LAYOUTS.items())))
+        f"{k:<18} {','.join(f'{v:g}' for v in xywh)}" for k, xywh in NAMED_LAYOUTS.items())
+        + "\ndesktop-only       follow the desktop, keep position and size"))
     if len(sys.argv) == 1:
         p.print_help()
         return

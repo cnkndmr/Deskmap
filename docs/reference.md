@@ -332,7 +332,7 @@ running, macOS starts it first.
 | `deskmap://remove-desktop/<screen>/<n>` | Remove desktop *n* of a connected display through Mission Control; pins shift like the map does |
 | `deskmap://reload` | Re-read `rules.json` from disk |
 | `deskmap://status` | Write `status.json` now |
-| `deskmap://pin/<window>/<screen>/<n>` | Temporary pin: keep window id *window* on desktop *n* of *screen* until it closes |
+| `deskmap://pin/<window>/<screen>/<n>[?layout=desktop-only]` | Temporary pin: keep window id *window* on desktop *n* of *screen* until it closes; `desktop-only` leaves its position and size alone |
 | `deskmap://unpin/<window>` | Remove the temporary pin |
 | `deskmap://move/<window>/<screen>/<n>` | Move the window once |
 | `deskmap://rule-add?json=<rule>` | Add a rule (percent-encoded rule JSON, same shape as in `rules.json`) |

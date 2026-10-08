@@ -36,6 +36,20 @@ final class Router: ObservableObject {
         layout.rect(in: targetArea(on: screen, screens: screens))
     }
 
+    /// "Yalnız masaüstü" pininde verilecek düzen (saf): pencere hedef
+    /// ekrandaysa (ya da çerçevesi bilinmiyorsa) nil, dokunulmaz; başka
+    /// ekrandaysa orada kapladığı oranla hedef ekrana taşınır.
+    nonisolated static func desktopOnlyLayout(frame: CGRect?, target: ScreenInfo,
+                                              screens: [ScreenInfo]) -> WindowLayout? {
+        guard let frame else { return nil }
+        let center = CGPoint(x: frame.midX, y: frame.midY)
+        let source = screens.first {
+            Coordinates.axRect(fromCocoa: $0.frame, screens: screens).contains(center)
+        }
+        guard let source, source.id != target.id else { return nil }
+        return WindowLayout(frame: frame, in: targetArea(on: source, screens: screens))
+    }
+
     /// Ekranın kullanılabilir alanı AX koordinatlarında (sol üst tabanlı).
     nonisolated static func targetArea(on screen: ScreenInfo, screens: [ScreenInfo]) -> CGRect {
         Coordinates.axRect(fromCocoa: screen.visibleFrame, screens: screens)
@@ -1809,13 +1823,18 @@ final class Router: ObservableObject {
             let appliedTarget = AppliedTarget(mode: mode, destination: destination)
             let key = "\(window.id)|\(mode.rawValue)|\(destination.hashValue)"
 
-            let targetFrame = Self.targetFrame(for: destination.layout, on: screen, screens: screens)
+            let moved = destination.layout.isDesktopOnly
+                ? Self.desktopOnlyLayout(frame: state.frame, target: screen, screens: screens) : nil
+            let layout = moved ?? destination.layout
+            let targetFrame = Self.targetFrame(for: layout, on: screen, screens: screens)
             // Red, reddedildiği hedef boyutuna bağlı: ekran alanı değişince
             // (çözünürlük) eski kayıt yeni boyutu engellemesin.
             let refusedKey = "\(window.id)|refused|\(destination.hashValue)|"
                 + "\(Int(targetFrame.width))x\(Int(targetFrame.height))"
             var needsLayout = Self.needsLayout(applied: outcome.applied[window.id],
                                                target: appliedTarget) && !state.isMinimized
+            // Yalnız masaüstü: hedef ekrandaki pencerenin çerçevesine dokunulmaz.
+            if layout.isDesktopOnly, moved == nil { needsLayout = false }
 
             // Hedef masaüstü ve pencerenin şu anki space durumu.
             var target: SkyLight.Space?
@@ -1853,7 +1872,7 @@ final class Router: ObservableObject {
                     placed = true
                 } else if let frame = state.frame,
                           let refused = refusedSizes[refusedKey],
-                          destination.layout.holdsRefused(frame, refused: refused, in: area) {
+                          layout.holdsRefused(frame, refused: refused, in: area) {
                     // Bu hedefin boyutunu daha önce reddetmiş pencere zaten o
                     // boyutla doğru noktada: yeniden uygulamada önce yanlış
                     // yere sıçratılmaz. Yalnız denemeyle görülmüş red sayılır
@@ -1869,13 +1888,13 @@ final class Router: ObservableObject {
                         if Coordinates.close(after, targetFrame) {
                             placed = true
                         } else if let tries = outcome.attempts[key], tries >= 1,
-                                  destination.layout.refusesSize(after.size, in: area) || tries >= 2 {
+                                  layout.refusesSize(after.size, in: area) || tries >= 2 {
                             // Uygulama boyutu ikinci denemede de reddetti (en
                             // küçük boyut vb.; ilk okuma gecikmeli AX olabilir);
                             // gerçek boyutla hizala (sabit boyut aynı noktaya,
                             // oranlı düzen ekranın içine), konum tutunca
                             // yerleşmiş say (boyut için sonsuz deneme olmasın).
-                            let anchored = destination.layout.reanchored(
+                            let anchored = layout.reanchored(
                                 actualSize: after.size, in: area)
                             if !Coordinates.close(after, anchored) {
                                 AX.setFrame(anchored, of: window)
@@ -1904,7 +1923,7 @@ final class Router: ObservableObject {
                     Log.routing.notice("""
                         Layout given up: \(window.appName, privacy: .public) [\(window.id)] \
                         '\(window.title, privacy: .private)' did not take layout \
-                        \(destination.layout.label, privacy: .public) in \(Routing.maxAttempts) attempts
+                        \(layout.label, privacy: .public) in \(Routing.maxAttempts) attempts
                         """)
                 }
             }

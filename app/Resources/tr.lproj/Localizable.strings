@@ -333,3 +333,7 @@
 "⌘-click windows to add or remove them." = "Eklemek ya da çıkarmak için pencerelere ⌘ ile tıklayın.";
 "Pin %ld where they are" = "%ld pencereyi yerinde pinle";
 "Clear" = "Seçimi kaldır";
+
+"Desktop only" = "Yalnız masaüstü";
+"Desktop only (keep position and size)" = "Yalnız masaüstü (konum ve boyut serbest)";
+"The window follows this desktop; Deskmap never moves or resizes it there" = "Pencere bu masaüstünü izler; Deskmap onu orada taşımaz, boyutlandırmaz";
