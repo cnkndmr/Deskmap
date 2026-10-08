@@ -517,14 +517,25 @@ struct Document: Codable, Equatable {
         guard let mapping = Self.desktopMapping(from: from, to: to, count: count)
         else { return }
 
-        var moved = rules
-        for i in moved.indices {
-            guard var destination = moved[i][mode], destination.screen == screen,
-                  let updated = mapping[destination.desktop] else { continue }
-            destination.desktop = updated
-            moved[i][mode] = destination
+        // Bütün profiller: masaüstünün içeriği yer değiştirdi; öbür
+        // profilin pinleri eski numarada kalırsa profil değişince pencereler
+        // yanlış masaüstüne giderdi (ekranlar arası taşıma ve silme de öyle).
+        func remap(_ list: [Rule]) -> [Rule] {
+            var moved = list
+            for i in moved.indices {
+                guard var destination = moved[i][mode], destination.screen == screen,
+                      let updated = mapping[destination.desktop] else { continue }
+                destination.desktop = updated
+                moved[i][mode] = destination
+            }
+            return moved
         }
+        let moved = remap(rules)
         if moved != rules { rules = moved }
+        for i in profiles.indices where profiles[i].id != activeProfileID {
+            let other = remap(profiles[i].rules)
+            if other != profiles[i].rules { profiles[i].rules = other }
+        }
         remapDesktopNames { name, desktop in
             name == screen ? mapping[desktop].map { (screen, $0) } : nil
         }
@@ -606,7 +617,10 @@ struct Document: Codable, Equatable {
     /// Masaüstü silinince verilen modlarda bu ekranın pinleri kayar;
     /// yalnız etkin profil değil bütün profiller (profil değişince pinler
     /// yanlış masaüstüne gitmesin). Planlar da bir azalır.
-    mutating func removeDesktop(on screen: String, desktop: Int, modes: [Mode]) {
+    /// `shiftNames`: adlar ekranın (moddan bağımsız) ve bir kez kaymalı;
+    /// bekleyen silme yapılırken (adlar silme sıraya girerken kaydı) false.
+    mutating func removeDesktop(on screen: String, desktop: Int, modes: [Mode],
+                                shiftNames: Bool = true) {
         func remap(_ list: [Rule]) -> [Rule] {
             var moved = list
             for i in moved.indices {
@@ -631,6 +645,7 @@ struct Document: Codable, Equatable {
             if planned >= desktop { setPlannedDesktops(planned - 1, mode: mode, screen: screen) }
         }
         // Silinen masaüstünün adı düşer, sonrakiler bir yukarı kayar.
+        guard shiftNames else { return }
         remapDesktopNames { name, number in
             guard name == screen, number >= desktop else { return nil }
             return (screen, number == desktop ? 0 : number - 1)
@@ -1131,8 +1146,8 @@ final class Store: ObservableObject {
     /// Gerçek masaüstü silindikten sonra pinleri yeniden numaralar. Geri
     /// alma kaydı yok: ⌘Z masaüstünü geri getiremez, yalnız numaraları
     /// bozardı.
-    func removeDesktop(on screen: String, desktop: Int, modes: [Mode]) {
-        document.removeDesktop(on: screen, desktop: desktop, modes: modes)
+    func removeDesktop(on screen: String, desktop: Int, modes: [Mode], shiftNames: Bool = true) {
+        document.removeDesktop(on: screen, desktop: desktop, modes: modes, shiftNames: shiftNames)
     }
 
     func desktopName(screen: String, desktop: Int) -> String? {

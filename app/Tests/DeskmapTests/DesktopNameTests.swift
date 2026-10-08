@@ -133,3 +133,32 @@ struct DesktopNameReconcileTests {
         #expect(d.desktopNameSpaces["external"] == ["2": 22])
     }
 }
+
+/// Deskmap'in kendi masaüstü işlemlerinde adların ve pinlerin tutarlılığı.
+struct DesktopNameDeskmapOpsTests {
+
+    @Test func executingPendingRemovalDoesNotShiftNamesTwice() {
+        var d = Document()
+        d.setDesktopName("A", screen: "builtin", desktop: 1)
+        d.setDesktopName("C", screen: "builtin", desktop: 3)
+        // Etkin olmayan modda silme: adlar hemen kayar.
+        d.removeDesktopLater(on: "builtin", desktop: 2, mode: .undocked, existing: true, space: nil)
+        #expect(d.desktopNames["builtin"] == ["1": "A", "2": "C"])
+        // Mod etkinleşince gerçek silme: öbür modun pinleri kayar, adlar değil.
+        d.removeDesktop(on: "builtin", desktop: 2, modes: [.docked], shiftNames: false)
+        #expect(d.desktopNames["builtin"] == ["1": "A", "2": "C"])
+    }
+
+    @Test func reorderShiftsPinsInEveryProfile() {
+        var d = Document()
+        var rule = Rule(appName: "Code", bundleID: "com.microsoft.VSCode", tokens: [])
+        rule.docked = Destination(screen: "external", desktop: 1)
+        d.rules = [rule]
+        d.addProfile(named: "B", copyingCurrent: true)   // B etkin, kopya kural
+        d.moveDesktop(on: "external", from: 1, to: 3, count: 3, mode: .docked)
+        for profile in d.profiles {
+            let rules = profile.id == d.activeProfileID ? d.rules : profile.rules
+            #expect(rules.first?.docked?.desktop == 3, "profile \(profile.name)")
+        }
+    }
+}

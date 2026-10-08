@@ -1001,8 +1001,17 @@ final class Router: ObservableObject {
     /// Masaüstü adlarını gerçek masaüstülerine göre yerleştirir: macOS'ta
     /// (Mission Control) sıra/ekran değişse ya da masaüstü silinse de ad
     /// doğru masaüstünü izler. Liste okunamadıysa (boş) dokunulmaz.
-    private func followDesktopNames(_ spaces: [String: [UInt64]]) {
-        guard !spaces.isEmpty, !screens.isSettling, !desktopOpInFlight else { return }
+    /// Liste taramanın sonucundan değil, o an tazeden okunur: tarama
+    /// sürerken Deskmap masaüstü silip adları kaydırdıysa eski liste adı
+    /// yanlış masaüstüne bağlar, sonraki taramada da silinmiş sayıp düşürürdü.
+    private func followDesktopNames() {
+        // Ad olmasa da kimlikler biriktirilir: sonradan verilen adın
+        // masaüstü silinince "görülmüş" sayılsın.
+        guard !screens.isSettling, !desktopOpInFlight, SkyLight.shared.canRead else { return }
+        let spaces = Self.desktopSpaces(
+            displays: SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens)),
+            screens: screens.screens)
+        guard !spaces.isEmpty else { return }
         // Bekleyen silmesi olan ekranda numaralar gerçek masaüstülerinden
         // önce kaymıştır; silme bitene dek adlar numarada kalır.
         let pending = Set(store.document.pendingRemovals
@@ -1111,7 +1120,8 @@ final class Router: ObservableObject {
                     self.store.dropFirstPendingRemoval(mode: mode, screen: screenID)
                     // Bu modun pinleri silme sıraya girerken kaydı; öbürleri şimdi.
                     self.store.removeDesktop(on: screenID, desktop: index,
-                                             modes: Mode.allCases.filter { $0 != mode })
+                                             modes: Mode.allCases.filter { $0 != mode },
+                                             shiftNames: false)
                     self.shiftSessionPins(screen: screenID, removed: index)
                 }
             }
@@ -1366,7 +1376,7 @@ final class Router: ObservableObject {
                 if outcome.desktopCounts != self.desktopCounts {
                     self.desktopCounts = outcome.desktopCounts
                 }
-                self.followDesktopNames(outcome.desktopSpaces)
+                self.followDesktopNames()
                 self.createPlannedDesktops()
                 self.sweepDeadline = Self.nextSweepDeadline(
                     now: Date(), pendingSessionMisses: !self.sessionMisses.isEmpty,
@@ -1403,8 +1413,6 @@ final class Router: ObservableObject {
         var unresponsive: [String] = []
         /// Bağlı ekranlardaki gerçek masaüstü sayıları.
         var desktopCounts: [String: Int] = [:]
-        /// Bağlı ekranların sıralı masaüstü (space) kimlikleri.
-        var desktopSpaces: [String: [UInt64]] = [:]
         /// Tarama sürerken yönlendirme nesli değişti; yan etkiler kesildi.
         var stale = false
         /// Space durumu bilinmediği için yönlendirilmeyen pencere sayısı.
@@ -1478,7 +1486,6 @@ final class Router: ObservableObject {
         // Space türleri ekran listesinden; listede olmayan kimlik için IPC.
         let spaceTypes = SkyLight.spaceTypes(of: displays)
         outcome.desktopCounts = Self.desktopCounts(displays: displays, screens: screens)
-        outcome.desktopSpaces = Self.desktopSpaces(displays: displays, screens: screens)
         func spaceType(_ id: UInt64) -> Int? { spaceTypes[id] ?? sky.type(of: id) }
         // Pencere sunucusu taramada bir kez okunur: 2. aşama listeleme ve
         // yaşam denetimi aynı sonuçtan türer.
