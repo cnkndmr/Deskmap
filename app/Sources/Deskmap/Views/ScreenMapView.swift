@@ -274,7 +274,8 @@ private struct DeletedDesktopRow: View {
             if await router.addDesktop(on: ghost.screen),
                let count = router.realDesktopCount(on: ghost.screen) {
                 store.restoreGhost(ghost.id, desktop: count,
-                                   space: router.currentSpace(on: ghost.screen, desktop: count))
+                                   space: router.currentSpace(on: ghost.screen, desktop: count),
+                                   mode: mode)
                 router.resetDesktopBaseline()
                 router.sweep()
             } else {
@@ -422,7 +423,7 @@ private struct DesktopRow: View {
     @State private var nameDraft = ""
     @FocusState private var nameFocused: Bool
 
-    private var name: String? { store.desktopName(screen: screen.id, desktop: desktop) }
+    private var name: String? { store.desktopName(screen: screen.id, desktop: desktop, mode: mode) }
 
     private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
     private var isTargeted: Bool { ui.drag?.hover == target && acceptsDrag }
@@ -553,7 +554,7 @@ private struct DesktopRow: View {
             Button(name == nil ? L("Name Desktop…") : L("Rename Desktop…")) { startRenaming() }
             if name != nil {
                 Button(L("Remove Name")) {
-                    store.setDesktopName(nil, screen: screen.id, desktop: desktop)
+                    store.setDesktopName(nil, screen: screen.id, desktop: desktop, mode: mode)
                 }
             }
             Divider()
@@ -571,7 +572,7 @@ private struct DesktopRow: View {
         isRenaming = false
         let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed != (name ?? "") else { return }
-        store.setDesktopName(trimmed, screen: screen.id, desktop: desktop,
+        store.setDesktopName(trimmed, screen: screen.id, desktop: desktop, mode: mode,
                              space: isLive ? router.currentSpace(on: screen.id, desktop: desktop) : nil)
     }
 
@@ -1070,7 +1071,7 @@ struct DragGhost: View {
                             .frame(width: 260)
                     }
                 case .desktop(let screen, let desktop):
-                    Label(store.desktopName(screen: screen, desktop: desktop)
+                    Label(store.desktopName(screen: screen, desktop: desktop, mode: mode)
                             .map { "\(desktop) · \($0)" } ?? L("Desktop %ld", desktop),
                           systemImage: "line.3.horizontal")
                         .font(.caption.weight(.medium))

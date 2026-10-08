@@ -119,7 +119,7 @@ final class StatusFile {
                       pinned: pins[window.id].map { .init(screen: $0.screen, desktop: $0.desktop) })
             },
             rules: store.document.rules,
-            desktopNames: store.document.desktopNames,
+            desktopNames: store.document.desktopNames(for: screens.mode),
             deletedDesktops: store.document.ghostDesktops)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

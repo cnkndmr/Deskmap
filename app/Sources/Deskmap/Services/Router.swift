@@ -309,7 +309,10 @@ final class Router: ObservableObject {
             .store(in: &cancellables)
 
         screens.settled
-            .sink { [weak self] in self?.reapplyAll() }
+            .sink { [weak self] in
+                self?.followNamedDesktops()
+                self?.reapplyAll()
+            }
             .store(in: &cancellables)
 
         // Ekran değişimi yatışmadan da süren taramanın yan etkileri durmalı.
@@ -1094,6 +1097,68 @@ final class Router: ObservableObject {
         reopenTargets = saved
     }
 
+    // MARK: - Kurulum değişiminde adlı masaüstleri
+
+    /// Son kararlı taramanın kurulumu ve pencereleri.
+    private var lastStableWindows: (mode: Mode, windows: [WindowSnapshot])?
+
+    /// Kurulum değişti (monitör takıldı/çıktı): eski kurulumda adlı bir
+    /// masaüstünde duran pencereler, yeni kurulumda aynı adlı masaüstüne
+    /// taşınır. "Nova" monitörlü kurulumda Dell'deyse monitör çıkınca
+    /// laptop'taki Nova'ya döner (macOS Dell masaüstülerini laptop'un sonuna
+    /// ekler); monitör takılınca tersine. Yeni kurulumda pini olan pencere
+    /// pinine gider, dokunulmaz.
+    private func followNamedDesktops() {
+        guard let previous = lastStableWindows, previous.mode != screens.mode else { return }
+        lastStableWindows = nil
+        let mode = screens.mode
+        let rules = store.document.rules, sessions = sessionPins
+        let moves = Self.namedDesktopMoves(
+            windows: previous.windows,
+            from: store.document.desktopNames(for: previous.mode),
+            to: store.document.desktopNames(for: mode),
+            desktopCounts: Self.desktopCounts(screens: screens.screens)
+        ) { window in
+            Routing.select(rules: rules, sessionPins: sessions, mode: mode, windowID: window.id,
+                           bundleID: window.bundleID, appName: window.appName,
+                           title: window.title) != nil
+        }
+        for move in moves {
+            Log.routing.notice("Setup changed: window \(move.window) follows its named desktop to \(move.placement.screen, privacy: .public)/\(move.placement.desktop)")
+            moveWindow(move.window, to: move.placement)
+        }
+    }
+
+    /// Kurulum değişiminde taşınacak pencereler (saf). Eski kurulumda adlı
+    /// masaüstündeki her pencere, yeni kurulumda o adı taşıyan (tek)
+    /// masaüstüne; yeri aynıysa, yeni masaüstü yoksa ya da pini varsa atlanır.
+    nonisolated static func namedDesktopMoves(
+        windows: [WindowSnapshot], from old: [String: [String: String]],
+        to new: [String: [String: String]], desktopCounts: [String: Int],
+        pinned: (WindowSnapshot) -> Bool
+    ) -> [(window: CGWindowID, placement: Placement)] {
+        var targets: [String: Placement] = [:]
+        var duplicate = Set<String>()
+        for (screen, list) in new {
+            for (slot, name) in list {
+                guard let desktop = Int(slot) else { continue }
+                let key = name.lowercased()
+                if targets[key] != nil { duplicate.insert(key) }
+                targets[key] = Placement(screen: screen, desktop: desktop)
+            }
+        }
+        var moves: [(window: CGWindowID, placement: Placement)] = []
+        for window in windows {
+            guard let placement = window.placement, window.fullscreen == nil,
+                  let name = old[placement.screen]?[String(placement.desktop)]?.lowercased(),
+                  !duplicate.contains(name), let target = targets[name], target != placement,
+                  target.desktop <= (desktopCounts[target.screen] ?? 0),
+                  !pinned(window) else { continue }
+            moves.append((window.id, target))
+        }
+        return moves.sorted { $0.window < $1.window }
+    }
+
     /// Deskmap kendi masaüstü işlemini bitirdi: kaybolan kimlik dış silme sayılmasın.
     func resetDesktopBaseline() {
         setDesktopBaseline(Self.desktopSpaces(
@@ -1180,7 +1245,8 @@ final class Router: ObservableObject {
         }
         setDesktopBaseline(spaces)
         if !store.document.desktopNames.isEmpty, !comparable.isEmpty {
-            store.reconcileDesktopNames(spaces: comparable, seen: seenDesktopSpaces)
+            store.reconcileDesktopNames(spaces: comparable, seen: seenDesktopSpaces,
+                                        mode: screens.mode)
         }
         seenDesktopSpaces.formUnion(spaces.values.joined())
     }
@@ -1521,6 +1587,12 @@ final class Router: ObservableObject {
                     windows: outcome.snapshots, screens: connected,
                     settling: self.screens.isSettling))
                 self.captureReopenTargets(outcome.snapshots)
+                // Kurulum değişiminde adlı masaüstüyle taşınacak pencereler
+                // için son kararlı liste (ekranlar yatışmışken, aynı kurulumda).
+                if !self.screens.isSettling, mode == self.screens.mode,
+                   connected == self.screens.screens {
+                    self.lastStableWindows = (mode, outcome.snapshots)
+                }
                 if outcome.snapshots != self.windows {
                     Self.logFullscreenChange(from: self.windows, to: outcome.snapshots)
                     self.windows = outcome.snapshots

@@ -53,7 +53,11 @@ COMMANDS:
   layouts                          layout names
   move W SCREEN [N] | pin W SCREEN [N] | unpin W            one window
   move W DESKTOP-NAME | pin W DESKTOP-NAME                  target by desktop name
-  desktops | name SCREEN N [NAME]  list desktop names | name a desktop (no NAME: remove)
+  desktops | name SCREEN N [NAME] [--mode M]  list desktop names | name a desktop (no NAME:
+                                   remove). Names belong to a setup like pins: a laptop desktop's
+                                   name is in both setups; moving a named desktop to the monitor
+                                   moves the monitor setup's name only, and on unplug/plug its
+                                   windows follow to the same-named desktop of the new setup.
   rule add --app A [--title T ...] --screen S [--desktop N] [--layout L]
            [--undocked-screen S --undocked-desktop N] | rule rm ID
   save-layout RULE [--window W]    use the window's current frame as the rule's layout
@@ -212,9 +216,12 @@ def name_desktop(args):
     s = fresh_status()
     screen = resolve_screen(s, args.screen)
     name = " ".join(args.name or [])
-    after = send(f"desktop-name/{screen}/{args.desktop}", name=name)
+    query = {"name": name}
+    if args.mode:
+        query["mode"] = args.mode
+    after = send(f"desktop-name/{screen}/{args.desktop}", **query)
     got = ((after.get("desktopNames") or {}).get(screen) or {}).get(str(args.desktop))
-    if (got or "") != name.strip():
+    if (not args.mode or args.mode == after.get("mode")) and (got or "") != name.strip():
         die("name was not saved")
     print(desktop_label(after, screen, args.desktop) if name.strip()
           else f"{screen}/{args.desktop}: name removed")
@@ -905,7 +912,8 @@ def main():
     sp = sub.add_parser("desktops"); sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=show_desktops)
     sp = sub.add_parser("name"); sp.add_argument("screen"); sp.add_argument("desktop", type=int)
-    sp.add_argument("name", nargs="*"); sp.set_defaults(fn=name_desktop)
+    sp.add_argument("name", nargs="*"); sp.add_argument("--mode", choices=MODES)
+    sp.set_defaults(fn=name_desktop)
     rp = sub.add_parser("rule").add_subparsers(dest="rcmd", required=True)
     sp = rp.add_parser("add")
     sp.add_argument("--app", required=True); sp.add_argument("--bundle")

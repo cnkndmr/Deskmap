@@ -198,7 +198,7 @@ struct WindowRow: View {
         ForEach(targets, id: \.screen) { target in
             Menu(target.name) {
                 ForEach(target.desktops, id: \.desktop) { item in
-                    let title = store.desktopName(screen: target.screen, desktop: item.desktop)
+                    let title = store.desktopName(screen: target.screen, desktop: item.desktop, mode: mode)
                         .map { "\(item.desktop) · \($0)" } ?? L("Desktop %ld", item.desktop)
                     Button {
                         send(to: Router.Placement(screen: target.screen, desktop: item.desktop))

@@ -170,10 +170,10 @@ struct Document: Codable, Equatable {
         plannedDesktops = (try? c.decodeIfPresent([String: Int].self, forKey: .plannedDesktops)) ?? [:]
         pendingRemovals = (try? c.decodeIfPresent(
             [String: [PendingRemoval]].self, forKey: .pendingRemovals)) ?? [:]
-        desktopNames = (try? c.decodeIfPresent(
-            [String: [String: String]].self, forKey: .desktopNames)) ?? [:]
-        desktopNameSpaces = (try? c.decodeIfPresent(
-            [String: [String: UInt64]].self, forKey: .desktopNameSpaces)) ?? [:]
+        desktopNames = Self.migratedNames((try? c.decodeIfPresent(
+            [String: [String: String]].self, forKey: .desktopNames)) ?? [:])
+        desktopNameSpaces = Self.migratedNames((try? c.decodeIfPresent(
+            [String: [String: UInt64]].self, forKey: .desktopNameSpaces)) ?? [:])
         ghostDesktops = (try? c.decodeIfPresent([GhostDesktop].self, forKey: .ghostDesktops)) ?? []
         if profiles.isEmpty {
             let profile = Profile(name: Self.defaultProfileName, rules: rules)
@@ -244,42 +244,101 @@ struct Document: Codable, Equatable {
 
     // MARK: - Masaüstü adları
 
-    func desktopName(screen: String, desktop: Int) -> String? {
-        desktopNames[screen]?[String(desktop)]
+    /// Adlar pinler gibi kuruluma bağlıdır (anahtar `planKey`): monitörlü
+    /// kurulumda monitöre taşınan "Nova", laptop kurulumunda laptop'taki
+    /// yerinde kalır; monitör çıkınca orada görünür. Laptop masaüstüleri iki
+    /// kurulumda aynı fiziksel masaüstü olduğu için laptop'a verilen ad iki
+    /// kuruluma birden yazılır.
+    static func nameModes(screen: String, mode: Mode) -> [Mode] {
+        screen == "builtin" ? Mode.allCases : [mode]
+    }
+
+    /// Anahtar → (kurulum, ekran); eski (kurulumsuz) anahtar nil.
+    static func splitNameKey(_ key: String) -> (mode: Mode, screen: String)? {
+        guard let bar = key.firstIndex(of: "|"),
+              let mode = Mode(rawValue: String(key[..<bar])) else { return nil }
+        return (mode, String(key[key.index(after: bar)...]))
+    }
+
+    /// Eski biçim (anahtar yalnız ekran) → kuruluma bağlı biçim: laptop
+    /// adları iki kurulumda, harici ekranınkiler monitörlü kurulumda.
+    static func migratedNames<T>(_ table: [String: [String: T]]) -> [String: [String: T]] {
+        var result: [String: [String: T]] = [:]
+        for (key, list) in table {
+            if splitNameKey(key) != nil {
+                result[key, default: [:]].merge(list) { _, new in new }
+                continue
+            }
+            for mode in nameModes(screen: key, mode: .docked) {
+                result[planKey(mode: mode, screen: key), default: [:]].merge(list) { old, _ in old }
+            }
+        }
+        return result
+    }
+
+    func desktopName(screen: String, desktop: Int, mode: Mode) -> String? {
+        desktopNames[Self.planKey(mode: mode, screen: screen)]?[String(desktop)]
+    }
+
+    /// Bir kurulumun adları, ekran → masaüstü → ad (durum dosyası, CLI).
+    func desktopNames(for mode: Mode) -> [String: [String: String]] {
+        var result: [String: [String: String]] = [:]
+        for (key, list) in desktopNames {
+            guard let parts = Self.splitNameKey(key), parts.mode == mode else { continue }
+            result[parts.screen] = list
+        }
+        return result
     }
 
     /// Ad verir; boş ad (boşluklar kırpılır) adı siler. `space`: o anki
     /// gerçek masaüstü kimliği (bilinmiyorsa sonraki taramada bağlanır).
-    mutating func setDesktopName(_ name: String?, screen: String, desktop: Int,
+    mutating func setDesktopName(_ name: String?, screen: String, desktop: Int, mode: Mode,
                                  space: UInt64? = nil) {
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let key = String(desktop)
-        var names = desktopNames[screen] ?? [:]
-        names[key] = trimmed.isEmpty ? nil : trimmed
-        desktopNames[screen] = names.isEmpty ? nil : names
-        var spaces = desktopNameSpaces[screen] ?? [:]
-        spaces[key] = trimmed.isEmpty ? nil : space
-        desktopNameSpaces[screen] = spaces.isEmpty ? nil : spaces
+        let slot = String(desktop)
+        for target in Self.nameModes(screen: screen, mode: mode) {
+            // Öbür kurulumda aynı ad başka masaüstündeyse (Nova orada Dell'de)
+            // laptop adı oraya kopyalanmaz; ad iki kez görünmesin.
+            if target != mode, !trimmed.isEmpty,
+               desktopNames(for: target).values.contains(where: {
+                   $0.values.contains { $0.caseInsensitiveCompare(trimmed) == .orderedSame }
+               }) { continue }
+            let key = Self.planKey(mode: target, screen: screen)
+            var names = desktopNames[key] ?? [:]
+            names[slot] = trimmed.isEmpty ? nil : trimmed
+            desktopNames[key] = names.isEmpty ? nil : names
+            var spaces = desktopNameSpaces[key] ?? [:]
+            spaces[slot] = trimmed.isEmpty ? nil : space
+            desktopNameSpaces[key] = spaces.isEmpty ? nil : spaces
+        }
     }
 
-    /// Adları yeni yerlerine taşır (Deskmap'in kendi masaüstü işlemleri):
-    /// `place` eski (ekran, masaüstü) için yeni yeri verir; nil = yer
-    /// değişmedi, `(_, 0)` = ad düşer. Yeri değişen adın kimlik bağı düşer;
-    /// sonraki taramada yeni numarasındaki masaüstüne bağlanır (Deskmap
-    /// sırayı pencereleri taşıyarak değiştirir, gerçek masaüstüleri değil).
-    mutating func remapDesktopNames(_ place: (String, Int) -> (screen: String, desktop: Int)?) {
+    /// Verilen kurulumlardaki adları yeni yerlerine taşır (Deskmap'in kendi
+    /// masaüstü işlemleri): `place` eski (ekran, masaüstü) için yeni yeri
+    /// verir; nil = yer değişmedi, `(_, 0)` = ad düşer. Yeri değişen adın
+    /// kimlik bağı düşer; sonraki taramada yeni numarasındaki masaüstüne
+    /// bağlanır (Deskmap sırayı pencereleri taşıyarak değiştirir, gerçek
+    /// masaüstüleri değil). Öbür kurulumun adlarına dokunulmaz.
+    mutating func remapDesktopNames(modes: [Mode],
+                                    _ place: (String, Int) -> (screen: String, desktop: Int)?) {
         var names: [String: [String: String]] = [:]
         var spaces: [String: [String: UInt64]] = [:]
-        for (screen, list) in desktopNames {
-            for (key, name) in list {
-                guard let desktop = Int(key) else { continue }
-                let moved = place(screen, desktop)
-                let next = moved ?? (screen, desktop)
+        for (key, list) in desktopNames {
+            guard let parts = Self.splitNameKey(key), modes.contains(parts.mode) else {
+                names[key] = list
+                if let bound = desktopNameSpaces[key] { spaces[key] = bound }
+                continue
+            }
+            for (slot, name) in list {
+                guard let desktop = Int(slot) else { continue }
+                let moved = place(parts.screen, desktop)
+                let next = moved ?? (parts.screen, desktop)
                 guard next.desktop >= 1 else { continue }
-                names[next.screen, default: [:]][String(next.desktop)] = name
-                if moved == nil || (moved!.screen == screen && moved!.desktop == desktop),
-                   let space = desktopNameSpaces[screen]?[key] {
-                    spaces[screen, default: [:]][key] = space
+                let nextKey = Self.planKey(mode: parts.mode, screen: next.screen)
+                names[nextKey, default: [:]][String(next.desktop)] = name
+                if moved == nil || (moved!.screen == parts.screen && moved!.desktop == desktop),
+                   let space = desktopNameSpaces[key]?[slot] {
+                    spaces[key, default: [:]][slot] = space
                 }
             }
         }
@@ -287,9 +346,11 @@ struct Document: Codable, Equatable {
         if spaces != desktopNameSpaces { desktopNameSpaces = spaces }
     }
 
-    /// Adları gerçek masaüstülerine göre yeniden yerleştirir (saf mantık):
+    /// Etkin kurulumun adlarını gerçek masaüstülerine göre yerleştirir:
     /// `spaces`: bağlı ekranların sıralı masaüstü kimlikleri; `seen`: bu
-    /// oturumda daha önce görülmüş kimlikler.
+    /// oturumda daha önce görülmüş kimlikler. Öbür kurulumun adlarına
+    /// dokunulmaz: monitör takılıp çıkarılırken macOS masaüstüleri ekranlar
+    /// arasında kaydırır, o kurulumun adları kendi yerlerinde kalmalı.
     /// - Bağlı kimlik bir ekranda bulunursa ad oraya gider (Mission
     ///   Control'de sıra ya da ekran değişse de).
     /// - Kimlik bu oturumda görülmüş ama artık yoksa masaüstü silinmiştir:
@@ -299,30 +360,37 @@ struct Document: Codable, Equatable {
     /// - Ekran bağlı değilse dokunulmaz. Çakışmada kimlikle bulunan kazanır.
     /// Değişiklik olduysa true.
     @discardableResult
-    mutating func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>) -> Bool {
+    mutating func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>,
+                                        mode: Mode) -> Bool {
         var location: [UInt64: (screen: String, desktop: Int)] = [:]
         for (screen, list) in spaces {
             for (index, id) in list.enumerated() { location[id] = (screen, index + 1) }
         }
         var names: [String: [String: String]] = [:]
         var bindings: [String: [String: UInt64]] = [:]
+        for (key, list) in desktopNames where Self.splitNameKey(key)?.mode != mode {
+            names[key] = list
+            if let bound = desktopNameSpaces[key] { bindings[key] = bound }
+        }
         func put(_ name: String, _ screen: String, _ desktop: Int, _ space: UInt64?) -> Bool {
-            let key = String(desktop)
-            guard names[screen]?[key] == nil else { return false }
-            names[screen, default: [:]][key] = name
-            if let space { bindings[screen, default: [:]][key] = space }
+            let key = Self.planKey(mode: mode, screen: screen)
+            let slot = String(desktop)
+            guard names[key]?[slot] == nil else { return false }
+            names[key, default: [:]][slot] = name
+            if let space { bindings[key, default: [:]][slot] = space }
             return true
         }
         var rest: [(screen: String, desktop: Int, name: String, space: UInt64?)] = []
         // Önce kimliğiyle bulunanlar (sıralı: sonuç belirlenimci olsun).
-        for (screen, list) in desktopNames.sorted(by: { $0.key < $1.key }) {
-            for (key, name) in list.sorted(by: { $0.key < $1.key }) {
-                guard let desktop = Int(key) else { continue }
-                let space = desktopNameSpaces[screen]?[key]
+        for (key, list) in desktopNames.sorted(by: { $0.key < $1.key }) {
+            guard let parts = Self.splitNameKey(key), parts.mode == mode else { continue }
+            for (slot, name) in list.sorted(by: { $0.key < $1.key }) {
+                guard let desktop = Int(slot) else { continue }
+                let space = desktopNameSpaces[key]?[slot]
                 if let space, let found = location[space] {
                     if put(name, found.screen, found.desktop, space) { continue }
                 }
-                rest.append((screen, desktop, name, space))
+                rest.append((parts.screen, desktop, name, space))
             }
         }
         for item in rest {
@@ -334,7 +402,7 @@ struct Document: Codable, Equatable {
                 if put(item.name, item.screen, item.desktop, live ?? item.space) { continue }
                 // Numarası kimlikle gelen başka ada kaldı: ilk boş numara.
                 var n = item.desktop + 1
-                while names[item.screen]?[String(n)] != nil { n += 1 }
+                while names[Self.planKey(mode: mode, screen: item.screen)]?[String(n)] != nil { n += 1 }
                 _ = put(item.name, item.screen, n, n <= list.count ? list[n - 1] : nil)
             } else {
                 _ = put(item.name, item.screen, item.desktop, item.space)
@@ -388,8 +456,11 @@ struct Document: Codable, Equatable {
             let planned = plannedDesktops(mode: mode, screen: screen)
             if planned >= desktop { setPlannedDesktops(planned - 1, mode: mode, screen: screen) }
         }
-        let name = desktopName(screen: screen, desktop: desktop)
-        remapDesktopNames { name, number in
+        var name: String?
+        for mode in modes where name == nil {
+            name = desktopName(screen: screen, desktop: desktop, mode: mode)
+        }
+        remapDesktopNames(modes: modes) { name, number in
             guard name == screen, number >= desktop else { return nil }
             return (screen, number == desktop ? 0 : number - 1)
         }
@@ -403,7 +474,7 @@ struct Document: Codable, Equatable {
     /// Hayaleti `desktop` numaralı (yeni açılmış) masaüstüne geri getirir:
     /// pinler hedefleriyle (yalnız masaüstü numarası değişir) ve ad döner.
     /// Profili artık olmayan pin atlanır; kuralı silinmişse kopyası eklenir.
-    mutating func restoreGhost(_ id: String, desktop: Int, space: UInt64? = nil) {
+    mutating func restoreGhost(_ id: String, desktop: Int, space: UInt64? = nil, mode: Mode = .docked) {
         guard let index = ghostDesktops.firstIndex(where: { $0.id == id }) else { return }
         let ghost = ghostDesktops.remove(at: index)
         for pin in ghost.pins {
@@ -426,8 +497,8 @@ struct Document: Codable, Equatable {
                 apply(&profiles[i].rules)
             }
         }
-        if let name = ghost.name, desktopName(screen: ghost.screen, desktop: desktop) == nil {
-            setDesktopName(name, screen: ghost.screen, desktop: desktop, space: space)
+        if let name = ghost.name, desktopName(screen: ghost.screen, desktop: desktop, mode: mode) == nil {
+            setDesktopName(name, screen: ghost.screen, desktop: desktop, mode: mode, space: space)
         }
     }
 
@@ -653,7 +724,7 @@ struct Document: Codable, Equatable {
             let other = remap(profiles[i].rules)
             if other != profiles[i].rules { profiles[i].rules = other }
         }
-        remapDesktopNames { name, desktop in
+        remapDesktopNames(modes: [mode]) { name, desktop in
             name == screen ? mapping[desktop].map { (screen, $0) } : nil
         }
     }
@@ -693,7 +764,7 @@ struct Document: Codable, Equatable {
         let target = plannedDesktops(mode: mode, screen: toScreen)
         let needed = max(toCount, to - 1) + 1
         if target < needed { setPlannedDesktops(needed, mode: mode, screen: toScreen) }
-        remapDesktopNames { screen, desktop in
+        remapDesktopNames(modes: [mode]) { screen, desktop in
             Self.acrossPlacement(screen: screen, desktop: desktop, from: fromScreen,
                                  desktop: from, to: toScreen, at: to)
         }
@@ -763,7 +834,7 @@ struct Document: Codable, Equatable {
         }
         // Silinen masaüstünün adı düşer, sonrakiler bir yukarı kayar.
         guard shiftNames else { return }
-        remapDesktopNames { name, number in
+        remapDesktopNames(modes: modes) { name, number in
             guard name == screen, number >= desktop else { return nil }
             return (screen, number == desktop ? 0 : number - 1)
         }
@@ -1277,15 +1348,16 @@ final class Store: ObservableObject {
         document.removeDesktop(on: screen, desktop: desktop, modes: modes, shiftNames: shiftNames)
     }
 
-    func desktopName(screen: String, desktop: Int) -> String? {
-        document.desktopName(screen: screen, desktop: desktop)
+    func desktopName(screen: String, desktop: Int, mode: Mode) -> String? {
+        document.desktopName(screen: screen, desktop: desktop, mode: mode)
     }
 
     /// Masaüstüne ad verir; boş ad siler (geri alınabilir). Ad, o anki
     /// gerçek masaüstüne (space kimliği) bağlanır.
-    func setDesktopName(_ name: String?, screen: String, desktop: Int, space: UInt64? = nil) {
+    func setDesktopName(_ name: String?, screen: String, desktop: Int, mode: Mode,
+                        space: UInt64? = nil) {
         recording(L("Desktop renamed")) {
-            document.setDesktopName(name, screen: screen, desktop: desktop, space: space)
+            document.setDesktopName(name, screen: screen, desktop: desktop, mode: mode, space: space)
         }
     }
 
@@ -1298,9 +1370,9 @@ final class Store: ObservableObject {
     }
 
     /// Hayaleti yeni açılan masaüstüne geri getirir (geri alınabilir).
-    func restoreGhost(_ id: String, desktop: Int, space: UInt64?) {
+    func restoreGhost(_ id: String, desktop: Int, space: UInt64?, mode: Mode) {
         recording(L("Deleted desktop restored")) {
-            document.restoreGhost(id, desktop: desktop, space: space)
+            document.restoreGhost(id, desktop: desktop, space: space, mode: mode)
         }
     }
 
@@ -1313,9 +1385,9 @@ final class Store: ObservableObject {
 
     /// Taramadan gelen gerçek masaüstü listesine göre adları yerleştirir
     /// (geri alma kaydı yok; macOS'ta olmuş bir değişikliği izler).
-    func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>) {
+    func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>, mode: Mode) {
         var copy = document
-        if copy.reconcileDesktopNames(spaces: spaces, seen: seen) { document = copy }
+        if copy.reconcileDesktopNames(spaces: spaces, seen: seen, mode: mode) { document = copy }
     }
 
     /// Etkin olmayan modda masaüstü ekler: yalnız plana yazılır (⌘Z geri

@@ -15,7 +15,7 @@ struct GhostDesktopTests {
     @Test func pinsAndNameGoToGhostLaterPinsShift() throws {
         var d = Document()
         d.rules = [rule("A", 2), rule("B", 3), rule("C", 1), rule("L", 2, screen: "builtin")]
-        d.setDesktopName("Nova", screen: "external", desktop: 2)
+        d.setDesktopName("Nova", screen: "external", desktop: 2, mode: .docked)
         let made = d.ghostDesktop(on: "external", desktop: 2, modes: Mode.allCases)
         let ghost = try #require(made)
         #expect(ghost.name == "Nova")
@@ -25,7 +25,7 @@ struct GhostDesktopTests {
         #expect(d.rules.first { $0.appName == "B" }?.docked?.desktop == 2)
         #expect(d.rules.first { $0.appName == "C" }?.docked?.desktop == 1)
         #expect(d.rules.first { $0.appName == "L" }?.docked?.desktop == 2)
-        #expect(d.desktopNames["external"] == nil)
+        #expect(d.desktopNames(for: .docked)["external"] == nil)
         #expect(d.ghosts(on: "external").count == 1)
     }
 
@@ -56,17 +56,17 @@ struct GhostDesktopTests {
         var both = rule("A", 2)
         both.undocked = Destination(screen: "builtin", desktop: 1)
         d.rules = [both, rule("X", 2)]
-        d.setDesktopName("Nova", screen: "external", desktop: 2)
+        d.setDesktopName("Nova", screen: "external", desktop: 2, mode: .docked)
         let made = d.ghostDesktop(on: "external", desktop: 2, modes: Mode.allCases)
         let ghost = try #require(made)
         // A'nın laptop hedefi kaldığı için kural durdu; X tamamen kalktı.
         #expect(d.rules.map(\.appName) == ["A"])
-        d.restoreGhost(ghost.id, desktop: 4, space: 99)
+        d.restoreGhost(ghost.id, desktop: 4, space: 99, mode: .docked)
         #expect(d.rules.first { $0.appName == "A" }?.docked?.desktop == 4)
         #expect(d.rules.first { $0.appName == "A" }?.undocked?.desktop == 1)
         #expect(d.rules.first { $0.appName == "X" }?.docked == Destination(screen: "external", desktop: 4))
-        #expect(d.desktopName(screen: "external", desktop: 4) == "Nova")
-        #expect(d.desktopNameSpaces["external"]?["4"] == 99)
+        #expect(d.desktopName(screen: "external", desktop: 4, mode: .docked) == "Nova")
+        #expect(d.desktopNameSpaces["docked|external"]?["4"] == 99)
         #expect(d.ghostDesktops.isEmpty)
     }
 

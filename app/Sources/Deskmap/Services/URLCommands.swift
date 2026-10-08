@@ -29,7 +29,7 @@ import Foundation
 ///                                    boyut/konumunu kuralın yerleşimi yap
 ///     deskmap://profile-set?json=<profil>&activate=1  profili ada göre ekle/güncelle
 ///     deskmap://plan-desktops/<ekran>/<n>?mode=docked|undocked  ekranda n masaüstü olsun
-///     deskmap://desktop-name/<ekran>/<n>?name=<ad>  masaüstüne ad ver (boş ad siler)
+///     deskmap://desktop-name/<ekran>/<n>?name=<ad>[&mode=]  masaüstüne ad ver (boş ad siler)
 ///
 /// Her komut `?req=<n>` alabilir: işlendikten sonra status.json `request: n`
 /// ile yazılır (`deskmap` komut satırı aracı bununla bekler).
@@ -59,7 +59,7 @@ enum URLCommand: Equatable {
     case exportProfile(name: String?, path: String)
     case moveDesktop(screen: String, from: Int, to: Int, mode: Mode?)
     case saveLayout(rule: String, window: CGWindowID?)
-    case nameDesktop(screen: String, desktop: Int, name: String)
+    case nameDesktop(screen: String, desktop: Int, name: String, mode: Mode? = nil)
 
     static let scheme = "deskmap"
     /// Eski uygulama adı; süresiz kabul edilir (bkz. tip belgesi).
@@ -164,7 +164,12 @@ enum URLCommand: Equatable {
         case "desktop-name":
             guard parts.count == 2, let desktop = Int(parts[1]), desktop >= 1 else { return nil }
             let name = query.first { $0.name == "name" }?.value ?? ""
-            return .nameDesktop(screen: parts[0].lowercased(), desktop: desktop, name: name)
+            var mode: Mode?
+            if let raw = query.first(where: { $0.name == "mode" })?.value {
+                guard let parsed = Mode(rawValue: raw.lowercased()) else { return nil }
+                mode = parsed
+            }
+            return .nameDesktop(screen: parts[0].lowercased(), desktop: desktop, name: name, mode: mode)
         case "plan-desktops":
             guard parts.count == 2, let count = Int(parts[1]), (1...16).contains(count)
             else { return nil }
@@ -285,9 +290,12 @@ enum URLCommands {
             store.upsertProfile(profile, activate: activate)
         case .planDesktops(let screen, let count, let mode):
             planDesktops(screen: screen, count: count, mode: mode, store: store, router: router)
-        case .nameDesktop(let screen, let desktop, let name):
-            store.setDesktopName(name, screen: screen, desktop: desktop,
-                                 space: router.currentSpace(on: screen, desktop: desktop))
+        case .nameDesktop(let screen, let desktop, let name, let mode):
+            let live = AppModel.shared.screens.mode
+            let target = mode ?? live
+            store.setDesktopName(name, screen: screen, desktop: desktop, mode: target,
+                                 space: target == live
+                                    ? router.currentSpace(on: screen, desktop: desktop) : nil)
         case .renameProfile(let from, let to):
             guard let profile = profile(named: from, in: store.profiles) else {
                 store.report(L("Profile not found: %@", from))
