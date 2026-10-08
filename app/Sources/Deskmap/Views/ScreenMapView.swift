@@ -127,6 +127,7 @@ private struct ScreenCard: View {
     let shadowed: [String: String]
 
     @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var store: Store
 
     /// Bu ekrandaki tam ekran space'ler, `afterDesktop` → soldan sağa.
     private var fullscreenSpaces: [Int: [FullscreenSpace]] {
@@ -158,6 +159,10 @@ private struct ScreenCard: View {
                     rowCount: tileCount, tileCounts: tileCounts, shadowed: shadowed)
                 ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0) }
             }
+            ForEach(store.ghosts(on: screen.id)) { ghost in
+                DeletedDesktopRow(ghost: ghost, mode: mode,
+                                  canRestore: isLive && isConnected)
+            }
             GhostRow(screen: screen, desktop: tileCount + 1, mode: mode,
                      isLive: isLive, canAdd: !isLive || isConnected)
         }
@@ -168,6 +173,114 @@ private struct ScreenCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(.quaternary, lineWidth: 1))
+    }
+}
+
+// MARK: - Silinmiş masaüstü (hayalet)
+
+/// Mission Control'de silinmiş, adı ya da pini olan masaüstü: ekranın
+/// sonunda kesik çizgili, soluk satır. Pinler burada bekler (pencereleri
+/// taşınmaz); "Geri getir" yeni masaüstü açar, ad ve pinler ona döner.
+private struct DeletedDesktopRow: View {
+
+    let ghost: GhostDesktop
+    let mode: Mode
+    let canRestore: Bool
+
+    @EnvironmentObject private var store: Store
+    @EnvironmentObject private var router: Router
+    @State private var isRestoring = false
+
+    /// Bu kurulumun pinleri, uygulama + başlık parçalarıyla.
+    private var chips: [String] {
+        var seen = Set<String>()
+        return ghost.pins.filter { $0.mode == mode }.compactMap { pin in
+            let tokens = pin.rule.tokens.joined(separator: " ")
+            let label = tokens.isEmpty ? pin.rule.appName : "\(pin.rule.appName) · \(tokens)"
+            return seen.insert(label).inserted ? label : nil
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 1) {
+                Label(ghost.name ?? L("Deleted desktop"), systemImage: "trash.slash")
+                    .font(.caption.weight(.semibold))
+                    .lineLimit(2)
+                Text(L("deleted"))
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+            }
+            .frame(width: 132, alignment: .leading)
+            .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L("Deleted in Mission Control · %ld pins", ghost.pins.filter { $0.mode == mode }.count))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                if !chips.isEmpty {
+                    FlowLayout(spacing: 6) {
+                        ForEach(chips, id: \.self) { chip in
+                            HStack(spacing: 3) {
+                                Image(systemName: "pin").font(.system(size: 8))
+                                Text(chip).lineLimit(1)
+                            }
+                            .font(.caption)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 2)
+                            .background(Capsule().strokeBorder(
+                                Color.secondary.opacity(0.4),
+                                style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+            Button {
+                restore()
+            } label: {
+                if isRestoring {
+                    ProgressView().controlSize(.mini)
+                } else {
+                    Label(L("Restore"), systemImage: "arrow.uturn.backward")
+                }
+            }
+            .controlSize(.small)
+            .disabled(!canRestore || isRestoring)
+            .help(canRestore ? L("Open a new desktop on this display and bring the name and pins back")
+                  : L("Connect this display to restore the desktop"))
+        }
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 6)
+        .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
+        .opacity(0.75)
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .strokeBorder(Color.primary.opacity(0.25),
+                              style: StrokeStyle(lineWidth: 1, dash: [5, 3])))
+        .contextMenu {
+            Button(L("Forget Deleted Desktop"), role: .destructive) {
+                store.discardGhost(ghost.id)
+            }
+        }
+    }
+
+    private func restore() {
+        isRestoring = true
+        let router = router, store = store, ghost = ghost
+        Task {
+            if await router.addDesktop(on: ghost.screen),
+               let count = router.realDesktopCount(on: ghost.screen) {
+                store.restoreGhost(ghost.id, desktop: count,
+                                   space: router.currentSpace(on: ghost.screen, desktop: count))
+                router.resetDesktopBaseline()
+                router.sweep()
+            } else {
+                store.report(L("Could not add a desktop to %@", ghost.screen))
+            }
+            isRestoring = false
+        }
     }
 }
 

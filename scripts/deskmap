@@ -196,10 +196,16 @@ def show_desktops(args):
     names = desktop_names(s)
     if args.json:
         print(json.dumps(s.get("desktopNames") or {}, indent=2, ensure_ascii=False)); return
-    if not names:
+    ghosts = s.get("deletedDesktops") or []
+    if not names and not ghosts:
         print("(no desktop names; name one: deskmap name SCREEN N NAME)"); return
     for sc, n, name in names:
         print(f"{sc + '/' + str(n):<14} {name}")
+    for g in ghosts:
+        apps = ", ".join(sorted({p["rule"]["appName"] for p in g.get("pins", [])}))
+        print(f"{g['screen'] + ' deleted':<14} {g.get('name') or '(no name)'}"
+              f"  — removed in Mission Control, {len(g.get('pins', []))} pin(s) kept: {apps or '-'}"
+              "  (restore from the map)")
 
 
 def name_desktop(args):

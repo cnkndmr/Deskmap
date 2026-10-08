@@ -52,6 +52,8 @@ final class StatusFile {
         /// Masaüstü adları: ekran → masaüstü numarası → ad (bağlı olmayan
         /// ekranlarınki de).
         let desktopNames: [String: [String: String]]
+        /// Mission Control'de silinmiş, pinleri saklanan masaüstüleri.
+        let deletedDesktops: [GhostDesktop]
     }
 
     private let url: URL
@@ -117,7 +119,8 @@ final class StatusFile {
                       pinned: pins[window.id].map { .init(screen: $0.screen, desktop: $0.desktop) })
             },
             rules: store.document.rules,
-            desktopNames: store.document.desktopNames)
+            desktopNames: store.document.desktopNames,
+            deletedDesktops: store.document.ghostDesktops)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

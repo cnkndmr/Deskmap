@@ -313,3 +313,12 @@
 "Send to" = "Gönder";
 "Moves the pin for all %@ windows" = "Tüm %@ pencerelerinin pinini taşır";
 "Moves the pin \"%@\" (all matching windows)" = "\"%@\" pinini taşır (uyan tüm pencereler)";
+"Deleted desktop" = "Silinen masaüstü";
+"deleted" = "silindi";
+"Deleted in Mission Control · %ld pins" = "Mission Control'de silindi · %ld pin";
+"Restore" = "Geri getir";
+"Open a new desktop on this display and bring the name and pins back" = "Bu ekranda yeni masaüstü açar, adı ve pinleri geri getirir";
+"Connect this display to restore the desktop" = "Masaüstünü geri getirmek için bu ekranı bağlayın";
+"Forget Deleted Desktop" = "Silinen masaüstünü tamamen unut";
+"Deleted desktop restored" = "Silinen masaüstü geri getirildi";
+"Deleted desktop forgotten" = "Silinen masaüstü unutuldu";

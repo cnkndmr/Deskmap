@@ -49,6 +49,28 @@ struct PendingRemoval: Codable, Equatable, Hashable {
     var space: UInt64?
 }
 
+/// Deskmap dışında (Mission Control) silinmiş, adı ya da pini olan
+/// masaüstü. Haritada ekranın sonunda hayalet satır olarak durur; pinler
+/// burada saklanır ki sonraki masaüstüne kaymasınlar. Geri getirilince yeni
+/// masaüstü açılır, ad ve pinler ona döner.
+struct GhostDesktop: Codable, Equatable, Hashable, Identifiable {
+    /// Saklanan pin: hangi profilin hangi kuralının hangi moddaki hedefi.
+    /// `rule`: kural pinle birlikte tamamen kalktıysa geri eklemek için kopya.
+    struct Pin: Codable, Equatable, Hashable {
+        var profileID: String
+        var mode: Mode
+        var rule: Rule
+        var destination: Destination
+    }
+    var id: String = UUID().uuidString
+    var screen: String
+    var name: String?
+    /// Silindiği andaki sırası (yalnız bilgi).
+    var desktop: Int
+    var deletedAt: Date
+    var pins: [Pin] = []
+}
+
 struct Document: Codable, Equatable {
     var version: Int = Document.currentVersion
     var enabled: Bool = true
@@ -79,6 +101,8 @@ struct Document: Codable, Equatable {
     /// biçimde. macOS'ta masaüstü Mission Control'den taşınır ya da silinirse
     /// ad numarayla değil kimlikle izlenir (`reconcileDesktopNames`).
     var desktopNameSpaces: [String: [String: UInt64]] = [:]
+    /// Deskmap dışında silinmiş masaüstüleri (bkz. `GhostDesktop`).
+    var ghostDesktops: [GhostDesktop] = []
 
     /// Okunan dosyanın `version` alanı (yazılmaz). Bu sürümden yeniyse
     /// dosya daha yeni bir Deskmap'e ait; üzerine yazılmamalı.
@@ -106,7 +130,7 @@ struct Document: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case version, enabled, screens, rules, profiles, activeProfileID, settings
         case setupNoticeDismissed, plannedDesktops, pendingRemovals, desktopNames
-        case desktopNameSpaces
+        case desktopNameSpaces, ghostDesktops
     }
 
     private struct LegacySettings: Decodable { var enabled: Bool? }
@@ -150,6 +174,7 @@ struct Document: Codable, Equatable {
             [String: [String: String]].self, forKey: .desktopNames)) ?? [:]
         desktopNameSpaces = (try? c.decodeIfPresent(
             [String: [String: UInt64]].self, forKey: .desktopNameSpaces)) ?? [:]
+        ghostDesktops = (try? c.decodeIfPresent([GhostDesktop].self, forKey: .ghostDesktops)) ?? []
         if profiles.isEmpty {
             let profile = Profile(name: Self.defaultProfileName, rules: rules)
             profiles = [profile]
@@ -211,6 +236,9 @@ struct Document: Codable, Equatable {
         }
         if !desktopNameSpaces.isEmpty {
             try c.encode(desktopNameSpaces, forKey: .desktopNameSpaces)
+        }
+        if !ghostDesktops.isEmpty {
+            try c.encode(ghostDesktops, forKey: .ghostDesktops)
         }
     }
 
@@ -316,6 +344,95 @@ struct Document: Codable, Equatable {
         desktopNames = names
         desktopNameSpaces = bindings
         return true
+    }
+
+    // MARK: - Hayalet masaüstüleri
+
+    func ghosts(on screen: String) -> [GhostDesktop] {
+        ghostDesktops.filter { $0.screen == screen }
+    }
+
+    /// Masaüstü Deskmap dışında silindi: o masaüstünün pinleri (bütün
+    /// profiller, verilen modlar) ve adı hayalete taşınır, sonraki
+    /// masaüstülerinin pinleri bir yukarı kayar, plan bir azalır. Ad ya da
+    /// pin yoksa hayalet açılmaz (kaydırma yine yapılır). Açılan hayalet döner.
+    @discardableResult
+    mutating func ghostDesktop(on screen: String, desktop: Int, modes: [Mode],
+                               now: Date = Date()) -> GhostDesktop? {
+        var pins: [GhostDesktop.Pin] = []
+        func remap(_ list: [Rule], profileID: String) -> [Rule] {
+            var result: [Rule] = []
+            for var rule in list {
+                for mode in modes {
+                    guard var destination = rule[mode], destination.screen == screen else { continue }
+                    if destination.desktop == desktop {
+                        pins.append(.init(profileID: profileID, mode: mode, rule: rule,
+                                          destination: destination))
+                        rule[mode] = nil
+                    } else if destination.desktop > desktop {
+                        destination.desktop -= 1
+                        rule[mode] = destination
+                    }
+                }
+                if rule.docked != nil || rule.undocked != nil { result.append(rule) }
+            }
+            return result
+        }
+        let moved = remap(rules, profileID: activeProfileID)
+        if moved != rules { rules = moved }
+        for i in profiles.indices where profiles[i].id != activeProfileID {
+            let other = remap(profiles[i].rules, profileID: profiles[i].id)
+            if other != profiles[i].rules { profiles[i].rules = other }
+        }
+        for mode in modes {
+            let planned = plannedDesktops(mode: mode, screen: screen)
+            if planned >= desktop { setPlannedDesktops(planned - 1, mode: mode, screen: screen) }
+        }
+        let name = desktopName(screen: screen, desktop: desktop)
+        remapDesktopNames { name, number in
+            guard name == screen, number >= desktop else { return nil }
+            return (screen, number == desktop ? 0 : number - 1)
+        }
+        guard name != nil || !pins.isEmpty else { return nil }
+        let ghost = GhostDesktop(screen: screen, name: name, desktop: desktop,
+                                 deletedAt: now, pins: pins)
+        ghostDesktops.append(ghost)
+        return ghost
+    }
+
+    /// Hayaleti `desktop` numaralı (yeni açılmış) masaüstüne geri getirir:
+    /// pinler hedefleriyle (yalnız masaüstü numarası değişir) ve ad döner.
+    /// Profili artık olmayan pin atlanır; kuralı silinmişse kopyası eklenir.
+    mutating func restoreGhost(_ id: String, desktop: Int, space: UInt64? = nil) {
+        guard let index = ghostDesktops.firstIndex(where: { $0.id == id }) else { return }
+        let ghost = ghostDesktops.remove(at: index)
+        for pin in ghost.pins {
+            var destination = pin.destination
+            destination.desktop = desktop
+            func apply(_ list: inout [Rule]) {
+                if let i = list.firstIndex(where: { $0.id == pin.rule.id }) {
+                    list[i][pin.mode] = destination
+                } else {
+                    var rule = pin.rule
+                    rule.docked = nil
+                    rule.undocked = nil
+                    rule[pin.mode] = destination
+                    list.append(rule)
+                }
+            }
+            if pin.profileID == activeProfileID {
+                apply(&rules)
+            } else if let i = profiles.firstIndex(where: { $0.id == pin.profileID }) {
+                apply(&profiles[i].rules)
+            }
+        }
+        if let name = ghost.name, desktopName(screen: ghost.screen, desktop: desktop) == nil {
+            setDesktopName(name, screen: ghost.screen, desktop: desktop, space: space)
+        }
+    }
+
+    mutating func discardGhost(_ id: String) {
+        ghostDesktops.removeAll { $0.id == id }
     }
 
     static func planKey(mode: Mode, screen: String) -> String { "\(mode.rawValue)|\(screen)" }
@@ -1159,6 +1276,28 @@ final class Store: ObservableObject {
     func setDesktopName(_ name: String?, screen: String, desktop: Int, space: UInt64? = nil) {
         recording(L("Desktop renamed")) {
             document.setDesktopName(name, screen: screen, desktop: desktop, space: space)
+        }
+    }
+
+    func ghosts(on screen: String) -> [GhostDesktop] { document.ghosts(on: screen) }
+
+    /// Deskmap dışında silinen masaüstü (geri alma kaydı yok: macOS'ta
+    /// olmuş bir değişikliği izler).
+    func ghostDesktop(on screen: String, desktop: Int, modes: [Mode]) {
+        document.ghostDesktop(on: screen, desktop: desktop, modes: modes)
+    }
+
+    /// Hayaleti yeni açılan masaüstüne geri getirir (geri alınabilir).
+    func restoreGhost(_ id: String, desktop: Int, space: UInt64?) {
+        recording(L("Deleted desktop restored")) {
+            document.restoreGhost(id, desktop: desktop, space: space)
+        }
+    }
+
+    /// Hayaleti pinleriyle birlikte tamamen siler (geri alınabilir).
+    func discardGhost(_ id: String) {
+        recording(L("Deleted desktop forgotten")) {
+            document.discardGhost(id)
         }
     }
 

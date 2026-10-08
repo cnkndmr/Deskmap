@@ -973,6 +973,7 @@ final class Router: ObservableObject {
         if removed {
             store.removeDesktop(on: screenID, desktop: desktop, modes: Mode.allCases)
             shiftSessionPins(screen: screenID, removed: desktop)
+            resetDesktopBaseline()
         }
         scheduleFollowUp(after: 300)
         return removed
@@ -997,6 +998,41 @@ final class Router: ObservableObject {
     /// Bu oturumda görülmüş masaüstü kimlikleri: adı bağlı kimlik burada
     /// olup artık yoksa masaüstü silinmiştir (bkz. `reconcileDesktopNames`).
     private var seenDesktopSpaces: Set<UInt64> = []
+    /// Son okunan ekran → sıralı masaüstü kimlikleri; bir sonraki okumada
+    /// kaybolan kimlik Deskmap dışında (Mission Control) silinmiş demektir.
+    /// Deskmap'in kendi ekleme/silmelerinden sonra tazelenir.
+    private var knownDesktopSpaces: [String: [UInt64]] = [:]
+
+    func realDesktopCount(on screenID: String) -> Int? {
+        guard let info = screens.screens.first(where: { $0.id == screenID }) else { return nil }
+        return liveDesktopCount(uuid: info.uuid)
+    }
+
+    /// Deskmap kendi masaüstü işlemini bitirdi: kaybolan kimlik dış silme sayılmasın.
+    func resetDesktopBaseline() {
+        knownDesktopSpaces = Self.desktopSpaces(
+            displays: SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens)),
+            screens: screens.screens)
+    }
+
+    /// Önceki ve şimdiki listeye göre Deskmap dışında silinen masaüstüleri
+    /// (eski sıra numaraları, büyükten küçüğe). Saf. Ekran iki listede de
+    /// olmalı; ekranın bütün eski kimlikleri kaybolduysa (yeniden bağlanma,
+    /// kimlikler yenilendi) silme sayılmaz. Başka ekrana taşınan kimlik
+    /// silinmiş değildir.
+    nonisolated static func externallyRemovedDesktops(
+        before: [String: [UInt64]], after: [String: [UInt64]]
+    ) -> [String: [Int]] {
+        let alive = Set(after.values.joined())
+        var result: [String: [Int]] = [:]
+        for (screen, old) in before {
+            guard after[screen] != nil, !old.isEmpty else { continue }
+            let gone = old.enumerated().filter { !alive.contains($0.element) }.map { $0.offset + 1 }
+            guard !gone.isEmpty, gone.count < old.count else { continue }
+            result[screen] = gone.sorted(by: >)
+        }
+        return result
+    }
 
     /// Masaüstü adlarını gerçek masaüstülerine göre yerleştirir: macOS'ta
     /// (Mission Control) sıra/ekran değişse ya da masaüstü silinse de ad
@@ -1018,6 +1054,18 @@ final class Router: ObservableObject {
             .filter { !$0.value.isEmpty }
             .compactMap { $0.key.split(separator: "|").last.map(String.init) })
         let comparable = spaces.filter { !pending.contains($0.key) }
+        // Mission Control'de silinen masaüstü: pinleri ve adı hayalete
+        // geçer, sonrakilerin pinleri bir yukarı kayar (yoksa hepsi bir
+        // sonraki masaüstüne giderdi).
+        let previous = knownDesktopSpaces.filter { !pending.contains($0.key) }
+        for (screen, desktops) in Self.externallyRemovedDesktops(before: previous, after: comparable) {
+            for desktop in desktops {
+                Log.app.notice("Desktop \(desktop) on \(screen, privacy: .public) was removed outside Deskmap; pins kept on a deleted-desktop row")
+                store.ghostDesktop(on: screen, desktop: desktop, modes: Mode.allCases)
+                shiftSessionPins(screen: screen, removed: desktop)
+            }
+        }
+        knownDesktopSpaces = spaces
         if !store.document.desktopNames.isEmpty, !comparable.isEmpty {
             store.reconcileDesktopNames(spaces: comparable, seen: seenDesktopSpaces)
         }
@@ -1123,6 +1171,7 @@ final class Router: ObservableObject {
                                              modes: Mode.allCases.filter { $0 != mode },
                                              shiftNames: false)
                     self.shiftSessionPins(screen: screenID, removed: index)
+                    self.resetDesktopBaseline()
                 }
             }
             return
@@ -1271,7 +1320,7 @@ final class Router: ObservableObject {
 
     // MARK: - Tarama
 
-    private func sweep() {
+    func sweep() {
         guard !isDemo, AXIsProcessTrusted(), !isPaused else { return }
         if isSweeping {
             // Tarama sürerken gelen olay kaybolmasın; bitince bir tur daha.
