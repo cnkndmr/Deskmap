@@ -27,13 +27,28 @@ enum Reopen {
     /// tarayıcıda sayfa adresi. VS Code'da dosya yerine başlıktaki klasör
     /// (" — Klasör") açılır ki aynı çalışma alanı gelsin.
     static func capture(_ window: AXUIElement, bundleID: String, title: String) -> URL? {
-        if bundleID == finder { return finderFolder(window, title: title) }
+        if bundleID == finder {
+            return finderFolder(window, title: title) ?? finderLocation(named: title)
+        }
         if browsers.contains(bundleID) { return webAddress(window) }
         guard let raw = value(window, kAXDocumentAttribute) else { return nil }
         let text = (raw as? String) ?? (raw as? URL)?.absoluteString ?? ""
         guard let url = URL(string: text), url.isFileURL else { return nil }
         if bundleID == vsCode, let folder = workspaceFolder(of: url, title: title) { return folder }
         return url
+    }
+
+    /// Finder'ın klasör olmayan konumları (Recents, AirDrop, iCloud Drive,
+    /// Network, Computer): Finder.app içindeki küçük uygulamalar; açılınca
+    /// Finder o konumun penceresini açar.
+    static let finderLocations = URL(
+        fileURLWithPath: "/System/Library/CoreServices/Finder.app/Contents/Applications")
+
+    static func finderLocation(named name: String) -> URL? {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+        let app = finderLocations.appendingPathComponent("\(trimmed).app")
+        return FileManager.default.fileExists(atPath: app.path) ? app : nil
     }
 
     /// "dosya — Klasör" başlığındaki klasör, dosyanın üst klasörlerinden biriyse.
@@ -127,24 +142,43 @@ enum Reopen {
     /// Kapalı pinli pencereyi açar: hatırlanan adres varsa onu kuralın
     /// uygulamasıyla, yoksa yalnız uygulamayı. Açılan pencereyi Router
     /// pinli masaüstüne kendisi yerleştirir. Uygulama bulunamazsa false.
+    enum OpenResult { case opened, appOnly, noApp }
+
     @MainActor
-    static func open(rule: Rule, target: ReopenTarget?) -> Bool {
+    static func open(rule: Rule, target: ReopenTarget?) -> OpenResult {
         let workspace = NSWorkspace.shared
         let byName = ["/Applications", "/System/Applications"]
             .map { URL(fileURLWithPath: "\($0)/\(rule.appName).app") }
             .first { FileManager.default.fileExists(atPath: $0.path) }
         let appURL = rule.bundleID.isEmpty
             ? byName : workspace.urlForApplication(withBundleIdentifier: rule.bundleID) ?? byName
-        guard let appURL else { return false }
+        guard let appURL else { return .noApp }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
-        if let target, let url = URL(string: target.url),
-           !url.isFileURL || FileManager.default.fileExists(atPath: url.path) {
-            workspace.open([url], withApplicationAt: appURL, configuration: configuration)
-        } else {
-            workspace.openApplication(at: appURL, configuration: configuration)
+        var url = target.flatMap { URL(string: $0.url) }
+        if let file = url, file.isFileURL, !FileManager.default.fileExists(atPath: file.path) {
+            url = nil
         }
-        return true
+        // Finder'ın özel konumu (Recents…): başlıktan, hatırlanan hedef yoksa da.
+        if rule.bundleID == finder, url == nil,
+           let location = rule.tokens.lazy.compactMap({ finderLocation(named: $0) }).first {
+            workspace.openApplication(at: location, configuration: configuration)
+            return .opened
+        }
+        if let url, url.pathExtension == "app", url.path.hasPrefix(finderLocations.path) {
+            workspace.openApplication(at: url, configuration: configuration)
+            return .opened
+        }
+        if let url {
+            workspace.open([url], withApplicationAt: appURL, configuration: configuration)
+            return .opened
+        }
+        // Hedef bilinmiyor: çalışan uygulamada yalnız öne gelir, yeni pencere
+        // açılmaz (Finder böyle). Kullanıcıya söylenir.
+        let running = !NSRunningApplication.runningApplications(
+            withBundleIdentifier: rule.bundleID).isEmpty
+        workspace.openApplication(at: appURL, configuration: configuration)
+        return running && !rule.isAppWide ? .appOnly : .opened
     }
 
     // MARK: - Safari

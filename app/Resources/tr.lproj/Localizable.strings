@@ -325,3 +325,4 @@
 "Deleted desktop forgotten" = "Silinen masaüstü unutuldu";
 "Could not open a %@ window" = "%@ penceresi açılamadı";
 "Double-click opens %@" = "Çift tıklama %@ açar";
+"%@ is open, but Deskmap does not know this window's file or folder yet. Open it once; after that a double-click opens it." = "%@ açık, ama Deskmap bu pencerenin dosyasını ya da klasörünü henüz bilmiyor. Bir kez açın; sonra çift tıklama onu açar.";

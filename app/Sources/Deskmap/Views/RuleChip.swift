@@ -94,9 +94,12 @@ struct RuleChip: View {
             }
             return
         }
-        if Reopen.open(rule: rule, target: target) {
+        switch Reopen.open(rule: rule, target: target) {
+        case .opened:
             dismiss()
-        } else {
+        case .appOnly:
+            store.report(L("%@ is open, but Deskmap does not know this window's file or folder yet. Open it once; after that a double-click opens it.", rule.appName))
+        case .noApp:
             store.report(L("Could not find the app %@", rule.appName))
         }
     }
@@ -104,8 +107,12 @@ struct RuleChip: View {
     /// Çift tıklamayla açılacak şeyin kısa adı (dosya/klasör adı ya da
     /// site); hatırlanan hedef yoksa nil.
     private var reopenLabel: String? {
-        guard let target = router.reopenTargets[rule.id], let url = URL(string: target.url)
-        else { return nil }
+        guard let target = router.reopenTargets[rule.id], let url = URL(string: target.url) else {
+            // Finder'ın özel konumu (Recents…) hedef olmadan da açılır.
+            guard rule.bundleID == Reopen.finder else { return nil }
+            return rule.tokens.first { Reopen.finderLocation(named: $0) != nil }
+        }
+        if url.pathExtension == "app" { return url.deletingPathExtension().lastPathComponent }
         return url.isFileURL ? url.lastPathComponent : (url.host ?? target.url)
     }
 
