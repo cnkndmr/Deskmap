@@ -255,6 +255,7 @@ private struct DeletedDesktopRow: View {
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
         .opacity(0.75)
+        .contentShape(Rectangle())
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(Color.primary.opacity(0.25),

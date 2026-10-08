@@ -155,6 +155,9 @@ final class Router: ObservableObject {
     /// Pencere numaraları ve pid'ler yeniden başlatmada değiştiği için
     /// eski kayıtlar açılışta kendiliğinden elenir.
     static let sessionFileURL = Store.directoryURL.appendingPathComponent("session-pins.json")
+    /// Son görülen ekran → masaüstü kimlikleri; Deskmap kapalıyken
+    /// Mission Control'de silinen masaüstü açılışta bununla yakalanır.
+    static let desktopSpacesFileURL = Store.directoryURL.appendingPathComponent("desktop-spaces.json")
 
     /// Diske yazılan oturum pini kaydı.
     struct SessionPin: Codable, Equatable {
@@ -254,6 +257,7 @@ final class Router: ObservableObject {
             desktop move path: \(sky.movePath, privacy: .public)
             """)
         loadSessionPins()
+        loadDesktopBaseline()
 
         let timer = Timer.scheduledTimer(withTimeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
@@ -1010,9 +1014,36 @@ final class Router: ObservableObject {
 
     /// Deskmap kendi masaüstü işlemini bitirdi: kaybolan kimlik dış silme sayılmasın.
     func resetDesktopBaseline() {
-        knownDesktopSpaces = Self.desktopSpaces(
+        setDesktopBaseline(Self.desktopSpaces(
             displays: SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens)),
-            screens: screens.screens)
+            screens: screens.screens))
+    }
+
+    /// Karşılaştırma tabanını değiştirir; değiştiyse diske yazar (Deskmap
+    /// yeniden açılınca aradaki silmeler yakalansın).
+    private func setDesktopBaseline(_ spaces: [String: [UInt64]]) {
+        guard spaces != knownDesktopSpaces else { return }
+        knownDesktopSpaces = spaces
+        guard !isDemo else { return }
+        do {
+            try FileManager.default.createDirectory(
+                at: Store.directoryURL, withIntermediateDirectories: true)
+            try JSONEncoder().encode(spaces).write(to: Self.desktopSpacesFileURL, options: .atomic)
+        } catch {
+            Log.app.error("desktop-spaces.json not written: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Açılışta son kaydedilen masaüstü listesi okunur; ilk taramada
+    /// şimdiki listeyle karşılaştırılır. Yeniden başlatmada kimlikler
+    /// tamamen yenilenirse ekranın bütün eski kimlikleri kaybolur ve bu
+    /// silme sayılmaz (`externallyRemovedDesktops`).
+    private func loadDesktopBaseline() {
+        guard let data = try? Data(contentsOf: Self.desktopSpacesFileURL),
+              let saved = try? JSONDecoder().decode([String: [UInt64]].self, from: data)
+        else { return }
+        knownDesktopSpaces = saved
+        seenDesktopSpaces.formUnion(saved.values.joined())
     }
 
     /// Önceki ve şimdiki listeye göre Deskmap dışında silinen masaüstüleri
@@ -1065,7 +1096,7 @@ final class Router: ObservableObject {
                 shiftSessionPins(screen: screen, removed: desktop)
             }
         }
-        knownDesktopSpaces = spaces
+        setDesktopBaseline(spaces)
         if !store.document.desktopNames.isEmpty, !comparable.isEmpty {
             store.reconcileDesktopNames(spaces: comparable, seen: seenDesktopSpaces)
         }
