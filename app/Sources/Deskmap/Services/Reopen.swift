@@ -28,7 +28,9 @@ enum Reopen {
     /// (" — Klasör") açılır ki aynı çalışma alanı gelsin.
     static func capture(_ window: AXUIElement, bundleID: String, title: String) -> URL? {
         if bundleID == finder {
-            return finderFolder(window, title: title) ?? finderLocation(named: title)
+            // Özel konum (Recents…) başlıktan; ağacı dolaşmaya gerek yok (Recents
+            // listesi binlerce öğe, dolaşmak dakikalar sürüyordu, 08.10).
+            return finderLocation(named: title) ?? finderFolder(window, title: title)
         }
         if browsers.contains(bundleID) { return webAddress(window) }
         guard let raw = value(window, kAXDocumentAttribute) else { return nil }
@@ -70,14 +72,24 @@ enum Reopen {
     /// olduğu zincir kabul edilir; zincirdeki son klasör döner. Yol çubuğu
     /// kapalıysa nil.
     private static func finderFolder(_ window: AXUIElement, title: String) -> URL? {
+        // Dosya listeleri (AXScrollArea/AXOutline/AXTable/AXBrowser ve uzun
+        // AXList'ler) dolaşılmaz; yol çubuğu kısa bir AXList. Süre sınırı da var.
+        let deadline = Date().addingTimeInterval(0.3)
+        let skipped: Set<String> = ["AXScrollArea", "AXOutline", "AXTable", "AXBrowser", "AXWebArea"]
         var found: URL?
         func walk(_ element: AXUIElement, depth: Int) {
-            guard found == nil, depth > 0 else { return }
+            guard found == nil, depth > 0, Date() < deadline else { return }
             for child in children(element) {
-                if (value(child, kAXRoleAttribute) as? String) == "AXList",
-                   let folder = pathBarFolder(children(child), title: title) {
-                    found = folder
-                    return
+                guard Date() < deadline else { return }
+                let role = value(child, kAXRoleAttribute) as? String ?? ""
+                if skipped.contains(role) { continue }
+                if role == "AXList" {
+                    let items = children(child)
+                    if items.count <= 40, let folder = pathBarFolder(items, title: title) {
+                        found = folder
+                        return
+                    }
+                    continue
                 }
                 walk(child, depth: depth - 1)
                 if found != nil { return }

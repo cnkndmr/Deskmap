@@ -164,6 +164,11 @@ final class Router: ObservableObject {
     /// Pencere başına son okuma: başlık değişince ya da süre dolunca yeniden.
     private var reopenReads: [CGWindowID: (title: String, at: Date)] = [:]
     private static let reopenRefresh: TimeInterval = 60
+    /// Yeniden açma okumaları ayrı kuyrukta: tarama kuyruğunu asla bekletmesin
+    /// (Finder'ın Recents ağacında dakikalarca takılıp ekran değişimini
+    /// işletmemişti, 08.10). Önceki tur bitmeden yenisi başlamaz.
+    private let reopenQueue = DispatchQueue(label: "deskmap.reopen", qos: .background)
+    private var reopenBusy = false
     static let desktopSpacesFileURL = Store.directoryURL.appendingPathComponent("desktop-spaces.json")
 
     /// Diske yazılan oturum pini kaydı.
@@ -1042,8 +1047,9 @@ final class Router: ObservableObject {
         }
         let alive = Set(snapshots.map(\.id))
         reopenReads = reopenReads.filter { alive.contains($0.key) }
-        guard !jobs.isEmpty else { return }
-        queue.async { [weak self] in
+        guard !jobs.isEmpty, !reopenBusy else { return }
+        reopenBusy = true
+        reopenQueue.async { [weak self] in
             var found: [String: URL] = [:]
             for job in jobs {
                 guard let element = AX.element(pid: job.pid, windowID: job.window),
@@ -1051,8 +1057,10 @@ final class Router: ObservableObject {
                 else { continue }
                 found[job.rule] = url
             }
-            guard !found.isEmpty else { return }
-            DispatchQueue.main.async { self?.storeReopenTargets(found) }
+            DispatchQueue.main.async {
+                self?.reopenBusy = false
+                if !found.isEmpty { self?.storeReopenTargets(found) }
+            }
         }
     }
 
