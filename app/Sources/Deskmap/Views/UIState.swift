@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Pin düğmesine basılınca oluşan taslak: hangi pencere, bulunduğu
@@ -80,6 +81,21 @@ final class UIState: ObservableObject {
     /// Bağlı ekranlardaki gerçek masaüstü sayısı (ekran id → sayı); her
     /// taramada yenilenir. Hedefi bunun dışında kalan pin rozetle uyarılır.
     @Published var desktopCounts: [String: Int] = [:]
+    /// ⌘-tıklamayla seçilen pencereler (toplu pinleme).
+    @Published var selection: Set<CGWindowID> = []
+    /// Son fare basışında ⌘ basılı mıydı. Tek tıklama çift tıklama süresi
+    /// dolunca işlenir; o anda ⌘ bırakılmış olabilir, bu yüzden basış
+    /// anında yerel izleyiciyle kaydedilir.
+    private(set) var commandAtMouseDown = false
+    private var mouseMonitor: Any?
+
+    func watchCommandClicks() {
+        guard mouseMonitor == nil else { return }
+        mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+            self?.commandAtMouseDown = event.modifierFlags.contains(.command)
+            return event
+        }
+    }
 
     /// Sürükleme sırasında canlı durum ve bilinen hedef çerçeveleri.
     @Published var drag: ChipDrag?

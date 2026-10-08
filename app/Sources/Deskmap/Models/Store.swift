@@ -1189,6 +1189,16 @@ final class Store: ObservableObject {
         return id
     }
 
+    /// Toplu pinleme: hepsi tek adımda yazılır, ⌘Z hepsini geri alır.
+    func pinMany(_ items: [(rule: Rule, destination: Destination)], mode: Mode) {
+        guard !items.isEmpty else { return }
+        recording(L("Windows pinned")) {
+            for item in items {
+                document.pin(item.rule, destination: item.destination, mode: mode)
+            }
+        }
+    }
+
     /// Kuralın başlık parçalarını değiştirir (geri alınabilir). Başka bir
     /// kuralla anahtar çakışırsa dokunmaz ve false döner.
     @discardableResult

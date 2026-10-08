@@ -156,18 +156,26 @@ struct PinPanel: View {
         measuredLayout = layout
         kind = .title
         segments = Rule.split(title: window.title)
-        if segments.isEmpty {
-            chosen = []
-            appWide = true
-        } else {
-            // Varsayılan: uygulama adı olmayan son parça (çalışma alanı adı
-            // genellikle başlığın sonundadır).
-            let candidates = segments.indices.filter {
-                segments[$0].caseInsensitiveCompare(window.appName) != .orderedSame
-            }
-            chosen = Set([candidates.last ?? segments.indices.last].compactMap { $0 })
-            appWide = false
+        chosen = Self.defaultChoice(segments: segments, appName: window.appName)
+        appWide = segments.isEmpty
+    }
+
+    /// Varsayılan parça seçimi (saf): uygulama adı olmayan son parça
+    /// (çalışma alanı adı genellikle başlığın sonundadır); başlık boşsa yok.
+    static func defaultChoice(segments: [String], appName: String) -> Set<Int> {
+        guard !segments.isEmpty else { return [] }
+        let candidates = segments.indices.filter {
+            segments[$0].caseInsensitiveCompare(appName) != .orderedSame
         }
+        return Set([candidates.last ?? segments.indices.last].compactMap { $0 })
+    }
+
+    /// Tek pin düğmesinin varsayılan başlık parçaları (saf).
+    static func defaultTokens(title: String, appName: String) -> [String] {
+        let segments = Rule.split(title: title)
+        return TokenPicker.tokens(segments: segments,
+                                  chosen: defaultChoice(segments: segments, appName: appName),
+                                  appWide: segments.isEmpty)
     }
 
     private var tokens: [String] {

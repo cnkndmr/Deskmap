@@ -252,6 +252,7 @@ struct RootView: View {
         .background(WindowRoomReader(margin: Self.screenMargin) { room = $0 })
         .background(.regularMaterial)
         .onAppear {
+            ui.watchCommandClicks()
             mode = screens.mode
             liveMode = screens.mode
             ui.windows = router.windows
@@ -434,6 +435,16 @@ struct RootView: View {
     /// Açık panele göre içerik; pin taslağı yalnızca şu anki modda anlamlı.
     @ViewBuilder
     private var bottomPanel: some View {
+        if !ui.selection.isEmpty, mode == screens.mode {
+            MultiPinBar(mode: mode)
+                .bottomPanelChrome()
+        } else {
+            singlePanel
+        }
+    }
+
+    @ViewBuilder
+    private var singlePanel: some View {
         switch ui.panel {
         // Taslak açıldığı sekmenin modundadır (sekme değişince panel kapanır);
         // diğer kurulumun sekmesinde de pin yazılabilir.

@@ -179,8 +179,8 @@
 /* Views/WindowRow.swift: pencere satırı */
 "Minimized" = "Simge durumunda";
 "Layout: %@" = "Düzen: %@";
-"Click to change the layout; drag to change the pin's target; double-click to go to the window" = "Tıklayarak düzeni, sürükleyerek pinin hedefini değiştirin; pencereye gitmek için çift tıklayın";
-"Drag to move (does not pin); click the pin to keep it here; double-click to go to the window" = "Sürükleyerek taşıyın (pinlenmez); sabitlemek için pin düğmesine tıklayın; pencereye gitmek için çift tıklayın";
+"Click to change the layout; drag to change the pin's target; double-click to go to the window; ⌘-click to select several" = "Tıklayarak düzeni, sürükleyerek pinin hedefini değiştirin; pencereye gitmek için çift tıklayın; birden çok seçmek için ⌘-tıklayın";
+"Drag to move (does not pin); click the pin to keep it here; double-click to go to the window; ⌘-click to select several" = "Sürükleyerek taşıyın (pinlenmez); sabitlemek için pin düğmesine tıklayın; pencereye gitmek için çift tıklayın; birden çok seçmek için ⌘-tıklayın";
 "Temporary pin (this window only, this session). Click to remove." = "Geçici pin (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın.";
 "Pinned: %@. Click to remove." = "Pinli: %@. Kaldırmak için tıklayın.";
 "Pin to this desktop" = "Bu masaüstüne pinle";
@@ -326,3 +326,10 @@
 "Could not open a %@ window" = "%@ penceresi açılamadı";
 "Double-click opens %@" = "Çift tıklama %@ açar";
 "%@ is open, but Deskmap does not know this window's file or folder yet. Open it once; after that a double-click opens it." = "%@ açık, ama Deskmap bu pencerenin dosyasını ya da klasörünü henüz bilmiyor. Bir kez açın; sonra çift tıklama onu açar.";
+"Windows pinned" = "Pencereler pinlendi";
+"%ld windows selected" = "%ld pencere seçili";
+"Each is pinned to its current desktop with its current size and position." = "Her biri bulunduğu masaüstüne, şu anki boyut ve konumuyla pinlenir.";
+"%ld of them only until the window closes: their titles also match other open windows." = "%ld tanesi yalnız pencere kapanana dek: başlıkları başka açık pencerelere de uyuyor.";
+"⌘-click windows to add or remove them." = "Eklemek ya da çıkarmak için pencerelere ⌘ ile tıklayın.";
+"Pin %ld where they are" = "%ld pencereyi yerinde pinle";
+"Clear" = "Seçimi kaldır";

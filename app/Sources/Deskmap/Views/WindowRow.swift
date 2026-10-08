@@ -59,6 +59,7 @@ struct WindowRow: View {
         let name = match.flatMap { m in screens.screens.first { $0.id == m.destination.screen }?.name }
         return Routing.explanation(for: match, screenName: name)
     }
+    private var isMultiSelected: Bool { !isGhost && ui.selection.contains(window.id) }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .window(window.id) }
 
     var body: some View {
@@ -68,6 +69,11 @@ struct WindowRow: View {
                 Text(window.appName)
                     .font(.caption.weight(.medium))
                     .lineLimit(1)
+            }
+            if isMultiSelected {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.accentColor)
             }
             if window.isMinimized {
                 Image(systemName: "arrow.down.right.and.arrow.up.left")
@@ -118,11 +124,12 @@ struct WindowRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isDrafting || isSelected ? Color.accentColor.opacity(0.18)
+                .fill(isMultiSelected ? Color.accentColor.opacity(0.28)
+                      : isDrafting || isSelected ? Color.accentColor.opacity(0.18)
                                  : Color(nsColor: .controlBackgroundColor).opacity(isGhost ? 1 : 0.7)))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(isDrafting || isSelected ? Color.accentColor
+                .strokeBorder(isDrafting || isSelected || isMultiSelected ? Color.accentColor
                               : (sessionPin != nil ? Color.orange.opacity(0.5)
                                  : (isPinned ? Color.accentColor.opacity(0.35)
                                              : Color.primary.opacity(0.08))),
@@ -139,6 +146,17 @@ struct WindowRow: View {
             AX.focus(windowID: window.id, pid: window.pid)
         }
         .onTapGesture {
+            // ⌘-tıklama: toplu pinleme için seçime ekle/çıkar.
+            if ui.commandAtMouseDown, !isGhost, mode == screens.mode,
+               window.placement != nil, window.fullscreen == nil {
+                ui.panel = nil
+                if ui.selection.contains(window.id) {
+                    ui.selection.remove(window.id)
+                } else {
+                    ui.selection.insert(window.id)
+                }
+                return
+            }
             // Pinli satıra tıklamak düzen panelini açar (tekrar tıklamak kapatır).
             if sessionPin != nil {
                 ui.toggle(.session(window.id))
@@ -150,8 +168,8 @@ struct WindowRow: View {
         .contextMenu {
             if !isGhost, isPinned { sendMenu }
         }
-        .help(isPinned ? L("Click to change the layout; drag to change the pin's target; double-click to go to the window")
-              : mode == screens.mode ? L("Drag to move (does not pin); click the pin to keep it here; double-click to go to the window")
+        .help(isPinned ? L("Click to change the layout; drag to change the pin's target; double-click to go to the window; ⌘-click to select several")
+              : mode == screens.mode ? L("Drag to move (does not pin); click the pin to keep it here; double-click to go to the window; ⌘-click to select several")
               : L("Drag onto a desktop to pin it for %@; the window is not moved", mode.title))
     }
 
