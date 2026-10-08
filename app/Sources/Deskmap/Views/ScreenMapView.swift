@@ -255,6 +255,32 @@ private struct FullscreenRow: View {
 
 // MARK: - Masaüstü satırı
 
+/// Masaüstü etiketi: ad varsa ad (iki satıra kadar) ve altında küçük
+/// numara, yoksa "Masaüstü N".
+private struct DesktopLabel: View {
+    let desktop: Int
+    let name: String?
+    let exists: Bool
+
+    var body: some View {
+        if let name {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(exists ? .primary : .tertiary)
+                    .lineLimit(2)
+                Text(L("Desktop %ld", desktop))
+                    .font(.system(size: 9))
+                    .foregroundStyle(.tertiary)
+            }
+        } else {
+            Text(L("Desktop %ld", desktop))
+                .font(.caption.weight(.medium))
+                .foregroundStyle(exists ? .secondary : .tertiary)
+        }
+    }
+}
+
 /// Her masaüstü tam genişlikte bir satır: solda numara, sağda uygulama
 /// başına gruplanmış pencereler ve penceresi kapalı pinler.
 private struct DesktopRow: View {
@@ -277,6 +303,12 @@ private struct DesktopRow: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var router: Router
+    /// Ad düzenleniyor mu (etikete çift tıklama ya da sağ tık menüsü).
+    @State private var isRenaming = false
+    @State private var nameDraft = ""
+    @FocusState private var nameFocused: Bool
+
+    private var name: String? { store.desktopName(screen: screen.id, desktop: desktop) }
 
     private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
     private var isTargeted: Bool { ui.drag?.hover == target && acceptsDrag }
@@ -346,15 +378,26 @@ private struct DesktopRow: View {
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 9))
                     .foregroundStyle(.quaternary)
-                Text(L("Desktop %ld", desktop))
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(exists ? .secondary : .tertiary)
+                if isRenaming {
+                    TextField(L("Desktop %ld", desktop), text: $nameDraft)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+                        .focused($nameFocused)
+                        .onSubmit { commitName() }
+                        .onExitCommand { isRenaming = false }
+                        .onChange(of: nameFocused) { focused in
+                            if !focused && isRenaming { commitName() }
+                        }
+                } else {
+                    DesktopLabel(desktop: desktop, name: name, exists: exists)
+                }
             }
-            .frame(width: 84, alignment: .leading)
+            .frame(width: name == nil && !isRenaming ? 84 : 132, alignment: .leading)
             .padding(.top, 2)
             .contentShape(Rectangle())
-            .gesture(desktopDrag)
-            .help(L("Drag to move this desktop (with its pins) up, down or to another display"))
+            .onTapGesture(count: 2) { startRenaming() }
+            .gesture(desktopDrag, including: isRenaming ? .none : .all)
+            .help(L("Double-click to name this desktop; drag to move it (with its pins) up, down or to another display"))
 
             if groups.isEmpty && orphanRules.isEmpty {
                 Text(exists ? L("empty") : L("doesn't exist yet"))
@@ -393,8 +436,29 @@ private struct DesktopRow: View {
         .opacity(isBeingDragged ? 0.4 : 1)
         .dropTarget(target)
         .contextMenu {
+            Button(name == nil ? L("Name Desktop…") : L("Rename Desktop…")) { startRenaming() }
+            if name != nil {
+                Button(L("Remove Name")) {
+                    store.setDesktopName(nil, screen: screen.id, desktop: desktop)
+                }
+            }
+            Divider()
             Button(L("Remove Desktop %ld", desktop), role: .destructive) { remove() }
         }
+    }
+
+    private func startRenaming() {
+        nameDraft = name ?? ""
+        isRenaming = true
+        nameFocused = true
+    }
+
+    private func commitName() {
+        isRenaming = false
+        let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed != (name ?? "") else { return }
+        store.setDesktopName(trimmed, screen: screen.id, desktop: desktop,
+                             space: isLive ? router.currentSpace(on: screen.id, desktop: desktop) : nil)
     }
 
     /// Satırı siler; kısıt yok. Etkin modda gerçekte var olan masaüstü
@@ -891,8 +955,10 @@ struct DragGhost: View {
                         WindowRow(window: window, mode: mode, isGhost: true)
                             .frame(width: 260)
                     }
-                case .desktop(_, let desktop):
-                    Label(L("Desktop %ld", desktop), systemImage: "line.3.horizontal")
+                case .desktop(let screen, let desktop):
+                    Label(store.desktopName(screen: screen, desktop: desktop)
+                            .map { "\(desktop) · \($0)" } ?? L("Desktop %ld", desktop),
+                          systemImage: "line.3.horizontal")
                         .font(.caption.weight(.medium))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)

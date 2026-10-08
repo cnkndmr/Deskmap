@@ -49,6 +49,9 @@ final class StatusFile {
         let screens: [Screen]
         let windows: [Window]
         let rules: [Rule]
+        /// Masaüstü adları: ekran → masaüstü numarası → ad (bağlı olmayan
+        /// ekranlarınki de).
+        let desktopNames: [String: [String: String]]
     }
 
     private let url: URL
@@ -113,7 +116,8 @@ final class StatusFile {
                       minimized: window.isMinimized, fullscreen: window.fullscreen != nil,
                       pinned: pins[window.id].map { .init(screen: $0.screen, desktop: $0.desktop) })
             },
-            rules: store.document.rules)
+            rules: store.document.rules,
+            desktopNames: store.document.desktopNames)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

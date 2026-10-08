@@ -102,7 +102,7 @@
 /* Views/ScreenMapView.swift: harita */
 "Desktop %ld" = "Masaüstü %ld";
 "not connected" = "bağlı değil";
-"Drag to move this desktop (with its pins) up, down or to another display" = "Sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı ya da başka ekrana taşıyın";
+"Double-click to name this desktop; drag to move it (with its pins) up, down or to another display" = "Ad vermek için çift tıklayın; sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı ya da başka ekrana taşıyın";
 "Desktop moved to another display" = "Masaüstü başka ekrana taşındı";
 "empty" = "boş";
 "doesn't exist yet" = "henüz yok";
@@ -249,6 +249,10 @@
 "Remove Desktop %ld" = "Masaüstünü sil (%ld)";
 "Could not remove desktop %ld on %@" = "%2$@ ekranında masaüstü %1$ld silinemedi";
 "Desktop removed" = "Masaüstü silindi";
+"Desktop renamed" = "Masaüstü adı değişti";
+"Name Desktop…" = "Masaüstüne ad ver…";
+"Rename Desktop…" = "Masaüstünü yeniden adlandır…";
+"Remove Name" = "Adı kaldır";
 "Move freely for a while: Deskmap will not put the window back until the time is up." = "Bir süre serbest gezdir: süre bitene kadar Deskmap pencereyi yerine döndürmez.";
 "Free move" = "Serbest bırak";
 "Let this window be moved freely for a while" = "Bu pencere bir süre serbestçe taşınabilsin";

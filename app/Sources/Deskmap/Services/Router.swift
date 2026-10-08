@@ -994,6 +994,37 @@ final class Router: ObservableObject {
         if changed { saveSessionPins() }
     }
 
+    /// Bu oturumda görülmüş masaüstü kimlikleri: adı bağlı kimlik burada
+    /// olup artık yoksa masaüstü silinmiştir (bkz. `reconcileDesktopNames`).
+    private var seenDesktopSpaces: Set<UInt64> = []
+
+    /// Masaüstü adlarını gerçek masaüstülerine göre yerleştirir: macOS'ta
+    /// (Mission Control) sıra/ekran değişse ya da masaüstü silinse de ad
+    /// doğru masaüstünü izler. Liste okunamadıysa (boş) dokunulmaz.
+    private func followDesktopNames(_ spaces: [String: [UInt64]]) {
+        guard !spaces.isEmpty, !screens.isSettling, !desktopOpInFlight else { return }
+        // Bekleyen silmesi olan ekranda numaralar gerçek masaüstülerinden
+        // önce kaymıştır; silme bitene dek adlar numarada kalır.
+        let pending = Set(store.document.pendingRemovals
+            .filter { !$0.value.isEmpty }
+            .compactMap { $0.key.split(separator: "|").last.map(String.init) })
+        let comparable = spaces.filter { !pending.contains($0.key) }
+        if !store.document.desktopNames.isEmpty, !comparable.isEmpty {
+            store.reconcileDesktopNames(spaces: comparable, seen: seenDesktopSpaces)
+        }
+        seenDesktopSpaces.formUnion(spaces.values.joined())
+    }
+
+    /// Ekranın `desktop`. masaüstünün şu anki kimliği (SkyLight'tan taze).
+    func currentSpace(on screenID: String, desktop: Int) -> UInt64? {
+        guard let info = screens.screens.first(where: { $0.id == screenID }),
+              let display = SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens))
+                .first(where: { $0.displayUUID == info.uuid }),
+              desktop >= 1, desktop <= display.desktops.count
+        else { return nil }
+        return display.desktops[desktop - 1].id
+    }
+
     /// Etkin olmayan modda silinecek masaüstünün şu an bilinen space
     /// kimliği: ekran bağlıysa, o ekranın masaüstüleri arasından önceki
     /// bekleyen silmeler çıkarıldıktan sonra `desktop`. sıradaki. Saf olmayan
@@ -1335,6 +1366,7 @@ final class Router: ObservableObject {
                 if outcome.desktopCounts != self.desktopCounts {
                     self.desktopCounts = outcome.desktopCounts
                 }
+                self.followDesktopNames(outcome.desktopSpaces)
                 self.createPlannedDesktops()
                 self.sweepDeadline = Self.nextSweepDeadline(
                     now: Date(), pendingSessionMisses: !self.sessionMisses.isEmpty,
@@ -1371,6 +1403,8 @@ final class Router: ObservableObject {
         var unresponsive: [String] = []
         /// Bağlı ekranlardaki gerçek masaüstü sayıları.
         var desktopCounts: [String: Int] = [:]
+        /// Bağlı ekranların sıralı masaüstü (space) kimlikleri.
+        var desktopSpaces: [String: [UInt64]] = [:]
         /// Tarama sürerken yönlendirme nesli değişti; yan etkiler kesildi.
         var stale = false
         /// Space durumu bilinmediği için yönlendirilmeyen pencere sayısı.
@@ -1444,6 +1478,7 @@ final class Router: ObservableObject {
         // Space türleri ekran listesinden; listede olmayan kimlik için IPC.
         let spaceTypes = SkyLight.spaceTypes(of: displays)
         outcome.desktopCounts = Self.desktopCounts(displays: displays, screens: screens)
+        outcome.desktopSpaces = Self.desktopSpaces(displays: displays, screens: screens)
         func spaceType(_ id: UInt64) -> Int? { spaceTypes[id] ?? sky.type(of: id) }
         // Pencere sunucusu taramada bir kez okunur: 2. aşama listeleme ve
         // yaşam denetimi aynı sonuçtan türer.
@@ -1795,6 +1830,19 @@ final class Router: ObservableObject {
     nonisolated static func desktopCounts(screens: [ScreenInfo]) -> [String: Int] {
         desktopCounts(displays: SkyLight.shared.displaySpaces(mainUUID: primaryUUID(screens)),
                       screens: screens)
+    }
+
+    /// Okunmuş ekran listesinden ekran başına sıralı masaüstü kimlikleri (saf).
+    nonisolated static func desktopSpaces(
+        displays: [SkyLight.DisplaySpaces], screens: [ScreenInfo]
+    ) -> [String: [UInt64]] {
+        var result: [String: [UInt64]] = [:]
+        for display in displays {
+            if let screen = screens.first(where: { $0.uuid == display.displayUUID }) {
+                result[screen.id] = display.desktops.map(\.id)
+            }
+        }
+        return result
     }
 
     /// Okunmuş ekran listesinden masaüstü sayıları (saf).

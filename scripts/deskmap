@@ -52,6 +52,8 @@ COMMANDS:
   apply FILE [--dry-run] | apply FILE --remove | apply --undo | check FILE | dump
   layouts                          layout names
   move W SCREEN [N] | pin W SCREEN [N] | unpin W            one window
+  move W DESKTOP-NAME | pin W DESKTOP-NAME                  target by desktop name
+  desktops | name SCREEN N [NAME]  list desktop names | name a desktop (no NAME: remove)
   rule add --app A [--title T ...] --screen S [--desktop N] [--layout L]
            [--undocked-screen S --undocked-desktop N] | rule rm ID
   save-layout RULE [--window W]    use the window's current frame as the rule's layout
@@ -59,7 +61,10 @@ COMMANDS:
   profile-rename OLD NEW | export FILE [--profile P]
   desktop-move SCREEN N M [--mode M]   reorder desktops (rules/pins/windows follow)
   W: window id or a unique app/title fragment. SCREEN: builtin, external,
-  external-2… or part of the display name. `deskmap CMD --help` for options.
+  external-2… or part of the display name. DESKTOP-NAME: a name given to a
+  desktop (in the app: double-click "Desktop N" on the map, or `deskmap name`);
+  exact or a unique part, case-insensitive. `pin` keeps the window there.
+  `deskmap CMD --help` for options.
 
 FILES: ~/Library/Application Support/Deskmap/: rules.json (rules, profiles),
 status.json (live state), hooks.json (commands run when a window changes screen,
@@ -140,6 +145,75 @@ def resolve_screen(status, text):
     die(f"screen '{text}' is ambiguous: " + ", ".join(f"{s['id']} ({s['name']})" for s in hits))
 
 
+def desktop_names(status):
+    """[(ekran, masaüstü, ad)], ekran ve numara sırasıyla."""
+    out = []
+    for screen, names in (status.get("desktopNames") or {}).items():
+        for n, name in names.items():
+            out.append((screen, int(n), name))
+    return sorted(out)
+
+
+def find_desktop_name(status, text):
+    """Ada göre (ekran, masaüstü); tam eşleşme önce, sonra tek parça eşleşmesi.
+    Bulunamazsa None; birden çok parça eşleşmesi hata."""
+    text_l = text.strip().lower()
+    names = desktop_names(status)
+    exact = [(sc, n) for sc, n, name in names if name.lower() == text_l]
+    if len(exact) == 1:
+        return exact[0]
+    hits = exact or [(sc, n) for sc, n, name in names if text_l in name.lower()]
+    if len(hits) == 1:
+        return hits[0]
+    if hits:
+        die(f"desktop name '{text}' is ambiguous: " + ", ".join(
+            f"{sc}/{n} ({name})" for sc, n, name in names if (sc, n) in hits))
+    return None
+
+
+def resolve_place(status, text, desktop):
+    """SCREEN [N] ya da masaüstü adı → (ekran, masaüstü). Masaüstü numarası
+    verilmediyse ve metin bir ekran kimliği değilse önce masaüstü adına bakılır."""
+    ids = {s["id"] for s in status["screens"]}
+    if desktop is None and text.lower() not in ids:
+        named = find_desktop_name(status, text)
+        if named:
+            return named
+        if not any(text.lower() in s["name"].lower() for s in status["screens"]):
+            names = ", ".join(f"{name} ({sc}/{n})" for sc, n, name in desktop_names(status))
+            die(f"no display or desktop named '{text}'"
+                + (f"; desktop names: {names}" if names else ""))
+    return resolve_screen(status, text), desktop or 1
+
+
+def desktop_label(status, screen, desktop):
+    name = ((status.get("desktopNames") or {}).get(screen) or {}).get(str(desktop))
+    return f"{screen}/{desktop}" + (f" ({name})" if name else "")
+
+
+def show_desktops(args):
+    s = fresh_status()
+    names = desktop_names(s)
+    if args.json:
+        print(json.dumps(s.get("desktopNames") or {}, indent=2, ensure_ascii=False)); return
+    if not names:
+        print("(no desktop names; name one: deskmap name SCREEN N NAME)"); return
+    for sc, n, name in names:
+        print(f"{sc + '/' + str(n):<14} {name}")
+
+
+def name_desktop(args):
+    s = fresh_status()
+    screen = resolve_screen(s, args.screen)
+    name = " ".join(args.name or [])
+    after = send(f"desktop-name/{screen}/{args.desktop}", name=name)
+    got = ((after.get("desktopNames") or {}).get(screen) or {}).get(str(args.desktop))
+    if (got or "") != name.strip():
+        die("name was not saved")
+    print(desktop_label(after, screen, args.desktop) if name.strip()
+          else f"{screen}/{args.desktop}: name removed")
+
+
 def resolve_window(status, text):
     windows = status["windows"]
     if text.isdigit():
@@ -188,7 +262,10 @@ def show_windows(args):
         print(json.dumps(windows, indent=2, ensure_ascii=False)); return
     for w in windows:
         pin = f"  pin→{w['pinned']['screen']}/{w['pinned']['desktop']}" if w.get("pinned") else ""
-        print(f"{w['id']:>7}  {w['app'][:18]:<18} {where(w):<16} {w['title'][:50]}{pin}")
+        place = where(w)
+        if w.get("desktop") and w.get("screen") and not w["fullscreen"] and not w["minimized"]:
+            place = desktop_label(s, w["screen"], w["desktop"])
+        print(f"{w['id']:>7}  {w['app'][:18]:<18} {place[:28]:<28} {w['title'][:50]}{pin}")
 
 
 def show_screens(args):
@@ -198,6 +275,9 @@ def show_screens(args):
     for sc in s["screens"]:
         x, y, w, h = sc["frame"]
         print(f"{sc['id']:<11} {sc['name']:<28} {int(w)}x{int(h)} at {int(x)},{int(y)}")
+        for n, name in sorted(((int(k), v) for k, v in
+                               ((s.get("desktopNames") or {}).get(sc["id"]) or {}).items())):
+            print(f"    desktop {n}: {name}")
 
 
 def dest_text(d):
@@ -240,11 +320,11 @@ def rule_add(args):
     rule = {"id": str(uuid.uuid4()).upper(), "appName": args.app,
             "bundleID": args.bundle or "", "tokens": args.title or []}
     if args.screen:
-        rule["docked"] = {"screen": resolve_screen(s, args.screen), "desktop": args.desktop,
-                          "layout": lay}
+        screen, desktop = resolve_place(s, args.screen, args.desktop)
+        rule["docked"] = {"screen": screen, "desktop": desktop, "layout": lay}
     if args.undocked_screen:
-        rule["undocked"] = {"screen": resolve_screen(s, args.undocked_screen),
-                            "desktop": args.undocked_desktop, "layout": lay}
+        screen, desktop = resolve_place(s, args.undocked_screen, args.undocked_desktop)
+        rule["undocked"] = {"screen": screen, "desktop": desktop, "layout": lay}
     after = send("rule-add", json=json.dumps(rule, separators=(",", ":"), ensure_ascii=False))
     if not any(r["id"] == rule["id"] for r in after["rules"]):
         die("rule was not added")
@@ -264,7 +344,10 @@ def window_command(name):
         if name == "unpin":
             send(f"unpin/{window}")
         else:
-            send(f"{name}/{window}/{resolve_screen(s, args.screen)}/{args.desktop}")
+            screen, desktop = resolve_place(s, args.screen, args.desktop)
+            send(f"{name}/{window}/{screen}/{desktop}")
+            print(f"{window} → {desktop_label(s, screen, desktop)}"
+                  + (" (pinned until the window closes)" if name == "pin" else ""))
         if name == "move":
             # Taşıma arka planda; sonucu bir sonraki taramada görünür.
             time.sleep(1.0)
@@ -811,14 +894,18 @@ def main():
     sp.set_defaults(fn=lambda a: send("profile", name=a.name))
     for name in ("pin", "move"):
         sp = sub.add_parser(name); sp.add_argument("window"); sp.add_argument("screen")
-        sp.add_argument("desktop", nargs="?", type=int, default=1); sp.set_defaults(fn=window_command(name))
+        sp.add_argument("desktop", nargs="?", type=int); sp.set_defaults(fn=window_command(name))
     sp = sub.add_parser("unpin"); sp.add_argument("window"); sp.set_defaults(fn=window_command("unpin"))
+    sp = sub.add_parser("desktops"); sp.add_argument("--json", action="store_true")
+    sp.set_defaults(fn=show_desktops)
+    sp = sub.add_parser("name"); sp.add_argument("screen"); sp.add_argument("desktop", type=int)
+    sp.add_argument("name", nargs="*"); sp.set_defaults(fn=name_desktop)
     rp = sub.add_parser("rule").add_subparsers(dest="rcmd", required=True)
     sp = rp.add_parser("add")
     sp.add_argument("--app", required=True); sp.add_argument("--bundle")
     sp.add_argument("--title", nargs="+"); sp.add_argument("--screen")
-    sp.add_argument("--desktop", type=int, default=1); sp.add_argument("--layout")
-    sp.add_argument("--undocked-screen"); sp.add_argument("--undocked-desktop", type=int, default=1)
+    sp.add_argument("--desktop", type=int); sp.add_argument("--layout")
+    sp.add_argument("--undocked-screen"); sp.add_argument("--undocked-desktop", type=int)
     sp.set_defaults(fn=rule_add)
     sp = rp.add_parser("rm"); sp.add_argument("id"); sp.set_defaults(fn=rule_rm)
     sp = sub.add_parser("profile-rename"); sp.add_argument("old"); sp.add_argument("new")

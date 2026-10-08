@@ -343,6 +343,7 @@ running, macOS starts it first.
 | `deskmap://rule-save-layout/<rule id>[?window=<id>]` | Use a matching window's current size and position as the rule's layout (live mode) |
 | `deskmap://profile-set?json=<profile>&activate=1` | Create or update a profile by name |
 | `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Make a display have *count* desktops |
+| `deskmap://desktop-name/<screen>/<n>?name=<name>` | Name a desktop (empty name removes it). Names follow the real desktop when it is reordered, moved or removed in Mission Control |
 
 Any command accepts `?req=<id>`: after handling it Deskmap writes
 `status.json` with `"request": "<id>"`, so a script can wait for the command

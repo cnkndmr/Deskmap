@@ -180,13 +180,15 @@ struct WindowRow: View {
         ForEach(targets, id: \.screen) { target in
             Menu(target.name) {
                 ForEach(target.desktops, id: \.desktop) { item in
+                    let title = store.desktopName(screen: target.screen, desktop: item.desktop)
+                        .map { "\(item.desktop) · \($0)" } ?? L("Desktop %ld", item.desktop)
                     Button {
                         send(to: Router.Placement(screen: target.screen, desktop: item.desktop))
                     } label: {
                         if item.isCurrent {
-                            Label(L("Desktop %ld", item.desktop), systemImage: "checkmark")
+                            Label(title, systemImage: "checkmark")
                         } else {
-                            Text(L("Desktop %ld", item.desktop))
+                            Text(title)
                         }
                     }
                     .disabled(item.isCurrent)
