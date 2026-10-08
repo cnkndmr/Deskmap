@@ -271,14 +271,17 @@ enum AX {
         return createWithRemoteToken(Data(token) as CFData)?.takeRetainedValue()
     }
 
-    /// Taranan en yüksek öğe kimliği (alt-tab-macos 1000 kullanıyor).
-    private static let remoteScanLimit: UInt64 = 1000
+    /// Taranan en yüksek öğe kimliği. alt-tab-macos 1000 kullanıyor, ama
+    /// uzun süredir açık uygulamada numaralar bunu geçiyor (Preview 1151,
+    /// ölçüldü 08.10): o pencereler listelenmiyor, pinleri korunmuyordu.
+    /// 1000 numara ~20 ms.
+    private static let remoteScanLimit: UInt64 = 5000
     /// Bulunamayan numaraların yeniden taranmadığı süre (bir tarama ~20 ms, ölçüldü).
     static let remoteRescan: TimeInterval = 30
     /// Kesilen taramadan sonra yeniden deneme.
     static let remoteAbortRetry: TimeInterval = 5
     /// Tek taramanın süre bütçesi (yavaş ama yanıt veren uygulama).
-    private static let remoteScanBudget: TimeInterval = 0.3
+    private static let remoteScanBudget: TimeInterval = 0.6
     nonisolated(unsafe) private static var remoteGates: [pid_t: RemoteScanGate] = [:]
     private static let remoteLock = NSLock()
 

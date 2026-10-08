@@ -157,6 +157,13 @@ final class Router: ObservableObject {
     static let sessionFileURL = Store.directoryURL.appendingPathComponent("session-pins.json")
     /// Son görülen ekran → masaüstü kimlikleri; Deskmap kapalıyken
     /// Mission Control'de silinen masaüstü açılışta bununla yakalanır.
+    static let reopenFileURL = Store.directoryURL.appendingPathComponent("reopen.json")
+    /// Kural kimliği → pencere kapalıyken yeniden açmak için son görülen
+    /// dosya/klasör/sayfa (bkz. `Reopen`).
+    @Published private(set) var reopenTargets: [String: ReopenTarget] = [:]
+    /// Pencere başına son okuma: başlık değişince ya da süre dolunca yeniden.
+    private var reopenReads: [CGWindowID: (title: String, at: Date)] = [:]
+    private static let reopenRefresh: TimeInterval = 60
     static let desktopSpacesFileURL = Store.directoryURL.appendingPathComponent("desktop-spaces.json")
 
     /// Diske yazılan oturum pini kaydı.
@@ -258,6 +265,7 @@ final class Router: ObservableObject {
             """)
         loadSessionPins()
         loadDesktopBaseline()
+        loadReopenTargets()
 
         let timer = Timer.scheduledTimer(withTimeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
@@ -1012,6 +1020,72 @@ final class Router: ObservableObject {
         return liveDesktopCount(uuid: info.uuid)
     }
 
+    // MARK: - Yeniden açma hedefleri
+
+    /// Başlık parçalı (belirli pencere) kalıcı pinlere uyan açık
+    /// pencerelerin dosya/klasör/sayfa adresi arka planda okunur; başlık
+    /// değişince ya da dakikada bir. Değişen adres `reopen.json`'a yazılır.
+    private func captureReopenTargets(_ snapshots: [WindowSnapshot]) {
+        guard !isDemo else { return }
+        let now = Date()
+        let rules = store.document.rules, mode = screens.mode
+        var jobs: [(window: CGWindowID, pid: pid_t, bundleID: String, title: String, rule: String)] = []
+        for window in snapshots where !window.isMinimized && window.fullscreen == nil {
+            guard let match = Routing.select(
+                    rules: rules, sessionPins: [:], mode: mode, windowID: window.id,
+                    bundleID: window.bundleID, appName: window.appName, title: window.title),
+                  let rule = match.rule, !rule.isAppWide else { continue }
+            if let last = reopenReads[window.id], last.title == window.title,
+               now.timeIntervalSince(last.at) < Self.reopenRefresh { continue }
+            reopenReads[window.id] = (window.title, now)
+            jobs.append((window.id, window.pid, window.bundleID, window.title, rule.id))
+        }
+        let alive = Set(snapshots.map(\.id))
+        reopenReads = reopenReads.filter { alive.contains($0.key) }
+        guard !jobs.isEmpty else { return }
+        queue.async { [weak self] in
+            var found: [String: URL] = [:]
+            for job in jobs {
+                guard let element = AX.element(pid: job.pid, windowID: job.window),
+                      let url = Reopen.capture(element, bundleID: job.bundleID, title: job.title)
+                else { continue }
+                found[job.rule] = url
+            }
+            guard !found.isEmpty else { return }
+            DispatchQueue.main.async { self?.storeReopenTargets(found) }
+        }
+    }
+
+    private func storeReopenTargets(_ found: [String: URL]) {
+        let ruleIDs = Set(store.document.profiles.flatMap(\.rules).map(\.id))
+            .union(store.document.rules.map(\.id))
+        var next = reopenTargets.filter { ruleIDs.contains($0.key) }
+        for (rule, url) in found where next[rule]?.url != url.absoluteString {
+            next[rule] = ReopenTarget(url: url.absoluteString, seenAt: Date())
+        }
+        guard next != reopenTargets else { return }
+        reopenTargets = next
+        do {
+            try FileManager.default.createDirectory(
+                at: Store.directoryURL, withIntermediateDirectories: true)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            encoder.dateEncodingStrategy = .iso8601
+            try encoder.encode(next).write(to: Self.reopenFileURL, options: .atomic)
+        } catch {
+            Log.app.error("reopen.json not written: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    private func loadReopenTargets() {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        guard let data = try? Data(contentsOf: Self.reopenFileURL),
+              let saved = try? decoder.decode([String: ReopenTarget].self, from: data)
+        else { return }
+        reopenTargets = saved
+    }
+
     /// Deskmap kendi masaüstü işlemini bitirdi: kaybolan kimlik dış silme sayılmasın.
     func resetDesktopBaseline() {
         setDesktopBaseline(Self.desktopSpaces(
@@ -1438,6 +1512,7 @@ final class Router: ObservableObject {
                 self.screenHooks.fire(self.screenMemory.update(
                     windows: outcome.snapshots, screens: connected,
                     settling: self.screens.isSettling))
+                self.captureReopenTargets(outcome.snapshots)
                 if outcome.snapshots != self.windows {
                     Self.logFullscreenChange(from: self.windows, to: outcome.snapshots)
                     self.windows = outcome.snapshots

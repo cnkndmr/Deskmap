@@ -20,6 +20,8 @@ struct RuleChip: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var screens: ScreenService
     @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var router: Router
+    @Environment(\.dismiss) private var dismiss
 
     private var isSelected: Bool { ui.panel == .rule(rule.id) }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .rule(rule.id) }
@@ -36,6 +38,12 @@ struct RuleChip: View {
                 .font(.caption)
                 .lineLimit(1)
                 .truncationMode(.middle)
+            if reopenLabel != nil {
+                // Tam pencere (dosya/klasör/sayfa) yeniden açılabilir.
+                Image(systemName: "arrow.up.forward.app")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+            }
             if let destination = rule[mode] {
                 if let real = MissingDesktopBadge.clamped(for: destination,
                                                           desktopCounts: ui.desktopCounts,
@@ -55,18 +63,60 @@ struct RuleChip: View {
                                         lineWidth: 1))
         .contentShape(Capsule())
         .opacity(isBeingDragged ? 0.35 : (shadowedBy == nil ? 1 : 0.5))
+        .onTapGesture(count: 2) { reopen() }
         .onTapGesture { ui.toggle(.rule(rule.id)) }
         .gesture(dragGesture, including: isGhost ? .none : .all)
         .help(helpText)
     }
 
+    /// Çift tıklama: kapalı pencereyi açar (hatırlanan dosya/klasör/sayfa
+    /// ya da yalnız uygulama); Router onu pinli masaüstüne yerleştirir.
+    /// Penceresi açıksa (gölgede kalan pin) ona gidilir.
+    private func reopen() {
+        guard !isGhost else { return }
+        if let window = ui.windows.first(where: {
+            rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
+        }) {
+            dismiss()
+            AX.focus(windowID: window.id, pid: window.pid)
+            return
+        }
+        let target = router.reopenTargets[rule.id]
+        if rule.bundleID == Reopen.safari {
+            dismiss()
+            let rule = rule, router = router, store = store
+            let destination = rule[screens.mode]
+            Task {
+                if await !Reopen.openSafari(rule: rule, target: target,
+                                             destination: destination, router: router) {
+                    store.report(L("Could not open a %@ window", rule.appName))
+                }
+            }
+            return
+        }
+        if Reopen.open(rule: rule, target: target) {
+            dismiss()
+        } else {
+            store.report(L("Could not find the app %@", rule.appName))
+        }
+    }
+
+    /// Çift tıklamayla açılacak şeyin kısa adı (dosya/klasör adı ya da
+    /// site); hatırlanan hedef yoksa nil.
+    private var reopenLabel: String? {
+        guard let target = router.reopenTargets[rule.id], let url = URL(string: target.url)
+        else { return nil }
+        return url.isFileURL ? url.lastPathComponent : (url.host ?? target.url)
+    }
+
     private var helpText: String {
         let base = "\(rule.appName): \(rule.title)"
+            + (reopenLabel.map { "\n" + L("Double-click opens %@", $0) } ?? "")
         if inTray {
             return base + "\n" + L("Drag onto a desktop to set this setup's place.")
         }
         guard let shadowedBy else {
-            return base + "\n" + L("Its window is not open right now. Drag to move.")
+            return base + "\n" + L("Its window is not open right now. Double-click to open it; drag to move.")
         }
         let winner = shadowedBy == Routing.sessionRuleID
             ? L("a temporary pin")

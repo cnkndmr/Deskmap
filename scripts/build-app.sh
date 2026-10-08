@@ -113,6 +113,9 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <!-- Menü çubuğu uygulaması: Dock'ta simge gösterme. -->
     <key>LSUIElement</key>               <true/>
     <key>NSHighResolutionCapable</key>   <true/>
+    <!-- Kapalı pinli Safari penceresini ayrı pencerede yeniden açmak için. -->
+    <key>NSAppleEventsUsageDescription</key>
+    <string>Deskmap opens a closed pinned browser window again in a new window on its desktop.</string>
     <!-- Otomasyon: deskmap://reapply, pause, resume, toggle, profile/<ad>, next-profile.
          Eski ad (Space Router) döneminden spacerouter:// şeması da kabul edilir
          (Shortcuts/Raycast kurulumları bozulmasın). -->
@@ -140,7 +143,8 @@ if [[ "$SIGN_IDENTITY" == "-" ]]; then
     || echo "  ! Signing skipped (optional)"
 else
   info "Signing: $SIGN_IDENTITY"
-  codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$APP_BUNDLE"
+  codesign --force --options runtime --timestamp \
+    --entitlements "$(dirname "$0")/Deskmap.entitlements" --sign "$SIGN_IDENTITY" "$APP_BUNDLE"
   ok "Signed"
 fi
 

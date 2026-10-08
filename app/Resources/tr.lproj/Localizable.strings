@@ -203,7 +203,8 @@
 "Dragging a row to another desktop moves the window once without pinning it. The laptop / monitor switch at the top is for the other setup; the two are configured separately." = "Bir satırı başka masaüstüne sürüklemek pencereyi bir kez taşır, pinlemez. Üstteki laptop / monitör düğmesi diğer kurulum içindir; ikisi ayrı ayarlanır.";
 
 /* Views/RuleChip.swift: pin çipi ipucu */
-"Its window is not open right now. Drag to move." = "Penceresi şu an açık değil. Sürükleyerek taşıyın.";
+"Its window is not open right now. Double-click to open it; drag to move." = "Penceresi şu an açık değil. Açmak için çift tıklayın; sürükleyerek taşıyın.";
+"Could not find the app %@" = "%@ uygulaması bulunamadı";
 "a temporary pin" = "geçici pin";
 "the “%@” pin" = "“%@” pini";
 "This window is matched first by %@; this pin does not take effect." = "Bu pencereye önce %@ uyuyor; bu pin devreye girmiyor.";
@@ -322,3 +323,5 @@
 "Forget Deleted Desktop" = "Silinen masaüstünü tamamen unut";
 "Deleted desktop restored" = "Silinen masaüstü geri getirildi";
 "Deleted desktop forgotten" = "Silinen masaüstü unutuldu";
+"Could not open a %@ window" = "%@ penceresi açılamadı";
+"Double-click opens %@" = "Çift tıklama %@ açar";
