@@ -563,8 +563,40 @@ struct Document: Codable, Equatable {
             absorbGhosts(named: name)
             mirrorPins(forName: name, adoptedIn: mode)
         }
+        syncTravellingBindings(mode: mode)
         result.changed = self != original
         return result
+    }
+
+    /// Monitör masaüstü monitör çıkınca aynı kimlikle laptop'a geçer. Etkin
+    /// kurulumda dış ekrandaki adın bağlı kimliği değiştiyse (Deskmap'te
+    /// sıralama pencereleri taşır, masaüstünü değil) öbür kurulumda aynı
+    /// adın laptop bağı da o kimliğe çekilir; o kimliği tutan başka ad eski
+    /// kimliği alır (yalnız takas; kimlik orada bağlı değilse dokunulmaz), böylece çıkarışta adlar doğru masaüstüne oturur.
+    mutating func syncTravellingBindings(mode: Mode) {
+        for (key, list) in desktopNameSpaces {
+            guard let parts = Self.splitNameKey(key), parts.mode == mode,
+                  parts.screen != "builtin" else { continue }
+            for (slot, id) in list {
+                guard let name = desktopNames[key]?[slot] else { continue }
+                for other in Mode.allCases where other != mode {
+                    let otherKey = Self.planKey(mode: other, screen: "builtin")
+                    guard let place = places(ofName: name).first(where: {
+                              $0.mode == other && $0.screen == "builtin" }),
+                          var bindings = desktopNameSpaces[otherKey] else { continue }
+                    let own = String(place.desktop)
+                    let old = bindings[own]
+                    // Yalnız takas: kimlik öbür kurulumda zaten bağlıysa
+                    // (yenilenen kimlik yeni bağ olup sahte silme üretmesin).
+                    guard old != id,
+                          let holder = bindings.first(where: { $0.value == id && $0.key != own })?.key
+                    else { continue }
+                    bindings[holder] = old
+                    bindings[own] = id
+                    desktopNameSpaces[otherKey] = bindings
+                }
+            }
+        }
     }
 
     /// `reconcileNames`'in eski imzası: yalnız değişti mi bilgisi. Silinmiş

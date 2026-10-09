@@ -80,12 +80,15 @@ extension Document {
         let known = name ?? desktopName(screen: place.screen, desktop: place.desktop, mode: place.mode)
         var result: [NamePlace] = []
         for mode in Mode.allCases where mode != place.mode {
+            // Önce ad: masaüstü sıralaması pencereleri taşır, gerçek
+            // masaüstünü değil; bağlı space kimlikleri iki kurulumda
+            // çaprazlanabilir. Kimlik yalnız adla bulunamazsa.
             var found: NamePlace?
-            if let space = place.space {
-                found = namePlaces(in: mode).first { $0.space == space }
-            }
-            if found == nil, let known {
+            if let known {
                 found = places(ofName: known).first { $0.mode == mode }
+            }
+            if found == nil, let space = place.space {
+                found = namePlaces(in: mode).first { $0.space == space }
             }
             if let found { result.append(found) }
         }

@@ -585,4 +585,25 @@ struct NameLinkTests {
         #expect(names(d, U)["builtin"]?.values.contains("B") == true)
         #expect(names(d, D)["builtin"]?["2"] == "B")
     }
+
+    @Test func counterpartPrefersNameOverCrossedSpaceIDs() {
+        var d = Document()
+        // Deskmap sıralaması sonrası: aynı kimlik öbür kurulumda başka adda.
+        d.setDesktopName("Nova2", screen: "external", desktop: 2, mode: D, space: 1032)
+        d.setDesktopName("MD2", screen: "builtin", desktop: 8, mode: U, space: 1032)
+        d.setDesktopName("Nova2", screen: "builtin", desktop: 6, mode: U, space: 1030)
+        d.setDesktopName("Nova", screen: "external", desktop: 2, mode: D, space: 1032)
+        #expect(d.desktopName(screen: "builtin", desktop: 6, mode: U) == "Nova")
+        #expect(d.desktopName(screen: "builtin", desktop: 8, mode: U) == "MD2")
+    }
+
+    @Test func reorderOnMonitorSwapsLaptopBindingsOnly() {
+        var d = Document()
+        d.desktopNames = ["docked|external": ["1": "Hub", "2": "Nova2", "4": "Orion"],
+                          "undocked|builtin": ["5": "Hub", "6": "Nova2", "7": "Orion"]]
+        d.desktopNameSpaces = ["docked|external": ["1": 1045, "2": 1032, "4": 1030],
+                               "undocked|builtin": ["5": 421, "6": 1030, "7": 1032]]
+        d.syncTravellingBindings(mode: D)
+        #expect(d.desktopNameSpaces["undocked|builtin"] == ["5": 421, "6": 1032, "7": 1030])
+    }
 }
