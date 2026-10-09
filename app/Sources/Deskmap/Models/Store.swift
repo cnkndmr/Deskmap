@@ -561,7 +561,7 @@ struct Document: Codable, Equatable {
         applyPinMoves(result.moves)
         for name in adoptedNames {
             absorbGhosts(named: name)
-            mirrorPins(forName: name)
+            mirrorPins(forName: name, adoptedIn: mode)
         }
         result.changed = self != original
         return result

@@ -186,8 +186,8 @@ struct NameLinkTests {
                    pinRule("Own", docked: ("external", 2), undocked: ("builtin", 1))]
         d.reconcileNames(spaces: ["builtin": [1, 2, 202]], seen: [], mode: U)
         #expect(d.rules[0].undocked == Destination(screen: "builtin", desktop: 3))
-        // Var olan hedefin üzerine yazılmaz.
-        #expect(d.rules[1].undocked == Destination(screen: "builtin", desktop: 1))
+        // Ad bağlanınca eski (numaraya bağlı) hedef de adı izler.
+        #expect(d.rules[1].undocked == Destination(screen: "builtin", desktop: 3))
     }
 
     @Test func reconcileEmitsMoveOnMissionControlReorderAndPinsFollow() {

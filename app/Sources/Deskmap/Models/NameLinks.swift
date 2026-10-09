@@ -142,7 +142,10 @@ extension Document {
     /// Adın bir kurulumdaki yerinde pini olup öbür kurulumda hedefi olmayan
     /// kurallara, öbür kurulumdaki yerini yazar. Var olan hedefin üzerine
     /// asla yazmaz.
-    mutating func mirrorPins(forName name: String) {
+    /// `adoptedIn`: adın yeni bağlandığı kurulum. Orada adın öbür
+    /// kurulumdaki pinleri eski (numaraya bağlı) hedefi de ezer: ad
+    /// bağlanınca pinler onu izler (düzen korunur).
+    mutating func mirrorPins(forName name: String, adoptedIn: Mode? = nil) {
         let all = places(ofName: name)
         guard all.count > 1 else { return }
         mapAllRules { list, _ in
@@ -151,9 +154,12 @@ extension Document {
                     guard let destination = list[i][source.mode],
                           destination.screen == source.screen,
                           destination.desktop == source.desktop else { continue }
-                    for target in all where target.mode != source.mode && list[i][target.mode] == nil {
+                    for target in all where target.mode != source.mode {
+                        let current = list[i][target.mode]
+                        guard current == nil || target.mode == adoptedIn else { continue }
                         list[i][target.mode] = Destination(
-                            screen: target.screen, desktop: target.desktop, layout: destination.layout)
+                            screen: target.screen, desktop: target.desktop,
+                            layout: current?.layout ?? destination.layout)
                     }
                 }
             }
