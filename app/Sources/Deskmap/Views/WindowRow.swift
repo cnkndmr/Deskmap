@@ -108,11 +108,9 @@ struct WindowRow: View {
             Button {
                 togglePin()
             } label: {
-                Image(systemName: sessionPin != nil ? "pin.circle.fill"
-                                  : (isPinned ? "pin.fill" : "pin"))
+                Image(systemName: pinSymbol)
                     .font(.system(size: sessionPin != nil ? 13 : 11))
-                    .foregroundStyle(sessionPin != nil ? Color.orange
-                                     : (isPinned ? Color.accentColor : Color.secondary.opacity(0.6)))
+                    .foregroundStyle(pinColor)
                     .frame(width: 18, height: 18)
             }
             .buttonStyle(.plain)
@@ -124,16 +122,10 @@ struct WindowRow: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(isMultiSelected ? Color.accentColor.opacity(0.28)
-                      : isDrafting || isSelected ? Color.accentColor.opacity(0.18)
-                                 : Color(nsColor: .controlBackgroundColor).opacity(isGhost ? 1 : 0.7)))
+                .fill(rowFill))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(isDrafting || isSelected || isMultiSelected ? Color.accentColor
-                              : (sessionPin != nil ? Color.orange.opacity(0.5)
-                                 : (isPinned ? Color.accentColor.opacity(0.35)
-                                             : Color.primary.opacity(0.08))),
-                              lineWidth: 1))
+                .strokeBorder(rowStroke, lineWidth: 1))
         .contentShape(Rectangle())
         .opacity(isBeingDragged ? 0.35 : 1)
         .onTapGesture(count: 2) {
@@ -168,9 +160,39 @@ struct WindowRow: View {
         .contextMenu {
             if !isGhost, isPinned { sendMenu }
         }
-        .help(isPinned ? L("Click to change the layout; drag to change the pin's target; double-click to go to the window; ⌘-click to select several")
-              : mode == screens.mode ? L("Drag to move (does not pin); click the pin to keep it here; double-click to go to the window; ⌘-click to select several")
-              : L("Drag onto a desktop to pin it for %@; the window is not moved", mode.title))
+        .help(rowHelp)
+    }
+
+    // Derleyici tür denetimi zaman aşımına düşmesin diye `body` dışında.
+    private var rowFill: Color {
+        if isMultiSelected { return Color.accentColor.opacity(0.28) }
+        if isDrafting || isSelected { return Color.accentColor.opacity(0.18) }
+        return Color(nsColor: .controlBackgroundColor).opacity(isGhost ? 1 : 0.7)
+    }
+
+    private var rowStroke: Color {
+        if isDrafting || isSelected || isMultiSelected { return Color.accentColor }
+        if sessionPin != nil { return Color.orange.opacity(0.5) }
+        return isPinned ? Color.accentColor.opacity(0.35) : Color.primary.opacity(0.08)
+    }
+
+    private var pinSymbol: String {
+        sessionPin != nil ? "pin.circle.fill" : (isPinned ? "pin.fill" : "pin")
+    }
+
+    private var pinColor: Color {
+        if sessionPin != nil { return Color.orange }
+        return isPinned ? Color.accentColor : Color.secondary.opacity(0.6)
+    }
+
+    private var rowHelp: String {
+        if isPinned {
+            return L("Click to change the layout; drag to change the pin's target; double-click to go to the window; ⌘-click to select several")
+        }
+        if mode == screens.mode {
+            return L("Drag to move (does not pin); click the pin to keep it here; double-click to go to the window; ⌘-click to select several")
+        }
+        return L("Drag onto a desktop to pin it for %@; the window is not moved", mode.title)
     }
 
     // MARK: - "Gönder" menüsü
