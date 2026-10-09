@@ -54,4 +54,23 @@ struct AppGroupTests {
     @Test func noWindowsNoPinsIsEmpty() {
         #expect(AppGroup.grouped(windows: [], closed: []).isEmpty)
     }
+
+    @Test func headerOnlyWithTwoOrMoreItems() {
+        let one = AppGroup.grouped(windows: [], closed: [rule("a", app: "Code", bundle: "vs")])
+        #expect(one[0].total == 1 && !one[0].showsHeader)
+        let win = AppGroup.grouped(windows: [window(1, app: "Code", bundle: "vs")], closed: [])
+        #expect(!win[0].showsHeader)
+        let mixed = AppGroup.grouped(windows: [window(1, app: "Code", bundle: "vs")],
+                                     closed: [rule("a", app: "Code", bundle: "vs")])
+        #expect(mixed[0].total == 2 && mixed[0].showsHeader)
+        let two = AppGroup.grouped(windows: [],
+                                   closed: [rule("a", app: "Code", bundle: "vs"), rule("b", app: "Code", bundle: "vs")])
+        #expect(two.count == 1 && two[0].showsHeader)
+    }
+
+    @Test func deletedDesktopLabelsGroupByApp() {
+        let g = AppGroup.groupedLabels([("Code", "vs", "a"), ("Mail", "m", ""), ("Code", "vs", "b"), ("Code", "vs", "a")])
+        #expect(g.map(\.app) == ["Code", "Mail"])
+        #expect(g[0].details == ["a", "b"])
+    }
 }

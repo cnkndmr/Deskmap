@@ -191,14 +191,12 @@ private struct DeletedDesktopRow: View {
     @EnvironmentObject private var router: Router
     @State private var isRestoring = false
 
-    /// Bu kurulumun pinleri, uygulama + başlık parçalarıyla.
-    private var chips: [String] {
-        var seen = Set<String>()
-        return ghost.pins.filter { $0.mode == mode }.compactMap { pin in
+    /// Bu kurulumun pinleri, uygulamaya göre gruplu.
+    private var chipGroups: [(app: String, details: [String])] {
+        AppGroup.groupedLabels(ghost.pins.filter { $0.mode == mode }.map { pin in
             let tokens = pin.rule.path != nil ? pin.rule.title : pin.rule.tokens.joined(separator: " ")
-            let label = tokens.isEmpty ? pin.rule.appName : "\(pin.rule.appName) · \(tokens)"
-            return seen.insert(label).inserted ? label : nil
-        }
+            return (pin.rule.appName, pin.rule.bundleID, tokens)
+        })
     }
 
     var body: some View {
@@ -218,19 +216,30 @@ private struct DeletedDesktopRow: View {
                 Text(L("Deleted in Mission Control · %ld pins", ghost.pins.filter { $0.mode == mode }.count))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-                if !chips.isEmpty {
-                    FlowLayout(spacing: 6) {
-                        ForEach(chips, id: \.self) { chip in
-                            HStack(spacing: 3) {
-                                Image(systemName: "pin").font(.system(size: 8))
-                                Text(chip).lineLimit(1)
+                if !chipGroups.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(chipGroups, id: \.app) { group in
+                            if group.details.count >= 2 {
+                                Text(group.app).font(.caption.weight(.medium))
                             }
-                            .font(.caption)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 2)
-                            .background(Capsule().strokeBorder(
-                                Color.secondary.opacity(0.4),
-                                style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+                            FlowLayout(spacing: 6) {
+                                ForEach(group.details, id: \.self) { detail in
+                                    let single = group.details.count < 2
+                                    let label = single
+                                        ? (detail.isEmpty ? group.app : "\(group.app) · \(detail)")
+                                        : (detail.isEmpty ? group.app : detail)
+                                    HStack(spacing: 3) {
+                                        Image(systemName: "pin").font(.system(size: 8))
+                                        Text(label).lineLimit(1)
+                                    }
+                                    .font(.caption)
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 2)
+                                    .background(Capsule().strokeBorder(
+                                        Color.secondary.opacity(0.4),
+                                        style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+                                }
+                            }
                         }
                     }
                 }
@@ -378,6 +387,28 @@ struct AppGroup: Identifiable {
     var windows: [Router.WindowSnapshot]
     var closed: [Rule] = []
     var id: String { bundleID.isEmpty ? appName : bundleID }
+
+    /// Açık + kapalı toplam öğe sayısı.
+    var total: Int { windows.count + closed.count }
+
+    /// Saf. Başlık/aç-kapa yalnız uygulamanın o masaüstünde en az 2 öğesi
+    /// (açık + kapalı) varsa; tek öğe düz satır/çip olarak çizilir.
+    var showsHeader: Bool { total >= 2 }
+
+    /// Saf. Silinmiş masaüstü çipleri: etiket (uygulama + başlık parçaları)
+    /// uygulamaya göre gruplanır, tekrarlar atılır; sıra ilk görünüşe göre.
+    static func groupedLabels(_ entries: [(app: String, bundleID: String, detail: String)])
+        -> [(app: String, details: [String])] {
+        var order: [String] = []
+        var apps: [String: String] = [:]
+        var details: [String: [String]] = [:]
+        for e in entries {
+            let key = e.bundleID.isEmpty ? e.app : e.bundleID
+            if apps[key] == nil { apps[key] = e.app; order.append(key) }
+            if !(details[key] ?? []).contains(e.detail) { details[key, default: []].append(e.detail) }
+        }
+        return order.map { (apps[$0] ?? $0, details[$0] ?? []) }
+    }
 
     /// Saf. Sıra: açık pencerelerin sırası, ardından yalnız kapalı
     /// pini olan uygulamalar kuralların sırasıyla. Eşleşme bundleID ile,
@@ -712,9 +743,13 @@ private struct DesktopRow: View {
 
     @ViewBuilder
     private func groupView(_ group: AppGroup) -> some View {
-        if group.windows.count == 1, group.closed.isEmpty, let window = group.windows.first {
-            WindowRow(window: window, mode: mode, showsApp: true)
-                .id(WindowAnchor(id: window.id))
+        if !group.showsHeader {
+            if let window = group.windows.first {
+                WindowRow(window: window, mode: mode, showsApp: true)
+                    .id(WindowAnchor(id: window.id))
+            } else if let rule = group.closed.first {
+                RuleChip(rule: rule, mode: mode, shadowedBy: shadowed[rule.id])
+            }
         } else {
             let key = "\(screen.id)|\(desktop)|\(group.id)"
             let collapsed = ui.collapsed.contains(key)
