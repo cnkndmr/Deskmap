@@ -112,23 +112,15 @@
 "Drop a window here to unpin it while on the laptop only." = "Buraya bırakılan pencerenin sadece laptoptayken pini kalkar.";
 
 /* Views/PinPanel.swift: pin taslağı */
-"By title" = "Başlığa göre";
-"This window only" = "Sadece bu pencere";
 "Untitled window" = "Adsız pencere";
 "Full screen" = "Tam ekran";
 "Split View" = "Split View";
 "Full-screen space. Deskmap leaves these windows alone; exit full screen to pin them." = "Tam ekran alanı. Deskmap bu pencerelere dokunmaz; sabitlemek için tam ekrandan çık.";
 "Cancel (Esc)" = "Vazgeç (Esc)";
 "Cancel" = "Vazgeç";
-"This window has no title; all windows of the app are pinned." = "Bu pencerenin başlığı yok; uygulamanın bütün pencereleri pinlenir.";
-"Which part of the title identifies this window? This pin is permanent and saved to the profile." = "Başlığın hangi parçası bu pencereyi tanımlıyor? Kalıcıdır; profile yazılır.";
-"The title is ignored; only this window (ID #%ld) is kept. Valid until the window closes or its app restarts; not saved to the profile." = "Başlığa bakılmaz; yalnızca bu pencere (kimlik #%ld) tutulur. Pencere kapanana ya da uygulama yeniden başlayana kadar geçerlidir; profile yazılmaz.";
-"Pin temporarily" = "Geçici pinle";
 "Pin" = "Pinle";
-"Other windows with the same title are not affected. Temporary pins are shown with an orange icon." = "Aynı başlıklı başka pencereler etkilenmez. Geçici pin turuncu ikonla gösterilir.";
 "The title is ignored; every window of %@ matches." = "Başlığa bakılmaz; %@ uygulamasının her penceresi uyar.";
 "1 window matches right now." = "Şu an 1 pencere uyuyor.";
-"%ld windows match right now. Avoid parts that change, such as file names." = "Şu an %ld pencere uyuyor. Dosya adı gibi değişen parçaları seçmeyin.";
 
 /* Views/RulePanels.swift: pin bilgisi, geçici pin */
 "Unpin" = "Pini kaldır";
@@ -339,3 +331,9 @@
 "Desktop only (keep position and size)" = "Yalnız masaüstü (konum ve boyut serbest)";
 "The window follows this desktop; Deskmap never moves or resizes it there" = "Pencere bu masaüstünü izler; Deskmap onu orada taşımaz, boyutlandırmaz";
 "Send Desktop to %@" = "Masaüstünü %@ ekranına gönder";
+"This window" = "Bu pencere";
+"All windows of %@" = "%@ uygulamasının bütün pencereleri";
+"Matches: \"%@\"" = "Eşleşen: \"%@\"";
+"Narrowed by %ld more detail(s) from the title." = "Başlıktaki %ld ayrıntıyla daraltıldı.";
+"No stable name found; only this window is kept until it closes or its app restarts." = "Kararlı bir ad bulunamadı; yalnız bu pencere tutulur, pencere kapanana ya da uygulama yeniden açılana kadar geçerli.";
+"This window has no stable name to match." = "Bu pencerenin eşleşecek kararlı bir adı yok.";

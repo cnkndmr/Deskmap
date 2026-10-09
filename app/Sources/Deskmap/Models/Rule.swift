@@ -544,8 +544,7 @@ extension Rule {
         let a = bundleID.isEmpty ? appName.lowercased() : bundleID
         let b = other.bundleID.isEmpty ? other.appName.lowercased() : other.bundleID
         guard a == b, tokens.count == other.tokens.count else { return false }
-        return zip(tokens, other.tokens).allSatisfy {
-            $0.caseInsensitiveCompare($1) == .orderedSame
-        }
+        // Sıra önemsiz: eşleşme de sıradan bağımsız.
+        return tokens.map { $0.lowercased() }.sorted() == other.tokens.map { $0.lowercased() }.sorted()
     }
 }

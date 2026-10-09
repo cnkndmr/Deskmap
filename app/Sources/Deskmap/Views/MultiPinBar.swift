@@ -25,12 +25,11 @@ struct MultiPinBar: View {
         }
     }
 
-    /// Seçilen pencerelerin pin planı (saf). Kural, tek pin düğmesinin
-    /// varsayılan başlık parçasıyla yazılır; bu parça seçilmemiş başka açık
-    /// pencereye de uyuyorsa (onları da sürüklerdi) bütün başlık denenir, o
-    /// da uyuyorsa ya da seçimdeki başka pencere aynı kuralı başka yere
-    /// istiyorsa yalnız bu pencereye oturum pini. Yeri bilinmeyen ya da tam
-    /// ekran pencere atlanır.
+    /// Seçilen pencerelerin pin planı (saf). Kural, pencerenin kararlı
+    /// kimliğiyle (`WindowIdentity`) yazılır; anahtar seçilmemiş başka açık
+    /// pencereye de uyuyorsa daraltılır, kararlı anahtar yoksa ya da seçimdeki
+    /// başka pencere aynı kuralı başka yere istiyorsa yalnız bu pencereye
+    /// oturum pini. Yeri bilinmeyen ya da tam ekran pencere atlanır.
     static func plan(selected ids: Set<CGWindowID>, windows: [Router.WindowSnapshot],
                      layout: (Router.WindowSnapshot) -> WindowLayout) -> Plan {
         var plan = Plan()
@@ -39,18 +38,16 @@ struct MultiPinBar: View {
             guard let placement = window.placement, window.fullscreen == nil else { continue }
             let destination = Destination(screen: placement.screen, desktop: placement.desktop,
                                           layout: layout(window))
+            // Seçimdeki başka bir pencere aynı kuralı başka yere istemişse çakışır.
             func clashes(_ tokens: [String]) -> Bool {
                 let rule = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
-                if windows.contains(where: {
-                    !ids.contains($0.id)
-                        && rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
-                }) { return true }
                 return plan.rules.contains { $0.rule.sameKey(as: rule) }
             }
-            let preferred = PinPanel.defaultTokens(title: window.title, appName: window.appName)
-            let full = Rule.split(title: window.title)
-            let tokens = [preferred, full].first { !$0.isEmpty && !clashes($0) }
-            if let tokens {
+            let others = windows.filter { !ids.contains($0.id) }
+            if case .rule(let tokens) = WindowIdentity.resolve(
+                appName: window.appName, bundleID: window.bundleID,
+                title: window.title, others: others),
+               !clashes(tokens) {
                 plan.rules.append((Rule(appName: window.appName, bundleID: window.bundleID,
                                         tokens: tokens), destination))
             } else {

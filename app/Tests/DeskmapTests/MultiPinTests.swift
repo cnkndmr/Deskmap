@@ -32,7 +32,7 @@ struct MultiPinTests {
         let windows = [window(1, "Code", "a.md — Orion"),
                        window(3, "Code", "b.md — Orion", desktop: 5)]
         let result = plan([1], windows)
-        #expect(result.rules.map(\.rule.tokens) == [["a.md", "Orion"]])
+        #expect(result.rules.map(\.rule.tokens) == [["Orion", "a.md"]])
     }
 
     @Test func identicalTitlesFallBackToSessionPins() {

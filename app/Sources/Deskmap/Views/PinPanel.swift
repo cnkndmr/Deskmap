@@ -1,8 +1,9 @@
 import SwiftUI
 
-/// Pin düğmesine basılınca ya da pencere sürüklenince açılır: başlığın
-/// hangi parçası bu pencereyi tanımlıyor? Seçim kurala dönüşür; çerçeve
-/// pencerenin o anki çerçevesidir.
+/// Pin düğmesine basılınca ya da pencere sürüklenince açılır. İki seçenek:
+/// yalnız bu pencere (kararlı kimlikle kalıcı kural, bulunamazsa sessizce
+/// oturum pini) ya da uygulamanın bütün pencereleri. Çerçeve pencerenin o
+/// anki çerçevesidir.
 struct PinPanel: View {
 
     let draft: PinDraft
@@ -13,23 +14,13 @@ struct PinPanel: View {
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var router: Router
 
-    /// Pin türü: başlığa göre kalıcı kural ya da pencere kimliğine bağlı
-    /// geçici (oturum) pin.
-    enum Kind: String, CaseIterable, Identifiable {
-        case title, session
-        var id: String { rawValue }
-        var label: String {
-            switch self {
-            case .title:   return L("By title")
-            case .session: return L("This window only")
-            }
-        }
+    /// Kapsam: yalnız bu pencere ya da uygulamanın bütün pencereleri.
+    enum Scope: CaseIterable, Identifiable {
+        case window, app
+        var id: Self { self }
     }
 
-    @State private var kind: Kind = .title
-    @State private var segments: [String] = []
-    @State private var chosen: Set<Int> = []
-    @State private var appWide = false
+    @State private var scope: Scope = .window
     /// Varsayılan: pencerenin şu anki çerçevesi; hazır düzenle değiştirilebilir.
     @State private var layout: WindowLayout = .full
     /// Pencereden okunan son varsayılan düzen. `layout` hâlâ buna eşitse
@@ -70,39 +61,25 @@ struct PinPanel: View {
                 .accessibilityLabel(L("Cancel"))
             }
 
-            // Geçici pin yalnız şu anki kurulumda anlamlı (pencere kimliği
-            // bu oturuma bağlı); diğer kurulumun sekmesinde yalnız başlık pini.
-            if mode == screens.mode {
-                Picker("", selection: $kind) {
-                    ForEach(Kind.allCases) { candidate in
-                        Text(candidate.label).tag(candidate)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .controlSize(.small)
-                .frame(width: 300)
-            } else {
+            if mode != screens.mode {
                 Text(L("Pin for %@", mode.title))
                     .font(.caption.weight(.medium))
                     .foregroundStyle(.secondary)
             }
 
-            switch kind {
-            case .title:
-                Text(segments.isEmpty
-                     ? L("This window has no title; all windows of the app are pinned.")
-                     : L("Which part of the title identifies this window? This pin is permanent and saved to the profile."))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                TokenPicker(segments: segments, chosen: $chosen, appWide: $appWide)
-            case .session:
-                Text(L("The title is ignored; only this window (ID #%ld) is kept. Valid until the window closes or its app restarts; not saved to the profile.", Int(window.id)))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            Picker("", selection: $scope) {
+                Text(L("This window")).tag(Scope.window)
+                Text(L("All windows of %@", window.appName)).tag(Scope.app)
             }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(width: 320)
+
+            Text(matchDescription)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Divider()
 
@@ -110,19 +87,15 @@ struct PinPanel: View {
                          screen: store.screens(for: mode).first { $0.id == draft.target.screen })
 
             HStack {
-                Text(footnote)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .lineLimit(2)
                 Spacer()
                 Button(L("Cancel")) { ui.panel = nil }
                     .keyboardShortcut(.cancelAction)
                     .controlSize(.small)
-                Button(kind == .session ? L("Pin temporarily") : L("Pin"), action: pin)
+                Button(L("Pin"), action: pin)
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
-                    .disabled(kind == .title && !appWide && chosen.isEmpty)
+                    .disabled(resolution == nil)
             }
         }
         .onAppear { reset() }
@@ -137,56 +110,54 @@ struct PinPanel: View {
         }
     }
 
-    private var footnote: String {
-        switch kind {
-        case .session:
-            return L("Other windows with the same title are not affected. Temporary pins are shown with an orange icon.")
-        case .title:
-            if appWide {
-                return L("The title is ignored; every window of %@ matches.", window.appName)
-            }
-            return matchCount == 1
-                ? L("1 window matches right now.")
-                : L("%ld windows match right now. Avoid parts that change, such as file names.", matchCount)
-        }
-    }
-
     private func reset() {
         layout = currentLayout
         measuredLayout = layout
-        kind = .title
-        segments = Rule.split(title: window.title)
-        chosen = Self.defaultChoice(segments: segments, appName: window.appName)
-        appWide = segments.isEmpty
+        scope = .window
     }
 
-    /// Varsayılan parça seçimi (saf): uygulama adı olmayan son parça
-    /// (çalışma alanı adı genellikle başlığın sonundadır); başlık boşsa yok.
-    static func defaultChoice(segments: [String], appName: String) -> Set<Int> {
-        guard !segments.isEmpty else { return [] }
-        let candidates = segments.indices.filter {
-            segments[$0].caseInsensitiveCompare(appName) != .orderedSame
+    /// Bu pencerenin pin kararı. Geçici pin yalnız şu anki kurulumda
+    /// anlamlı; diğer kurulumda kalıcı bir anahtar yoksa nil (pinlenemez).
+    private var resolution: WindowIdentity.Resolution? {
+        switch scope {
+        case .app:
+            return .rule([])
+        case .window:
+            let others = ui.windows.filter { $0.id != window.id }
+            let found = WindowIdentity.resolve(appName: window.appName, bundleID: window.bundleID,
+                                               title: window.title, others: others)
+            guard found == .session, mode != screens.mode else { return found }
+            let parts = WindowIdentity.candidates(appName: window.appName,
+                                                  bundleID: window.bundleID, title: window.title)
+            return parts.isEmpty ? nil : .rule(parts)
         }
-        return Set([candidates.last ?? segments.indices.last].compactMap { $0 })
     }
 
-    /// Tek pin düğmesinin varsayılan başlık parçaları (saf).
-    static func defaultTokens(title: String, appName: String) -> [String] {
-        let segments = Rule.split(title: title)
-        return TokenPicker.tokens(segments: segments,
-                                  chosen: defaultChoice(segments: segments, appName: appName),
-                                  appWide: segments.isEmpty)
-    }
-
-    private var tokens: [String] {
-        TokenPicker.tokens(segments: segments, chosen: chosen, appWide: appWide)
-    }
-
+    /// Kuralın uyduğu pencere sayısı (oturum pininde 1).
     private var matchCount: Int {
+        guard case .rule(let tokens) = resolution else { return 1 }
         let rule = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
         return ui.windows.filter {
             rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
         }.count
+    }
+
+    /// Düz dille neyin eşleşeceği: ham parça listesi gösterilmez.
+    private var matchDescription: String {
+        let count = matchCount == 1 ? L("1 window matches right now.")
+                                    : L("%ld windows match right now.", matchCount)
+        switch resolution {
+        case .rule(let tokens) where tokens.isEmpty:
+            return L("The title is ignored; every window of %@ matches.", window.appName) + " " + count
+        case .rule(let tokens):
+            // Yalnız ana parça; daraltma ayrıntıları ham liste olarak basılmaz.
+            let extra = tokens.count > 1 ? " " + L("Narrowed by %ld more detail(s) from the title.", tokens.count - 1) : ""
+            return L("Matches: \"%@\"", tokens[0]) + extra + " " + count
+        case .session:
+            return L("No stable name found; only this window is kept until it closes or its app restarts.")
+        case nil:
+            return L("This window has no stable name to match.")
+        }
     }
 
     /// Pencerenin şu anki çerçevesi, bulunduğu ekranın kullanılabilir
@@ -200,12 +171,14 @@ struct PinPanel: View {
     private func pin() {
         let destination = Destination(screen: draft.target.screen,
                                       desktop: draft.target.desktop, layout: layout)
-        switch kind {
-        case .title:
+        switch resolution {
+        case .rule(let tokens):
             let rule = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
             store.pin(rule, destination: destination, mode: mode)
         case .session:
             router.pinSession(window.id, destination: destination)
+        case nil:
+            return
         }
         ui.panel = nil
     }
