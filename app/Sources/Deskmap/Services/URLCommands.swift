@@ -359,10 +359,13 @@ enum URLCommands {
             store.report(L("Desktop %ld on %@ does not exist", max(from, to), screen))
             return
         }
+        let liveSpaces = router.reorderedSpaces(on: screen, from: from, to: to,
+                                                reorderWindows: live)
         let sessionMoved = router.moveDesktop(on: screen, from: from, to: to, count: count,
                                               reorderWindows: live)
         store.moveDesktop(
             on: screen, from: from, to: to, count: count, mode: mode, sharedLaptop: live,
+            liveSpaces: liveSpaces,
             undoingSessionPins: sessionMoved
                 ? { router.moveDesktop(on: screen, from: to, to: from, count: count,
                                        reorderWindows: live) }

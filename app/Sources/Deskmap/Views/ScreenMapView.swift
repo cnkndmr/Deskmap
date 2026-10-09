@@ -647,10 +647,13 @@ private struct DesktopRow: View {
                 let screenID = screen.id, from = desktop, count = rowCount
                 // Etkin modda pencereler de taşınır: masaüstü sırası gerçekten değişir.
                 let live = isLive
+                let liveSpaces = router.reorderedSpaces(on: screenID, from: from, to: to,
+                                                        reorderWindows: live)
                 let sessionMoved = router.moveDesktop(on: screenID, from: from, to: to, count: count,
                                                       reorderWindows: live)
                 store.moveDesktop(
                     on: screenID, from: from, to: to, count: count, mode: mode, sharedLaptop: live,
+                    liveSpaces: liveSpaces,
                     undoingSessionPins: sessionMoved
                         ? { router.moveDesktop(on: screenID, from: to, to: from, count: count,
                                                reorderWindows: live) }

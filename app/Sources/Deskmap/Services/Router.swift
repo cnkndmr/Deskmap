@@ -781,14 +781,34 @@ final class Router: ObservableObject {
     /// masaüstüleri kullanıcı için aynı biçimde yer değiştirir. Taşıma
     /// yalnız sürüklenen iki satır da gerçek masaüstüyse yapılır; plan/pin
     /// satırlarına sürüklemede iki masaüstünün pencereleri karışırdı.
+    /// Bu sıralama pencereleri gerçekten taşıyacaksa ekranın sıralı space
+    /// kimlikleri (belge, adların bağlarını aynı permütasyonla çevirir);
+    /// taşımayacaksa nil. `moveDesktop`'tan önce çağrılır.
+    func reorderedSpaces(on screen: String, from: Int, to: Int,
+                         reorderWindows: Bool) -> [UInt64]? {
+        guard willReorderWindows(on: screen, from: from, to: to, reorderWindows: reorderWindows),
+              let info = screens.screens.first(where: { $0.id == screen }),
+              let display = SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens))
+                .first(where: { $0.displayUUID == info.uuid })
+        else { return nil }
+        let spaces = display.desktops.map(\.id)
+        return spaces.count >= max(from, to) ? spaces : nil
+    }
+
+    private func willReorderWindows(on screen: String, from: Int, to: Int,
+                                    reorderWindows: Bool) -> Bool {
+        let real = desktopCounts[screen] ?? 0
+        return reorderWindows && Self.canReorderWindows(from: from, to: to, realCount: real)
+            && moveHealth.movesAllowed && SkyLight.shared.canMove
+    }
+
     @discardableResult
     func moveDesktop(on screen: String, from: Int, to: Int, count: Int,
                      reorderWindows: Bool = false) -> Bool {
         guard let mapping = Document.desktopMapping(from: from, to: to, count: count)
         else { return false }
-        let real = desktopCounts[screen] ?? 0
-        let reorders = reorderWindows && Self.canReorderWindows(from: from, to: to, realCount: real)
-            && moveHealth.movesAllowed && SkyLight.shared.canMove
+        let reorders = willReorderWindows(on: screen, from: from, to: to,
+                                          reorderWindows: reorderWindows)
         if reorders { reorderWindowsOnDesktops(screen: screen, mapping: mapping) }
         var changed = reorders
         for (id, record) in sessionRecords
@@ -1024,9 +1044,10 @@ final class Router: ObservableObject {
             mainUUID: Self.primaryUUID(screens.screens), desktop: desktop)
     }
 
-    /// Etkin moddaki bağlı ekranın masaüstünü siler; başarılıysa bu ekranın
+    /// Etkin moddaki bağlı ekranın masaüstünü siler; başarılıysa masaüstünün
+    /// pinleri ve adı hayalete geçer (dışarıda silinmiş gibi), bu ekranın
     /// bütün modlardaki (laptop ekranının masaüstüleri iki modda ortak) ve
-    /// bütün profillerdeki pinleri ile oturum pinleri kayar.
+    /// bütün profillerdeki sonraki pinleri ile oturum pinleri kayar.
     func removeDesktop(on screenID: String, desktop: Int) async -> Bool {
         guard !desktopOpInFlight else { return false }
         desktopOpInFlight = true
@@ -1034,7 +1055,10 @@ final class Router: ObservableObject {
         let space = currentSpace(on: screenID, desktop: desktop)
         let removed = await removeDesktopNow(on: screenID, desktop: desktop)
         if removed {
-            store.removeDesktop(on: screenID, desktop: desktop, modes: Mode.allCases)
+            // Mission Control'de silmeyle aynı: pinleri ve adı hayalete
+            // geçer (satırdan geri getirilebilir), sonrakiler bir yukarı kayar.
+            Log.app.notice("Desktop \(desktop) on \(screenID, privacy: .public) removed in Deskmap; pins kept on a deleted-desktop row")
+            store.ghostDesktop(on: screenID, desktop: desktop, modes: Mode.allCases)
             shiftSessionPins(screen: screenID, removed: desktop)
             updateBaseline(removed: space.map { [$0] } ?? [])
         }

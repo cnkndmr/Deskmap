@@ -203,8 +203,8 @@ enum Reopen {
     /// sekmelerini (oynayan video dahil) o pencereye çeker (ölçüldü 08.10).
     /// Bu yüzden adres AppleScript `make new document` ile hiçbir gruba bağlı
     /// olmayan ayrı pencerede açılır; başlık pinin parçasını (çoğu zaman
-    /// sekme grubu adı) taşımayabileceği için yeni pencere oturum piniyle
-    /// doğrudan pinli masaüstüne gönderilir. Sekme grubunun kendisi geri
+    /// sekme grubu adı) taşımayabileceği için yeni pencere bir kez pinli
+    /// masaüstüne taşınır (oturum pini yazılmaz: kalıcı kilit olmasın). Sekme grubunun kendisi geri
     /// getirilmez (Safari bunu otomasyona açmıyor). İlk kullanımda macOS
     /// "Deskmap Safari'yi denetlemek istiyor" izni sorar.
     @MainActor
@@ -239,7 +239,10 @@ enum Reopen {
             for _ in 0..<30 where !router.windows.contains(where: { $0.id == window }) {
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
-            router.pinSession(window, destination: destination)
+            // Tek seferlik taşıma: oturum pini pencereyi bu kuruluma
+            // kilitlerdi; sonrasında pencere kurala normal uyar.
+            router.moveWindow(window, to: Router.Placement(screen: destination.screen,
+                                                          desktop: destination.desktop))
         }
         return true
     }

@@ -992,10 +992,17 @@ struct Document: Codable, Equatable {
     /// kurulumda aynı fiziksel masaüstü olduğundan öbür kurulumun adları ve
     /// pinleri de aynı haritayla kayar. Etkin olmayan modda yalnız o modun
     /// planı değişir.
+    /// `liveSpaces`: pencereler gerçekten taşındıysa ekranın sıralı space
+    /// kimlikleri. macOS gerçek masaüstünü taşımaya izin vermez; içerik
+    /// (pencereler) yer değiştirir. Eski `i`. masaüstünün içeriği artık
+    /// `mapping[i]`. space'tedir: bütün kurulumlarda bu kimliğe bağlı adlar
+    /// aynı permütasyonla yeni kimliğe geçer (öbür kurulumun bağları
+    /// çaprazlanmaz), taşınan adlar yeni yerlerinin kimliğine hemen bağlanır.
     mutating func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode,
-                              sharedLaptop: Bool = false) {
+                              sharedLaptop: Bool = false, liveSpaces: [UInt64]? = nil) {
         guard let mapping = Self.desktopMapping(from: from, to: to, count: count)
         else { return }
+        if let liveSpaces { permuteBindings(mapping: mapping, spaces: liveSpaces) }
         let modes = sharedLaptop && screen == "builtin" ? Mode.allCases : [mode]
 
         // Bütün profiller: masaüstünün içeriği yer değiştirdi; öbür
@@ -1021,6 +1028,39 @@ struct Document: Codable, Equatable {
         }
         remapDesktopNames(modes: modes) { name, desktop in
             name == screen ? mapping[desktop].map { (screen, $0) } : nil
+        }
+        if let liveSpaces { bindMovedNames(on: screen, modes: modes, spaces: liveSpaces) }
+    }
+
+    /// Bağlı space kimliklerini içerik taşımasına göre çevirir (saf
+    /// permütasyon; her kurulumda, her ekran anahtarında).
+    private mutating func permuteBindings(mapping: [Int: Int], spaces: [UInt64]) {
+        var table: [UInt64: UInt64] = [:]
+        for (old, new) in mapping where old >= 1 && new >= 1
+            && old <= spaces.count && new <= spaces.count {
+            table[spaces[old - 1]] = spaces[new - 1]
+        }
+        guard table.contains(where: { $0.key != $0.value }) else { return }
+        var result = desktopNameSpaces
+        for (key, list) in desktopNameSpaces {
+            result[key] = list.mapValues { table[$0] ?? $0 }
+        }
+        if result != desktopNameSpaces { desktopNameSpaces = result }
+    }
+
+    /// `remapNames` taşınan adların bağını düşürür; içerik taşındığı için
+    /// yeni yerin kimliği bilinir, hemen bağlanır.
+    private mutating func bindMovedNames(on screen: String, modes: [Mode], spaces: [UInt64]) {
+        for mode in modes {
+            let key = Self.planKey(mode: mode, screen: screen)
+            guard let names = desktopNames[key] else { continue }
+            var bindings = desktopNameSpaces[key] ?? [:]
+            for slot in names.keys {
+                guard bindings[slot] == nil, let desktop = Int(slot),
+                      desktop >= 1, desktop <= spaces.count else { continue }
+                bindings[slot] = spaces[desktop - 1]
+            }
+            if !bindings.isEmpty, bindings != desktopNameSpaces[key] { desktopNameSpaces[key] = bindings }
         }
     }
 
@@ -1611,11 +1651,11 @@ final class Store: ObservableObject {
     /// `undoingSessionPins`: oturum pinleri de kaydıysa onları geri taşıyan
     /// kapanış (Router'ın ters taşıması); geri almada belgeyle birlikte çalışır.
     func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode,
-                     sharedLaptop: Bool = false,
+                     sharedLaptop: Bool = false, liveSpaces: [UInt64]? = nil,
                      undoingSessionPins companion: (() -> Void)? = nil) {
         recording(L("Desktop order changed"), companion: companion) {
             document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode,
-                                 sharedLaptop: sharedLaptop)
+                                 sharedLaptop: sharedLaptop, liveSpaces: liveSpaces)
         }
     }
 

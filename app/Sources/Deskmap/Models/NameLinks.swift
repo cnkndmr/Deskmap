@@ -194,7 +194,10 @@ extension Document {
                     rule[other] = Destination(screen: newTwin.screen, desktop: newTwin.desktop,
                                               layout: current?.layout ?? new.layout)
                 }
-            } else if atOldTwin {
+            } else if atOldTwin && new == nil {
+                // Pin kaldırıldı: adlı karşılığı da kalkar. Adsız masaüstüne
+                // taşındıysa öbür kurulumun pini yerinde kalır (yalnız bağ
+                // kopar), sessizce silinmez.
                 rule[other] = nil
             }
         }
