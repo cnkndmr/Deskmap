@@ -1007,12 +1007,16 @@ struct Document: Codable, Equatable {
         // Bağı bu ekranın canlı space listesinde olmayan adlar (öbür kurulumun
         // başka ekrandaki masaüstüne bağlı adı) yeniden bağlanmaz.
         var foreign: [Mode: Set<String>] = [:]
+        var foreignBound: [Mode: [String: UInt64]] = [:]
         if let liveSpaces {
             let live = Set(liveSpaces)
             for m in modes {
                 let key = Self.planKey(mode: m, screen: screen)
                 for (slot, space) in desktopNameSpaces[key] ?? [:] where !live.contains(space) {
-                    if let name = desktopNames[key]?[slot] { foreign[m, default: []].insert(name) }
+                    if let name = desktopNames[key]?[slot] {
+                        foreign[m, default: []].insert(name)
+                        foreignBound[m, default: [:]][name] = space
+                    }
                 }
             }
         }
@@ -1041,7 +1045,18 @@ struct Document: Codable, Equatable {
         remapDesktopNames(modes: modes) { name, desktop in
             name == screen ? mapping[desktop].map { (screen, $0) } : nil
         }
-        if let liveSpaces { bindMovedNames(on: screen, modes: modes, spaces: liveSpaces, skip: foreign) }
+        if let liveSpaces {
+            bindMovedNames(on: screen, modes: modes, spaces: liveSpaces, skip: foreign)
+            // Yabancı adın bağı adla birlikte yeni yerine taşınır (kaybolmaz,
+            // sonraki yeniden sıralamada yine yabancı sayılır).
+            for (m, bound) in foreignBound {
+                let key = Self.planKey(mode: m, screen: screen)
+                for (slot, name) in desktopNames[key] ?? [:] {
+                    guard let space = bound[name] else { continue }
+                    desktopNameSpaces[key, default: [:]][slot] = space
+                }
+            }
+        }
     }
 
     /// Bağlı space kimliklerini içerik taşımasına göre çevirir (saf
