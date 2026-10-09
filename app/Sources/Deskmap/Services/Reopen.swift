@@ -167,7 +167,7 @@ enum Reopen {
         guard let appURL else { return .noApp }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
-        var url = target.flatMap { URL(string: $0.url) }
+        var url = target.flatMap { URL(string: $0.url) } ?? rule.path.map { URL(fileURLWithPath: $0) }
         if let file = url, file.isFileURL, !FileManager.default.fileExists(atPath: file.path) {
             url = nil
         }

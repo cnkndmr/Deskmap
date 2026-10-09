@@ -75,7 +75,7 @@ struct RuleChip: View {
     private func reopen() {
         guard !isGhost else { return }
         if let window = ui.windows.first(where: {
-            rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
+            rule.matches($0)
         }) {
             dismiss()
             AX.focus(windowID: window.id, pid: window.pid)

@@ -95,13 +95,13 @@ struct ScreenMapView: View {
         for window in windows {
             guard let match = Routing.select(
                 rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
-                bundleID: window.bundleID, appName: window.appName, title: window.title)
+                bundleID: window.bundleID, appName: window.appName, title: window.title, document: window.document)
             else { continue }
             result.winners.insert(match.ruleID)
             for rule in rules
             where rule.id != match.ruleID && rule[mode] != nil
                 && rule.matches(bundleID: window.bundleID, appName: window.appName,
-                                title: window.title) {
+                                title: window.title, document: window.document) {
                 if result.shadowedBy[rule.id] == nil { result.shadowedBy[rule.id] = match.ruleID }
             }
         }
@@ -195,7 +195,7 @@ private struct DeletedDesktopRow: View {
     private var chips: [String] {
         var seen = Set<String>()
         return ghost.pins.filter { $0.mode == mode }.compactMap { pin in
-            let tokens = pin.rule.tokens.joined(separator: " ")
+            let tokens = pin.rule.path != nil ? pin.rule.title : pin.rule.tokens.joined(separator: " ")
             let label = tokens.isEmpty ? pin.rule.appName : "\(pin.rule.appName) · \(tokens)"
             return seen.insert(label).inserted ? label : nil
         }
@@ -482,7 +482,7 @@ private struct DesktopRow: View {
             guard isLive else { return true }
             if shadowed[rule.id] != nil { return true }
             return !ui.windows.contains {
-                rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
+                rule.matches($0)
             }
         }
     }
@@ -753,7 +753,7 @@ private struct DesktopRow: View {
     private func isPinned(_ window: Router.WindowSnapshot) -> Bool {
         Routing.select(rules: store.document.rules, sessionPins: router.sessionPins,
                        mode: mode, windowID: window.id, bundleID: window.bundleID,
-                       appName: window.appName, title: window.title) != nil
+                       appName: window.appName, title: window.title, document: window.document) != nil
     }
 }
 
@@ -855,7 +855,7 @@ struct SetupDifferenceTray: View {
             return Routing.select(
                 rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
                 windowID: id, bundleID: window.bundleID, appName: window.appName,
-                title: window.title) != nil
+                title: window.title, document: window.document) != nil
         }
     }
 
@@ -992,8 +992,7 @@ extension UnownedWindowsTray {
         let skipped = windows.contains { window in
             (window.fullscreen != nil || window.placement == nil)
                 && sessionPins[window.id] == nil
-                && !pinned.contains { $0.matches(bundleID: window.bundleID, appName: window.appName,
-                                                 title: window.title) }
+                && !pinned.contains { $0.matches(window) }
         }
         return skipped ? L("Full-screen windows without a pin are left alone.")
                        : L("Every open window has a pin.")
@@ -1054,7 +1053,7 @@ extension ScreenMapView {
         return windows.filter { window in
             window.fullscreen == nil && window.placement != nil
                 && sessionPins[window.id] == nil && !pinned.contains {
-                $0.matches(bundleID: window.bundleID, appName: window.appName, title: window.title)
+                $0.matches(window)
             }
         }
     }

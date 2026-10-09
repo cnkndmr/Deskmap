@@ -56,24 +56,24 @@ has assigned the app to a desktop itself, it will fight over the window.
 
 ![Choosing which part of the title identifies the window](images/en/02-pin.png)
 
-4. The panel splits the window's title into parts and asks which part
-   identifies this window. For `acme-web — VS Code`, pick **acme-web**: the
-   project name, not the file name, not the app name. Under the parts the
-   panel tells you how many open windows match right now — a good check that
-   you picked the right part.
+4. The panel offers two choices:
+   - **This window (key)** — Deskmap works out a stable key for the window
+     and shows it in brackets. In order: the file the window shows (Preview,
+     Pages, Word, Excel, TextEdit… — two different `main.pdf` files stay
+     apart); otherwise the part of the title that has stayed the same while
+     the title changed (VS Code's project folder, Terminal's `user@host`,
+     Safari's tab group); before any title change has been seen, a cleaned
+     title (page numbers, "Edited", unread counts dropped). The panel tells
+     you how many open windows match right now.
+   - **All windows of the app**, whatever the title. Good for Mail or Slack.
+
+   If the window has no stable key (every part of its title changes, like a
+   Safari window without a tab group) or the key would also match another
+   open window, only **All windows** is offered.
 5. Click **Pin** (or press Return).
 
-That's a pin. It means: *every window of this app whose title contains
-`acme-web` belongs here.* Tomorrow's window, next week's window, the one
-after a restart — same place.
-
-Two variants in the same panel:
-
-- **All windows** — pin every window of the app, whatever the title. Good
-  for apps like Mail or Slack.
-- **This window only** — pin this one specific window, for apps whose
-  windows all look the same. It lasts until you close the window; it isn't
-  saved.
+That's a pin. Tomorrow's window with the same file or project, the one after
+a restart — same place.
 
 ## 4. Move it where it belongs
 

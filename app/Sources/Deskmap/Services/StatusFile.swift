@@ -32,6 +32,11 @@ final class StatusFile {
             let minimized: Bool
             let fullscreen: Bool
             let pinned: Pin?
+            /// Belge yolu (AXDocument); yoksa nil.
+            let document: String?
+            /// "Bu pencere" pininin anahtarı: "file:<yol>", "title:<parça>"
+            /// ya da nil (yalnız uygulamanın bütün pencereleri).
+            let key: String?
         }
         struct Pin: Codable {
             let screen: String
@@ -109,14 +114,22 @@ final class StatusFile {
             lastError: store.lastError,
             primaryHeight: primaryHeight,
             screens: screens.screens.map(screenEntry),
-            windows: router.windows.map { window in
-                .init(id: window.id, app: window.appName, bundleID: window.bundleID,
+            windows: router.windows.map { window -> Snapshot.Window in
+                let others = router.windows.filter { $0.id != window.id }
+                let key: String?
+                switch WindowIdentity.resolve(window, others: others, history: router.identity) {
+                case .path(let path): key = "file:" + path
+                case .rule(let tokens): key = "title:" + tokens.joined(separator: " + ")
+                case .none: key = nil
+                }
+                return .init(id: window.id, app: window.appName, bundleID: window.bundleID,
                       title: window.title,
                       screen: window.placement?.screen ?? window.fullscreen?.screen,
                       desktop: window.placement?.desktop,
                       frame: window.frame.map { [$0.minX, $0.minY, $0.width, $0.height] },
                       minimized: window.isMinimized, fullscreen: window.fullscreen != nil,
-                      pinned: pins[window.id].map { .init(screen: $0.screen, desktop: $0.desktop) })
+                      pinned: pins[window.id].map { .init(screen: $0.screen, desktop: $0.desktop) },
+                      document: window.document, key: key)
             },
             rules: store.document.rules,
             desktopNames: store.document.desktopNames(for: screens.mode),

@@ -77,6 +77,7 @@ see docs/reference.md), apply-history/ (undo records), layouts/ (layout files).
 """
 import argparse
 import json
+import os
 import subprocess
 import sys
 import time
@@ -279,7 +280,8 @@ def show_windows(args):
         place = where(w)
         if w.get("desktop") and w.get("screen") and not w["fullscreen"] and not w["minimized"]:
             place = desktop_label(s, w["screen"], w["desktop"])
-        print(f"{w['id']:>7}  {w['app'][:18]:<18} {place[:28]:<28} {w['title'][:50]}{pin}")
+        key = f"  key={w['key']}" if w.get("key") else "  key=-"
+        print(f"{w['id']:>7}  {w['app'][:18]:<18} {place[:28]:<28} {w['title'][:50]}{pin}{key}")
 
 
 def show_screens(args):
@@ -309,6 +311,8 @@ def show_rules(args):
         print(json.dumps(s["rules"], indent=2, ensure_ascii=False)); return
     for r in s["rules"]:
         title = f" title~{' '.join(r['tokens'])}" if r.get("tokens") else ""
+        if r.get("path"):
+            title += f" file={r['path']}"
         print(f"{r['id']}  {r['appName']}{title}\n    docked {dest_text(r.get('docked'))}"
               f"  undocked {dest_text(r.get('undocked'))}")
 
@@ -526,7 +530,8 @@ def merge_rules(old, new, replace):
 
 
 def rule_key(r):
-    return (r["appName"].lower(), r.get("bundleID", ""), tuple(t.lower() for t in r.get("tokens", [])))
+    return (r["appName"].lower(), r.get("bundleID", ""), tuple(t.lower() for t in r.get("tokens", [])),
+            r.get("path"))
 
 
 def profile_rules(name):
@@ -596,11 +601,23 @@ def target_rect(status, screen_id, layout):
     return [x + layout["x"] * w, top + layout["y"] * h, layout["w"] * w, layout["h"] * h]
 
 
+def specificity(r):
+    """Deskmap'in sırası: belge yollu kural önce, sonra çok parçalı."""
+    return -(len(r.get("tokens", [])) + (1000 if r.get("path") else 0))
+
+
+def rule_label(r):
+    text = r["appName"] + (f" ~{' '.join(r['tokens'])}" if r.get("tokens") else "")
+    return text + (f" file={os.path.basename(r['path'])}" if r.get("path") else "")
+
+
 def rule_matches(r, w):
     if r.get("bundleID"):
         if w["bundleID"] != r["bundleID"]:
             return False
     elif w["app"].lower() != r["appName"].lower():
+        return False
+    if r.get("path") and w.get("document") != r["path"]:
         return False
     return all(t.lower() in w["title"].lower() for t in r.get("tokens", []))
 
@@ -609,8 +626,8 @@ def report(status, rules, only=None):
     """Etkin moddaki pencereler kurallarının hedefinde mi. Seçim Deskmap'inki
     gibi: oturum pini önce, sonra en çok başlık parçalı uyan kural."""
     mode = status["mode"]
-    ordered = sorted((r for r in rules if r.get(mode)), key=lambda r: -len(r.get("tokens", [])))
-    label = lambda r: r["appName"] + (f" ~{' '.join(r['tokens'])}" if r.get("tokens") else "")
+    ordered = sorted((r for r in rules if r.get(mode)), key=specificity)
+    label = rule_label
     rows, ok_count, total, used = [], 0, 0, set()
     for w in status["windows"]:
         if w["minimized"]:
@@ -658,7 +675,7 @@ def exposure_issues(status, rules, desks=None):
     ön/arka sırasından bağımsız olarak tamamen örtülebilir (EXPOSED_MIN
     karelik açık alanı yok). Ekran ve masaüstü başına bakılır."""
     mode = status["mode"]
-    ordered = sorted((r for r in rules if r.get(mode)), key=lambda r: -len(r.get("tokens", [])))
+    ordered = sorted((r for r in rules if r.get(mode)), key=specificity)
     groups = {}
     for w in status["windows"]:
         if w["minimized"] or w.get("fullscreen"):

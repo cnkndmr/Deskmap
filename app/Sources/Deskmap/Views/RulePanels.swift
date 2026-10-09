@@ -120,7 +120,7 @@ struct RulePanel: View {
         let governed = ui.windows.filter {
             Routing.select(rules: store.document.rules, sessionPins: router.sessionPins,
                            mode: mode, windowID: $0.id, bundleID: $0.bundleID,
-                           appName: $0.appName, title: $0.title)?.rule?.id == rule.id
+                           appName: $0.appName, title: $0.title, document: $0.document)?.rule?.id == rule.id
         }.map(\.id)
         if let id = ui.panelSourceWindowID {
             return governed.contains(id) ? [id] : []
@@ -147,7 +147,7 @@ struct RulePanel: View {
 
     /// Kurala şu an uyan açık pencereler; ilkinin başlığı seçim kaynağıdır.
     private var matching: [Router.WindowSnapshot] {
-        ui.windows.filter { rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title) }
+        ui.windows.filter { rule.matches($0) }
     }
 
     private var sourceTitle: String? { matching.first?.title }
@@ -164,7 +164,7 @@ struct RulePanel: View {
 
     private var draftMatchCount: Int {
         ui.windows.filter {
-            draftRule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
+            draftRule.matches($0)
         }.count
     }
 
@@ -181,7 +181,18 @@ struct RulePanel: View {
 
     @ViewBuilder
     private var tokenSection: some View {
-        if let title = sourceTitle {
+        if let path = rule.path {
+            // Belge yoluyla pin: başlık parçası yok, dosya gösterilir.
+            VStack(alignment: .leading, spacing: 6) {
+                TokenPill((path as NSString).lastPathComponent, systemImage: "doc", isOn: true)
+                Text(path)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .help(path)
+            }
+        } else if let title = sourceTitle {
             VStack(alignment: .leading, spacing: 6) {
                 TokenPicker(segments: segments, chosen: $chosen, appWide: $appWide)
                 HStack(spacing: 8) {

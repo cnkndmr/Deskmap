@@ -208,14 +208,34 @@ parts).
 
 <br clear="right">
 
+### "This window" keys
+
+The pin panel's **This window** choice writes a normal, saved pin with a
+stable key, chosen the same way for every app:
+
+1. **File path** — the window's `AXDocument`. Stored as `"path"` on the rule
+   (`tokens` stays empty); the window must show exactly that file. Not used
+   for apps whose document was seen changing in a window (VS Code reports the
+   active editor), nor when another open window shows the same file.
+2. **Stable title part** — Deskmap remembers each window's title while it
+   runs; the parts that stayed the same across title changes are the key. If
+   every part changed, there is no key. Safari's tab group is read directly
+   from its toolbar (no group = no key).
+3. **Cleaned title** — before any change was seen: page numbers, "Edited",
+   unread counts and similar are dropped.
+
+No key, or a key that also matches another open window: only **All windows
+of the app** is offered. `deskmap windows` shows each window's key
+(`key=file:…`, `key=title:…`, `key=-`).
+
 ### Temporary pins
 
-In the pin panel, **This window only** pins one specific window instead of a
-title. Use it for apps whose windows all have the same title. A temporary pin
-follows the window's ID: it ends when the window closes or its app restarts,
-and it is not saved to the profile. It survives a Deskmap restart as long
-as the window is still open. Temporary pins have an orange icon and take
-precedence over normal pins.
+Multi-select pinning (⌘-click, **Pin where they are**) falls back to a
+temporary pin for a window without a usable key. A temporary pin follows the
+window's ID: it ends when the window closes or its app restarts, and it is
+not saved to the profile. It survives a Deskmap restart as long as the window
+is still open. Temporary pins have an orange icon and take precedence over
+normal pins.
 
 ### Two modes: monitor connected / laptop only
 

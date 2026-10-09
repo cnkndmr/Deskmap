@@ -384,7 +384,7 @@ enum URLCommands {
             return
         }
         let matching = router.windows.filter {
-            rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
+            rule.matches($0)
         }
         let window = windowID.map { id in matching.first { $0.id == id } } ?? matching.first
         guard let window,

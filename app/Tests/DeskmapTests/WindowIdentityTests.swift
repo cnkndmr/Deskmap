@@ -66,7 +66,7 @@ struct WindowIdentityTests {
         // Aynı başlıklı ikinci pencere: kural ayıramaz.
         let twin = snap(3, "Code", code, "a.md — Orion")
         #expect(WindowIdentity.resolve(appName: "Code", bundleID: code,
-                                       title: "a.md — Orion", others: [twin]) == .session)
+                                       title: "a.md — Orion", others: [twin]) == .none)
     }
 
     // MARK: Tarayıcılar
@@ -108,7 +108,7 @@ struct WindowIdentityTests {
         let title = "Chat | Example User (You) | Microsoft Teams"
         #expect(parts("Microsoft Teams", "com.microsoft.teams2", title).isEmpty)
         #expect(WindowIdentity.resolve(appName: "Microsoft Teams", bundleID: "com.microsoft.teams2",
-                                       title: title, others: []) == .session)
+                                       title: title, others: []) == .none)
     }
 
     @Test func terminalKeepsHostWithoutDirectory() {
@@ -128,7 +128,7 @@ struct WindowIdentityTests {
 
     @Test func emptyAndGenericTitlesFallBackToSession() {
         #expect(WindowIdentity.resolve(appName: "Notes", bundleID: "com.apple.Notes",
-                                       title: "", others: []) == .session)
+                                       title: "", others: []) == .none)
         #expect(parts("Safari", "com.apple.Safari", "New Tab").isEmpty)
         #expect(parts("Preview", preview, "Untitled").isEmpty)
     }
@@ -144,25 +144,122 @@ struct WindowIdentityTests {
         let other = snap(2, "Terminal", "com.apple.Terminal", "user — -zsh — 80×24")
         let r = WindowIdentity.resolve(appName: "Terminal", bundleID: "com.apple.Terminal",
                                        title: "user — ✳ Claude Code — 120×40", others: [other])
-        #expect(r == .session)
+        #expect(r == .none)
     }
 
     @Test func safariNeverAddsPageToGroupKey() {
         let other = snap(2, "Safari", "com.apple.Safari", "Asıl — Yahoo")
         let r = WindowIdentity.resolve(appName: "Safari", bundleID: "com.apple.Safari",
                                        title: "Asıl — Google", others: [other])
-        #expect(r == .session)
+        #expect(r == .none)
     }
 
     @Test func shortTokensFallBackToSession() {
         let r = WindowIdentity.resolve(appName: "Safari", bundleID: "com.apple.Safari",
                                        title: "AI — Sayfa", others: [])
-        #expect(r == .session)
+        #expect(r == .none)
     }
 
     @Test func sameKeyIgnoresTokenOrder() {
         let a = Rule(appName: "Code", bundleID: "x", tokens: ["a.md", "Orion"])
         let b = Rule(appName: "Code", bundleID: "x", tokens: ["orion", "A.md"])
         #expect(a.sameKey(as: b))
+    }
+
+    // MARK: Üç katman: belge yolu, başlık geçmişi, sezgi
+
+    private func doc(_ id: CGWindowID, _ app: String, _ bundle: String, _ title: String,
+                     document: String? = nil, tabGroup: String? = nil) -> Router.WindowSnapshot {
+        var window = snap(id, app, bundle, title)
+        window.document = document
+        window.tabGroup = tabGroup
+        return window
+    }
+
+    @Test func documentPathSeparatesSameNamedFiles() {
+        let a = doc(1, "Preview", preview, "main.pdf – Page 1 of 3", document: "/a/main.pdf")
+        let b = doc(2, "Preview", preview, "main.pdf – Page 2 of 9", document: "/b/main.pdf")
+        let r = WindowIdentity.resolve(a, others: [b])
+        #expect(r == .path("/a/main.pdf"))
+        let rule = r.rule(appName: "Preview", bundleID: preview)!
+        #expect(rule.matches(a))
+        #expect(!rule.matches(b))
+        #expect(!rule.isAppWide)
+        #expect(rule.title == "main.pdf")
+    }
+
+    @Test func sameDocumentInTwoWindowsFallsBackToTitle() {
+        let a = doc(1, "Preview", preview, "main.pdf – Page 1 of 3", document: "/a/main.pdf")
+        let b = doc(2, "Preview", preview, "main.pdf – Page 2 of 3", document: "/a/main.pdf")
+        #expect(WindowIdentity.resolve(a, others: [b]) == .none)
+    }
+
+    @Test func changingDocumentIsNotTrusted() {
+        let code = "com.microsoft.VSCode"
+        var history = WindowIdentity.Observations()
+        let first = doc(1, "Code", code, "a.md — Proj", document: "/p/a.md")
+        history.observe([first])
+        #expect(WindowIdentity.resolve(first, others: [], history: history) == .path("/p/a.md"))
+        let second = doc(1, "Code", code, "b.md — Proj", document: "/p/b.md")
+        history.observe([second])
+        #expect(WindowIdentity.resolve(second, others: [], history: history) == .rule(["Proj"]))
+        // Aynı uygulamanın yeni penceresi de belgeyle anahtarlanmaz.
+        let fresh = doc(5, "Code", code, "c.md — Other", document: "/o/c.md")
+        #expect(WindowIdentity.resolve(fresh, others: [], history: history) == .rule(["Other"]))
+        #expect(history.volatileDocumentApps == [code])
+    }
+
+    @Test func stableSegmentWinsAfterTitleChanges() {
+        let terminal = "com.apple.Terminal"
+        var history = WindowIdentity.Observations()
+        history.observe([snap(1, "Terminal", terminal, "user — user@host:~ — ssh — 80×24")])
+        history.observe([snap(1, "Terminal", terminal, "user — user@host:~/x — vim — 80×24")])
+        let now = snap(1, "Terminal", terminal, "user — user@host:~/x — vim — 80×24")
+        #expect(history.stableSegments(of: now) == ["user@host", "user"])
+        #expect(WindowIdentity.resolve(now, others: [], history: history) == .rule(["user@host"]))
+    }
+
+    @Test func everySegmentChangedMeansNoKey() {
+        let chrome = "com.google.Chrome"
+        var history = WindowIdentity.Observations()
+        history.observe([snap(1, "Google Chrome", chrome, "Gelen Kutusu - Google Chrome")])
+        let now = snap(1, "Google Chrome", chrome, "Haberler - Google Chrome")
+        history.observe([now])
+        #expect(history.stableSegments(of: now) == [])
+        #expect(WindowIdentity.resolve(now, others: [], history: history) == .none)
+        // Pencere kapanınca geçmişi unutulur.
+        history.observe([])
+        #expect(history.entries.isEmpty)
+    }
+
+    @Test func safariTabGroupFromToolbar() {
+        let safari = "com.apple.Safari"
+        let grouped = doc(1, "Safari", safari, "Research — Bir sayfa", tabGroup: "Research")
+        #expect(WindowIdentity.resolve(grouped, others: []) == .rule(["Research"]))
+        // Grupsuz pencere: başlığı " — " içerse de ad anahtarı yok.
+        let loose = doc(2, "Safari", safari, "Asıl — Google", tabGroup: "")
+        #expect(WindowIdentity.resolve(loose, others: []) == .none)
+        #expect(AX.tabGroupName(identifier: "TabGroupPickerButton?TabGroup=Research") == "Research")
+        #expect(AX.tabGroupName(identifier: "TabGroupPickerButton") == "")
+        #expect(AX.tabGroupName(identifier: "BackButton") == nil)
+    }
+
+    @Test func documentPathParsing() {
+        #expect(AX.documentPath("file:///Users/x/My%20Docs/main.pdf") == "/Users/x/My Docs/main.pdf")
+        #expect(AX.documentPath("https://example.com/a.pdf") == nil)
+        #expect(AX.documentPath("") == nil)
+    }
+
+    @Test func pathRuleCodableAndSpecificity() throws {
+        let rule = Rule(appName: "Preview", bundleID: preview, tokens: [], path: "/a/main.pdf",
+                        docked: Destination(screen: "builtin"))
+        let back = try JSONDecoder().decode(Rule.self, from: JSONEncoder().encode(rule))
+        #expect(back == rule && back.path == "/a/main.pdf")
+        // Eski kayıt: path yok.
+        let old = try JSONDecoder().decode(Rule.self, from: Data(#"{"appName":"Preview","tokens":[]}"#.utf8))
+        #expect(old.path == nil && old.isAppWide)
+        let titled = Rule(appName: "Preview", bundleID: preview, tokens: ["main.pdf", "x"])
+        #expect([titled, rule].bySpecificity.first?.path == "/a/main.pdf")
+        #expect(!rule.sameKey(as: Rule(appName: "Preview", bundleID: preview, tokens: [])))
     }
 }

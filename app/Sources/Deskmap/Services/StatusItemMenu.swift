@@ -42,7 +42,7 @@ final class StatusItemMenu: NSObject {
         guard let front, let window = windows.first(where: { $0.id == front }),
               Routing.select(rules: rules, sessionPins: sessionPins, mode: mode,
                              windowID: window.id, bundleID: window.bundleID,
-                             appName: window.appName, title: window.title) != nil
+                             appName: window.appName, title: window.title, document: window.document) != nil
         else { return nil }
         return window
     }

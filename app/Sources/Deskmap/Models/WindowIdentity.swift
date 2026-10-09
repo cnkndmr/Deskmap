@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Bir pencerenin "kararlı kimliği" (saf): başlıktan, sayfa numarası,
@@ -8,15 +9,35 @@ enum WindowIdentity {
 
     /// Pinin nasıl yazılacağı.
     enum Resolution: Equatable {
+        /// Kalıcı kural, belge yolu ile: yalnız bu dosyayı gösteren pencere.
+        case path(String)
         /// Kalıcı kural; başlıkta bu parçaların hepsi geçen pencereler uyar.
         case rule([String])
-        /// Anlamlı kararlı parça yok ya da başka pencerelere de uyuyor:
-        /// yalnız bu pencere kimliğine oturum pini.
-        case session
+        /// Kararlı anahtar yok ya da başka açık pencereye de uyuyor: "bu
+        /// pencere" sunulmaz, yalnız uygulamanın bütün pencereleri.
+        case none
+
+        /// Anahtar için kural taslağı (hedefsiz); anahtar yoksa nil.
+        func rule(appName: String, bundleID: String) -> Rule? {
+            switch self {
+            case .path(let path): return Rule(appName: appName, bundleID: bundleID, tokens: [], path: path)
+            case .rule(let tokens): return Rule(appName: appName, bundleID: bundleID, tokens: tokens)
+            case .none: return nil
+            }
+        }
+
+        /// Panelde gösterilecek kısa anahtar.
+        var label: String? {
+            switch self {
+            case .path(let path): return (path as NSString).lastPathComponent
+            case .rule(let tokens): return tokens.first
+            case .none: return nil
+            }
+        }
     }
 
     /// Kararlı parçalar, en belirleyiciden başlayarak (saf). Boş = kararlı
-    /// bir şey yok.
+    /// bir şey yok. Hiç başlık değişimi görülmemiş pencere için sezgisel.
     static func candidates(appName: String, bundleID: String, title: String) -> [String] {
         let family = Family(appName: appName, bundleID: bundleID)
         let cleaned = unquote(title)
@@ -41,15 +62,46 @@ enum WindowIdentity {
         return parts.filter { !isGeneric($0) && seen.insert($0.lowercased()).inserted }
     }
 
-    /// Pencere için pin kararı. `others` = aynı anda açık öbür pencereler
-    /// (kendisi hariç). Anahtar başka pencereye de uyuyorsa bir sonraki en
-    /// belirleyici parça eklenir; yine belirsizse oturum pini.
+    /// Yalnız başlık sezgisiyle pin kararı (geçmiş ve belge yok). `others` =
+    /// aynı anda açık öbür pencereler (kendisi hariç). Anahtar başka
+    /// pencereye de uyuyorsa bir sonraki en belirleyici parça eklenir; yine
+    /// belirsizse anahtar yok.
     static func resolve(appName: String, bundleID: String, title: String,
                         others: [Router.WindowSnapshot]) -> Resolution {
-        let parts = candidates(appName: appName, bundleID: bundleID, title: title)
-        guard !parts.isEmpty else { return .session }
+        narrowed(candidates(appName: appName, bundleID: bundleID, title: title),
+                 appName: appName, bundleID: bundleID, title: title, others: others)
+    }
+
+    /// Üç katmanlı pin kararı (saf), her uygulama için aynı:
+    /// 1. Belge yolu (AXDocument): pencerenin belgesi değiştiği hiç
+    ///    görülmediyse ve uygulama belgesi oynayan uygulamalardan değilse.
+    /// 2. Başlık geçmişi: başlık değiştiyse değişmeyen parçalar; her parça
+    ///    değiştiyse anahtar yok. Safari'de sekme grubu adı araç çubuğundan
+    ///    okunduysa doğrudan o (grupsuz pencerede anahtar yok).
+    /// 3. Değişim görülmediyse eski sezgi (sayfa no, Edited, sayı atılır).
+    /// Anahtar başka açık pencereye de uyuyorsa bir alt katman denenir;
+    /// hiçbiri ayırmıyorsa `.none`.
+    static func resolve(_ window: Router.WindowSnapshot, others: [Router.WindowSnapshot],
+                        history: Observations = Observations()) -> Resolution {
+        let app = window.appName, bundle = window.bundleID, title = window.title
+        if let path = window.document, history.trustsDocument(of: window) {
+            let rule = Rule(appName: app, bundleID: bundle, tokens: [], path: path)
+            if !others.contains(where: { rule.matches($0) }) { return .path(path) }
+        }
+        if let group = window.tabGroup {
+            let parts = group.isEmpty || isGeneric(group) ? [] : [group]
+            return narrowed(parts, appName: app, bundleID: bundle, title: title, others: others)
+        }
+        let parts = history.stableSegments(of: window)
+            ?? candidates(appName: app, bundleID: bundle, title: title)
+        return narrowed(parts, appName: app, bundleID: bundle, title: title, others: others)
+    }
+
+    private static func narrowed(_ parts: [String], appName: String, bundleID: String,
+                                 title: String, others: [Router.WindowSnapshot]) -> Resolution {
+        guard !parts.isEmpty else { return .none }
         // Terminal/Safari'de ek parça oynak (komut, sayfa): daraltma yok,
-        // kararlı parça tek başına belirsizse oturum pini.
+        // kararlı parça tek başına belirsizse anahtar yok.
         let limit = narrowingLimit(appName: appName, bundleID: bundleID, available: parts.count)
         for count in 1...limit {
             let tokens = Array(parts.prefix(count))
@@ -57,11 +109,85 @@ enum WindowIdentity {
             // Kendisine uymayan anahtar (ör. saf olmayan temizlik) işe yaramaz.
             guard rule.matches(bundleID: bundleID, appName: appName, title: title) else { continue }
             let clash = others.contains {
-                rule.matches(bundleID: $0.bundleID, appName: $0.appName, title: $0.title)
+                rule.matches($0)
             }
             if !clash { return .rule(tokens) }
         }
-        return .session
+        return .none
+    }
+
+    // MARK: Gözlem (çalışma anında başlık ve belge geçmişi)
+
+    /// Taramalar boyunca her pencerenin başlık parçaları ve belgesi. Başlık
+    /// değiştikçe değişmeyen parçalar daralır; belge değişen uygulama
+    /// (ör. VS Code etkin dosyayı bildirir) belge yoluyla anahtarlanmaz.
+    struct Observations: Equatable {
+        struct Entry: Equatable {
+            var lastTitle: String
+            /// Görülen bütün başlıklarda geçen parçalar (küçük harf).
+            var stable: Set<String>
+            var titleChanged = false
+            var document: String?
+            var documentChanged = false
+        }
+        var entries: [CGWindowID: Entry] = [:]
+        /// Bir penceresinde belge değiştiği görülen uygulamalar.
+        var volatileDocumentApps: Set<String> = []
+
+        init(volatileDocumentApps: Set<String> = []) {
+            self.volatileDocumentApps = volatileDocumentApps
+        }
+
+        private static func appKey(_ window: Router.WindowSnapshot) -> String {
+            window.bundleID.isEmpty ? window.appName.lowercased() : window.bundleID
+        }
+
+        private static func segments(_ window: Router.WindowSnapshot, title: String) -> [String] {
+            WindowIdentity.candidates(appName: window.appName, bundleID: window.bundleID, title: title)
+        }
+
+        /// Taramadaki pencereleri işler; görünmeyenler unutulur.
+        mutating func observe(_ windows: [Router.WindowSnapshot]) {
+            var next: [CGWindowID: Entry] = [:]
+            for window in windows {
+                let parts = Set(Self.segments(window, title: window.title).map { $0.lowercased() })
+                guard var entry = entries[window.id] else {
+                    next[window.id] = Entry(lastTitle: window.title, stable: parts,
+                                            document: window.document)
+                    continue
+                }
+                if entry.lastTitle != window.title {
+                    entry.lastTitle = window.title
+                    entry.stable.formIntersection(parts)
+                    entry.titleChanged = true
+                }
+                if let document = window.document {
+                    if let old = entry.document, old != document {
+                        entry.documentChanged = true
+                        volatileDocumentApps.insert(Self.appKey(window))
+                    }
+                    entry.document = document
+                }
+                next[window.id] = entry
+            }
+            entries = next
+        }
+
+        /// Belge yolu anahtar olabilir mi: bu pencerenin ve uygulamanın
+        /// belgesi değişirken hiç görülmedi.
+        func trustsDocument(of window: Router.WindowSnapshot) -> Bool {
+            guard window.document != nil,
+                  !volatileDocumentApps.contains(Self.appKey(window)) else { return false }
+            return entries[window.id]?.documentChanged != true
+        }
+
+        /// Başlık değiştiyse değişmeyen parçalar (sezgi sırasında, şu anki
+        /// yazımıyla; boş = hepsi değişti); değişim görülmediyse nil.
+        func stableSegments(of window: Router.WindowSnapshot) -> [String]? {
+            guard let entry = entries[window.id], entry.titleChanged else { return nil }
+            return Self.segments(window, title: window.title)
+                .filter { entry.stable.contains($0.lowercased()) }
+        }
     }
 
     /// Kaç parçaya kadar daraltılabilir.
@@ -190,7 +316,7 @@ enum WindowIdentity {
     }
 
     /// Hiçbir şeyi ayırt etmeyen başlıklar.
-    private static func isGeneric(_ text: String) -> Bool {
+    static func isGeneric(_ text: String) -> Bool {
         let lower = text.lowercased()
         let names: Set<String> = [
             "untitled", "new tab", "start page", "home", "new window", "adsız", "yeni sekme",

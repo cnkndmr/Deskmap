@@ -19,6 +19,7 @@ struct MultiPinBar: View {
 
         static func == (a: Plan, b: Plan) -> Bool {
             a.rules.map(\.rule.tokens) == b.rules.map(\.rule.tokens)
+                && a.rules.map(\.rule.path) == b.rules.map(\.rule.path)
                 && a.rules.map(\.destination) == b.rules.map(\.destination)
                 && a.sessions.map(\.window) == b.sessions.map(\.window)
                 && a.sessions.map(\.destination) == b.sessions.map(\.destination)
@@ -27,10 +28,12 @@ struct MultiPinBar: View {
 
     /// Seçilen pencerelerin pin planı (saf). Kural, pencerenin kararlı
     /// kimliğiyle (`WindowIdentity`) yazılır; anahtar seçilmemiş başka açık
-    /// pencereye de uyuyorsa daraltılır, kararlı anahtar yoksa ya da seçimdeki
+    /// pencereye de uyuyorsa daraltılır (belge yolu ve başlık geçmişi
+    /// `WindowIdentity.resolve` ile), kararlı anahtar yoksa ya da seçimdeki
     /// başka pencere aynı kuralı başka yere istiyorsa yalnız bu pencereye
     /// oturum pini. Yeri bilinmeyen ya da tam ekran pencere atlanır.
     static func plan(selected ids: Set<CGWindowID>, windows: [Router.WindowSnapshot],
+                     history: WindowIdentity.Observations = .init(),
                      layout: (Router.WindowSnapshot) -> WindowLayout) -> Plan {
         var plan = Plan()
         let selected = windows.filter { ids.contains($0.id) }
@@ -39,17 +42,11 @@ struct MultiPinBar: View {
             let destination = Destination(screen: placement.screen, desktop: placement.desktop,
                                           layout: layout(window))
             // Seçimdeki başka bir pencere aynı kuralı başka yere istemişse çakışır.
-            func clashes(_ tokens: [String]) -> Bool {
-                let rule = Rule(appName: window.appName, bundleID: window.bundleID, tokens: tokens)
-                return plan.rules.contains { $0.rule.sameKey(as: rule) }
-            }
             let others = windows.filter { !ids.contains($0.id) }
-            if case .rule(let tokens) = WindowIdentity.resolve(
-                appName: window.appName, bundleID: window.bundleID,
-                title: window.title, others: others),
-               !clashes(tokens) {
-                plan.rules.append((Rule(appName: window.appName, bundleID: window.bundleID,
-                                        tokens: tokens), destination))
+            if let rule = WindowIdentity.resolve(window, others: others, history: history)
+                .rule(appName: window.appName, bundleID: window.bundleID),
+               !plan.rules.contains(where: { $0.rule.sameKey(as: rule) }) {
+                plan.rules.append((rule, destination))
             } else {
                 plan.sessions.append((window.id, destination))
             }
@@ -58,7 +55,7 @@ struct MultiPinBar: View {
     }
 
     private var plan: Plan {
-        Self.plan(selected: ui.selection, windows: ui.windows) {
+        Self.plan(selected: ui.selection, windows: ui.windows, history: router.identity) {
             $0.currentLayout(screens: screens.screens) ?? .full
         }
     }

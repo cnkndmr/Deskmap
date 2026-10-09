@@ -331,9 +331,9 @@
 "Desktop only (keep position and size)" = "Yalnız masaüstü (konum ve boyut serbest)";
 "The window follows this desktop; Deskmap never moves or resizes it there" = "Pencere bu masaüstünü izler; Deskmap onu orada taşımaz, boyutlandırmaz";
 "Send Desktop to %@" = "Masaüstünü %@ ekranına gönder";
-"This window" = "Bu pencere";
 "All windows of %@" = "%@ uygulamasının bütün pencereleri";
+"This window (%@)" = "Bu pencere (%@)";
+"Matches the file %@" = "Şu dosyaya uyar: %@";
 "Matches: \"%@\"" = "Eşleşen: \"%@\"";
 "Narrowed by %ld more detail(s) from the title." = "Başlıktaki %ld ayrıntıyla daraltıldı.";
-"No stable name found; only this window is kept until it closes or its app restarts." = "Kararlı bir ad bulunamadı; yalnız bu pencere tutulur, pencere kapanana ya da uygulama yeniden açılana kadar geçerli.";
 "This window has no stable name to match." = "Bu pencerenin eşleşecek kararlı bir adı yok.";

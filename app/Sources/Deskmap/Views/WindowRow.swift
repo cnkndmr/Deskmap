@@ -25,7 +25,7 @@ struct WindowRow: View {
     private var pinnedRule: Rule? {
         Routing.select(rules: store.document.rules, sessionPins: [:], mode: mode,
                        windowID: window.id, bundleID: window.bundleID,
-                       appName: window.appName, title: window.title)?.rule
+                       appName: window.appName, title: window.title, document: window.document)?.rule
     }
 
     /// Bu pencerenin kimliğine bağlı oturum pini (kalıcı kuraldan önce gelir).
@@ -55,7 +55,7 @@ struct WindowRow: View {
         let match = Routing.select(
             rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
             windowID: window.id, bundleID: window.bundleID,
-            appName: window.appName, title: window.title)
+            appName: window.appName, title: window.title, document: window.document)
         let name = match.flatMap { m in screens.screens.first { $0.id == m.destination.screen }?.name }
         return Routing.explanation(for: match, screenName: name)
     }

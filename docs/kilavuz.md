@@ -56,22 +56,24 @@ None**. macOS uygulamayı kendi bir masaüstüne atadıysa pencere için
 
 ![Başlığın hangi parçası bu pencereyi tanımlıyor?](images/tr/02-pin.png)
 
-4. Panel pencerenin başlığını parçalara ayırır ve hangisinin bu pencereyi
-   tanımladığını sorar. `acme-web — VS Code` için **acme-web**'i seç: proje
-   adı; dosya adı değil, uygulama adı değil. Parçaların altında kaç açık
-   pencerenin eşleştiği yazar — doğru parçayı seçtiğinin kontrolü.
+4. Panel iki seçenek sunar:
+   - **Bu pencere (anahtar)** — Deskmap pencere için kararlı bir anahtar
+     bulur ve parantez içinde gösterir. Sırayla: pencerenin gösterdiği dosya
+     (Önizleme, Pages, Word, Excel, TextEdit… — iki ayrı `main.pdf`
+     karışmaz); yoksa başlık değişirken hep aynı kalan parça (VS Code'un
+     proje klasörü, Terminal'in `kullanıcı@makine`'si, Safari'nin sekme
+     grubu); başlık değişimi henüz görülmediyse temizlenmiş başlık (sayfa
+     numarası, "Düzenlendi", okunmamış sayısı atılır). Panel şu an kaç açık
+     pencerenin eşleştiğini yazar.
+   - **Uygulamanın bütün pencereleri** — başlığa bakmadan. Mail, Slack için iyi.
+
+   Pencerenin kararlı anahtarı yoksa (başlığının her parçası değişiyor,
+   örneğin sekme grubu olmayan Safari penceresi) ya da anahtar başka açık
+   bir pencereye de uyuyorsa yalnız **bütün pencereler** sunulur.
 5. **Pinle**'ye bas (ya da Return).
 
-Pin bu demek: *bu uygulamanın başlığında `acme-web` geçen her penceresi
-buraya aittir.* Yarınki pencere, haftaya açılan, yeniden başlattıktan
-sonraki — hepsi aynı yere.
-
-Aynı panelde iki çeşidi var:
-
-- **Tüm pencereler** — başlığa bakmadan uygulamanın her penceresi. Mail,
-  Slack gibi uygulamalar için iyi.
-- **Sadece bu pencere** — pencereleri birbirinin aynı görünen uygulamalar
-  için tek bir pencereyi pinler. Pencere kapanınca biter, kaydedilmez.
+Pin bu demek: yarın aynı dosya ya da projeyle açılan pencere, yeniden
+başlattıktan sonraki — hepsi aynı yere.
 
 ## 4. Ait olduğu yere taşı
 

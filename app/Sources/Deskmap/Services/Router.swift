@@ -100,6 +100,11 @@ final class Router: ObservableObject {
         let isMinimized: Bool
         /// Tam ekran (ya da Split View) space'indeyse haritadaki yeri.
         var fullscreen: FullscreenSlot? = nil
+        /// Gösterdiği belgenin dosya yolu (AXDocument); yoksa nil.
+        var document: String? = nil
+        /// Safari: araç çubuğundaki sekme grubu adı; "" = grupsuz pencere,
+        /// nil = okunamadı ya da Safari değil.
+        var tabGroup: String? = nil
     }
 
     struct Status: Equatable {
@@ -119,6 +124,23 @@ final class Router: ObservableObject {
     /// (birkaç tarama boyunca görünmeyince) kendiliğinden silinir; moddan
     /// bağımsızdır, hedef ekran bağlı değilse o an uygulanmaz.
     @Published private(set) var sessionPins: [CGWindowID: Destination] = [:]
+    /// Pencerelerin başlık/belge geçmişi ("bu pencere" pininin anahtarı).
+    /// Belgesi oynayan uygulamalar kalıcıdır (UserDefaults).
+    @Published private(set) var identity = WindowIdentity.Observations(
+        volatileDocumentApps: Set(UserDefaults.standard.stringArray(
+            forKey: Router.volatileDocumentAppsKey) ?? []))
+    nonisolated static let volatileDocumentAppsKey = "volatileDocumentApps"
+
+    private func observeIdentity(_ snapshots: [WindowSnapshot]) {
+        var next = identity
+        next.observe(snapshots)
+        guard next != identity else { return }
+        if next.volatileDocumentApps != identity.volatileDocumentApps {
+            UserDefaults.standard.set(next.volatileDocumentApps.sorted(),
+                                      forKey: Self.volatileDocumentAppsKey)
+        }
+        identity = next
+    }
     /// Serbest hareket: pencere → iznin bittiği an. Bu süre boyunca motor
     /// pencereyi masaüstüne geri taşımaz, düzen vermez; süre bitince pin
     /// yeniden uygulanır (pencere yerine döner). Diske yazılmaz.
@@ -136,6 +158,7 @@ final class Router: ObservableObject {
         var bundleID: String = ""
         var appName: String = ""
         var title: String = ""
+        var document: String? = nil
         /// İzin verildiği kurulum; kurulum değişince (monitör takıldı ya
         /// da çıkarıldı) hedef aynı olsa da izin biter.
         var mode: Mode = .docked
@@ -512,7 +535,7 @@ final class Router: ObservableObject {
         guard let bundleID, let appName else { return true }
         let lowered = appName.lowercased()
         return rules.contains { rule in
-            !rule.tokens.isEmpty
+            (!rule.tokens.isEmpty || rule.path != nil)
                 && (rule.bundleID.isEmpty ? rule.appName.lowercased() == lowered
                                           : rule.bundleID == bundleID)
         }
@@ -647,12 +670,13 @@ final class Router: ObservableObject {
                   let match = Routing.select(
                     rules: store.document.rules, sessionPins: sessionPins, mode: screens.mode,
                     windowID: id, bundleID: window.bundleID, appName: window.appName,
-                    title: window.title)
+                    title: window.title, document: window.document)
             else { continue }
             freeMoves[id] = end
             freeTargets[id] = FreeGrant(ruleID: match.ruleID, destination: match.destination,
                                         bundleID: window.bundleID, appName: window.appName,
-                                        title: window.title, mode: screens.mode)
+                                        title: window.title, document: window.document,
+                                        mode: screens.mode)
             // Yarım kalmış taşıma/düzen denemeleri izin boyunca donup
             // zamanlayıcıyı her turda tam taramaya zorlamasın.
             dropAttempts(for: id)
@@ -721,7 +745,8 @@ final class Router: ObservableObject {
     ) -> Bool {
         guard mode == grant.mode, let match = Routing.select(
             rules: rules, sessionPins: sessionPins, mode: mode, windowID: windowID,
-            bundleID: grant.bundleID, appName: grant.appName, title: grant.title)
+            bundleID: grant.bundleID, appName: grant.appName, title: grant.title,
+            document: grant.document)
         else { return false }
         return match.ruleID == grant.ruleID && match.destination == grant.destination
     }
@@ -1059,7 +1084,7 @@ final class Router: ObservableObject {
         for window in snapshots where !window.isMinimized && window.fullscreen == nil {
             guard let match = Routing.select(
                     rules: rules, sessionPins: [:], mode: mode, windowID: window.id,
-                    bundleID: window.bundleID, appName: window.appName, title: window.title),
+                    bundleID: window.bundleID, appName: window.appName, title: window.title, document: window.document),
                   let rule = match.rule, !rule.isAppWide else { continue }
             if let last = reopenReads[window.id], last.title == window.title,
                now.timeIntervalSince(last.at) < Self.reopenRefresh { continue }
@@ -1147,7 +1172,7 @@ final class Router: ObservableObject {
         ) { window in
             Routing.select(rules: rules, sessionPins: sessions, mode: mode, windowID: window.id,
                            bundleID: window.bundleID, appName: window.appName,
-                           title: window.title) != nil
+                           title: window.title, document: window.document) != nil
         }
         for move in moves {
             Log.routing.notice("Setup changed: window \(move.window) follows its named desktop to \(move.placement.screen, privacy: .public)/\(move.placement.desktop)")
@@ -1703,6 +1728,7 @@ final class Router: ObservableObject {
                     Self.logFullscreenChange(from: self.windows, to: outcome.snapshots)
                     self.windows = outcome.snapshots
                 }
+                self.observeIdentity(outcome.snapshots)
                 self.expireSessionPins(live: outcome.liveWindows)
                 // Önceki taşımaların doğrulaması, sonra bu taramanın taşımaları.
                 let check = PendingMove.verify(pending: self.pendingMoves,
@@ -1841,6 +1867,9 @@ final class Router: ObservableObject {
         // Pencere başına durum bir kez okunur.
         var states: [CGWindowID: WindowState] = [:]
         var spaceless: Set<CGWindowID> = []
+        /// Pencerenin belge yolu (AXDocument): "bu pencere" pininin anahtarı.
+        var documents: [CGWindowID: String] = [:]
+        var tabGroups: [CGWindowID: String] = [:]
         for window in windows {
             let read = sky.canRead ? sky.spaces(of: window.id) : nil
             outcome.observedSpaces[window.id] = read ?? []
@@ -1855,6 +1884,8 @@ final class Router: ObservableObject {
                 frame: AX.frame(of: window),
                 isMinimized: AX.isMinimized(window),
                 spacesKnown: space.known)
+            documents[window.id] = AX.document(of: window)
+            if window.bundleID == "com.apple.Safari" { tabGroups[window.id] = AX.safariTabGroup(of: window) }
         }
         func windowState(_ window: AXWindow) -> WindowState {
             states[window.id] ?? WindowState(spaces: [], isFullscreen: false,
@@ -1873,7 +1904,9 @@ final class Router: ObservableObject {
                 placement: Self.placement(of: state, displays: displays, screens: screens),
                 frame: state.frame,
                 isMinimized: state.isMinimized,
-                fullscreen: Self.fullscreenSlot(of: state, displays: displays, screens: screens))
+                fullscreen: Self.fullscreenSlot(of: state, displays: displays, screens: screens),
+                document: documents[window.id],
+                tabGroup: tabGroups[window.id])
         }.sorted {
             let a = $0.appName.localizedCaseInsensitiveCompare($1.appName)
             return a == .orderedSame ? $0.id < $1.id : a == .orderedAscending
@@ -1885,7 +1918,8 @@ final class Router: ObservableObject {
             // en özgül eşleşen kural.
             guard let match = Routing.select(
                 rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
-                bundleID: window.bundleID, appName: window.appName, title: window.title)
+                bundleID: window.bundleID, appName: window.appName, title: window.title,
+                document: documents[window.id])
             else { continue }
             // Serbest hareket izni olan pencereye dokunulmaz (izin geçerliliği
             // taramadan önce ana aktörde denetlenir: `validateFreeMoves`).

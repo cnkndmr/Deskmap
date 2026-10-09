@@ -347,6 +347,10 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     var tokens: [String] {
         didSet { loweredTokens = Self.lowered(tokens) }
     }
+    /// Belge yolu (AXDocument): verilmişse yalnız bu dosyayı gösteren
+    /// pencere uyar (aynı adlı iki farklı dosya karışmaz). Eski kayıtlarda
+    /// yok (nil).
+    var path: String?
     var docked: Destination?
     var undocked: Destination?
 
@@ -364,6 +368,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         appName: String,
         bundleID: String,
         tokens: [String],
+        path: String? = nil,
         docked: Destination? = nil,
         undocked: Destination? = nil
     ) {
@@ -371,17 +376,22 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         self.appName = appName
         self.bundleID = bundleID
         self.tokens = tokens
+        self.path = path
         self.loweredTokens = Self.lowered(tokens)
         self.docked = docked
         self.undocked = undocked
     }
 
     /// Boş `tokens` = uygulamanın bütün pencereleri.
-    var isAppWide: Bool { tokens.isEmpty }
+    var isAppWide: Bool { tokens.isEmpty && path == nil }
 
     var title: String {
-        isAppWide ? L("all windows") : tokens.joined(separator: " · ")
+        if let path { return (path as NSString).lastPathComponent }
+        return isAppWide ? L("all windows") : tokens.joined(separator: " · ")
     }
+
+    /// Özgüllük: belge yolu her başlık parçasından daha belirleyici.
+    var specificity: Int { tokens.count + (path == nil ? 0 : 1000) }
 
     /// Verilen moddaki hedef. İki mod (monitör bağlı / sadece laptop)
     /// birbirinden tamamen bağımsızdır; biri diğerinden devralmaz,
@@ -396,7 +406,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     // MARK: Çözümleme (eski şemayı da okur)
 
     private enum CodingKeys: String, CodingKey {
-        case id, appName, bundleID, tokens, docked, undocked
+        case id, appName, bundleID, tokens, path, docked, undocked
         // v1 alanları
         case app, match
     }
@@ -406,6 +416,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         docked = try c.decodeIfPresent(Destination.self, forKey: .docked)
         undocked = try c.decodeIfPresent(Destination.self, forKey: .undocked)
+        path = try c.decodeIfPresent(String.self, forKey: .path)
 
         let decodedTokens: [String]
         if let name = try c.decodeIfPresent(String.self, forKey: .appName) {
@@ -436,6 +447,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         try c.encode(appName, forKey: .appName)
         try c.encode(bundleID, forKey: .bundleID)
         try c.encode(tokens, forKey: .tokens)
+        try c.encodeIfPresent(path, forKey: .path)
         try c.encodeIfPresent(docked, forKey: .docked)
         try c.encodeIfPresent(undocked, forKey: .undocked)
     }
@@ -483,7 +495,7 @@ struct LossyArray<Element: Decodable>: Decodable {
 extension Array where Element == Rule {
     /// Başlığa özgü kurallar uygulama geneli kurallardan önce denenir.
     var bySpecificity: [Rule] {
-        sorted { $0.tokens.count > $1.tokens.count }
+        sorted { $0.specificity > $1.specificity }
     }
 }
 
@@ -498,8 +510,15 @@ extension Rule {
     /// eşler; kararlar değişmesin diye küçültme semantiği korunur
     /// (`RuleTests` Türkçe ve ß örneklerini sabitler).
     func matches(bundleID windowBundle: String, appName windowApp: String,
-                 title: String) -> Bool {
-        matches(bundleID: windowBundle, appName: windowApp, loweredTitle: title.lowercased())
+                 title: String, document: String? = nil) -> Bool {
+        matches(bundleID: windowBundle, appName: windowApp, loweredTitle: title.lowercased(),
+                document: document)
+    }
+
+    /// Anlık görüntüdeki pencereye uyuyor mu (başlık ve belge yolu).
+    func matches(_ window: Router.WindowSnapshot) -> Bool {
+        matches(bundleID: window.bundleID, appName: window.appName, title: window.title,
+                document: window.document)
     }
 
     /// Aynı karar; başlığı küçültmeyi çağırana bırakır ve yalnızca
@@ -507,13 +526,15 @@ extension Rule {
     /// geneliyse başlığa bakılmaz). `Routing.select` bir pencere için birçok
     /// kural denerken başlığı böylece bir kez küçültür.
     func matches(bundleID windowBundle: String, appName windowApp: String,
-                 loweredTitle: @autoclosure () -> String) -> Bool {
+                 loweredTitle: @autoclosure () -> String, document: String? = nil) -> Bool {
         if !bundleID.isEmpty {
             guard bundleID == windowBundle else { return false }
         } else {
             guard appName.caseInsensitiveCompare(windowApp) == .orderedSame
             else { return false }
         }
+        // Belge yolu: pencerenin o anki belgesi tam olarak bu dosya olmalı.
+        if let path, path != document { return false }
         if tokens.isEmpty { return true }
         let haystack = loweredTitle()
         return loweredTokens.allSatisfy { haystack.contains($0) }
@@ -543,7 +564,7 @@ extension Rule {
     func sameKey(as other: Rule) -> Bool {
         let a = bundleID.isEmpty ? appName.lowercased() : bundleID
         let b = other.bundleID.isEmpty ? other.appName.lowercased() : other.bundleID
-        guard a == b, tokens.count == other.tokens.count else { return false }
+        guard a == b, path == other.path, tokens.count == other.tokens.count else { return false }
         // Sıra önemsiz: eşleşme de sıradan bağımsız.
         return tokens.map { $0.lowercased() }.sorted() == other.tokens.map { $0.lowercased() }.sorted()
     }

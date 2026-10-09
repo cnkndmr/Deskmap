@@ -653,6 +653,65 @@ enum AX {
         windowServerList().live
     }
 
+    /// Pencerenin gösterdiği belgenin dosya yolu (AXDocument, file URL);
+    /// belge yoksa ya da dosya değilse nil.
+    static func document(of window: AXWindow) -> String? {
+        guard let raw: String = attribute(window.element, kAXDocumentAttribute) else { return nil }
+        return documentPath(raw)
+    }
+
+    /// AXDocument değeri → dosya yolu (saf). Yalnız `file://` adresleri.
+    nonisolated static func documentPath(_ raw: String) -> String? {
+        guard let url = URL(string: raw), url.isFileURL else { return nil }
+        let path = url.standardizedFileURL.path
+        return path.isEmpty || path == "/" ? nil : path
+    }
+
+    /// Safari penceresinin sekme grubu: araç çubuğundaki grup seçicinin
+    /// kimliği "TabGroupPickerButton?TabGroup=<ad>" biçiminde (ölçüldü
+    /// 09.10, Safari 26). Grup parametresi yoksa "" (grupsuz), düğme
+    /// bulunamazsa nil.
+    static func safariTabGroup(of window: AXWindow) -> String? {
+        // Grup adı başlığın başında durur: başlık aynıysa grup da aynı;
+        // araç çubuğu yalnız başlık değişince yeniden okunur.
+        tabGroupLock.lock()
+        let cached = tabGroupCache[window.id]
+        tabGroupLock.unlock()
+        if let cached, cached.title == window.title { return cached.group }
+        let group = readSafariTabGroup(window)
+        tabGroupLock.lock()
+        if tabGroupCache.count > 200 { tabGroupCache.removeAll() }
+        tabGroupCache[window.id] = (window.title, group)
+        tabGroupLock.unlock()
+        return group
+    }
+
+    private static let tabGroupLock = NSLock()
+    nonisolated(unsafe) private static var tabGroupCache: [CGWindowID: (title: String, group: String?)] = [:]
+
+    private static func readSafariTabGroup(_ window: AXWindow) -> String? {
+        let children: [AXUIElement] = attribute(window.element, kAXChildrenAttribute) ?? []
+        for child in children {
+            let role: String? = attribute(child, kAXRoleAttribute)
+            guard role == "AXToolbar" else { continue }
+            let items: [AXUIElement] = attribute(child, kAXChildrenAttribute) ?? []
+            for item in items {
+                let identifier: String? = attribute(item, kAXIdentifierAttribute)
+                if let identifier, let group = tabGroupName(identifier: identifier) { return group }
+            }
+        }
+        return nil
+    }
+
+    /// Grup seçici kimliğinden grup adı (saf); seçici değilse nil.
+    nonisolated static func tabGroupName(identifier: String) -> String? {
+        guard identifier.hasPrefix("TabGroupPickerButton") else { return nil }
+        guard let components = URLComponents(string: "x://y" + identifier.dropFirst("TabGroupPickerButton".count)),
+              let value = components.queryItems?.first(where: { $0.name == "TabGroup" })?.value
+        else { return "" }
+        return value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     static func isMinimized(_ window: AXWindow) -> Bool {
         let value: Bool? = attribute(window.element, kAXMinimizedAttribute)
         return value ?? false

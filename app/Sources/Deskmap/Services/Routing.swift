@@ -23,7 +23,8 @@ enum Routing {
     /// ilk eşleşen kural. Hedefi olmayan daha özgül bir kural engellemez.
     static func select(
         rules: [Rule], sessionPins: [CGWindowID: Destination], mode: Mode,
-        windowID: CGWindowID, bundleID: String, appName: String, title: String
+        windowID: CGWindowID, bundleID: String, appName: String, title: String,
+        document: String? = nil
     ) -> Match? {
         if let pinned = sessionPins[windowID] {
             return Match(destination: pinned, ruleID: sessionRuleID, rule: nil)
@@ -38,7 +39,8 @@ enum Routing {
             return value
         }
         guard let rule = rules.bySpecificity.first(where: {
-            $0[mode] != nil && $0.matches(bundleID: bundleID, appName: appName, loweredTitle: lowered())
+            $0[mode] != nil && $0.matches(bundleID: bundleID, appName: appName, loweredTitle: lowered(),
+                                           document: document)
         }), let destination = rule[mode] else { return nil }
         return Match(destination: destination, ruleID: rule.id, rule: rule)
     }
@@ -57,7 +59,8 @@ enum Routing {
         guard let rule = match.rule else {
             return L("Why here: temporary pin for this window → %@ (%@)", target, layout)
         }
-        let name = ([rule.appName.isEmpty ? rule.bundleID : rule.appName] + rule.tokens)
+        let name = ([rule.appName.isEmpty ? rule.bundleID : rule.appName]
+                    + (rule.path != nil ? [rule.title] : rule.tokens))
             .joined(separator: " · ")
         return L("Why here: pin \"%@\" → %@ (%@)", name, target, layout)
     }
