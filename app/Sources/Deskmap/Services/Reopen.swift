@@ -197,6 +197,12 @@ enum Reopen {
 
     static let safari = "com.apple.Safari"
 
+    /// CLI `rule add`/`apply` ile paket kimliği yazılmadan kurulan kural da
+    /// Safari sayılır; yoksa adres öndeki pencereye sekme olarak düşer.
+    static func isSafari(_ rule: Rule) -> Bool {
+        rule.bundleID == safari || (rule.bundleID.isEmpty && rule.appName == "Safari")
+    }
+
     /// Safari'de kapalı pinli pencereyi açar. Dışarıdan gönderilen adres
     /// öndeki (çoğu zaman başka masaüstündeki) pencerede sekme olur; menüden
     /// "New Window" ise öndeki pencerenin sekme grubunda açılır ve grubun

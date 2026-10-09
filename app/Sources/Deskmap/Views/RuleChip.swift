@@ -82,7 +82,7 @@ struct RuleChip: View {
             return
         }
         let target = router.reopenTargets[rule.id]
-        if rule.bundleID == Reopen.safari {
+        if Reopen.isSafari(rule) {
             dismiss()
             let rule = rule, router = router, store = store
             let destination = rule[screens.mode]
