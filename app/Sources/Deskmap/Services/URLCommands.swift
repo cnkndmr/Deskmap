@@ -298,9 +298,11 @@ enum URLCommands {
         case .nameDesktop(let screen, let desktop, let name, let mode):
             let live = AppModel.shared.screens.mode
             let target = mode ?? live
-            store.setDesktopName(name, screen: screen, desktop: desktop, mode: target,
-                                 space: target == live
-                                    ? router.currentSpace(on: screen, desktop: desktop) : nil)
+            if !store.setDesktopName(name, screen: screen, desktop: desktop, mode: target,
+                                     space: target == live
+                                        ? router.currentSpace(on: screen, desktop: desktop) : nil) {
+                store.report(L("A desktop named %@ already exists", name))
+            }
         case .renameProfile(let from, let to):
             guard let profile = profile(named: from, in: store.profiles) else {
                 store.report(L("Profile not found: %@", from))
@@ -360,7 +362,7 @@ enum URLCommands {
         let sessionMoved = router.moveDesktop(on: screen, from: from, to: to, count: count,
                                               reorderWindows: live)
         store.moveDesktop(
-            on: screen, from: from, to: to, count: count, mode: mode,
+            on: screen, from: from, to: to, count: count, mode: mode, sharedLaptop: live,
             undoingSessionPins: sessionMoved
                 ? { router.moveDesktop(on: screen, from: to, to: from, count: count,
                                        reorderWindows: live) }

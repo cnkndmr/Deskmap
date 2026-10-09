@@ -324,6 +324,9 @@ final class Router: ObservableObject {
 
         screens.settled
             .sink { [weak self] in
+                // Önce yeni kurulumun adları taze okumayla yerleşir (sahiplenme),
+                // sonra adlı masaüstündeki pencereler adı izler.
+                self?.followDesktopNames()
                 self?.followNamedDesktops()
                 self?.reapplyAll()
             }
@@ -1003,11 +1006,12 @@ final class Router: ObservableObject {
         guard !desktopOpInFlight else { return false }
         desktopOpInFlight = true
         defer { desktopOpInFlight = false }
+        let space = currentSpace(on: screenID, desktop: desktop)
         let removed = await removeDesktopNow(on: screenID, desktop: desktop)
         if removed {
             store.removeDesktop(on: screenID, desktop: desktop, modes: Mode.allCases)
             shiftSessionPins(screen: screenID, removed: desktop)
-            resetDesktopBaseline()
+            updateBaseline(removed: space.map { [$0] } ?? [])
         }
         scheduleFollowUp(after: 300)
         return removed
@@ -1181,11 +1185,32 @@ final class Router: ObservableObject {
         return moves.sorted { $0.window < $1.window }
     }
 
-    /// Deskmap kendi masaüstü işlemini bitirdi: kaybolan kimlik dış silme sayılmasın.
-    func resetDesktopBaseline() {
-        setDesktopBaseline(Self.desktopSpaces(
+    /// Deskmap kendi masaüstü işlemini bitirdi: yalnız kendi sildiği kimlikler
+    /// tabandan düşer; `addingNewIds` ise tabanda olmayan canlı kimlikler
+    /// (kendi eklediği masaüstü) sırasıyla eklenir. Arada Mission Control'de
+    /// başkasının sildiği masaüstü tabanda kalır, sonraki taramada görülür.
+    func updateBaseline(removed: Set<UInt64> = [], addingNewIds: Bool = false) {
+        let live = addingNewIds ? Self.desktopSpaces(
             displays: SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens)),
-            screens: screens.screens))
+            screens: screens.screens) : [:]
+        setDesktopBaseline(Self.updatedBaseline(known: knownDesktopSpaces, removed: removed, live: live))
+    }
+
+    /// Yeni taban (saf): `removed` düşer; `live`'daki tabanda olmayan kimlikler
+    /// canlı sıralarına yakın yere eklenir. Başka kimliklere dokunulmaz.
+    nonisolated static func updatedBaseline(
+        known: [String: [UInt64]], removed: Set<UInt64>, live: [String: [UInt64]]
+    ) -> [String: [UInt64]] {
+        var next = known.mapValues { $0.filter { !removed.contains($0) } }
+        let have = Set(next.values.joined())
+        for (screen, list) in live {
+            var merged = next[screen] ?? []
+            for (index, id) in list.enumerated() where !have.contains(id) {
+                merged.insert(id, at: min(index, merged.count))
+            }
+            next[screen] = merged
+        }
+        return next
     }
 
     /// Karşılaştırma tabanını değiştirir; değiştiyse diske yazar (Deskmap
@@ -1211,8 +1236,10 @@ final class Router: ObservableObject {
         guard let data = try? Data(contentsOf: Self.desktopSpacesFileURL),
               let saved = try? JSONDecoder().decode([String: [UInt64]].self, from: data)
         else { return }
+        // `seenDesktopSpaces` buradan beslenmez: "görüldü" = bu süreçte canlı
+        // okundu. Kapalıyken silinen masaüstü taban farkıyla yakalanır; kimlikler
+        // yenilenmişse adlar silinmiş sayılmaz.
         knownDesktopSpaces = saved
-        seenDesktopSpaces.formUnion(saved.values.joined())
     }
 
     /// Önceki ve şimdiki listeye göre Deskmap dışında silinen masaüstüleri
@@ -1234,6 +1261,16 @@ final class Router: ObservableObject {
         return result
     }
 
+    /// `externallyRemovedDesktops`, ama Deskmap'in sıraya aldığı silmelerin
+    /// (kuyruktaki, pinleri zaten kaymış) kimlikleri iki listeden de çıkarılır:
+    /// dönen numaralar kaymış pin numaralarıyla uyuşur.
+    nonisolated static func removedOutsideDeskmap(
+        before: [String: [UInt64]], after: [String: [UInt64]], pending: Set<UInt64>
+    ) -> [String: [Int]] {
+        externallyRemovedDesktops(before: before.mapValues { $0.filter { !pending.contains($0) } },
+                                  after: after.mapValues { $0.filter { !pending.contains($0) } })
+    }
+
     /// Masaüstü adlarını gerçek masaüstülerine göre yerleştirir: macOS'ta
     /// (Mission Control) sıra/ekran değişse ya da masaüstü silinse de ad
     /// doğru masaüstünü izler. Liste okunamadıysa (boş) dokunulmaz.
@@ -1248,29 +1285,75 @@ final class Router: ObservableObject {
             displays: SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens)),
             screens: screens.screens)
         guard !spaces.isEmpty else { return }
-        // Bekleyen silmesi olan ekranda numaralar gerçek masaüstülerinden
-        // önce kaymıştır; silme bitene dek adlar numarada kalır.
-        let pending = Set(store.document.pendingRemovals
-            .filter { !$0.value.isEmpty }
-            .compactMap { $0.key.split(separator: "|").last.map(String.init) })
-        let comparable = spaces.filter { !pending.contains($0.key) }
+        // Kuyruktaki silmeler: kimliği bilinenler iki listeden çıkarılarak
+        // (pinler zaten kaydı) ekran yine karşılaştırılır; kimliği bilinmeyen
+        // silmesi olan ekranda numaralar gerçek masaüstülerinden önce
+        // kaymıştır, o ekran silme bitene dek karşılaştırılmaz.
+        var pendingSpaces = Set<UInt64>()
+        var unresolved = Set<String>()
+        for (key, list) in store.document.pendingRemovals where !list.isEmpty {
+            let screen = key.split(separator: "|").last.map(String.init) ?? key
+            for removal in list {
+                if let space = removal.space { pendingSpaces.insert(space) } else { unresolved.insert(screen) }
+            }
+        }
+        let comparable = spaces.filter { !unresolved.contains($0.key) }
+        let previous = knownDesktopSpaces.filter { !unresolved.contains($0.key) }
         // Mission Control'de silinen masaüstü: pinleri ve adı hayalete
         // geçer, sonrakilerin pinleri bir yukarı kayar (yoksa hepsi bir
         // sonraki masaüstüne giderdi).
-        let previous = knownDesktopSpaces.filter { !pending.contains($0.key) }
-        for (screen, desktops) in Self.externallyRemovedDesktops(before: previous, after: comparable) {
+        for (screen, desktops) in Self.removedOutsideDeskmap(
+            before: previous, after: comparable, pending: pendingSpaces) {
             for desktop in desktops {
                 Log.app.notice("Desktop \(desktop) on \(screen, privacy: .public) was removed outside Deskmap; pins kept on a deleted-desktop row")
                 store.ghostDesktop(on: screen, desktop: desktop, modes: Mode.allCases)
                 shiftSessionPins(screen: screen, removed: desktop)
             }
         }
-        setDesktopBaseline(spaces)
-        if !store.document.desktopNames.isEmpty, !comparable.isEmpty {
-            store.reconcileDesktopNames(spaces: comparable, seen: seenDesktopSpaces,
-                                        mode: screens.mode)
+        // Taban: kuyruğu çözülemeyen ekran eski girdisinde kalır.
+        var baseline = spaces
+        for screen in unresolved { baseline[screen] = knownDesktopSpaces[screen] }
+        let before = knownDesktopSpaces
+        setDesktopBaseline(baseline)
+        // Adlar mantıksal numaralara göre: kuyruktaki silmeler düşülür.
+        let logical = comparable.mapValues { $0.filter { !pendingSpaces.contains($0) } }
+        if !store.document.desktopNames.isEmpty, !logical.isEmpty {
+            let result = store.reconcileDesktopNames(
+                spaces: logical, seen: seenDesktopSpaces, mode: screens.mode,
+                previous: before.mapValues { $0.filter { !pendingSpaces.contains($0) } })
+            applySessionMoves(result.moves)
+            for drop in result.dropped.sorted(by: { $0.place.desktop > $1.place.desktop }) {
+                Log.app.notice("Named desktop \(drop.name, privacy: .private) lost its desktop; kept on a deleted-desktop row")
+                store.ghostDesktop(on: drop.place.screen, desktop: drop.place.desktop,
+                                   modes: Mode.allCases, name: drop.name, space: drop.place.space,
+                                   droppedMode: drop.place.mode)
+                shiftSessionPins(screen: drop.place.screen, removed: drop.place.desktop)
+            }
         }
         seenDesktopSpaces.formUnion(spaces.values.joined())
+    }
+
+    /// Mission Control'de yer değiştiren adlı masaüstlerinin oturum pinleri
+    /// de gider (eş zamanlı eşleme).
+    private func applySessionMoves(_ moves: [NameMove]) {
+        var table: [Slot: Slot] = [:]
+        for move in moves where move.mode == screens.mode && move.from != move.to {
+            table[move.from] = move.to
+        }
+        guard !table.isEmpty else { return }
+        var changed = false
+        for (id, record) in sessionRecords {
+            guard let to = table[Slot(screen: record.destination.screen,
+                                      desktop: record.destination.desktop)] else { continue }
+            var next = record
+            next.destination.screen = to.screen
+            next.destination.desktop = to.desktop
+            sessionRecords[id] = next
+            sessionPins[id] = next.destination
+            forgetApplied(for: id)
+            changed = true
+        }
+        if changed { saveSessionPins() }
     }
 
     /// Ekranın `desktop`. masaüstünün şu anki kimliği (SkyLight'tan taze).
@@ -1355,6 +1438,7 @@ final class Router: ObservableObject {
                         self.store.dropFirstPendingRemoval(mode: mode, screen: screenID)
                         continue
                     }
+                    let removedSpace = desktops[index - 1]
                     guard await self.removeDesktopNow(on: screenID, desktop: index) else {
                         // İşlem sürerken ekran değiştiyse başarısızlık gerçek
                         // değil: bildirilmez, hedef bırakılır.
@@ -1372,7 +1456,7 @@ final class Router: ObservableObject {
                                              modes: Mode.allCases.filter { $0 != mode },
                                              shiftNames: false)
                     self.shiftSessionPins(screen: screenID, removed: index)
-                    self.resetDesktopBaseline()
+                    self.updateBaseline(removed: [removedSpace])
                 }
             }
             return

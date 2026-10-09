@@ -196,6 +196,8 @@ struct Document: Codable, Equatable {
                 Profile(id: $0.id, name: $0.name, rules: Self.backfillingFixed($0.rules, screens: screens))
             }
         }
+        // Ad bağları: yinelenen ad, eski/ikili hayalet toparlanır (idempotent).
+        if !isFromNewerVersion { normalizeNameLinks() }
     }
 
     /// Sabit boyutlu hedeflere oran karşılığı yazar (saf); ekran boyutu
@@ -292,25 +294,53 @@ struct Document: Codable, Equatable {
 
     /// Ad verir; boş ad (boşluklar kırpılır) adı siler. `space`: o anki
     /// gerçek masaüstü kimliği (bilinmiyorsa sonraki taramada bağlanır).
+    /// Adlandırılmış masaüstü tek mantıksal masaüstüdür: yeniden adlandırma
+    /// ve ad silme öbür kurulumdaki karşılığına (bağlı kimlik, yoksa eski ad)
+    /// da uygulanır. Aynı kurulumda başka masaüstünde olan ad (büyük/küçük
+    /// harf duyarsız) reddedilir: false döner, hiçbir şey değişmez.
+    @discardableResult
     mutating func setDesktopName(_ name: String?, screen: String, desktop: Int, mode: Mode,
-                                 space: UInt64? = nil) {
+                                 space: UInt64? = nil) -> Bool {
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let key = Self.planKey(mode: mode, screen: screen)
         let slot = String(desktop)
-        for target in Self.nameModes(screen: screen, mode: mode) {
-            // Öbür kurulumda aynı ad başka masaüstündeyse (Nova orada Dell'de)
-            // laptop adı oraya kopyalanmaz; ad iki kez görünmesin.
-            if target != mode, !trimmed.isEmpty,
-               desktopNames(for: target).values.contains(where: {
-                   $0.values.contains { $0.caseInsensitiveCompare(trimmed) == .orderedSame }
-               }) { continue }
-            let key = Self.planKey(mode: target, screen: screen)
+        let oldName = desktopNames[key]?[slot]
+        let here = NamePlace(mode: mode, screen: screen, desktop: desktop,
+                             space: desktopNameSpaces[key]?[slot])
+        let linked = oldName.map { counterparts(of: here, name: $0) } ?? []
+        if !trimmed.isEmpty {
+            func clash(_ target: Mode, _ ownSlot: Slot?) -> Bool {
+                places(ofName: trimmed).contains { $0.mode == target && $0.slot != ownSlot }
+            }
+            if clash(mode, Slot(screen: screen, desktop: desktop)) { return false }
+            for twin in linked where clash(twin.mode, twin.slot) { return false }
+        }
+        func write(_ target: NamePlace, _ value: String?, _ bound: UInt64?) {
+            let key = Self.planKey(mode: target.mode, screen: target.screen)
+            let slot = String(target.desktop)
             var names = desktopNames[key] ?? [:]
-            names[slot] = trimmed.isEmpty ? nil : trimmed
+            names[slot] = value
             desktopNames[key] = names.isEmpty ? nil : names
             var spaces = desktopNameSpaces[key] ?? [:]
-            spaces[slot] = trimmed.isEmpty ? nil : space
+            spaces[slot] = value == nil ? nil : bound
             desktopNameSpaces[key] = spaces.isEmpty ? nil : spaces
         }
+        write(here, trimmed.isEmpty ? nil : trimmed, space)
+        for twin in linked { write(twin, trimmed.isEmpty ? nil : trimmed, twin.space) }
+        if linked.isEmpty, !trimmed.isEmpty {
+            // Karşılık yok: laptop masaüstü iki kurulumda aynı yerde. Yalnız
+            // boş ve var olabilecek bir yere yazılır (hayalet ad açılmaz).
+            for target in Self.nameModes(screen: screen, mode: mode) where target != mode {
+                let planned = plannedDesktops(mode: target, screen: screen)
+                guard place(mode: target, ofName: trimmed) == nil,
+                      desktopName(screen: screen, desktop: desktop, mode: target) == nil,
+                      planned == 0 || desktop <= planned else { continue }
+                write(NamePlace(mode: target, screen: screen, desktop: desktop, space: space),
+                      trimmed, space)
+            }
+        }
+        if !trimmed.isEmpty { absorbGhosts(named: trimmed) }
+        return true
     }
 
     /// Verilen kurulumlardaki adları yeni yerlerine taşır (Deskmap'in kendi
@@ -318,53 +348,92 @@ struct Document: Codable, Equatable {
     /// verir; nil = yer değişmedi, `(_, 0)` = ad düşer. Yeri değişen adın
     /// kimlik bağı düşer; sonraki taramada yeni numarasındaki masaüstüne
     /// bağlanır (Deskmap sırayı pencereleri taşıyarak değiştirir, gerçek
-    /// masaüstüleri değil). Öbür kurulumun adlarına dokunulmaz.
+    /// masaüstüleri değil). Öbür kurulumun adlarına dokunulmaz. Yer değiştiren
+    /// adları döndürür (pinleri `applyPinMoves` ile götürülür).
+    @discardableResult
     mutating func remapDesktopNames(modes: [Mode],
-                                    _ place: (String, Int) -> (screen: String, desktop: Int)?) {
+                                    _ place: (String, Int) -> (screen: String, desktop: Int)?) -> [NameMove] {
+        remapNames { mode, screen, desktop in
+            modes.contains(mode) ? place(screen, desktop) : nil
+        }
+    }
+
+    /// `remapDesktopNames`'in kurulumu da gören çekirdeği.
+    @discardableResult
+    mutating func remapNames(_ place: (Mode, String, Int) -> (screen: String, desktop: Int)?) -> [NameMove] {
         var names: [String: [String: String]] = [:]
         var spaces: [String: [String: UInt64]] = [:]
+        var moves: [NameMove] = []
         for (key, list) in desktopNames {
-            guard let parts = Self.splitNameKey(key), modes.contains(parts.mode) else {
+            guard let parts = Self.splitNameKey(key) else {
                 names[key] = list
                 if let bound = desktopNameSpaces[key] { spaces[key] = bound }
                 continue
             }
             for (slot, name) in list {
                 guard let desktop = Int(slot) else { continue }
-                let moved = place(parts.screen, desktop)
+                let moved = place(parts.mode, parts.screen, desktop)
                 let next = moved ?? (parts.screen, desktop)
                 guard next.desktop >= 1 else { continue }
                 let nextKey = Self.planKey(mode: parts.mode, screen: next.screen)
                 names[nextKey, default: [:]][String(next.desktop)] = name
-                if moved == nil || (moved!.screen == parts.screen && moved!.desktop == desktop),
-                   let space = desktopNameSpaces[key]?[slot] {
-                    spaces[key, default: [:]][slot] = space
+                if next.screen == parts.screen && next.desktop == desktop {
+                    if let space = desktopNameSpaces[key]?[slot] { spaces[key, default: [:]][slot] = space }
+                } else {
+                    moves.append(NameMove(mode: parts.mode, name: name,
+                                          from: Slot(screen: parts.screen, desktop: desktop),
+                                          to: Slot(screen: next.screen, desktop: next.desktop)))
                 }
             }
         }
         if names != desktopNames { desktopNames = names }
         if spaces != desktopNameSpaces { desktopNameSpaces = spaces }
+        return moves
     }
 
     /// Etkin kurulumun adlarını gerçek masaüstülerine göre yerleştirir:
     /// `spaces`: bağlı ekranların sıralı masaüstü kimlikleri; `seen`: bu
-    /// oturumda daha önce görülmüş kimlikler. Öbür kurulumun adlarına
-    /// dokunulmaz: monitör takılıp çıkarılırken macOS masaüstüleri ekranlar
-    /// arasında kaydırır, o kurulumun adları kendi yerlerinde kalmalı.
+    /// oturumda daha önce görülmüş kimlikler; `previous`: bir önceki okuma
+    /// (kurulum değişince yeni laptop masaüstlerini bulmak için). Öbür
+    /// kurulumun adlarına dokunulmaz: monitör takılıp çıkarılırken macOS
+    /// masaüstüleri ekranlar arasında kaydırır, o kurulumun adları kendi
+    /// yerlerinde kalmalı.
     /// - Bağlı kimlik bir ekranda bulunursa ad oraya gider (Mission
-    ///   Control'de sıra ya da ekran değişse de).
+    ///   Control'de sıra ya da ekran değişse de); adın pinleri de gider.
     /// - Kimlik bu oturumda görülmüş ama artık yoksa masaüstü silinmiştir:
-    ///   ad düşer.
+    ///   ad `dropped`'a girer (Router hayalete çevirir). Ekranın bağlı bütün
+    ///   kimlikleri birden yoksa kimlikler yenilenmiştir: silme sayılmaz, ad
+    ///   numarasında kalır ve yeniden bağlanır.
     /// - Bağ yoksa ya da kimlik hiç görülmediyse (yeniden başlatma) ad
     ///   numarasında kalır ve oradaki masaüstüne bağlanır.
     /// - Ekran bağlı değilse dokunulmaz. Çakışmada kimlikle bulunan kazanır.
-    /// Değişiklik olduysa true.
-    @discardableResult
-    mutating func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>,
-                                        mode: Mode) -> Bool {
+    /// - Sahiplenme: öbür kurulumda adlı, bağlı masaüstü artık bu kurulumun
+    ///   ekranındaysa (macOS monitör masaüstülerini laptop'a taşıdı) ve ad bu
+    ///   kurulumda yoksa oraya adlanır; pinleri karşı kurulumdan yansıtılır.
+    ///   Kimlikler yenilendiyse ve kurulum değiştiyse, yalnız bayat monitör
+    ///   adları laptop'a yeni eklenen masaüstülerine, özgün sırayla, sayılar
+    ///   birebir tutuyorsa atanır.
+    mutating func reconcileNames(spaces: [String: [UInt64]], seen: Set<UInt64>, mode: Mode,
+                                 previous: [String: [UInt64]] = [:]) -> ReconcileResult {
+        let original = self
+        var result = ReconcileResult()
         var location: [UInt64: (screen: String, desktop: Int)] = [:]
         for (screen, list) in spaces {
             for (index, id) in list.enumerated() { location[id] = (screen, index + 1) }
+        }
+        // Kimlikleri yenilenmiş ekranlar: bağlı kimliklerinin hiçbiri yok.
+        // Önceki okuma varsa ölçüt onun kimlikleri (biri bile duruyorsa silme
+        // gerçektir); yoksa adı bağlı kimliklerin hiçbiri.
+        var renewed = Set<String>()
+        for (screen, list) in spaces where !list.isEmpty {
+            if let before = previous[screen], !before.isEmpty {
+                if !before.contains(where: { location[$0] != nil }) { renewed.insert(screen) }
+                continue
+            }
+            let bound = desktopNameSpaces[Self.planKey(mode: mode, screen: screen)]?.values
+            if let bound, !bound.isEmpty, !bound.contains(where: { location[$0] != nil }) {
+                renewed.insert(screen)
+            }
         }
         var names: [String: [String: String]] = [:]
         var bindings: [String: [String: UInt64]] = [:]
@@ -372,30 +441,48 @@ struct Document: Codable, Equatable {
             names[key] = list
             if let bound = desktopNameSpaces[key] { bindings[key] = bound }
         }
+        var activeNames = Set<String>()
         func put(_ name: String, _ screen: String, _ desktop: Int, _ space: UInt64?) -> Bool {
             let key = Self.planKey(mode: mode, screen: screen)
             let slot = String(desktop)
             guard names[key]?[slot] == nil else { return false }
             names[key, default: [:]][slot] = name
             if let space { bindings[key, default: [:]][slot] = space }
+            activeNames.insert(Self.normalizedName(name))
             return true
         }
         var rest: [(screen: String, desktop: Int, name: String, space: UInt64?)] = []
         // Önce kimliğiyle bulunanlar (sıralı: sonuç belirlenimci olsun).
         for (key, list) in desktopNames.sorted(by: { $0.key < $1.key }) {
             guard let parts = Self.splitNameKey(key), parts.mode == mode else { continue }
-            for (slot, name) in list.sorted(by: { $0.key < $1.key }) {
+            for (slot, name) in list.sorted(by: { (Int($0.key) ?? .max) < (Int($1.key) ?? .max) }) {
                 guard let desktop = Int(slot) else { continue }
                 let space = desktopNameSpaces[key]?[slot]
                 if let space, let found = location[space] {
-                    if put(name, found.screen, found.desktop, space) { continue }
+                    if put(name, found.screen, found.desktop, space) {
+                        if found.screen != parts.screen || found.desktop != desktop {
+                            result.moves.append(NameMove(
+                                mode: mode, name: name,
+                                from: Slot(screen: parts.screen, desktop: desktop),
+                                to: Slot(screen: found.screen, desktop: found.desktop)))
+                        }
+                        continue
+                    }
                 }
                 rest.append((parts.screen, desktop, name, space))
             }
         }
+        func drop(_ item: (screen: String, desktop: Int, name: String, space: UInt64?)) {
+            result.dropped.append(DroppedName(
+                place: NamePlace(mode: mode, screen: item.screen, desktop: item.desktop,
+                                 space: item.space),
+                name: item.name))
+        }
         for item in rest {
-            if let space = item.space, seen.contains(space), location[space] == nil {
-                continue   // silinmiş masaüstü
+            if let space = item.space, seen.contains(space), location[space] == nil,
+               !renewed.contains(item.screen) {
+                drop(item)   // silinmiş masaüstü
+                continue
             }
             if let list = spaces[item.screen] {
                 let live = item.desktop <= list.count ? list[item.desktop - 1] : nil
@@ -403,15 +490,89 @@ struct Document: Codable, Equatable {
                 // Numarası kimlikle gelen başka ada kaldı: ilk boş numara.
                 var n = item.desktop + 1
                 while names[Self.planKey(mode: mode, screen: item.screen)]?[String(n)] != nil { n += 1 }
-                _ = put(item.name, item.screen, n, n <= list.count ? list[n - 1] : nil)
+                // Var olmayan masaüstüne ad yazılmaz (hayalet ad olmasın).
+                guard n <= list.count else { drop(item); continue }
+                if put(item.name, item.screen, n, list[n - 1]) {
+                    result.moves.append(NameMove(
+                        mode: mode, name: item.name,
+                        from: Slot(screen: item.screen, desktop: item.desktop),
+                        to: Slot(screen: item.screen, desktop: n)))
+                }
             } else {
                 _ = put(item.name, item.screen, item.desktop, item.space)
             }
         }
-        guard names != desktopNames || bindings != desktopNameSpaces else { return false }
-        desktopNames = names
-        desktopNameSpaces = bindings
-        return true
+
+        // Sahiplenme 1: öbür kurulumun bağlı kimliği bu kurulumun ekranında.
+        var adoptedNames: [String] = []
+        for other in Mode.allCases where other != mode {
+            for key in desktopNames.keys.sorted() where Self.splitNameKey(key)?.mode == other {
+                for slot in (desktopNames[key] ?? [:]).keys.sorted(by: {
+                    (Int($0) ?? .max) < (Int($1) ?? .max)
+                }) {
+                    guard let name = desktopNames[key]?[slot],
+                          !activeNames.contains(Self.normalizedName(name)),
+                          let space = desktopNameSpaces[key]?[slot],
+                          let found = location[space],
+                          put(name, found.screen, found.desktop, space) else { continue }
+                    adoptedNames.append(name)
+                    result.adopted.append(NamePlace(mode: mode, screen: found.screen,
+                                                    desktop: found.desktop, space: space))
+                }
+            }
+        }
+        // Sahiplenme 2: kimlikler yenilenmiş; kurulum değişti, monitör
+        // masaüstleri laptop'un yeni masaüstüne dönüştü. Sayılar birebir
+        // tutarsa özgün sırayla atanır, tutmazsa dokunulmaz.
+        let gone = previous.keys.filter { $0 != "builtin" && spaces[$0] == nil }.sorted()
+        if !gone.isEmpty, let laptop = spaces["builtin"] {
+            let known = Set(previous.values.joined())
+            let fresh = laptop.indices.filter { !known.contains(laptop[$0]) }.map { $0 + 1 }
+            let total = gone.reduce(0) { $0 + (previous[$1]?.count ?? 0) }
+            if !fresh.isEmpty, fresh.count == total {
+                var offset = 0
+                for screen in gone {
+                    let count = previous[screen]?.count ?? 0
+                    for other in Mode.allCases where other != mode {
+                        let key = Self.planKey(mode: other, screen: screen)
+                        for slot in (desktopNames[key] ?? [:]).keys.sorted(by: {
+                            (Int($0) ?? .max) < (Int($1) ?? .max)
+                        }) {
+                            guard let desktop = Int(slot), desktop >= 1, desktop <= count,
+                                  let name = desktopNames[key]?[slot],
+                                  !activeNames.contains(Self.normalizedName(name)) else { continue }
+                            let target = fresh[offset + desktop - 1]
+                            if put(name, "builtin", target, laptop[target - 1]) {
+                                adoptedNames.append(name)
+                                result.adopted.append(NamePlace(
+                                    mode: mode, screen: "builtin", desktop: target,
+                                    space: laptop[target - 1]))
+                            }
+                        }
+                    }
+                    offset += count
+                }
+            }
+        }
+        if names != desktopNames || bindings != desktopNameSpaces {
+            desktopNames = names
+            desktopNameSpaces = bindings
+        }
+        applyPinMoves(result.moves)
+        for name in adoptedNames {
+            absorbGhosts(named: name)
+            mirrorPins(forName: name)
+        }
+        result.changed = self != original
+        return result
+    }
+
+    /// `reconcileNames`'in eski imzası: yalnız değişti mi bilgisi. Silinmiş
+    /// adlar burada hayalete çevrilmez (Router `reconcileNames` kullanır).
+    @discardableResult
+    mutating func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>,
+                                        mode: Mode) -> Bool {
+        reconcileNames(spaces: spaces, seen: seen, mode: mode).changed
     }
 
     // MARK: - Hayalet masaüstüleri
@@ -420,51 +581,121 @@ struct Document: Codable, Equatable {
         ghostDesktops.filter { $0.screen == screen }
     }
 
+    /// Bu kurulumda görünecek hayaletler: adı ya da bu kurulumda pini olan,
+    /// adı hiçbir kurulumda canlı olmayan.
+    func ghosts(on screen: String, mode: Mode) -> [GhostDesktop] {
+        ghosts(on: screen).filter { ghost in
+            if let name = ghost.name, !places(ofName: name).isEmpty { return false }
+            return ghost.name != nil || ghost.pins.contains { $0.mode == mode }
+        }
+    }
+
+    /// Bir (kurulum, ekran, masaüstü) yeri.
+    private struct Target: Hashable {
+        var mode: Mode
+        var screen: String
+        var desktop: Int
+    }
+
+    /// Silinen masaüstü + adı varsa öbür kurulumlardaki karşılıkları.
+    private func removalTargets(screen: String, desktop: Int, modes: [Mode], name: String?,
+                                droppedSpace: UInt64? = nil, droppedMode: Mode? = nil)
+        -> (targets: [Target], name: String?) {
+        var targets = modes.map { Target(mode: $0, screen: screen, desktop: desktop) }
+        var name = name
+        var seeds: [NamePlace] = []
+        for target in targets {
+            let key = Self.planKey(mode: target.mode, screen: screen)
+            guard let found = desktopNames[key]?[String(desktop)] else { continue }
+            // Düşen ad verildiyse o slotta şimdi duran başka ad tohum olmaz.
+            if let dropped = name, droppedMode != nil,
+               Self.normalizedName(found) != Self.normalizedName(dropped) { continue }
+            name = name ?? found
+            seeds.append(NamePlace(mode: target.mode, screen: screen, desktop: desktop,
+                                   space: desktopNameSpaces[key]?[String(desktop)]))
+        }
+        if let name, let mode = droppedMode ?? modes.first,
+           !seeds.contains(where: { $0.mode == mode }) {
+            seeds.append(NamePlace(mode: mode, screen: screen, desktop: desktop, space: droppedSpace))
+        }
+        let seedTargets = Set(seeds.map { Target(mode: $0.mode, screen: $0.screen, desktop: $0.desktop) })
+        for seed in seeds {
+            for twin in counterparts(of: seed, name: name) {
+                let target = Target(mode: twin.mode, screen: twin.screen, desktop: twin.desktop)
+                if targets.contains(target) { continue }
+                // Karşılık varsa o kurulumda aynı numaralı yer değil karşılık
+                // silinir (numara iki kurulumda farklı olabilir).
+                targets.removeAll { $0.mode == target.mode && !seedTargets.contains($0) }
+                targets.append(target)
+            }
+        }
+        return (targets, name)
+    }
+
     /// Masaüstü Deskmap dışında silindi: o masaüstünün pinleri (bütün
     /// profiller, verilen modlar) ve adı hayalete taşınır, sonraki
-    /// masaüstülerinin pinleri bir yukarı kayar, plan bir azalır. Ad ya da
-    /// pin yoksa hayalet açılmaz (kaydırma yine yapılır). Açılan hayalet döner.
+    /// masaüstülerinin pinleri bir yukarı kayar, plan bir azalır. Adlı
+    /// masaüstünün öbür kurulumdaki karşılığı (aynı mantıksal masaüstü) da
+    /// aynı hayalete katılır ve oradaki numaralar kayar. Aynı adlı hayalet
+    /// varsa onunla birleşir. Ad ya da pin yoksa hayalet açılmaz (kaydırma
+    /// yine yapılır). Hayalet döner. `name`: ad tablodan zaten düşmüşse
+    /// (reconcile) adı verir; `shiftNames: false` adları kaydırmaz.
     @discardableResult
     mutating func ghostDesktop(on screen: String, desktop: Int, modes: [Mode],
-                               now: Date = Date()) -> GhostDesktop? {
+                               now: Date = Date(), name droppedName: String? = nil,
+                               droppedSpace: UInt64? = nil, droppedMode: Mode? = nil,
+                               shiftNames: Bool = true)
+        -> GhostDesktop? {
+        let resolved = removalTargets(screen: screen, desktop: desktop, modes: modes,
+                                      name: droppedName, droppedSpace: droppedSpace,
+                                      droppedMode: droppedMode)
+        let targets = resolved.targets
+        let name = resolved.name
         var pins: [GhostDesktop.Pin] = []
-        func remap(_ list: [Rule], profileID: String) -> [Rule] {
+        mapAllRules { list, profileID in
             var result: [Rule] = []
             for var rule in list {
-                for mode in modes {
-                    guard var destination = rule[mode], destination.screen == screen else { continue }
-                    if destination.desktop == desktop {
-                        pins.append(.init(profileID: profileID, mode: mode, rule: rule,
+                for target in targets {
+                    guard var destination = rule[target.mode], destination.screen == target.screen
+                    else { continue }
+                    if destination.desktop == target.desktop {
+                        pins.append(.init(profileID: profileID, mode: target.mode, rule: rule,
                                           destination: destination))
-                        rule[mode] = nil
-                    } else if destination.desktop > desktop {
+                        rule[target.mode] = nil
+                    } else if destination.desktop > target.desktop {
                         destination.desktop -= 1
-                        rule[mode] = destination
+                        rule[target.mode] = destination
                     }
                 }
                 if rule.docked != nil || rule.undocked != nil { result.append(rule) }
             }
-            return result
+            list = result
         }
-        let moved = remap(rules, profileID: activeProfileID)
-        if moved != rules { rules = moved }
-        for i in profiles.indices where profiles[i].id != activeProfileID {
-            let other = remap(profiles[i].rules, profileID: profiles[i].id)
-            if other != profiles[i].rules { profiles[i].rules = other }
+        for target in targets {
+            let planned = plannedDesktops(mode: target.mode, screen: target.screen)
+            if planned >= target.desktop {
+                setPlannedDesktops(planned - 1, mode: target.mode, screen: target.screen)
+            }
         }
-        for mode in modes {
-            let planned = plannedDesktops(mode: mode, screen: screen)
-            if planned >= desktop { setPlannedDesktops(planned - 1, mode: mode, screen: screen) }
-        }
-        var name: String?
-        for mode in modes where name == nil {
-            name = desktopName(screen: screen, desktop: desktop, mode: mode)
-        }
-        remapDesktopNames(modes: modes) { name, number in
-            guard name == screen, number >= desktop else { return nil }
-            return (screen, number == desktop ? 0 : number - 1)
+        if shiftNames {
+            // Ad tablodan zaten düştüyse (reconcile) o yerin adları yeniden kaymaz.
+            let nameTargets = targets.filter {
+                !(droppedName != nil && $0.mode == droppedMode && $0.screen == screen
+                  && $0.desktop == desktop)
+            }
+            remapNames { mode, screenID, number in
+                guard let target = nameTargets.first(where: { $0.mode == mode && $0.screen == screenID }),
+                      number >= target.desktop else { return nil }
+                return (screenID, number == target.desktop ? 0 : number - 1)
+            }
         }
         guard name != nil || !pins.isEmpty else { return nil }
+        if let name, let i = ghostDesktops.firstIndex(where: {
+            $0.name.map(Self.normalizedName) == Self.normalizedName(name)
+        }) {
+            ghostDesktops[i].pins = Self.mergedPins(ghostDesktops[i].pins, pins)
+            return ghostDesktops[i]
+        }
         let ghost = GhostDesktop(screen: screen, name: name, desktop: desktop,
                                  deletedAt: now, pins: pins)
         ghostDesktops.append(ghost)
@@ -472,33 +703,50 @@ struct Document: Codable, Equatable {
     }
 
     /// Hayaleti `desktop` numaralı (yeni açılmış) masaüstüne geri getirir:
-    /// pinler hedefleriyle (yalnız masaüstü numarası değişir) ve ad döner.
-    /// Profili artık olmayan pin atlanır; kuralı silinmişse kopyası eklenir.
+    /// ad ve pinler döner. Adlı hayaletin bütün pinleri (öbür kurulumunkiler
+    /// o kurulumdaki aynı adlı yere) döner; adsız hayaletin yalnız `mode`
+    /// pinleri döner, ötekiler hayalette kalır (başka kurulumun numarası
+    /// bilinmez). Ad bu kurulumda başka bir masaüstündeyse yeniden adlandırma
+    /// yapılmaz, pinler o masaüstüne gider. Profili artık olmayan pin atlanır;
+    /// kuralı silinmişse kopyası eklenir; var olan hedefin üzerine yazılmaz.
     mutating func restoreGhost(_ id: String, desktop: Int, space: UInt64? = nil, mode: Mode = .docked) {
         guard let index = ghostDesktops.firstIndex(where: { $0.id == id }) else { return }
-        let ghost = ghostDesktops.remove(at: index)
-        for pin in ghost.pins {
-            var destination = pin.destination
-            destination.desktop = desktop
-            func apply(_ list: inout [Rule]) {
-                if let i = list.firstIndex(where: { $0.id == pin.rule.id }) {
-                    list[i][pin.mode] = destination
-                } else {
-                    var rule = pin.rule
-                    rule.docked = nil
-                    rule.undocked = nil
-                    rule[pin.mode] = destination
-                    list.append(rule)
-                }
-            }
-            if pin.profileID == activeProfileID {
-                apply(&rules)
-            } else if let i = profiles.firstIndex(where: { $0.id == pin.profileID }) {
-                apply(&profiles[i].rules)
+        var ghost = ghostDesktops.remove(at: index)
+        var screen = ghost.screen
+        var desktop = desktop
+        if let name = ghost.name {
+            if let live = place(mode: mode, ofName: name) {
+                screen = live.screen
+                desktop = live.desktop
+            } else {
+                setDesktopName(name, screen: ghost.screen, desktop: desktop, mode: mode, space: space)
             }
         }
-        if let name = ghost.name, desktopName(screen: ghost.screen, desktop: desktop, mode: mode) == nil {
-            setDesktopName(name, screen: ghost.screen, desktop: desktop, mode: mode, space: space)
+        let own = ghost.pins.filter { $0.mode == mode }
+        let others = ghost.pins.filter { $0.mode != mode }
+        let restoredRules = Set(own.map(\.rule.id))
+        applyGhostPins(own) { pin in
+            var destination = pin.destination
+            destination.screen = screen
+            destination.desktop = desktop
+            return destination
+        }
+        if let name = ghost.name {
+            let live = livePlaces(ofName: name)
+            applyGhostPins(others) { pin in
+                if let found = live[pin.mode] {
+                    var destination = pin.destination
+                    destination.screen = found.screen
+                    destination.desktop = found.desktop
+                    return destination
+                }
+                // Yeri henüz yok: aynı kuralın bu moddaki pini yeniden
+                // yansıtılır (adopt), yoksa kayıtlı yerinde bekler.
+                return restoredRules.contains(pin.rule.id) ? nil : pin.destination
+            }
+        } else if !others.isEmpty {
+            ghost.pins = others
+            ghostDesktops.insert(ghost, at: min(index, ghostDesktops.count))
         }
     }
 
@@ -522,7 +770,9 @@ struct Document: Codable, Equatable {
     /// diye sıraya yazılır, yoksa (plan/pin satırı) yalnız numaralar kayar.
     mutating func removeDesktopLater(on screen: String, desktop: Int, mode: Mode,
                                      existing: Bool, space: UInt64?) {
-        removeDesktop(on: screen, desktop: desktop, mode: mode)
+        // Gerçek silme sonra yapılacaksa öbür kurulumdaki karşılığa şimdi
+        // dokunulmaz (mod etkinleşince silme yürürken kayar, iki kez değil).
+        removeDesktop(on: screen, desktop: desktop, modes: [mode], expandCounterparts: existing == false)
         guard existing else { return }
         pendingRemovals[Self.planKey(mode: mode, screen: screen), default: []]
             .append(PendingRemoval(desktop: desktop, space: space))
@@ -620,8 +870,10 @@ struct Document: Codable, Equatable {
     /// Bir kuralın verilen moddaki hedefini değiştirir (nil = atanmamış).
     mutating func setDestination(_ destination: Destination?, for id: String, mode: Mode) {
         guard var rule = rule(id) else { return }
+        let old = rule[mode]
         rule[mode] = destination
-        update(rule)
+        // Adlı masaüstü öbür kurulumda da aynı: pin karşılığına da yazılır.
+        update(mirroredPins(rule, mode: mode, old: old, new: destination))
     }
 
     /// Kuralın bu moddaki hedefinin yalnızca düzenini değiştirir; ekran ve
@@ -648,6 +900,7 @@ struct Document: Codable, Equatable {
         }
         var rule = draft
         rule[mode] = destination
+        rule = mirroredPins(rule, mode: mode, old: nil, new: destination)
         rules.append(rule)
         return rule.id
     }
@@ -655,7 +908,9 @@ struct Document: Codable, Equatable {
     /// Bu moddaki hedefi kaldırır; kuralın hiçbir hedefi kalmazsa silinir.
     mutating func unpin(_ id: String, mode: Mode) {
         guard var rule = rule(id) else { return }
+        let old = rule[mode]
         rule[mode] = nil
+        rule = mirroredPins(rule, mode: mode, old: old, new: nil)
         if rule.docked == nil && rule.undocked == nil {
             rules.removeAll { $0.id == id }
         } else {
@@ -701,9 +956,15 @@ struct Document: Codable, Equatable {
     /// Bir ekrandaki masaüstünü listede başka sıraya taşır; o ekranın bu
     /// moddaki bütün pinlerinin masaüstü numaraları buna göre kayar.
     /// `count`: listedeki satır sayısı (gerçek + pinlerin kullandığı).
-    mutating func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode) {
+    /// `sharedLaptop`: etkin modda gerçekten taşındı; laptop masaüstleri iki
+    /// kurulumda aynı fiziksel masaüstü olduğundan öbür kurulumun adları ve
+    /// pinleri de aynı haritayla kayar. Etkin olmayan modda yalnız o modun
+    /// planı değişir.
+    mutating func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode,
+                              sharedLaptop: Bool = false) {
         guard let mapping = Self.desktopMapping(from: from, to: to, count: count)
         else { return }
+        let modes = sharedLaptop && screen == "builtin" ? Mode.allCases : [mode]
 
         // Bütün profiller: masaüstünün içeriği yer değiştirdi; öbür
         // profilin pinleri eski numarada kalırsa profil değişince pencereler
@@ -711,10 +972,12 @@ struct Document: Codable, Equatable {
         func remap(_ list: [Rule]) -> [Rule] {
             var moved = list
             for i in moved.indices {
-                guard var destination = moved[i][mode], destination.screen == screen,
-                      let updated = mapping[destination.desktop] else { continue }
-                destination.desktop = updated
-                moved[i][mode] = destination
+                for mode in modes {
+                    guard var destination = moved[i][mode], destination.screen == screen,
+                          let updated = mapping[destination.desktop] else { continue }
+                    destination.desktop = updated
+                    moved[i][mode] = destination
+                }
             }
             return moved
         }
@@ -724,7 +987,7 @@ struct Document: Codable, Equatable {
             let other = remap(profiles[i].rules)
             if other != profiles[i].rules { profiles[i].rules = other }
         }
-        remapDesktopNames(modes: [mode]) { name, desktop in
+        remapDesktopNames(modes: modes) { name, desktop in
             name == screen ? mapping[desktop].map { (screen, $0) } : nil
         }
     }
@@ -804,39 +1067,51 @@ struct Document: Codable, Equatable {
 
     /// Masaüstü silinince verilen modlarda bu ekranın pinleri kayar;
     /// yalnız etkin profil değil bütün profiller (profil değişince pinler
-    /// yanlış masaüstüne gitmesin). Planlar da bir azalır.
-    /// `shiftNames`: adlar ekranın (moddan bağımsız) ve bir kez kaymalı;
-    /// bekleyen silme yapılırken (adlar silme sıraya girerken kaydı) false.
+    /// yanlış masaüstüne gitmesin). Planlar da bir azalır. Adlı masaüstü tek
+    /// mantıksal masaüstüdür: adı ve pinleri öbür kurulumdaki karşılığıyla
+    /// (başka ekranda olsa da) birlikte düşer, orada da sonrakiler kayar.
+    /// `shiftNames`: adlar bir kez kaymalı (laptop adları iki kurulumda);
+    /// bekleyen silme yapılırken adlar sıraya girerken kaydığı için false,
+    /// o zaman karşılıklara da dokunulmaz.
+    /// `expandCounterparts: false`: adlı masaüstünün öbür kurulumdaki
+    /// karşılığının pinleri ve planı kaydırılmaz.
     mutating func removeDesktop(on screen: String, desktop: Int, modes: [Mode],
-                                shiftNames: Bool = true) {
-        func remap(_ list: [Rule]) -> [Rule] {
-            var moved = list
-            for i in moved.indices {
-                for mode in modes {
-                    guard var destination = moved[i][mode], destination.screen == screen
+                                shiftNames: Bool = true, expandCounterparts: Bool = true) {
+        var targets = modes.map { Target(mode: $0, screen: screen, desktop: desktop) }
+        if shiftNames && expandCounterparts {
+            targets = removalTargets(screen: screen, desktop: desktop, modes: modes, name: nil).targets
+        }
+        mapAllRules { list, _ in
+            for i in list.indices {
+                for target in targets {
+                    guard var destination = list[i][target.mode], destination.screen == target.screen
                     else { continue }
                     destination.desktop = Self.removalMapping(
-                        desktop: destination.desktop, removed: desktop)
-                    moved[i][mode] = destination
+                        desktop: destination.desktop, removed: target.desktop)
+                    list[i][target.mode] = destination
                 }
             }
-            return moved
         }
-        let moved = remap(rules)
-        if moved != rules { rules = moved }
-        for i in profiles.indices where profiles[i].id != activeProfileID {
-            let other = remap(profiles[i].rules)
-            if other != profiles[i].rules { profiles[i].rules = other }
+        for target in targets {
+            let planned = plannedDesktops(mode: target.mode, screen: target.screen)
+            if planned >= target.desktop {
+                setPlannedDesktops(planned - 1, mode: target.mode, screen: target.screen)
+            }
         }
-        for mode in modes {
-            let planned = plannedDesktops(mode: mode, screen: screen)
-            if planned >= desktop { setPlannedDesktops(planned - 1, mode: mode, screen: screen) }
-        }
-        // Silinen masaüstünün adı düşer, sonrakiler bir yukarı kayar.
+        // Silinen masaüstünün adı düşer, sonrakiler bir yukarı kayar. Laptop
+        // adları iki kurulumda aynı fiziksel masaüstü olduğundan ikisinde de.
         guard shiftNames else { return }
-        remapDesktopNames(modes: modes) { name, number in
-            guard name == screen, number >= desktop else { return nil }
-            return (screen, number == desktop ? 0 : number - 1)
+        var nameTargets = targets
+        if screen == "builtin" {
+            for mode in Mode.allCases {
+                let extra = Target(mode: mode, screen: screen, desktop: desktop)
+                if !nameTargets.contains(extra) { nameTargets.append(extra) }
+            }
+        }
+        remapNames { mode, name, number in
+            guard let target = nameTargets.first(where: { $0.mode == mode && $0.screen == name }),
+                  number >= target.desktop else { return nil }
+            return (name, number == target.desktop ? 0 : number - 1)
         }
     }
 
@@ -1304,9 +1579,11 @@ final class Store: ObservableObject {
     /// `undoingSessionPins`: oturum pinleri de kaydıysa onları geri taşıyan
     /// kapanış (Router'ın ters taşıması); geri almada belgeyle birlikte çalışır.
     func moveDesktop(on screen: String, from: Int, to: Int, count: Int, mode: Mode,
+                     sharedLaptop: Bool = false,
                      undoingSessionPins companion: (() -> Void)? = nil) {
         recording(L("Desktop order changed"), companion: companion) {
-            document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode)
+            document.moveDesktop(on: screen, from: from, to: to, count: count, mode: mode,
+                                 sharedLaptop: sharedLaptop)
         }
     }
 
@@ -1354,19 +1631,31 @@ final class Store: ObservableObject {
 
     /// Masaüstüne ad verir; boş ad siler (geri alınabilir). Ad, o anki
     /// gerçek masaüstüne (space kimliği) bağlanır.
+    /// Ad aynı kurulumda başka masaüstünde varsa reddedilir (false).
+    @discardableResult
     func setDesktopName(_ name: String?, screen: String, desktop: Int, mode: Mode,
-                        space: UInt64? = nil) {
+                        space: UInt64? = nil) -> Bool {
+        var accepted = true
         recording(L("Desktop renamed")) {
-            document.setDesktopName(name, screen: screen, desktop: desktop, mode: mode, space: space)
+            accepted = document.setDesktopName(name, screen: screen, desktop: desktop,
+                                               mode: mode, space: space)
         }
+        return accepted
     }
 
     func ghosts(on screen: String) -> [GhostDesktop] { document.ghosts(on: screen) }
 
+    func ghosts(on screen: String, mode: Mode) -> [GhostDesktop] {
+        document.ghosts(on: screen, mode: mode)
+    }
+
     /// Deskmap dışında silinen masaüstü (geri alma kaydı yok: macOS'ta
-    /// olmuş bir değişikliği izler).
-    func ghostDesktop(on screen: String, desktop: Int, modes: [Mode]) {
-        document.ghostDesktop(on: screen, desktop: desktop, modes: modes)
+    /// olmuş bir değişikliği izler). `name`: ad tablodan zaten düştüyse.
+    func ghostDesktop(on screen: String, desktop: Int, modes: [Mode],
+                      name: String? = nil, space: UInt64? = nil, droppedMode: Mode? = nil,
+                      shiftNames: Bool = true) {
+        document.ghostDesktop(on: screen, desktop: desktop, modes: modes, name: name,
+                              droppedSpace: space, droppedMode: droppedMode, shiftNames: shiftNames)
     }
 
     /// Hayaleti yeni açılan masaüstüne geri getirir (geri alınabilir).
@@ -1385,9 +1674,13 @@ final class Store: ObservableObject {
 
     /// Taramadan gelen gerçek masaüstü listesine göre adları yerleştirir
     /// (geri alma kaydı yok; macOS'ta olmuş bir değişikliği izler).
-    func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>, mode: Mode) {
+    @discardableResult
+    func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>, mode: Mode,
+                               previous: [String: [UInt64]] = [:]) -> ReconcileResult {
         var copy = document
-        if copy.reconcileDesktopNames(spaces: spaces, seen: seen, mode: mode) { document = copy }
+        let result = copy.reconcileNames(spaces: spaces, seen: seen, mode: mode, previous: previous)
+        if result.changed { document = copy }
+        return result
     }
 
     /// Etkin olmayan modda masaüstü ekler: yalnız plana yazılır (⌘Z geri

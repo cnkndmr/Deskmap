@@ -159,7 +159,7 @@ private struct ScreenCard: View {
                     rowCount: tileCount, tileCounts: tileCounts, shadowed: shadowed)
                 ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0) }
             }
-            ForEach(store.ghosts(on: screen.id)) { ghost in
+            ForEach(store.ghosts(on: screen.id, mode: mode)) { ghost in
                 DeletedDesktopRow(ghost: ghost, mode: mode,
                                   canRestore: isLive && isConnected)
             }
@@ -276,7 +276,7 @@ private struct DeletedDesktopRow: View {
                 store.restoreGhost(ghost.id, desktop: count,
                                    space: router.currentSpace(on: ghost.screen, desktop: count),
                                    mode: mode)
-                router.resetDesktopBaseline()
+                router.updateBaseline(addingNewIds: true)
                 router.sweep()
             } else {
                 store.report(L("Could not add a desktop to %@", ghost.screen))
@@ -583,8 +583,11 @@ private struct DesktopRow: View {
         isRenaming = false
         let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed != (name ?? "") else { return }
-        store.setDesktopName(trimmed, screen: screen.id, desktop: desktop, mode: mode,
-                             space: isLive ? router.currentSpace(on: screen.id, desktop: desktop) : nil)
+        if !store.setDesktopName(
+            trimmed, screen: screen.id, desktop: desktop, mode: mode,
+            space: isLive ? router.currentSpace(on: screen.id, desktop: desktop) : nil) {
+            store.report(L("A desktop named %@ already exists", trimmed))
+        }
     }
 
     /// Satırı siler; kısıt yok. Etkin modda gerçekte var olan masaüstü
@@ -647,7 +650,7 @@ private struct DesktopRow: View {
                 let sessionMoved = router.moveDesktop(on: screenID, from: from, to: to, count: count,
                                                       reorderWindows: live)
                 store.moveDesktop(
-                    on: screenID, from: from, to: to, count: count, mode: mode,
+                    on: screenID, from: from, to: to, count: count, mode: mode, sharedLaptop: live,
                     undoingSessionPins: sessionMoved
                         ? { router.moveDesktop(on: screenID, from: to, to: from, count: count,
                                                reorderWindows: live) }

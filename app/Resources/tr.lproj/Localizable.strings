@@ -49,6 +49,7 @@
 "Profile not found: %@" = "Profil bulunamadı: %@";
 "Window not found: %@" = "Pencere bulunamadı: %@";
 "Rule not found: %@" = "Kural bulunamadı: %@";
+"A desktop named %@ already exists" = "%@ adlı bir masaüstü zaten var";
 "A profile named %@ already exists" = "%@ adlı bir profil zaten var";
 "Desktop %ld on %@ does not exist" = "%2$@ üzerinde %1$ld. masaüstü yok";
 "Rule has no target in this setup: %@" = "Kuralın bu düzende hedefi yok: %@";
