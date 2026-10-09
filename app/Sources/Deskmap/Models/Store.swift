@@ -1004,6 +1004,18 @@ struct Document: Codable, Equatable {
         else { return }
         if let liveSpaces { permuteBindings(mapping: mapping, spaces: liveSpaces) }
         let modes = sharedLaptop && screen == "builtin" ? Mode.allCases : [mode]
+        // Bağı bu ekranın canlı space listesinde olmayan adlar (öbür kurulumun
+        // başka ekrandaki masaüstüne bağlı adı) yeniden bağlanmaz.
+        var foreign: [Mode: Set<String>] = [:]
+        if let liveSpaces {
+            let live = Set(liveSpaces)
+            for m in modes {
+                let key = Self.planKey(mode: m, screen: screen)
+                for (slot, space) in desktopNameSpaces[key] ?? [:] where !live.contains(space) {
+                    if let name = desktopNames[key]?[slot] { foreign[m, default: []].insert(name) }
+                }
+            }
+        }
 
         // Bütün profiller: masaüstünün içeriği yer değiştirdi; öbür
         // profilin pinleri eski numarada kalırsa profil değişince pencereler
@@ -1029,7 +1041,7 @@ struct Document: Codable, Equatable {
         remapDesktopNames(modes: modes) { name, desktop in
             name == screen ? mapping[desktop].map { (screen, $0) } : nil
         }
-        if let liveSpaces { bindMovedNames(on: screen, modes: modes, spaces: liveSpaces) }
+        if let liveSpaces { bindMovedNames(on: screen, modes: modes, spaces: liveSpaces, skip: foreign) }
     }
 
     /// Bağlı space kimliklerini içerik taşımasına göre çevirir (saf
@@ -1050,13 +1062,14 @@ struct Document: Codable, Equatable {
 
     /// `remapNames` taşınan adların bağını düşürür; içerik taşındığı için
     /// yeni yerin kimliği bilinir, hemen bağlanır.
-    private mutating func bindMovedNames(on screen: String, modes: [Mode], spaces: [UInt64]) {
+    private mutating func bindMovedNames(on screen: String, modes: [Mode], spaces: [UInt64],
+                                         skip: [Mode: Set<String>] = [:]) {
         for mode in modes {
             let key = Self.planKey(mode: mode, screen: screen)
             guard let names = desktopNames[key] else { continue }
             var bindings = desktopNameSpaces[key] ?? [:]
-            for slot in names.keys {
-                guard bindings[slot] == nil, let desktop = Int(slot),
+            for (slot, name) in names {
+                guard bindings[slot] == nil, !(skip[mode]?.contains(name) ?? false), let desktop = Int(slot),
                       desktop >= 1, desktop <= spaces.count else { continue }
                 bindings[slot] = spaces[desktop - 1]
             }

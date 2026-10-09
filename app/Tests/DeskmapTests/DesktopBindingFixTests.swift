@@ -81,6 +81,17 @@ struct DesktopBindingFixTests {
         #expect(d.desktopNameSpaces["undocked|builtin"] == ["1": 10])
     }
 
+    @Test func builtinReorderDoesNotRebindForeignUndockedName() {
+        var d = Document()
+        d.desktopNames = ["docked|builtin": ["8": "A", "9": "B"], "undocked|builtin": ["8": "MD2", "9": "B"]]
+        d.desktopNameSpaces = ["docked|builtin": ["8": 80, "9": 90], "undocked|builtin": ["8": 1031, "9": 90]]
+        d.moveDesktop(on: "builtin", from: 8, to: 9, count: 9, mode: D, sharedLaptop: true,
+                      liveSpaces: [1, 2, 3, 4, 5, 6, 7, 80, 90])
+        #expect(d.desktopNames["undocked|builtin"] == ["8": "B", "9": "MD2"])
+        #expect(d.desktopNameSpaces["undocked|builtin"]?["9"] == nil)
+        #expect(d.desktopNameSpaces["undocked|builtin"]?["8"] == 80)
+    }
+
     @Test func reorderWithoutLiveSpacesKeepsOldBehaviour() {
         var d = linked()
         d.moveDesktop(on: "external", from: 1, to: 2, count: 3, mode: D, sharedLaptop: true)
