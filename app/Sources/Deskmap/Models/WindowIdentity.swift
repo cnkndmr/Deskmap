@@ -129,13 +129,18 @@ enum WindowIdentity {
             var titleChanged = false
             var document: String?
             var documentChanged = false
+            /// Başlık değişti ama belge aynı kaldı: belge kararlı.
+            var documentHeld = false
         }
         var entries: [CGWindowID: Entry] = [:]
         /// Bir penceresinde belge değiştiği görülen uygulamalar.
         var volatileDocumentApps: Set<String> = []
+        /// Başlığı değişirken belgesi aynı kaldığı görülen uygulamalar.
+        var stableDocumentApps: Set<String> = []
 
-        init(volatileDocumentApps: Set<String> = []) {
+        init(volatileDocumentApps: Set<String> = [], stableDocumentApps: Set<String> = []) {
             self.volatileDocumentApps = volatileDocumentApps
+            self.stableDocumentApps = stableDocumentApps
         }
 
         private static func appKey(_ window: Router.WindowSnapshot) -> String {
@@ -156,15 +161,20 @@ enum WindowIdentity {
                                             document: window.document)
                     continue
                 }
-                if entry.lastTitle != window.title {
+                let titleDiffers = entry.lastTitle != window.title
+                if titleDiffers {
                     entry.lastTitle = window.title
                     entry.stable.formIntersection(parts)
                     entry.titleChanged = true
                 }
+                let titleMoved = titleDiffers
                 if let document = window.document {
                     if let old = entry.document, old != document {
                         entry.documentChanged = true
                         volatileDocumentApps.insert(Self.appKey(window))
+                    } else if titleMoved, entry.document == document, !entry.documentChanged {
+                        entry.documentHeld = true
+                        stableDocumentApps.insert(Self.appKey(window))
                     }
                     entry.document = document
                 }
@@ -174,11 +184,15 @@ enum WindowIdentity {
         }
 
         /// Belge yolu anahtar olabilir mi: bu pencerenin ve uygulamanın
-        /// belgesi değişirken hiç görülmedi.
+        /// belgesi değişirken hiç görülmedi ve belgenin başlık değişimine
+        /// dayandığı görüldü (bu pencerede ya da uygulamanın başka
+        /// penceresinde). Etkin dosyayı bildiren editörde başlık değişimi
+        /// belgeyi de değiştirir: güvenilmez.
         func trustsDocument(of window: Router.WindowSnapshot) -> Bool {
-            guard window.document != nil,
-                  !volatileDocumentApps.contains(Self.appKey(window)) else { return false }
-            return entries[window.id]?.documentChanged != true
+            let app = Self.appKey(window)
+            guard window.document != nil, !volatileDocumentApps.contains(app),
+                  entries[window.id]?.documentChanged != true else { return false }
+            return entries[window.id]?.documentHeld == true || stableDocumentApps.contains(app)
         }
 
         /// Başlık değiştiyse değişmeyen parçalar (sezgi sırasında, şu anki

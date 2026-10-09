@@ -214,9 +214,11 @@ The pin panel's **This window** choice writes a normal, saved pin with a
 stable key, chosen the same way for every app:
 
 1. **File path** — the window's `AXDocument`. Stored as `"path"` on the rule
-   (`tokens` stays empty); the window must show exactly that file. Not used
-   for apps whose document was seen changing in a window (VS Code reports the
-   active editor), nor when another open window shows the same file.
+   (`tokens` stays empty); the window must show exactly that file. Used only
+   once Deskmap has seen the app's title change while its document stayed the
+   same (Preview turning a page); never for an app whose document was seen
+   changing in a window (VS Code reports the active editor), nor when another
+   open window shows the same file. Learned per app, kept across restarts.
 2. **Stable title part** — Deskmap remembers each window's title while it
    runs; the parts that stayed the same across title changes are the key. If
    every part changed, there is no key. Safari's tab group is read directly

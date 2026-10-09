@@ -179,8 +179,17 @@ struct WindowIdentityTests {
     @Test func documentPathSeparatesSameNamedFiles() {
         let a = doc(1, "Preview", preview, "main.pdf – Page 1 of 3", document: "/a/main.pdf")
         let b = doc(2, "Preview", preview, "main.pdf – Page 2 of 9", document: "/b/main.pdf")
-        let r = WindowIdentity.resolve(a, others: [b])
+        // Belge güveni öğrenilmeden yol kullanılmaz.
+        #expect(WindowIdentity.resolve(a, others: [b]) == .none)
+        var history = WindowIdentity.Observations()
+        history.observe([a, b])
+        let paged = doc(1, "Preview", preview, "main.pdf – Page 2 of 3", document: "/a/main.pdf")
+        history.observe([paged, b])
+        #expect(history.stableDocumentApps == [preview])
+        let r = WindowIdentity.resolve(a, others: [b], history: history)
         #expect(r == .path("/a/main.pdf"))
+        // Uygulama öğrenildi: aynı uygulamanın öbür penceresi de yol alır.
+        #expect(WindowIdentity.resolve(b, others: [a], history: history) == .path("/b/main.pdf"))
         let rule = r.rule(appName: "Preview", bundleID: preview)!
         #expect(rule.matches(a))
         #expect(!rule.matches(b))
@@ -191,12 +200,13 @@ struct WindowIdentityTests {
     @Test func sameDocumentInTwoWindowsFallsBackToTitle() {
         let a = doc(1, "Preview", preview, "main.pdf – Page 1 of 3", document: "/a/main.pdf")
         let b = doc(2, "Preview", preview, "main.pdf – Page 2 of 3", document: "/a/main.pdf")
-        #expect(WindowIdentity.resolve(a, others: [b]) == .none)
+        let history = WindowIdentity.Observations(stableDocumentApps: [preview])
+        #expect(WindowIdentity.resolve(a, others: [b], history: history) == .none)
     }
 
     @Test func changingDocumentIsNotTrusted() {
         let code = "com.microsoft.VSCode"
-        var history = WindowIdentity.Observations()
+        var history = WindowIdentity.Observations(stableDocumentApps: [code])
         let first = doc(1, "Code", code, "a.md — Proj", document: "/p/a.md")
         history.observe([first])
         #expect(WindowIdentity.resolve(first, others: [], history: history) == .path("/p/a.md"))

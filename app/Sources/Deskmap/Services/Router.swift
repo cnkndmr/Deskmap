@@ -128,8 +128,11 @@ final class Router: ObservableObject {
     /// Belgesi oynayan uygulamalar kalıcıdır (UserDefaults).
     @Published private(set) var identity = WindowIdentity.Observations(
         volatileDocumentApps: Set(UserDefaults.standard.stringArray(
-            forKey: Router.volatileDocumentAppsKey) ?? []))
+            forKey: Router.volatileDocumentAppsKey) ?? []),
+        stableDocumentApps: Set(UserDefaults.standard.stringArray(
+            forKey: Router.stableDocumentAppsKey) ?? []))
     nonisolated static let volatileDocumentAppsKey = "volatileDocumentApps"
+    nonisolated static let stableDocumentAppsKey = "stableDocumentApps"
 
     private func observeIdentity(_ snapshots: [WindowSnapshot]) {
         var next = identity
@@ -138,6 +141,10 @@ final class Router: ObservableObject {
         if next.volatileDocumentApps != identity.volatileDocumentApps {
             UserDefaults.standard.set(next.volatileDocumentApps.sorted(),
                                       forKey: Self.volatileDocumentAppsKey)
+        }
+        if next.stableDocumentApps != identity.stableDocumentApps {
+            UserDefaults.standard.set(next.stableDocumentApps.sorted(),
+                                      forKey: Self.stableDocumentAppsKey)
         }
         identity = next
     }
