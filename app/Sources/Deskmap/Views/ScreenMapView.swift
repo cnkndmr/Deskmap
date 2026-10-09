@@ -557,6 +557,17 @@ private struct DesktopRow: View {
                     store.setDesktopName(nil, screen: screen.id, desktop: desktop, mode: mode)
                 }
             }
+            let others = store.screens(for: mode).filter { $0.id != screen.id && tileCounts[$0.id] != nil }
+            if !others.isEmpty {
+                Divider()
+                // Sürükle-bırakla aynı taşıma: masaüstü pencereleri, pinleri
+                // ve adıyla hedef ekranın sonuna gider.
+                ForEach(others) { other in
+                    Button(L("Send Desktop to %@", other.name)) {
+                        moveAcross(to: other.id, at: (tileCounts[other.id] ?? 0) + 1)
+                    }
+                }
+            }
             Divider()
             Button(L("Remove Desktop %ld", desktop), role: .destructive) { remove() }
         }
