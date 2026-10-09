@@ -337,3 +337,9 @@
 "Matches: \"%@\"" = "Eşleşen: \"%@\"";
 "Narrowed by %ld more detail(s) from the title." = "Başlıktaki %ld ayrıntıyla daraltıldı.";
 "This window has no stable name to match." = "Bu pencerenin eşleşecek kararlı bir adı yok.";
+"Accessibility permission is missing" = "Erişilebilirlik izni yok";
+"Target desktop missing: %@" = "Hedef masaüstü yok: %@";
+"All pinned windows are in place" = "Pinli pencerelerin hepsi yerinde";
+"Setting up after a display change…" = "Ekran değişikliğinden sonra yerleştiriliyor…";
+"1 window not in place: %@" = "1 pencere yerinde değil: %@";
+"%ld windows not in place: %@" = "%ld pencere yerinde değil: %@";

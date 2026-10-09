@@ -142,9 +142,12 @@ struct RootView: View {
     var body: some View {
         VStack(spacing: 0) {
             VStack(spacing: 0) {
+            statusLine
+                .padding(.horizontal, 14)
+                .padding(.top, 8)
             header
                 .padding(.horizontal, 14)
-                .padding(.top, 10)
+                .padding(.top, 6)
                 .padding(.bottom, 6)
 
             // Tek profil varken çubuk gizli; yeni profil / içe aktarma
@@ -478,6 +481,27 @@ struct RootView: View {
     }
 
     // MARK: - Üst çubuk
+
+    /// En üst satır: menü çubuğundaki durum noktasının nedeni.
+    private var statusLine: some View {
+        let indicator = StatusIndicator.current(store: store, router: router, screens: screens,
+                                                trusted: permission.isTrusted)
+        let color: Color = switch indicator.level {
+        case .green: .green
+        case .orange: .orange
+        case .red: .red
+        }
+        return HStack(spacing: 6) {
+            Circle().fill(color).frame(width: 7, height: 7)
+            Text(indicator.reason)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
 
     private var header: some View {
         HStack(spacing: 12) {

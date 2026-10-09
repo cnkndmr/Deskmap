@@ -24,6 +24,7 @@ struct DeskmapApp: App {
     @StateObject private var screens: ScreenService
     @StateObject private var router: Router
     @StateObject private var permission = AccessibilityPermission()
+    @StateObject private var indicatorTick = IndicatorTick()
     @StateObject private var ui = UIState()
 
     init() {
@@ -45,16 +46,23 @@ struct DeskmapApp: App {
                 .environmentObject(permission)
                 .environmentObject(ui)
         } label: {
-            MenuBarLabel(
-                health: AppHealth.state(
-                    enabled: store.document.enabled,
-                    trusted: permission.isTrusted,
-                    requiredSettingsOK: MacSettings.allRequiredOK(MacSettings.checks()),
-                    movesDegraded: router.moveHealth.state == .degraded),
-                // Haritanın "Sahipsiz pencereler" kutusuyla aynı sayım.
-                unassigned: ScreenMapView.unownedWindows(
-                    router.windows, rules: store.document.rules,
-                    sessionPins: router.sessionPins).count)
+            // Turuncu uzun sürünce kırmızıya dönsün diye seyrek yeniden çizim
+            // (tarama yok; son anlık görüntüden hesaplanır). TimelineView
+            // menü çubuğu etiketinde sonsuz güncelleme döngüsüne giriyor.
+            let _ = indicatorTick.count
+                MenuBarLabel(
+                    health: AppHealth.state(
+                        enabled: store.document.enabled,
+                        trusted: permission.isTrusted,
+                        requiredSettingsOK: MacSettings.allRequiredOK(MacSettings.checks()),
+                        movesDegraded: router.moveHealth.state == .degraded),
+                    // Haritanın "Sahipsiz pencereler" kutusuyla aynı sayım.
+                    unassigned: ScreenMapView.unownedWindows(
+                        router.windows, rules: store.document.rules,
+                        sessionPins: router.sessionPins).count,
+                    indicator: StatusIndicator.current(
+                        store: store, router: router, screens: screens,
+                        trusted: permission.isTrusted))
         }
         .menuBarExtraStyle(.window)
     }
@@ -129,15 +137,20 @@ enum SingleInstance {
 struct MenuBarLabel: View {
     let health: AppHealth
     var unassigned = 0
+    var indicator: StatusIndicator?
 
     var body: some View {
         icon.accessibilityLabel(text).help(text)
     }
 
     private var text: String {
-        guard health == .ready, unassigned > 0 else { return health.label }
-        return health.label + " · " + (unassigned == 1
-            ? L("1 unassigned window") : L("%ld unassigned windows", unassigned))
+        var text = health.label
+        if health == .ready, unassigned > 0 {
+            text += " · " + (unassigned == 1
+                ? L("1 unassigned window") : L("%ld unassigned windows", unassigned))
+        }
+        if health == .ready, let indicator { text += " · " + indicator.reason }
+        return text
     }
 
     @ViewBuilder private var icon: some View {
@@ -148,8 +161,9 @@ struct MenuBarLabel: View {
             Image(systemName: "pause.rectangle")
         case .ready:
             if let icon = Self.icon {
+                let base = unassigned > 0 ? Self.badged(icon, count: unassigned) : icon
                 Image(nsImage: Self.described(
-                    unassigned > 0 ? Self.badged(icon, count: unassigned) : icon, as: text))
+                    indicator.map { Self.dotted(base, level: $0.level) } ?? base, as: text))
             } else {
                 Image(systemName: "rectangle.on.rectangle")
             }
@@ -221,10 +235,61 @@ struct MenuBarLabel: View {
         return image
     }
 
+    @MainActor private static var dotCache: [String: NSImage] = [:]
+
+    /// Simgenin sol alt köşesine renkli durum noktası. Renkli olduğu için
+    /// resim şablon değil: simge çizim anında menü çubuğunun görünümüne göre
+    /// etiket rengiyle boyanır (açık/koyu).
+    @MainActor static func dotted(_ base: NSImage, level: StatusIndicator.Level) -> NSImage {
+        let key = "\(ObjectIdentifier(base).hashValue)|\(level)"
+        if let cached = dotCache[key] { return cached }
+        let color: NSColor = switch level {
+        case .green: .systemGreen
+        case .orange: .systemOrange
+        case .red: .systemRed
+        }
+        let size = base.size
+        let diameter: CGFloat = 7
+        let dot = NSRect(x: 0, y: 0, width: diameter, height: diameter)
+        let image = NSImage(size: size, flipped: false) { rect in
+            guard let context = NSGraphicsContext.current?.cgContext else { return false }
+            base.draw(in: rect)
+            // Şablonu etiket rengine boya.
+            context.setBlendMode(.sourceIn)
+            context.setFillColor(NSColor.labelColor.cgColor)
+            context.fill(rect)
+            // Noktanın çevresi boşaltılır, nokta renkli çizilir.
+            context.setBlendMode(.clear)
+            context.fillEllipse(in: dot.insetBy(dx: -1.5, dy: -1.5))
+            context.setBlendMode(.normal)
+            context.setFillColor(color.cgColor)
+            context.fillEllipse(in: dot)
+            return true
+        }
+        image.isTemplate = false
+        if dotCache.count > 32 { dotCache.removeAll() }
+        dotCache[key] = image
+        return image
+    }
+
     private static let icon: NSImage? = {
         guard let image = Bundle.main.image(forResource: "MenuBarIcon") else { return nil }
         image.isTemplate = true
         image.size = NSSize(width: 22, height: 16)
         return image
     }()
+}
+
+/// Durum noktasını 15 sn'de bir yeniden hesaplatır (takılmış turuncu
+/// kırmızıya dönsün); tarama yapmaz.
+@MainActor
+final class IndicatorTick: ObservableObject {
+    @Published private(set) var count = 0
+    private var timer: Timer?
+
+    init() {
+        timer = Timer.scheduledTimer(withTimeInterval: 15, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.count += 1 }
+        }
+    }
 }
