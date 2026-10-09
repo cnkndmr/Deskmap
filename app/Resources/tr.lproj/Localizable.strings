@@ -108,6 +108,8 @@
 "empty" = "boş";
 "doesn't exist yet" = "henüz yok";
 "%ld windows" = "%ld pencere";
+"%ld closed" = "%ld kapalı";
+"%ld + %ld closed" = "%ld + %ld kapalı";
 "Drop a window here to unpin it while a monitor is connected." = "Buraya bırakılan pencerenin monitör bağlıyken pini kalkar.";
 "Drop a window here to unpin it while on the laptop only." = "Buraya bırakılan pencerenin sadece laptoptayken pini kalkar.";
 

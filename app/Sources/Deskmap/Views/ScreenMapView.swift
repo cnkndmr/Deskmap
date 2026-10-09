@@ -368,6 +368,44 @@ private struct FullscreenRow: View {
     }
 }
 
+// MARK: - Uygulama grubu
+
+/// Bir masaüstü satırındaki uygulama grubu: açık pencereler ve aynı
+/// uygulamanın penceresi kapalı pinleri (soluk çip).
+struct AppGroup: Identifiable {
+    let bundleID: String
+    let appName: String
+    var windows: [Router.WindowSnapshot]
+    var closed: [Rule] = []
+    var id: String { bundleID.isEmpty ? appName : bundleID }
+
+    /// Saf. Sıra: açık pencerelerin sırası, ardından yalnız kapalı
+    /// pini olan uygulamalar kuralların sırasıyla. Eşleşme bundleID ile,
+    /// bundleID boşsa uygulama adıyla.
+    static func grouped(windows: [Router.WindowSnapshot], closed: [Rule]) -> [AppGroup] {
+        var result: [AppGroup] = []
+        for window in windows {
+            let key = window.bundleID.isEmpty ? window.appName : window.bundleID
+            if let i = result.firstIndex(where: { $0.id == key }) {
+                result[i].windows.append(window)
+            } else {
+                result.append(AppGroup(bundleID: window.bundleID,
+                                       appName: window.appName, windows: [window]))
+            }
+        }
+        for rule in closed {
+            let key = rule.bundleID.isEmpty ? rule.appName : rule.bundleID
+            if let i = result.firstIndex(where: { $0.id == key }) {
+                result[i].closed.append(rule)
+            } else {
+                result.append(AppGroup(bundleID: rule.bundleID, appName: rule.appName,
+                                       windows: [], closed: [rule]))
+            }
+        }
+        return result
+    }
+}
+
 // MARK: - Masaüstü satırı
 
 /// Masaüstü etiketi: ad varsa ad (iki satıra kadar) ve altında küçük
@@ -449,26 +487,8 @@ private struct DesktopRow: View {
         return ui.windows.filter { $0.placement == placement }
     }
 
-    /// Uygulama başına gruplar; sıra pencere listesinin sırası.
-    private struct AppGroup: Identifiable {
-        let bundleID: String
-        let appName: String
-        var windows: [Router.WindowSnapshot]
-        var id: String { bundleID.isEmpty ? appName : bundleID }
-    }
-
     private var groups: [AppGroup] {
-        var result: [AppGroup] = []
-        for window in windows {
-            let key = window.bundleID.isEmpty ? window.appName : window.bundleID
-            if let i = result.firstIndex(where: { $0.id == key }) {
-                result[i].windows.append(window)
-            } else {
-                result.append(AppGroup(bundleID: window.bundleID,
-                                       appName: window.appName, windows: [window]))
-            }
-        }
-        return result
+        AppGroup.grouped(windows: windows, closed: orphanRules)
     }
 
     /// Hedefi burası olan ama şu an açık penceresi olmayan pinler; canlı
@@ -514,7 +534,7 @@ private struct DesktopRow: View {
             .gesture(desktopDrag, including: isRenaming ? .none : .all)
             .help(L("Double-click to name this desktop; drag to move it (with its pins) up, down or to another display"))
 
-            if groups.isEmpty && orphanRules.isEmpty {
+            if groups.isEmpty {
                 Text(exists ? L("empty") : L("doesn't exist yet"))
                     .font(.caption)
                     .foregroundStyle(.quaternary)
@@ -523,14 +543,6 @@ private struct DesktopRow: View {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(groups) { group in
                         groupView(group)
-                    }
-                    if !orphanRules.isEmpty {
-                        FlowLayout(spacing: 6) {
-                            ForEach(orphanRules) { rule in
-                                RuleChip(rule: rule, mode: mode, shadowedBy: shadowed[rule.id])
-                            }
-                        }
-                        .padding(.top, groups.isEmpty ? 0 : 2)
                     }
                 }
             }
@@ -700,7 +712,7 @@ private struct DesktopRow: View {
 
     @ViewBuilder
     private func groupView(_ group: AppGroup) -> some View {
-        if group.windows.count == 1, let window = group.windows.first {
+        if group.windows.count == 1, group.closed.isEmpty, let window = group.windows.first {
             WindowRow(window: window, mode: mode, showsApp: true)
                 .id(WindowAnchor(id: window.id))
         } else {
@@ -718,11 +730,11 @@ private struct DesktopRow: View {
                         AppIcon(bundleID: group.bundleID, size: 16)
                         Text(group.appName)
                             .font(.caption.weight(.medium))
-                        Text(L("%ld windows", group.windows.count))
+                        Text(countLabel(group))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                         if collapsed {
-                            let pinned = group.windows.filter(isPinned).count
+                            let pinned = group.windows.filter(isPinned).count + group.closed.count
                             if pinned > 0 {
                                 Image(systemName: "pin.fill")
                                     .font(.system(size: 8))
@@ -746,9 +758,25 @@ private struct DesktopRow: View {
                             .padding(.leading, 16)
                             .id(WindowAnchor(id: window.id))
                     }
+                    // Kapalı pinler açık pencerelerden sonra, soluk çip olarak.
+                    if !group.closed.isEmpty {
+                        FlowLayout(spacing: 6) {
+                            ForEach(group.closed) { rule in
+                                RuleChip(rule: rule, mode: mode, shadowedBy: shadowed[rule.id])
+                            }
+                        }
+                        .padding(.leading, 16)
+                    }
                 }
             }
         }
+    }
+
+    /// Grup başlığındaki sayı: "3 pencere", "3 + 2 kapalı" ya da "2 kapalı".
+    private func countLabel(_ group: AppGroup) -> String {
+        if group.closed.isEmpty { return L("%ld windows", group.windows.count) }
+        if group.windows.isEmpty { return L("%ld closed", group.closed.count) }
+        return L("%ld + %ld closed", group.windows.count, group.closed.count)
     }
 
     /// Oturum pini ya da bu modda hedefi olan bir kural var mı (router ile
