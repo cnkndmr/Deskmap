@@ -669,8 +669,9 @@ enum AX {
 
     /// Safari penceresinin sekme grubu: araç çubuğundaki grup seçicinin
     /// kimliği "TabGroupPickerButton?TabGroup=<ad>" biçiminde (ölçüldü
-    /// 09.10, Safari 26). Grup parametresi yoksa "" (grupsuz), düğme
-    /// bulunamazsa nil.
+    /// 09.10, Safari 26). Grupsuz pencerede seçici hiç yoktur: araç çubuğu
+    /// okunabiliyor ama seçici yoksa ya da parametresizse "" (grupsuz);
+    /// araç çubuğu okunamazsa nil.
     static func safariTabGroup(of window: AXWindow) -> String? {
         // Grup adı başlığın başında durur: başlık aynıysa grup da aynı;
         // araç çubuğu yalnız başlık değişince yeniden okunur.
@@ -691,16 +692,25 @@ enum AX {
 
     private static func readSafariTabGroup(_ window: AXWindow) -> String? {
         let children: [AXUIElement] = attribute(window.element, kAXChildrenAttribute) ?? []
+        var toolbars: [[String?]] = []
         for child in children {
             let role: String? = attribute(child, kAXRoleAttribute)
             guard role == "AXToolbar" else { continue }
             let items: [AXUIElement] = attribute(child, kAXChildrenAttribute) ?? []
-            for item in items {
-                let identifier: String? = attribute(item, kAXIdentifierAttribute)
-                if let identifier, let group = tabGroupName(identifier: identifier) { return group }
+            toolbars.append(items.map { attribute($0, kAXIdentifierAttribute) })
+        }
+        return tabGroup(toolbars: toolbars)
+    }
+
+    /// Araç çubuklarının öğe kimliklerinden grup (saf): seçici varsa adı,
+    /// çubuk okundu ama seçici yoksa "" (grupsuz), çubuk yoksa nil.
+    nonisolated static func tabGroup(toolbars: [[String?]]) -> String? {
+        for identifiers in toolbars {
+            for case let identifier? in identifiers {
+                if let group = tabGroupName(identifier: identifier) { return group }
             }
         }
-        return nil
+        return toolbars.isEmpty ? nil : ""
     }
 
     /// Grup seçici kimliğinden grup adı (saf); seçici değilse nil.

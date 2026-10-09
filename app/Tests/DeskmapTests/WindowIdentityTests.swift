@@ -252,6 +252,12 @@ struct WindowIdentityTests {
         #expect(AX.tabGroupName(identifier: "TabGroupPickerButton?TabGroup=Research") == "Research")
         #expect(AX.tabGroupName(identifier: "TabGroupPickerButton") == "")
         #expect(AX.tabGroupName(identifier: "BackButton") == nil)
+        // Grupsuz pencerede seçici hiç yok: araç çubuğu okunduysa "" (başlık sezgisi yok).
+        #expect(AX.tabGroup(toolbars: [["BackButton", nil]]) == "")
+        #expect(AX.tabGroup(toolbars: [["BackButton", "TabGroupPickerButton?TabGroup=Research"]]) == "Research")
+        #expect(AX.tabGroup(toolbars: []) == nil)
+        let bare = doc(3, "Safari", safari, "DMDelta Page", tabGroup: AX.tabGroup(toolbars: [["BackButton"]]))
+        #expect(WindowIdentity.resolve(bare, others: []) == .none)
     }
 
     @Test func documentPathParsing() {
