@@ -77,20 +77,36 @@ struct MultiPinBar: View {
             Text(L("⌘-click windows to add or remove them."))
                 .font(.caption)
                 .foregroundStyle(.tertiary)
-            HStack {
-                Spacer()
-                Button(L("Clear")) { ui.selection = [] }
-                Button {
-                    pinAll(plan)
-                } label: {
-                    Label(L("Pin %ld where they are", count), systemImage: "pin.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(count == 0)
-                .keyboardShortcut(.defaultAction)
+            Button {
+                pinAll(plan)
+            } label: {
+                Label(L("Pin %ld where they are", count), systemImage: "pin.fill")
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .disabled(count == 0)
+            .keyboardShortcut(.defaultAction)
+            Button(L("Clear")) { ui.selection = [] }
+                .buttonStyle(.link)
         }
         .onExitCommand { ui.selection = [] }
+    }
+
+    /// Verilen pencereleri olduğu yere sabitler (toplu çubukla aynı plan):
+    /// kararlı anahtarı olan kalıcı kural, olmayan geçici sabitleme olur.
+    /// Kaç pencere sabitlendiğini döndürür.
+    @discardableResult
+    static func pinWhereTheyAre(_ ids: Set<CGWindowID>, store: Store, router: Router,
+                                screens: ScreenService) -> Int {
+        let plan = plan(selected: ids, windows: router.windows, history: router.identity) {
+            $0.currentLayout(screens: screens.screens) ?? .full
+        }
+        store.pinMany(plan.rules, mode: screens.mode)
+        for item in plan.sessions {
+            router.pinSession(item.window, destination: item.destination)
+        }
+        return plan.rules.count + plan.sessions.count
     }
 
     private func pinAll(_ plan: Plan) {

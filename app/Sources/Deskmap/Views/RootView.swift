@@ -17,6 +17,9 @@ struct RootView: View {
     @State private var settingChecks: [MacSettings.Check] = MacSettings.checks()
     /// Üst çubuktaki "?" açıklama paneli açık mı.
     @State private var showLegend = false
+    /// "Son hareketler" paneli açık mı.
+    @State private var showLog = false
+    @FocusState private var searchFocused: Bool
     /// Sürükleme sırasında gelen tarama sonucu; sürükleme bitince uygulanır.
     @State private var pendingWindows: [Router.WindowSnapshot]?
     /// Harita ekranda mı (örtülme bildirimi aynı durumu yineleyebilir).
@@ -158,6 +161,9 @@ struct RootView: View {
                 .padding(.horizontal, 14)
                 .padding(.top, 6)
                 .padding(.bottom, 6)
+            toolbar
+                .padding(.horizontal, 14)
+                .padding(.bottom, 8)
 
             Divider()
             }
@@ -563,6 +569,61 @@ struct RootView: View {
         .font(.callout)
     }
 
+    /// İkinci satır: pencere arama, Görsel / Liste, son hareketler.
+    private var toolbar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField(L("Search windows (⌘F)"), text: $ui.search)
+                    .textFieldStyle(.plain)
+                    .focused($searchFocused)
+                    .frame(width: 190)
+                    .onExitCommand { ui.search = ""; searchFocused = false }
+                if !ui.search.trimmingCharacters(in: .whitespaces).isEmpty {
+                    let hits = ui.windows.filter {
+                        UIState.matches(query: ui.search, appName: $0.appName, title: $0.title)
+                    }.count
+                    Text(hits == 1 ? L("1 match") : L("%ld matches", hits))
+                        .font(.caption)
+                        .foregroundStyle(hits == 0 ? Color.orange : Color.secondary)
+                    Button {
+                        ui.search = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.borderless)
+                    .help(L("Clear the search"))
+                    .accessibilityLabel(L("Clear the search"))
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.06)))
+
+            Picker("", selection: $ui.visualMap) {
+                Text(L("Visual")).tag(true)
+                Text(L("List")).tag(false)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .help(L("Visual shows a small picture of each desktop next to its windows"))
+
+            Spacer()
+
+            Button {
+                showLog.toggle()
+            } label: {
+                Label(L("Recent moves"), systemImage: "clock.arrow.circlepath")
+            }
+            .buttonStyle(.borderless)
+            .help(L("What Deskmap moved, when and where"))
+            .popover(isPresented: $showLog, arrowEdge: .bottom) { ActivityLogView() }
+        }
+        .font(.callout)
+    }
+
     /// Seçili planın şu an geçerli olup olmadığı; değilse ne zaman geçerli olacağı.
     @ViewBuilder
     private var planNote: some View {
@@ -662,6 +723,8 @@ struct RootView: View {
                 .keyboardShortcut("r", modifiers: .command)
             Button("") { openSettings() }
                 .keyboardShortcut(",", modifiers: .command)
+            Button("") { searchFocused = true }
+                .keyboardShortcut("f", modifiers: .command)
         }
         .buttonStyle(.plain)
         .opacity(0)

@@ -175,6 +175,10 @@ private struct GeneralSettings: View {
                         .labelsHidden()
                 }
             }
+            SettingRow(title: L("Welcome guide"),
+                       detail: L("The three first steps: permission, macOS settings, how to start.")) {
+                Button(L("Show")) { WelcomeWindow.shared.show() }
+            }
             SettingRow(title: L("Quit Deskmap"),
                        detail: L("Windows stay where they are; nothing is moved until Deskmap runs again.")) {
                 Button(L("Quit")) { NSApplication.shared.terminate(nil) }

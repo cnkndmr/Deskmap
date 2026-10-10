@@ -102,6 +102,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         StatusItemMenu.shared.install()
+        WelcomeWindow.shared.showIfNeeded()
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {

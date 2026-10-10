@@ -85,6 +85,34 @@ final class UIState: ObservableObject {
     @Published var selection: Set<CGWindowID> = []
     /// Ayrıntı sütununda "Gelişmiş" bölümü açık mı; paneller arasında korunur.
     @Published var showAdvanced = false
+    /// Haritada masaüstü önizlemeleri (Görsel) açık mı; kullanıcı tercihi,
+    /// kalıcı (Shots modunda yazılmaz).
+    @Published var visualMap: Bool = UserDefaults.standard.object(forKey: "visualMap") as? Bool ?? true {
+        didSet {
+            if persistsPreferences { UserDefaults.standard.set(visualMap, forKey: "visualMap") }
+        }
+    }
+    /// false: tercihler diske yazılmaz (Shots modu).
+    var persistsPreferences = true
+    /// Haritada pencere arama metni; boşsa arama yok.
+    @Published var search = ""
+
+    /// Pencere aramaya uyuyor mu (saf): uygulama adı ya da başlıkta geçen,
+    /// büyük/küçük harf ve aksan duyarsız. Boş sorgu her şeye uyar.
+    nonisolated static func matches(query: String, appName: String, title: String) -> Bool {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return true }
+        let options: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
+        return appName.range(of: q, options: options) != nil
+            || title.range(of: q, options: options) != nil
+    }
+
+    /// Arama sürerken bu öğe soluk mu (uymuyor), vurgulu mu (uyuyor)?
+    func searchLook(appName: String, title: String) -> (dimmed: Bool, highlighted: Bool) {
+        guard !search.trimmingCharacters(in: .whitespaces).isEmpty else { return (false, false) }
+        let hit = Self.matches(query: search, appName: appName, title: title)
+        return (!hit, hit)
+    }
     /// Son fare basışında ⌘ basılı mıydı. Tek tıklama çift tıklama süresi
     /// dolunca işlenir; o anda ⌘ bırakılmış olabilir, bu yüzden basış
     /// anında yerel izleyiciyle kaydedilir.

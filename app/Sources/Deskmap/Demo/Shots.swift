@@ -59,6 +59,8 @@ enum Shots {
         let router = Router(store: store, screens: screens, demoWindows: world.windows)
         let permission = AccessibilityPermission(demoTrusted: true)
         let ui = UIState()
+        ui.persistsPreferences = false
+        ui.visualMap = true
 
         // Kareler 1710 × 1074 pt'lik kullanılabilir alana göre (bu Mac'in
         // dahili ekranı): pencere oranlı boyutunu buna göre alır; boy her karede
@@ -159,6 +161,23 @@ enum Shots {
         // 01 — ana görünüm: iki ekran, masaüstleri, pinli çipler, canlı pencereler.
         capture("01-map")
 
+        // 01b — liste görünümü (önizlemeler kapalı).
+        ui.visualMap = false
+        capture("01-map-list")
+        ui.visualMap = true
+
+        // 09 — arama: uyanlar turuncu çerçeveli, diğerleri soluk.
+        ui.search = "acme"
+        capture("09-search")
+        ui.search = ""
+
+        // 10 — "Hepsini olduğu yere sabitle": toplu sabitleme çubuğu sağda.
+        ui.selection = Set(ScreenMapView.unownedWindows(
+            world.windows, rules: store.document.rules, sessionPins: router.sessionPins)
+            .filter { $0.placement != nil && $0.fullscreen == nil }.map(\.id))
+        capture("10-pin-all")
+        ui.selection = []
+
         // 02 — yeni pin: pinsiz bir pencere için pin paneli (TokenPicker).
         if let target = world.windows.first(where: { $0.id == DemoData.unpinnedMessagesWindowID }) {
             ui.panel = .pin(PinDraft(
@@ -208,6 +227,21 @@ enum Shots {
         settingsState.tab = .profiles
         captureView("07-settings-profiles", SettingsView(state: settingsState).environmentObject(store))
         captureView("08-legend", LegendView())
+
+        // 11 — "Son hareketler" paneli, uydurma taşımalarla.
+        router.recordActions(["Obsidian (Handbook) → " + L("%@ · Desktop %ld", "Studio Display", 3),
+                              "Messages (acme-web) → " + L("%@ · Desktop %ld", "Studio Display", 2)],
+                             at: Date().addingTimeInterval(-25 * 60))
+        router.recordActions(["Safari (Docs) → " + L("%@ · Desktop %ld", "Built-in Display", 2)])
+        captureView("11-log", ActivityLogView().environmentObject(store).environmentObject(router))
+
+        // 12 — başlangıç rehberinin üç adımı.
+        for step in 1...3 {
+            captureView("12-welcome-\(step)",
+                        WelcomeView(demoStep: step, demoTrusted: step > 1) {}
+                            .environmentObject(store).environmentObject(router)
+                            .environmentObject(screens))
+        }
 
         window.orderOut(nil)
         exit(0)

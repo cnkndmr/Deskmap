@@ -487,6 +487,7 @@ private struct DesktopRow: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var router: Router
+    @EnvironmentObject private var screens: ScreenService
     /// Ad düzenleniyor mu (etikete çift tıklama ya da sağ tık menüsü).
     @State private var isRenaming = false
     @State private var nameDraft = ""
@@ -522,6 +523,70 @@ private struct DesktopRow: View {
         AppGroup.grouped(windows: windows, closed: orphanRules)
     }
 
+    /// Önizlemedeki kutular: açık pencereler (sabitse kayıtlı düzeninde,
+    /// değilse şu anki yerinde) ve açık penceresi olmayan sabitlemeler.
+    private var previewItems: [DesktopPreview.Item] {
+        let openItems: [DesktopPreview.Item] = windows.filter { $0.fullscreen == nil }.map { window in
+            let match = Routing.select(
+                rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
+                windowID: window.id, bundleID: window.bundleID, appName: window.appName,
+                title: window.title, document: window.document)
+            let current = window.currentLayout(screens: screens.screens) ?? .center
+            let layout = match.map { $0.destination.layout.isDesktopOnly ? current : $0.destination.layout }
+                ?? current
+            let look = ui.searchLook(appName: window.appName, title: window.title)
+            return DesktopPreview.Item(
+                id: "w\(window.id)", bundleID: window.bundleID,
+                title: window.title.isEmpty ? window.appName : "\(window.appName) — \(window.title)",
+                layout: layout, pinned: match != nil, isOpen: true,
+                isSelected: isShown(window, ruleID: match?.rule?.id),
+                dimmed: look.dimmed, highlighted: look.highlighted,
+                action: { openPanel(for: window) })
+        }
+        let closed: [DesktopPreview.Item] = orphanRules.compactMap { rule in
+            guard let destination = rule[mode] else { return nil }
+            let look = ui.searchLook(appName: rule.appName, title: rule.title)
+            return DesktopPreview.Item(
+                id: "r\(rule.id)", bundleID: rule.bundleID,
+                title: "\(rule.appName) — \(rule.title)",
+                layout: destination.layout.isDesktopOnly ? .center : destination.layout,
+                pinned: true, isOpen: false, isSelected: ui.panel == .rule(rule.id),
+                dimmed: look.dimmed, highlighted: look.highlighted,
+                action: { ui.toggle(.rule(rule.id)) })
+        }
+        return closed + openItems
+    }
+
+    /// Bu pencerenin paneli açık mı.
+    private func isShown(_ window: Router.WindowSnapshot, ruleID: String?) -> Bool {
+        switch ui.panel {
+        case .session(let id): return id == window.id
+        case .pin(let draft): return draft.window.id == window.id
+        case .rule(let id): return id == ruleID && (ui.panelSourceWindowID ?? window.id) == window.id
+        default: return false
+        }
+    }
+
+    /// Önizlemedeki kutuya tıklama: satırına tıklanmış gibi panel açılır
+    /// (aynısı açıksa kapanır); sabit olmayan pencerede sabitleme taslağı.
+    private func openPanel(for window: Router.WindowSnapshot) {
+        let sessionPinned = router.sessionPins[window.id] != nil
+        let rule = Routing.select(
+            rules: store.document.rules, sessionPins: [:], mode: mode,
+            windowID: window.id, bundleID: window.bundleID, appName: window.appName,
+            title: window.title, document: window.document)?.rule
+        guard let panel = UIState.openingPanel(for: window, sessionPinned: sessionPinned,
+                                               ruleID: rule?.id) else { return }
+        ui.selection = []
+        if isShown(window, ruleID: rule?.id) {
+            ui.panel = nil
+            ui.panelSourceWindowID = nil
+        } else {
+            ui.panel = panel
+            ui.panelSourceWindowID = sessionPinned || rule == nil ? nil : window.id
+        }
+    }
+
     /// Hedefi burası olan ama şu an açık penceresi olmayan pinler; canlı
     /// modda ayrıca penceresi olduğu hâlde başka kurala yenilen (gölgede)
     /// pinler, yoksa haritada hiç görünmezlerdi.
@@ -540,6 +605,7 @@ private struct DesktopRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 4) {
                 Image(systemName: "line.3.horizontal")
                     .font(.system(size: 9))
@@ -564,6 +630,11 @@ private struct DesktopRow: View {
             .onTapGesture(count: 2) { startRenaming() }
             .gesture(desktopDrag, including: isRenaming ? .none : .all)
             .help(L("Double-click to name this desktop; drag to move it (with its pins) up, down or to another display"))
+
+                if ui.visualMap {
+                    DesktopPreview(screenSize: screen.visibleSize, items: previewItems)
+                }
+            }
 
             if groups.isEmpty {
                 Text(exists ? L("empty") : L("doesn't exist yet"))
@@ -1064,6 +1135,7 @@ struct UnownedWindowsTray: View {
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var router: Router
+    @EnvironmentObject private var screens: ScreenService
 
     @EnvironmentObject private var permission: AccessibilityPermission
     @Environment(\.demoRoom) private var demoRoom
@@ -1104,6 +1176,22 @@ struct UnownedWindowsTray: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 } else {
+                    let placeable = windows.filter { $0.placement != nil && $0.fullscreen == nil }
+                    if mode == screens.mode, !placeable.isEmpty {
+                        Button {
+                            // Toplu sabitleme çubuğu ayrıntı sütununda açılır;
+                            // kullanıcı orada onaylar (ya da ⌘-tıkla daraltır).
+                            ui.panel = nil
+                            ui.selection = Set(placeable.map(\.id))
+                        } label: {
+                            Label(placeable.count == 1 ? L("Pin it where it is…")
+                                  : L("Pin all %ld where they are…", placeable.count),
+                                  systemImage: "pin.fill")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .controlSize(.small)
+                        .help(L("Each window is pinned to its current desktop with its current size and position. You confirm on the right."))
+                    }
                     VStack(spacing: 3) {
                         ForEach(windows) { window in
                             WindowRow(window: window, mode: mode)

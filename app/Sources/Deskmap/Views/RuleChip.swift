@@ -67,6 +67,11 @@ struct RuleChip: View {
         .onTapGesture { ui.toggle(.rule(rule.id)) }
         .gesture(dragGesture, including: isGhost ? .none : .all)
         .help(helpText)
+        .searchLook(dimmed: searchLook.dimmed, highlighted: searchLook.highlighted, cornerRadius: 12)
+    }
+
+    private var searchLook: (dimmed: Bool, highlighted: Bool) {
+        isGhost ? (false, false) : ui.searchLook(appName: rule.appName, title: rule.title)
     }
 
     /// Çift tıklama: kapalı pencereyi açar (hatırlanan dosya/klasör/sayfa

@@ -116,6 +116,33 @@ final class Router: ObservableObject {
     }
 
     @Published private(set) var status = Status()
+
+    /// "Son hareketler" listesinin bir satırı: Deskmap'in bir pencereyi
+    /// masaüstüne taşıdığı an.
+    struct ActionLogEntry: Identifiable, Equatable {
+        let id = UUID()
+        let date: Date
+        let text: String
+    }
+
+    /// Son taşımalar, en yenisi başta (en çok `actionLogLimit`). Her taşıma
+    /// için yalnız ilk deneme yazılır; tekrar denemeler listeyi doldurmaz.
+    @Published private(set) var actionLog: [ActionLogEntry] = []
+    nonisolated static let actionLogLimit = 50
+
+    /// Günlüğe yeni taşımaları ekler (saf birleştirme `mergedLog`'da).
+    func recordActions(_ texts: [String], at date: Date = Date()) {
+        guard !texts.isEmpty else { return }
+        actionLog = Self.mergedLog(actionLog, adding: texts, at: date)
+    }
+
+    /// En yeni başta, sınırda kırpılmış günlük (saf). Aynı taramadaki
+    /// taşımalar sırayla eklenir: sonuncusu en üstte.
+    nonisolated static func mergedLog(_ log: [ActionLogEntry], adding texts: [String],
+                                      at date: Date) -> [ActionLogEntry] {
+        let fresh = texts.reversed().map { ActionLogEntry(date: date, text: $0) }
+        return Array((fresh + log).prefix(actionLogLimit))
+    }
     /// Son taramada görülen pencereler (uygulama adı, sonra kimlik sırasında).
     @Published private(set) var windows: [WindowSnapshot] = []
     /// Oturum pinleri: pencere kimliğine (CGWindowID) bağlı, diske
@@ -1794,6 +1821,7 @@ final class Router: ObservableObject {
                     status.lastActionAt = Date()
                 }
                 if status != self.status { self.status = status }
+                self.recordActions(outcome.actions)
             }
         }
     }
@@ -1821,6 +1849,9 @@ final class Router: ObservableObject {
         var moves: [(window: CGWindowID, space: UInt64, result: SkyLight.MoveResult)] = []
         var routed = 0
         var lastAction: String?
+        /// Bu taramada başlatılan taşımalar ("Son hareketler" için; yalnız
+        /// ilk deneme).
+        var actions: [String] = []
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
         /// yeniden dene.
         var needsFollowUp = false
@@ -2106,6 +2137,11 @@ final class Router: ObservableObject {
                     }
                     if count <= Routing.quickAttempts { outcome.needsFollowUp = true }
                     outcome.lastAction = "\(window.appName) → \(desktopLabel)"
+                    if count == 1 {
+                        let name = window.title.isEmpty || window.title == window.appName
+                            ? window.appName : "\(window.appName) (\(window.title))"
+                        outcome.actions.append("\(name) → \(desktopLabel)")
+                    }
                 }
             } else if onTarget {
                 outcome.attempts[moveKey] = nil

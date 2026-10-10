@@ -162,6 +162,11 @@ struct WindowRow: View {
             if !isGhost, isPinned, mode == screens.mode, window.fullscreen == nil { freeMoveMenu }
         }
         .help(rowHelp)
+        .searchLook(dimmed: searchLook.dimmed, highlighted: searchLook.highlighted)
+    }
+
+    private var searchLook: (dimmed: Bool, highlighted: Bool) {
+        isGhost ? (false, false) : ui.searchLook(appName: window.appName, title: window.title)
     }
 
     // Derleyici tür denetimi zaman aşımına düşmesin diye `body` dışında.
