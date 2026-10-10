@@ -43,10 +43,12 @@ struct DesktopPreview: View {
             RoundedRectangle(cornerRadius: 5)
                 .fill(Color.primary.opacity(0.06))
             // Sabit olmayanlar altta, sabitler üstte çizilir.
-            ForEach(items.sorted { !$0.pinned && $1.pinned }) { item in
-                let rect = item.layout.rect(in: frame, pointsPerUnit: scale).insetBy(dx: 1, dy: 1)
-                box(item, size: rect.size)
-                    .offset(x: rect.minX, y: rect.minY)
+            let drawn = items.sorted { !$0.pinned && $1.pinned }
+            let rects = drawn.map { $0.layout.rect(in: frame, pointsPerUnit: scale).insetBy(dx: 1, dy: 1) }
+            let labeled = Self.labeled(rects)
+            ForEach(Array(drawn.enumerated()), id: \.element.id) { index, item in
+                box(item, size: rects[index].size, label: labeled[index])
+                    .offset(x: rects[index].minX, y: rects[index].minY)
             }
             RoundedRectangle(cornerRadius: 5)
                 .strokeBorder(Color.primary.opacity(0.18), lineWidth: 1)
@@ -58,7 +60,23 @@ struct DesktopPreview: View {
         .accessibilityLabel(L("Desktop preview"))
     }
 
-    private func box(_ item: Item, size: CGSize) -> some View {
+    /// Yazının yüksekliği: simge ve tek satır başlık.
+    nonisolated static let labelHeight: CGFloat = 15
+
+    /// Hangi kutu adını yazar (saf, çizim sırasıyla): sol üst köşesindeki
+    /// yazı alanını sonra çizilen (üstteki) bir kutu örtmüyorsa. Aynı yeri
+    /// kaplayan pencerelerin adları üst üste binip okunmaz olmasın; her
+    /// kutunun adı yine de imleç ipucunda.
+    nonisolated static func labeled(_ rects: [CGRect]) -> [Bool] {
+        rects.indices.map { index in
+            let rect = rects[index]
+            let label = CGRect(x: rect.minX, y: rect.minY,
+                               width: rect.width, height: min(labelHeight, rect.height))
+            return !rects[(index + 1)...].contains { $0.intersects(label) }
+        }
+    }
+
+    private func box(_ item: Item, size: CGSize, label: Bool) -> some View {
         let tint: Color = item.highlighted ? .orange : (item.pinned ? .accentColor : .secondary)
         return ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 3)
@@ -68,7 +86,7 @@ struct DesktopPreview: View {
                 .strokeBorder(tint.opacity(item.isSelected || item.highlighted ? 1 : 0.7),
                               style: StrokeStyle(lineWidth: item.isSelected || item.highlighted ? 1.6 : 1,
                                                  dash: item.pinned && item.isOpen ? [] : [3, 2]))
-            if size.width > 18, size.height > 14 {
+            if label, size.width > 18, size.height > 14 {
                 HStack(spacing: 3) {
                     AppIcon(bundleID: item.bundleID, size: 11)
                     if size.width > 54 {

@@ -160,6 +160,11 @@ struct WindowRow: View {
         .contextMenu {
             if !isGhost, isPinned { sendMenu }
             if !isGhost, isPinned, mode == screens.mode, window.fullscreen == nil { freeMoveMenu }
+            // Sabit olmayan pencere: pin düğmesiyle aynı taslak (sağda açılır).
+            if !isGhost, !isPinned, window.fullscreen == nil,
+               mode != screens.mode || window.placement != nil {
+                Button(pinButtonHelp + "…") { togglePin() }
+            }
         }
         .help(rowHelp)
         .searchLook(dimmed: searchLook.dimmed, highlighted: searchLook.highlighted)
@@ -247,14 +252,8 @@ struct WindowRow: View {
                 ForEach(target.desktops, id: \.desktop) { item in
                     let title = store.desktopName(screen: target.screen, desktop: item.desktop, mode: mode)
                         .map { "\(item.desktop) · \($0)" } ?? L("Desktop %ld", item.desktop)
-                    Button {
+                    MenuCheck(title, checked: item.isCurrent) {
                         send(to: Router.Placement(screen: target.screen, desktop: item.desktop))
-                    } label: {
-                        if item.isCurrent {
-                            Label(title, systemImage: "checkmark")
-                        } else {
-                            Text(title)
-                        }
                     }
                     .disabled(item.isCurrent)
                 }

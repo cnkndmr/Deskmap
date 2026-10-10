@@ -68,6 +68,22 @@ struct RedesignTests {
         #expect(unknown.height == (DesktopPreview.width / 1.6).rounded())
     }
 
+    @Test func previewLabelsOnlyTheBoxesNotCoveredFromAbove() {
+        let full = CGRect(x: 0, y: 0, width: 150, height: 94)
+        let left = CGRect(x: 0, y: 0, width: 75, height: 94)
+        let right = CGRect(x: 75, y: 0, width: 75, height: 94)
+        // Üç tam ekran pencere üst üste: yalnız en üstteki yazılır.
+        #expect(DesktopPreview.labeled([full, full, full]) == [false, false, true])
+        // Yan yana iki yarı: ikisi de yazılır.
+        #expect(DesktopPreview.labeled([left, right]) == [true, true])
+        // Alttaki tam pencerenin yazı alanını üstteki sol yarı örter.
+        #expect(DesktopPreview.labeled([full, left]) == [false, true])
+        // Alt kenardaki küçük pencere üstteki yazı alanına değmez.
+        let bottom = CGRect(x: 0, y: 70, width: 60, height: 24)
+        #expect(DesktopPreview.labeled([full, bottom]) == [true, true])
+        #expect(DesktopPreview.labeled([]) == [])
+    }
+
     // MARK: Menü çubuğu
 
     @Test func menuOffersPinningOnlyForAnUnpinnedPlacedFrontWindow() {

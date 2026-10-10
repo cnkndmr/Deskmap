@@ -438,6 +438,7 @@
 "Pinned windows Deskmap sent to their desktop, newest first: a window opens, or was moved away by hand, and Deskmap puts it back." = "Deskmap'in masaüstüne gönderdiği sabit pencereler, en yenisi başta: pencere açılınca ya da elle başka yere taşınınca Deskmap onu yerine koyar.";
 "Deskmap has not moved any window since it started." = "Deskmap açıldığından beri hiçbir pencereyi taşımadı.";
 "Search windows (⌘F)" = "Pencere ara (⌘F)";
+"Search windows" = "Pencere ara";
 "1 match" = "1 sonuç";
 "%ld matches" = "%ld sonuç";
 "Clear the search" = "Aramayı temizle";

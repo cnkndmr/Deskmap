@@ -109,24 +109,13 @@ struct PinPanel: View {
     /// Kapsam menüsü: yalnız bu pencere (kararlı anahtar varsa) ya da bütün pencereler.
     @ViewBuilder private var scopeItems: some View {
         if let key = windowKey.label {
-            Button {
+            MenuCheck(L("This window (%@)", key), checked: scope == .window) {
                 scope = .window
-            } label: {
-                if scope == .window {
-                    Label(L("This window (%@)", key), systemImage: "checkmark")
-                } else {
-                    Text(L("This window (%@)", key))
-                }
             }
         }
-        Button {
+        MenuCheck(L("All windows of %@", window.appName),
+                  checked: scope == .app || windowKey.label == nil) {
             scope = .app
-        } label: {
-            if scope == .app || windowKey.label == nil {
-                Label(L("All windows of %@", window.appName), systemImage: "checkmark")
-            } else {
-                Text(L("All windows of %@", window.appName))
-            }
         }
     }
 

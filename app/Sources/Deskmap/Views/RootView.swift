@@ -649,15 +649,9 @@ struct RootView: View {
     private var profileMenu: some View {
         Menu {
             ForEach(store.profiles) { profile in
-                Button {
+                MenuCheck(profile.name, checked: profile.id == store.document.activeProfileID) {
                     ui.panel = nil
                     store.switchProfile(to: profile.id)
-                } label: {
-                    if profile.id == store.document.activeProfileID {
-                        Label(profile.name, systemImage: "checkmark")
-                    } else {
-                        Text(profile.name)
-                    }
                 }
             }
             Divider()

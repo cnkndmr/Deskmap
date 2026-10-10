@@ -31,8 +31,23 @@ final class SettingsWindow {
             window.center()
             self.window = window
         }
+        MapWindow.close()
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+    }
+}
+
+/// Menü çubuğu haritasının penceresi (SwiftUI `MenuBarExtra`). Harita
+/// menü düzeyinde durduğu için ondan açılan sıradan bir pencere (Ayarlar,
+/// rehber) arkasında kalıyordu; önce harita kapatılır. SwiftUI bunun için
+/// bir API vermiyor, pencere sınıf adından bulunur.
+@MainActor
+enum MapWindow {
+    static func close() {
+        for window in NSApp.windows
+        where window.isVisible && String(describing: type(of: window)).contains("MenuBarExtra") {
+            window.close()
+        }
     }
 }
 
@@ -344,6 +359,25 @@ func pinCount(_ count: Int) -> String {
     count == 0 ? L("no pins") : count == 1 ? L("1 pin") : L("%ld pins", count)
 }
 
+/// Menüde seçili olan öğe ✓ ile. macOS 27 menüleri `Label` simgesini
+/// çizmiyor; `Toggle` menü öğesinin kendi işaretiyle çizilir. Seçili öğeye
+/// yeniden tıklamak da `action`'ı çağırır (aynı değeri yeniden seçer).
+struct MenuCheck: View {
+    let title: String
+    let checked: Bool
+    let action: () -> Void
+
+    init(_ title: String, checked: Bool, action: @escaping () -> Void = {}) {
+        self.title = title
+        self.checked = checked
+        self.action = action
+    }
+
+    var body: some View {
+        Toggle(title, isOn: Binding(get: { checked }, set: { _ in action() }))
+    }
+}
+
 // MARK: - Kısayollar
 
 private struct ShortcutSettings: View {
@@ -357,6 +391,7 @@ private struct ShortcutSettings: View {
             row(L("Show the Monitor connected plan"), "⌘1")
             row(L("Show the Laptop only plan"), "⌘2")
             row(L("Place pinned windows now"), "⌘R")
+            row(L("Search windows"), "⌘F")
             row(L("Undo the last action"), "⌘Z")
             row(L("Settings"), "⌘,")
             row(L("Select several windows"), L("⌘-click"))

@@ -148,18 +148,12 @@ struct RulePanel: View {
         if rule.path != nil {
             Text(matchText)
         } else {
-            Button {
+            MenuCheck(L("All windows of %@", rule.appName), checked: rule.isAppWide) {
                 store.setTokens([], for: rule.id)
-            } label: {
-                if rule.isAppWide {
-                    Label(L("All windows of %@", rule.appName), systemImage: "checkmark")
-                } else {
-                    Text(L("All windows of %@", rule.appName))
-                }
             }
             .disabled(rule.isAppWide || store.document.conflictingRule(ifTokens: [], for: rule.id) != nil)
             if !rule.isAppWide {
-                Label(matchText, systemImage: "checkmark")
+                MenuCheck(matchText, checked: true)
             }
             Divider()
             Button(L("Choose title parts…")) { ui.showAdvanced = true }

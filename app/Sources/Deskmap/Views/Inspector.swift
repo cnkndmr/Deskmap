@@ -117,49 +117,31 @@ struct RuleSentence<MatchMenu: View>: View {
 
     @ViewBuilder private var screenItems: some View {
         ForEach(store.screens(for: mode)) { screen in
-            Button {
+            MenuCheck(screen.name, checked: screen.id == destination.screen) {
                 var updated = destination
                 updated.screen = screen.id
                 updated.desktop = min(destination.desktop, desktopCount(on: screen.id))
                 setDestination(updated)
-            } label: {
-                if screen.id == destination.screen {
-                    Label(screen.name, systemImage: "checkmark")
-                } else {
-                    Text(screen.name)
-                }
             }
         }
     }
 
     @ViewBuilder private var desktopItems: some View {
         ForEach(1...desktopCount(on: destination.screen), id: \.self) { desktop in
-            Button {
+            MenuCheck(desktopName(desktop), checked: desktop == destination.desktop) {
                 var updated = destination
                 updated.desktop = desktop
                 setDestination(updated)
-            } label: {
-                if desktop == destination.desktop {
-                    Label(desktopName(desktop), systemImage: "checkmark")
-                } else {
-                    Text(desktopName(desktop))
-                }
             }
         }
     }
 
     @ViewBuilder private var layoutItems: some View {
         ForEach(BasicLayoutRow.basic, id: \.self) { layout in
-            Button {
+            MenuCheck(layout.label, checked: layout == destination.layout) {
                 var updated = destination
                 updated.layout = layout
                 setDestination(updated)
-            } label: {
-                if layout == destination.layout {
-                    Label(layout.label, systemImage: "checkmark")
-                } else {
-                    Text(layout.label)
-                }
             }
         }
         Divider()

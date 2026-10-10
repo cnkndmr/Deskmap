@@ -48,6 +48,7 @@ final class WelcomeWindow {
             window.center()
             self.window = window
         }
+        MapWindow.close()
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
     }
@@ -165,10 +166,10 @@ struct WelcomeView: View {
                         .foregroundStyle(check.ok ? Color.green : Color.red)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(check.title).font(.callout.weight(.medium))
-                        if !check.ok {
-                            Text(check.detail).font(.caption).foregroundStyle(.secondary)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                        // Doğruyken de: ✓ tek başına "bu ayar açık" diye okunabiliyor;
+                        // alt satır ayarın açık mı kapalı mı olması gerektiğini söyler.
+                        Text(check.detail).font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }

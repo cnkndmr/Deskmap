@@ -58,8 +58,8 @@ has assigned the app to a desktop itself, it will fight over the window.
    Next to each desktop, a small **preview** draws its windows where they sit
    (turn it off with **Visual | List**). Looking for one window? Press **⌘F**
    and type part of its name.
-3. Find your window and click its **pin** button. Its details open in the
-   column on the right.
+3. Find your window and click its **pin** button (or right-click the row ›
+   **Pin to this desktop…**). Its details open in the column on the right.
 
 ![Choosing which part of the title identifies the window](images/en/02-pin.png)
 
