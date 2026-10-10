@@ -57,6 +57,16 @@ struct RootView: View {
         min(max(visibleHeight * heightFraction, minWindowHeight), maxWindowHeight)
     }
 
+    /// Sağdaki ayrıntı sütununun genişliği.
+    static let inspectorWidth: CGFloat = 360
+
+    /// Harita, kenar çubuğu ve ayrıntı sütunuyla toplam genişlik (saf):
+    /// sütun haritadan yer almaz; ekrana sığmazsa harita daralır.
+    nonisolated static func totalWidth(visibleWidth: CGFloat) -> CGFloat {
+        min(windowWidth(visibleWidth: visibleWidth) + inspectorWidth + 1,
+            max(visibleWidth - 2 * screenMargin, 0))
+    }
+
     /// Sol kenar çubuğu genişliği (saf): pencerenin üçte birine yakın.
     nonisolated static func sidebarWidth(windowWidth: CGFloat) -> CGFloat {
         min(max(windowWidth * 0.32, 220), 300)
@@ -111,6 +121,7 @@ struct RootView: View {
     }
 
     private var windowWidth: CGFloat { Self.windowWidth(visibleWidth: currentRoom.visible.width) }
+    private var totalWidth: CGFloat { Self.totalWidth(visibleWidth: currentRoom.visible.width) }
 
     private var layoutHeights: (map: CGFloat, panelCap: CGFloat?) {
         let room = currentRoom
@@ -152,6 +163,7 @@ struct RootView: View {
             }
             .measuresHeight("top")
 
+            HStack(spacing: 0) {
             HStack(spacing: 0) {
                 // Sol: kurulumlar arası farklar ve sahipsiz pencereler; hep
                 // görünür, buradan haritaya yana doğru sürüklenir.
@@ -217,19 +229,18 @@ struct RootView: View {
                 ui.autoScroll.update(point: drag?.location,
                                      viewport: ui.viewports["map"] ?? .zero)
             }
-            .frame(height: layoutHeights.map)
 
-            // Panel haritadan yer almaz: pencere aşağı doğru uzar. Ekrana
-            // sığmazsa kendi içinde kayar (doğal boyu içeride ölçülür). Tek
-            // yapı: tavan açılıp kapansa da panelin kimliği ve durumu (pin
-            // taslağındaki seçimler) korunur.
-            ScrollView {
-                bottomPanel
-                    .measuresHeight("panel")
+                Divider()
+
+                // Sağ: seçili pencerenin ayrıntısı. Sütun hep yerinde durur
+                // (pencere tıklamayla genişleyip daralmasın); seçim yoksa
+                // ipuçları.
+                ScrollView {
+                    inspector
+                }
+                .frame(width: Self.inspectorWidth)
             }
-            .scrollDisabled(layoutHeights.panelCap == nil)
-            .frame(height: min(heights["panel"] ?? 0,
-                               layoutHeights.panelCap ?? .greatestFiniteMagnitude))
+            .frame(height: layoutHeights.map)
 
             VStack(spacing: 0) {
                 Divider()
@@ -239,7 +250,7 @@ struct RootView: View {
             }
             .measuresHeight("bottom")
         }
-        .frame(width: windowWidth)
+        .frame(width: totalWidth)
         .fixedSize(horizontal: false, vertical: true)
         .onPreferenceChange(HeightPreference.self) { heights = $0 }
         .background(WindowRoomReader(margin: Self.screenMargin) { room = $0 })
@@ -422,14 +433,14 @@ struct RootView: View {
         ui.desktopCounts = Router.desktopCounts(screens: screens.screens)
     }
 
-    // MARK: - Alt panel
+    // MARK: - Ayrıntı sütunu
 
     /// Açık panele göre içerik; pin taslağı yalnızca şu anki modda anlamlı.
     @ViewBuilder
-    private var bottomPanel: some View {
+    private var inspector: some View {
         if !ui.selection.isEmpty, mode == screens.mode {
             MultiPinBar(mode: mode)
-                .bottomPanelChrome()
+                .inspectorChrome()
         } else {
             singlePanel
         }
@@ -445,7 +456,7 @@ struct RootView: View {
             // (başlık parçaları, düzen) eski pencereden kalmasın.
             PinPanel(draft: draft, mode: mode)
                 .id(draft.window.id)
-                .bottomPanelChrome()
+                .inspectorChrome()
         case .rule(let id):
             if let rule = store.rule(id) {
                 // Kimlik kurala bağlı: başka kurala geçince parça seçimi
@@ -453,19 +464,24 @@ struct RootView: View {
                 // gövdenin kapanışını çağırıp eski başlığı geri yazıyordu).
                 RulePanel(rule: rule, mode: mode)
                     .id(rule.id)
-                    .bottomPanelChrome()
+                    .inspectorChrome()
+            } else {
+                InspectorPlaceholder().inspectorChrome()
             }
         case .session(let id):
             if let window = ui.windows.first(where: { $0.id == id }),
                let destination = router.sessionPins[id] {
                 SessionPinPanel(window: window, destination: destination)
-                    .bottomPanelChrome()
+                    .inspectorChrome()
+            } else {
+                InspectorPlaceholder().inspectorChrome()
             }
         case .profile:
             ProfilePanel()
-                .bottomPanelChrome()
+                .inspectorChrome()
         default:
-            EmptyView()
+            InspectorPlaceholder()
+                .inspectorChrome()
         }
     }
 

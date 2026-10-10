@@ -28,69 +28,53 @@ struct PinPanel: View {
     /// kullanıcı düzeni değiştirmemiştir; pencerenin taze ölçümü gelince
     /// (taşındı, boyutu değişti) varsayılan ona uyar.
     @State private var measuredLayout: WindowLayout?
+    /// Cümledeki menüden seçilen hedef; nil ise taslağın hedefi (canlı
+    /// kurulumda pencereyi izler).
+    @State private var target: Router.Placement?
+
+    private var placement: Router.Placement { target ?? draft.target }
 
     private var window: Router.WindowSnapshot { draft.window }
 
-    private var targetLabel: String {
-        let name = store.screens(for: mode).first { $0.id == draft.target.screen }?.name
-            ?? draft.target.screen
-        return L("%@ · Desktop %ld", name, draft.target.desktop)
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                AppIcon(bundleID: window.bundleID, size: 24)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(window.appName).font(.callout.weight(.semibold))
-                    Text(window.title.isEmpty ? L("Untitled window") : window.title)
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .lineLimit(1)
-                Spacer()
-                Label(targetLabel, systemImage: "pin")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button {
-                    ui.panel = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
+        VStack(alignment: .leading, spacing: 12) {
+            PinPanelHeader(
+                bundleID: window.bundleID, appName: window.appName,
+                subtitle: window.title.isEmpty ? L("Untitled window") : window.title,
+                close: { ui.panel = nil }
+            ) {
+                if mode != screens.mode {
+                    Text(L("Pin for %@", mode.title))
+                        .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderless)
-                .help(L("Cancel (Esc)"))
-                .accessibilityLabel(L("Cancel"))
             }
 
-            if mode != screens.mode {
-                Text(L("Pin for %@", mode.title))
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            if let key = windowKey.label {
-                Picker("", selection: $scope) {
-                    Text(L("This window (%@)", key)).tag(Scope.window)
-                    Text(L("All windows of %@", window.appName)).tag(Scope.app)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .controlSize(.small)
-                .frame(width: 380)
-            } else {
-                Text(L("All windows of %@", window.appName))
-                    .font(.callout.weight(.medium))
-            }
+            RuleSentence(
+                appName: window.appName, matchText: scopeText,
+                destination: Destination(screen: placement.screen, desktop: placement.desktop,
+                                         layout: layout),
+                mode: mode,
+                matchMenu: { scopeItems },
+                setDestination: { destination in
+                    target = Router.Placement(screen: destination.screen, desktop: destination.desktop)
+                    layout = destination.layout
+                },
+                showAdvanced: { ui.showAdvanced = true })
 
             Text(matchDescription)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Divider()
+            BasicLayoutRow(layout: $layout)
 
-            LayoutEditor(layout: $layout,
-                         screen: store.screens(for: mode).first { $0.id == draft.target.screen })
+            Divider()
+            AdvancedToggle(summary: L("every layout, margins, fixed size"))
+            if ui.showAdvanced {
+                LayoutEditor(layout: $layout,
+                             screen: store.screens(for: mode).first { $0.id == placement.screen })
+            }
 
             HStack {
                 Spacer()
@@ -116,10 +100,41 @@ struct PinPanel: View {
         }
     }
 
+    /// Cümledeki kapsam parçası.
+    private var scopeText: String {
+        if scope == .window, let key = windowKey.label { return L("this window (%@)", key) }
+        return L("all windows")
+    }
+
+    /// Kapsam menüsü: yalnız bu pencere (kararlı anahtar varsa) ya da bütün pencereler.
+    @ViewBuilder private var scopeItems: some View {
+        if let key = windowKey.label {
+            Button {
+                scope = .window
+            } label: {
+                if scope == .window {
+                    Label(L("This window (%@)", key), systemImage: "checkmark")
+                } else {
+                    Text(L("This window (%@)", key))
+                }
+            }
+        }
+        Button {
+            scope = .app
+        } label: {
+            if scope == .app || windowKey.label == nil {
+                Label(L("All windows of %@", window.appName), systemImage: "checkmark")
+            } else {
+                Text(L("All windows of %@", window.appName))
+            }
+        }
+    }
+
     private func reset() {
         layout = currentLayout
         measuredLayout = layout
         scope = .window
+        target = nil
     }
 
     /// Bu pencerenin anahtarı (belge yolu, başlığın kararlı parçası ya da
@@ -173,8 +188,8 @@ struct PinPanel: View {
     }
 
     private func pin() {
-        let destination = Destination(screen: draft.target.screen,
-                                      desktop: draft.target.desktop, layout: layout)
+        let destination = Destination(screen: placement.screen,
+                                      desktop: placement.desktop, layout: layout)
         guard let rule = draftRule else { return }
         store.pin(rule, destination: destination, mode: mode)
         ui.panel = nil

@@ -65,7 +65,7 @@ enum Shots {
         // içeriğe göre yeniden ölçülür (açık panel pencereyi uzatır).
         let room = WindowRoom(height: 1074 - RootView.screenMargin,
                               visible: CGSize(width: 1710, height: 1074))
-        let size = NSSize(width: RootView.windowWidth(visibleWidth: room.visible.width),
+        let size = NSSize(width: RootView.totalWidth(visibleWidth: room.visible.width),
                           height: RootView.preferredHeight(visibleHeight: room.visible.height))
         let hosting = NSHostingView(rootView:
             ShotsRootView()
@@ -169,6 +169,11 @@ enum Shots {
         // 03 — düzen seçici: var olan bir pini düzenleme paneli.
         ui.panel = .rule(DemoData.messagesRuleID)
         capture("03-layout")
+
+        // 03b — aynı panelin "Gelişmiş" bölümü açık hâli.
+        ui.showAdvanced = true
+        capture("03-layout-advanced")
+        ui.showAdvanced = false
 
         // 06 — serbest hareket: pinli pencerenin panelinde kalan süre ve
         // satırında sayaç. (Numara sonradan eklendi; sıra burada çünkü aynı

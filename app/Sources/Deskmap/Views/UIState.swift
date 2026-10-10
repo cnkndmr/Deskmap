@@ -83,6 +83,8 @@ final class UIState: ObservableObject {
     @Published var desktopCounts: [String: Int] = [:]
     /// ⌘-tıklamayla seçilen pencereler (toplu pinleme).
     @Published var selection: Set<CGWindowID> = []
+    /// Ayrıntı sütununda "Gelişmiş" bölümü açık mı; paneller arasında korunur.
+    @Published var showAdvanced = false
     /// Son fare basışında ⌘ basılı mıydı. Tek tıklama çift tıklama süresi
     /// dolunca işlenir; o anda ⌘ bırakılmış olabilir, bu yüzden basış
     /// anında yerel izleyiciyle kaydedilir.
@@ -193,23 +195,4 @@ final class UIState: ObservableObject {
         panel = panel == target ? nil : target
         panelSourceWindowID = panel == nil ? nil : window
     }
-}
-
-// MARK: - Alt panel çerçevesi
-
-/// Alt panellerin ortak görünümü: üstte ayraç, geniş iç boşluk, hafif zemin.
-struct BottomPanelChrome: ViewModifier {
-    func body(content: Content) -> some View {
-        VStack(spacing: 0) {
-            Divider()
-            content
-                .padding(.horizontal, 24)
-                .padding(.vertical, 14)
-                .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
-        }
-    }
-}
-
-extension View {
-    func bottomPanelChrome() -> some View { modifier(BottomPanelChrome()) }
 }

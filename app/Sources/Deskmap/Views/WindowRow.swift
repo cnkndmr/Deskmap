@@ -159,6 +159,7 @@ struct WindowRow: View {
         .gesture(dragGesture, including: isGhost ? .none : .all)
         .contextMenu {
             if !isGhost, isPinned { sendMenu }
+            if !isGhost, isPinned, mode == screens.mode, window.fullscreen == nil { freeMoveMenu }
         }
         .help(rowHelp)
     }
@@ -193,6 +194,25 @@ struct WindowRow: View {
             return L("Drag to move (does not pin); click the pin to keep it here; double-click to go to the window; ⌘-click to select several")
         }
         return L("Drag onto a desktop to pin it for %@; the window is not moved", mode.title)
+    }
+
+    // MARK: - Serbest hareket menüsü
+
+    /// Sağ tık: sabit pencereyi bir süre serbest bırak; serbestse bitir.
+    @ViewBuilder private var freeMoveMenu: some View {
+        if let until = router.freeMoves[window.id], until > Date() {
+            Button(L("End free movement; the window goes back to its pin")) {
+                router.endFreeMove([window.id])
+            }
+        } else {
+            Menu(L("Free move")) {
+                ForEach(Router.freeMoveDurations, id: \.self) { duration in
+                    Button(FreeMoveRow.label(duration)) {
+                        router.allowFreeMove([window.id], for: duration)
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - "Gönder" menüsü

@@ -2,34 +2,27 @@ import SwiftUI
 
 // MARK: - Ortak başlık satırı
 
-/// Pin panellerinin üst satırı: uygulama simgesi ve adı, alt başlık, sağda
-/// panele özel bir etiket, "Pini kaldır" ve kapatma düğmesi (Esc).
+/// Ayrıntı panellerinin üst satırı: uygulama simgesi ve adı, alt başlık,
+/// sağda panele özel bir etiket ve kapatma düğmesi (Esc).
 struct PinPanelHeader<Trailing: View>: View {
 
     let bundleID: String
     let appName: String
     let subtitle: String
-    let unpin: () -> Void
     let close: () -> Void
     @ViewBuilder let trailing: () -> Trailing
 
     var body: some View {
-        HStack(spacing: 8) {
-            AppIcon(bundleID: bundleID, size: 24)
+        HStack(alignment: .top, spacing: 8) {
+            AppIcon(bundleID: bundleID, size: 28)
             VStack(alignment: .leading, spacing: 1) {
                 Text(appName).font(.callout.weight(.semibold))
                 Text(subtitle).font(.caption).foregroundStyle(.secondary)
+                trailing()
             }
             .lineLimit(1)
 
-            Spacer()
-
-            trailing()
-
-            Button(action: unpin) {
-                Label(L("Unpin"), systemImage: "pin.slash")
-            }
-            .controlSize(.small)
+            Spacer(minLength: 4)
 
             Button(action: close) {
                 Image(systemName: "xmark.circle.fill")
@@ -40,6 +33,17 @@ struct PinPanelHeader<Trailing: View>: View {
             .help(L("Close (Esc)"))
             .accessibilityLabel(L("Close"))
         }
+    }
+}
+
+/// Panellerin en altındaki "Sabitlemeyi kaldır" düğmesi.
+struct UnpinButton: View {
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Label(L("Unpin"), systemImage: "pin.slash")
+        }
+        .controlSize(.small)
     }
 }
 
@@ -66,48 +70,99 @@ struct RulePanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            PinPanelHeader(
-                bundleID: rule.bundleID, appName: rule.appName, subtitle: rule.title,
-                unpin: {
-                    store.unpin(rule.id, mode: mode)
-                    ui.panel = nil
-                },
-                close: { ui.panel = nil }
-            ) {
+            PinPanelHeader(bundleID: rule.bundleID, appName: rule.appName, subtitle: rule.title,
+                           close: { ui.panel = nil }) {
                 Text(otherModeText)
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
 
-            tokenSection
-
             if let destination = rule[mode] {
-                Divider()
-                LayoutEditor(layout: Binding(
-                    // Her zaman depodaki güncel değeri oku; yakalanan
-                    // `destination` bir sonraki çizime kadar eski kalır.
-                    get: { store.rule(rule.id)?[mode]?.layout ?? destination.layout },
-                    set: { layout in
-                        var updated = store.rule(rule.id)?[mode] ?? destination
-                        updated.layout = layout
-                        store.setDestination(updated, for: rule.id, mode: mode)
-                    }),
-                    screen: store.screens(for: mode).first { $0.id == destination.screen })
-                SaveCurrentLayoutRow(
-                    window: layoutSourceWindow,
-                    stored: store.rule(rule.id)?[mode]?.layout ?? destination.layout,
-                    // Canlı pencereler yalnızca şu anki modda listelenir; diğer
-                    // modun paneli açıksa ölçü alınmaz.
-                    isLive: mode == screens.mode
-                ) { layout in
-                    store.saveLayout(layout, for: rule.id, mode: mode)
-                }
+                RuleSentence(
+                    appName: rule.appName, matchText: matchText,
+                    destination: store.rule(rule.id)?[mode] ?? destination, mode: mode,
+                    matchMenu: { matchItems },
+                    setDestination: { store.setDestination($0, for: rule.id, mode: mode) },
+                    showAdvanced: { ui.showAdvanced = true })
+                BasicLayoutRow(layout: layoutBinding(destination))
+            } else {
+                Text(L("Drag onto a desktop to set this setup's place."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             if mode == screens.mode, !freeMoveTargets.isEmpty {
-                Divider()
                 FreeMoveRow(windowIDs: freeMoveTargets)
             }
+
+            Divider()
+            AdvancedToggle(summary: L("title parts, every layout, margins"))
+            if ui.showAdvanced {
+                tokenSection
+                if let destination = rule[mode] {
+                    LayoutEditor(layout: layoutBinding(destination),
+                                 screen: store.screens(for: mode).first { $0.id == destination.screen })
+                    SaveCurrentLayoutRow(
+                        window: layoutSourceWindow,
+                        stored: store.rule(rule.id)?[mode]?.layout ?? destination.layout,
+                        // Canlı pencereler yalnızca şu anki modda listelenir; diğer
+                        // modun paneli açıksa ölçü alınmaz.
+                        isLive: mode == screens.mode
+                    ) { layout in
+                        store.saveLayout(layout, for: rule.id, mode: mode)
+                    }
+                }
+            }
+
+            Divider()
+            UnpinButton {
+                store.unpin(rule.id, mode: mode)
+                ui.panel = nil
+            }
+        }
+    }
+
+    /// Her zaman depodaki güncel değeri okur; yakalanan `destination` bir
+    /// sonraki çizime kadar eski kalır.
+    private func layoutBinding(_ destination: Destination) -> Binding<WindowLayout> {
+        Binding(
+            get: { store.rule(rule.id)?[mode]?.layout ?? destination.layout },
+            set: { layout in
+                var updated = store.rule(rule.id)?[mode] ?? destination
+                updated.layout = layout
+                store.setDestination(updated, for: rule.id, mode: mode)
+            })
+    }
+
+    /// Cümledeki eşleşme parçası.
+    private var matchText: String {
+        if let path = rule.path {
+            return L("the file %@", (path as NSString).lastPathComponent)
+        }
+        if rule.isAppWide { return L("all windows") }
+        return L("windows with “%@” in the title", rule.tokens.joined(separator: " + "))
+    }
+
+    /// Eşleşme menüsü: bütün pencereler ya da başlık parçaları (gelişmiş).
+    @ViewBuilder private var matchItems: some View {
+        if rule.path != nil {
+            Text(matchText)
+        } else {
+            Button {
+                store.setTokens([], for: rule.id)
+            } label: {
+                if rule.isAppWide {
+                    Label(L("All windows of %@", rule.appName), systemImage: "checkmark")
+                } else {
+                    Text(L("All windows of %@", rule.appName))
+                }
+            }
+            .disabled(rule.isAppWide || store.document.conflictingRule(ifTokens: [], for: rule.id) != nil)
+            if !rule.isAppWide {
+                Label(matchText, systemImage: "checkmark")
+            }
+            Divider()
+            Button(L("Choose title parts…")) { ui.showAdvanced = true }
         }
     }
 
@@ -266,15 +321,13 @@ struct SessionPinPanel: View {
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var screens: ScreenService
 
+    private var current: Destination { router.sessionPins[window.id] ?? destination }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             PinPanelHeader(
                 bundleID: window.bundleID, appName: window.appName,
                 subtitle: window.title.isEmpty ? L("Untitled window") : window.title,
-                unpin: {
-                    router.unpinSession(window.id)
-                    ui.panel = nil
-                },
                 close: { ui.panel = nil }
             ) {
                 Label(L("Temporary · window #%ld", Int(window.id)), systemImage: "pin.circle.fill")
@@ -283,37 +336,57 @@ struct SessionPinPanel: View {
                     .help(L("Only this window, for this session. Not saved to the profile."))
             }
 
-            LayoutEditor(layout: Binding(
-                get: { router.sessionPins[window.id]?.layout ?? destination.layout },
-                set: { layout in
-                    var updated = router.sessionPins[window.id] ?? destination
+            RuleSentence(
+                appName: window.appName, matchText: L("only this window, this session"),
+                destination: current, mode: screens.mode,
+                matchMenu: { EmptyView() },
+                setDestination: { router.pinSession(window.id, destination: $0) },
+                showAdvanced: { ui.showAdvanced = true })
+            BasicLayoutRow(layout: layoutBinding)
+            FreeMoveRow(windowIDs: [window.id])
+
+            Divider()
+            AdvancedToggle(summary: L("every layout, margins, fixed size"))
+            if ui.showAdvanced {
+                LayoutEditor(layout: layoutBinding,
+                             screen: store.document.screens.first { $0.id == destination.screen }
+                                ?? store.screens(for: .docked).first { $0.id == destination.screen })
+                SaveCurrentLayoutRow(
+                    window: window,
+                    stored: current.layout,
+                    isLive: true
+                ) { layout in
+                    // Geçici pin: hedef doğrudan güncellenir; geri alma pin hâlâ
+                    // duruyorsa eski düzene döndürür (sürüklemeyle aynı kalıp).
+                    let before = current
+                    var updated = before
                     updated.layout = layout
                     router.pinSession(window.id, destination: updated)
-                }),
-                screen: store.document.screens.first { $0.id == destination.screen }
-                    ?? store.screens(for: .docked).first { $0.id == destination.screen })
-            SaveCurrentLayoutRow(
-                window: window,
-                stored: router.sessionPins[window.id]?.layout ?? destination.layout,
-                isLive: true
-            ) { layout in
-                // Geçici pin: hedef doğrudan güncellenir; geri alma pin hâlâ
-                // duruyorsa eski düzene döndürür (sürüklemeyle aynı kalıp).
-                let current = router.sessionPins[window.id] ?? destination
-                var updated = current
-                updated.layout = layout
-                router.pinSession(window.id, destination: updated)
-                let router = router, id = window.id
-                store.recordSessionChange(L("Layout saved")) {
-                    if router.sessionPins[id] != nil {
-                        router.pinSession(id, destination: current)
+                    let router = router, id = window.id
+                    store.recordSessionChange(L("Layout saved")) {
+                        if router.sessionPins[id] != nil {
+                            router.pinSession(id, destination: before)
+                        }
                     }
                 }
             }
 
             Divider()
-            FreeMoveRow(windowIDs: [window.id])
+            UnpinButton {
+                router.unpinSession(window.id)
+                ui.panel = nil
+            }
         }
+    }
+
+    private var layoutBinding: Binding<WindowLayout> {
+        Binding(
+            get: { router.sessionPins[window.id]?.layout ?? destination.layout },
+            set: { layout in
+                var updated = router.sessionPins[window.id] ?? destination
+                updated.layout = layout
+                router.pinSession(window.id, destination: updated)
+            })
     }
 }
 

@@ -63,34 +63,33 @@ struct MultiPinBar: View {
     var body: some View {
         let plan = plan
         let count = plan.rules.count + plan.sessions.count
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color.accentColor)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(L("%ld windows selected", ui.windows.filter { ui.selection.contains($0.id) }.count))
-                    .font(.callout.weight(.semibold))
-                Text(plan.sessions.isEmpty
-                     ? L("Each is pinned to its current desktop with its current size and position.")
-                     : L("%ld of them only until the window closes: their titles also match other open windows.",
-                         plan.sessions.count))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(L("⌘-click windows to add or remove them."))
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
+        VStack(alignment: .leading, spacing: 8) {
+            Label(L("%ld windows selected", ui.windows.filter { ui.selection.contains($0.id) }.count),
+                  systemImage: "checkmark.circle.fill")
+                .font(.callout.weight(.semibold))
+            Text(plan.sessions.isEmpty
+                 ? L("Each is pinned to its current desktop with its current size and position.")
+                 : L("%ld of them only until the window closes: their titles also match other open windows.",
+                     plan.sessions.count))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(L("⌘-click windows to add or remove them."))
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+            HStack {
+                Spacer()
+                Button(L("Clear")) { ui.selection = [] }
+                Button {
+                    pinAll(plan)
+                } label: {
+                    Label(L("Pin %ld where they are", count), systemImage: "pin.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(count == 0)
+                .keyboardShortcut(.defaultAction)
             }
-            Spacer()
-            Button(L("Clear")) { ui.selection = [] }
-            Button {
-                pinAll(plan)
-            } label: {
-                Label(L("Pin %ld where they are", count), systemImage: "pin.fill")
-            }
-            .buttonStyle(.borderedProminent)
-            .disabled(count == 0)
-            .keyboardShortcut(.defaultAction)
         }
-        .padding(12)
         .onExitCommand { ui.selection = [] }
     }
 
