@@ -182,7 +182,7 @@ struct FirstStepsCard: View {
             step(2, "textformat",
                  L("Select the part of the title that identifies the window; it now stays on that desktop."))
             step(3, "arrow.up.and.down.and.arrow.left.and.right",
-                 L("Dragging a row to another desktop moves the window once without pinning it. The laptop / monitor switch at the top is for the other setup; the two are configured separately."))
+                 L("Dragging a row to another desktop moves the window once without pinning it. The Plan switch at the top (Monitor connected / Laptop only) shows two separate plans; each is set up on its own."))
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)

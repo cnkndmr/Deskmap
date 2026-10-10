@@ -1032,7 +1032,7 @@ private struct GhostRow: View {
         }
         .help(!canAdd ? L("Connect this display to add desktops.")
               : isLive ? L("Click to add a desktop to this display (opens Mission Control briefly).")
-              : L("Click to add a desktop to this setup; it is created when this setup becomes active."))
+              : L("Click to add a desktop to this plan; it is created when this plan takes effect."))
     }
 }
 
@@ -1076,7 +1076,7 @@ struct SetupDifferenceTray: View {
         let groups = ScreenMapView.setupDifferences(rules: store.document.rules, mode: mode)
         VStack(alignment: .leading, spacing: 8) {
             TrayHeader(systemImage: "rectangle.2.swap",
-                       title: L("Different between setups"),
+                       title: L("Placed in one plan only"),
                        count: groups.onlyOther.count + groups.onlyThis.count)
 
             if groups.onlyOther.isEmpty && groups.onlyThis.isEmpty {
@@ -1087,12 +1087,12 @@ struct SetupDifferenceTray: View {
                     .foregroundStyle(.tertiary)
             } else {
                 if !groups.onlyOther.isEmpty {
-                    section(L("Pinned only for %@", other.title), rules: groups.onlyOther,
-                            help: L("No place in this setup; drag onto a desktop to pin here too."))
+                    section(L("Pinned only in the %@ plan", other.title), rules: groups.onlyOther,
+                            help: L("No place in this plan; drag onto a desktop to pin it here too."))
                 }
                 if !groups.onlyThis.isEmpty {
-                    section(L("Pinned only for %@", mode.title), rules: groups.onlyThis,
-                            help: L("Left alone in the other setup."))
+                    section(L("Pinned only in the %@ plan", mode.title), rules: groups.onlyThis,
+                            help: L("Left alone in the other plan."))
                 }
             }
         }
@@ -1165,7 +1165,7 @@ struct UnownedWindowsTray: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help(L("Open windows with no pin in either setup"))
+            .help(L("Open windows with no pin in either plan; Deskmap leaves them alone"))
 
             if !collapsed {
                 if windows.isEmpty {

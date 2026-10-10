@@ -383,7 +383,7 @@ enum URLCommands {
             return
         }
         guard let destination = rule[mode] else {
-            store.report(L("Rule has no target in this setup: %@", ruleID))
+            store.report(L("Rule has no target in this plan: %@", ruleID))
             return
         }
         let matching = router.windows.filter {

@@ -148,7 +148,7 @@ struct RootView: View {
         if pinned { return L("Pinned: dropping it updates the saved desktop.") }
         return mode == screens.mode
             ? L("Not pinned: dropping it moves the window once; nothing is saved.")
-            : L("Not pinned: dropping it opens a pin for this setup; the window is not moved.")
+            : L("Not pinned: dropping it opens a pin for this plan; the window is not moved.")
     }
 
     var body: some View {
@@ -686,11 +686,11 @@ struct RootView: View {
             // basılınca pencere kapanıyor ve eylem düşüyordu. Diğer yıkıcı
             // işlemler gibi alt çubuktaki "Geri al" ile korunur.
             if mode == .docked {
-                Button(L("Copy the Laptop only layout here")) {
+                Button(L("Copy the Laptop only plan here")) {
                     store.copyLayout(from: .undocked, to: .docked)
                 }
                 .disabled(!store.document.rules.contains { $0.undocked != nil })
-                .help(L("Copy the Laptop only layout here; the current Monitor connected setup is replaced (⌘Z undoes)"))
+                .help(L("Copy the Laptop only plan here; the current Monitor connected plan is replaced (⌘Z undoes)"))
             }
             Divider()
             Button(L("Settings…")) { openSettings() }
@@ -742,7 +742,7 @@ struct RootView: View {
             .foregroundStyle(.tertiary)
             .lineLimit(1)
             .help(session == 0
-                  ? L("Pins in %@ mode: %ld", mode.title, pinned)
+                  ? L("Pins in the %@ plan: %ld", mode.title, pinned)
                   : session == 1
                     ? L("1 window is pinned for this session only (not saved to the profile)")
                     : L("%ld windows are pinned for this session only (not saved to the profile)", session))

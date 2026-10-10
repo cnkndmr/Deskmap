@@ -125,7 +125,7 @@ struct RuleChip: View {
         let base = "\(rule.appName): \(rule.title)"
             + (reopenLabel.map { "\n" + L("Double-click opens %@", $0) } ?? "")
         if inTray {
-            return base + "\n" + L("Drag onto a desktop to set this setup's place.")
+            return base + "\n" + L("Drag onto a desktop to give it a place in this plan.")
         }
         guard let shadowedBy else {
             return base + "\n" + L("Its window is not open right now. Double-click to open it; drag to move.")

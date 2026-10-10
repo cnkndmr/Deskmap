@@ -86,7 +86,7 @@ struct RulePanel: View {
                     showAdvanced: { ui.showAdvanced = true })
                 BasicLayoutRow(layout: layoutBinding(destination))
             } else {
-                Text(L("Drag onto a desktop to set this setup's place."))
+                Text(L("Drag onto a desktop to give it a place in this plan."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -550,7 +550,7 @@ struct SaveCurrentLayoutRow: View {
     }
 
     private var caption: String {
-        guard isLive else { return L("Switch to this mode to read the window's size.") }
+        guard isLive else { return L("Switch to this plan to read the window's size.") }
         guard window != nil else { return L("Open a matching window to read its size.") }
         guard let current else { return L("The window's size can't be read right now.") }
         if current == stored { return L("The saved layout already matches the window.") }

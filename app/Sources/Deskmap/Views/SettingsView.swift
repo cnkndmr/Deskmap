@@ -403,16 +403,16 @@ struct LegendView: View {
             entry(swatch: AnyView(LayoutGlyph(preset: .leftHalf).foregroundStyle(.secondary)),
                   title: L("Layout"),
                   text: L("Where on the screen the window sits: full, left half, a corner…"))
-            entry(swatch: AnyView(Label(L("Full Screen"), systemImage: "arrow.up.left.and.arrow.down.right")
+            entry(swatch: AnyView(Label(L("Full screen"), systemImage: "arrow.up.left.and.arrow.down.right")
                     .font(.caption2).foregroundStyle(.purple)),
-                  title: L("Full Screen"),
+                  title: L("Full screen"),
                   text: L("macOS gives a full-screen window its own space; Deskmap does not touch it."))
             entry(swatch: AnyView(Text(L("active now")).font(.caption2).foregroundStyle(.green)),
                   title: L("Plan"),
                   text: L("Monitor connected and Laptop only are two separate plans. The one in effect right now is marked."))
         }
         .padding(14)
-        .frame(width: 380)
+        .frame(width: 420)
     }
 
     private func rowSwatch(pinned: Bool) -> AnyView {
@@ -434,7 +434,7 @@ struct LegendView: View {
 
     private func entry(swatch: AnyView, title: String, text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
-            swatch.frame(width: 96, alignment: .leading)
+            swatch.frame(width: 132, alignment: .leading)
             VStack(alignment: .leading, spacing: 1) {
                 Text(title).font(.caption.weight(.semibold))
                 Text(text).font(.caption).foregroundStyle(.secondary)

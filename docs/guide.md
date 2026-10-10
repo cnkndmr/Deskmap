@@ -16,22 +16,26 @@ This guide takes about ten minutes. You need macOS 13 or later.
 
 1. Copy **Deskmap.app** to your Applications folder and open it. It has
    no Dock icon; it lives in the menu bar.
-2. Click the menu bar icon. The first thing you see is **Accessibility
-   permission required** → click **Grant Access**.
+2. The **welcome guide** opens on first launch and walks through three steps.
+   Step 1 is the permission: click **Open System Settings and allow**.
 3. macOS opens System Settings › Privacy & Security › Accessibility. Turn
-   **Deskmap** on.
+   **Deskmap** on; the guide notices it by itself.
 
    The app needs this to see window titles and to move windows. It reads
    nothing else: no network, no files of yours, no window contents.
-4. Back in the app, turn on **Launch at login** in the footer so it is there
-   after every restart.
+4. Step 2 checks the macOS settings below, step 3 asks how to start: **Pin my
+   windows where they are** (recommended) or **Start empty**. You can open the
+   guide again from **Settings › General**.
+5. Open **Settings** (⚙ in the toolbar, or ⌘,) › **General** and turn on
+   **Launch at login** so Deskmap is there after every restart.
 
 ![The map: displays, desktops and the windows on them](images/en/01-map.png)
 
 ## 2. Fix four macOS settings (once)
 
-The app checks these live and shows an orange card until they are right.
-Click **Open Desktop & Dock** on the card and set:
+The app checks these live: the welcome guide's second step, the
+**Settings › macOS Settings** tab and, if one of them goes wrong later, an
+orange card on the map. Click **Open Desktop & Dock** and set:
 
 | Setting | Must be |
 |---|---|
@@ -51,12 +55,17 @@ has assigned the app to a desktop itself, it will fight over the window.
 1. Open the window you care about — say a project in VS Code.
 2. Click the menu bar icon. The **map** shows one card per display and one
    row per desktop, with the windows that are on each of them right now.
-3. Find your window in the list and click its **pin** button. A panel opens
-   at the bottom.
+   Next to each desktop, a small **preview** draws its windows where they sit
+   (turn it off with **Visual | List**). Looking for one window? Press **⌘F**
+   and type part of its name.
+3. Find your window and click its **pin** button. Its details open in the
+   column on the right.
 
 ![Choosing which part of the title identifies the window](images/en/02-pin.png)
 
-4. The panel offers two choices:
+4. The panel starts with one sentence, for example *Messages · this window
+   (general) → Built-in Display · Desktop 2 · Full*. Each underlined part is a
+   menu. The first one offers two choices:
    - **This window (key)** — Deskmap works out a stable key for the window
      and shows it in brackets. In order: the file the window shows (Preview,
      Pages, Word, Excel, TextEdit… — two different `main.pdf` files stay
@@ -72,75 +81,97 @@ has assigned the app to a desktop itself, it will fight over the window.
    open window, only **All windows** is offered.
 5. Click **Pin** (or press Return).
 
+Several windows at once: **Pin all … where they are** in the *Unassigned
+windows* box (or ⌘-click rows) selects them; confirm in the right-hand
+column. Each one keeps its current desktop, size and position.
+
 That's a pin. Tomorrow's window with the same file or project, the one after
 a restart — same place.
 
 ## 4. Move it where it belongs
 
 Drag the row (or the chip) onto another desktop row — on any display. That
-is how you say "no, this one lives on the monitor, desktop 3".
+is how you say "no, this one lives on the monitor, desktop 3". You can also
+click **Desktop 2** or the display's name in the panel's sentence and pick
+another one, or right-click the row › **Send to**.
 
 - Desktops that don't exist yet are drawn with a dashed line. macOS only
   lets *you* create desktops: open Mission Control and add them, then the
   row becomes solid.
-- An orange **D5→3** badge means the pin wants desktop 5 but the display has
-  only 3, so the window went to the last one.
+- An orange **Desktop 5 missing** badge means the pin wants desktop 5 but the
+  display has only 3, so the window waits on the last one (hover it for the
+  details).
 - Dragging an **unpinned** window moves it once and saves nothing.
 
 ## 5. Give it a size
 
-Click a pinned row or chip and pick a layout: **Full**, **Left half**,
-**Right half**, **Left 70%** / **Right 30%**, **Top half**, **Bottom half**
-or **Center**. The default is "wherever the window is now", and you can set
-a gap to leave from the edges.
+Click a pinned row or chip. Under the sentence are four layouts: **Full**,
+**Left half**, **Right half** and **As it is** (only the desktop is kept;
+Deskmap never moves or resizes the window there). Everything else is under
+**Advanced ▸**: the title parts, a grid to drag across, all presets (70/30,
+thirds, quarters, top/bottom half, center), a gap to leave from the edges and
+a fixed size. Advanced stays open for the next window once you open it.
 
 ![Layouts: full, halves, 70/30, centred](images/en/03-layout.png)
 
 The layout is applied once per window. After that, resize it however you
-like — the app won't keep snapping it back. Press **⌘R** (or the ↻ button)
-when you want everything placed again from scratch.
+like — the app won't keep snapping it back. Press **⌘R** (or **⋯ › Place
+pinned windows now**) when you want everything placed again from scratch.
 
-Found a size you like by hand? Click the pinned row and press **Use current
-size and position** under the layout editor: the window's current place and
+Need to move a pinned window by hand for a while? **Free move** in the panel,
+or right-click its row › **Free move** › 5, 15, 30… minutes. Deskmap leaves it
+alone until the time is up, then puts it back.
+
+Found a size you like by hand? Click the pinned row, open **Advanced** and
+press **Use current size and position**: the window's current place and
 size become the pin's layout. The pin stays on its display and desktop.
 Undo with ⌘Z if you change your mind.
 
-## 6. Two setups: with monitor, without
+## 6. Two plans: with monitor, without
 
 Your windows can't live on desktop 3 of a monitor that isn't plugged in. So
-every pin has two targets, and the buttons at the top (**⌘1 / ⌘2**) switch
-between them:
+every pin has two targets, and the **Plan** switch at the top (**⌘1 / ⌘2**)
+shows one or the other. The plan in effect right now is marked **active
+now**; the other one says when it applies.
 
 - **Monitor connected** — at least one external display is attached.
 - **Laptop only** — just the built-in screen.
 
 Set up one, switch, set up the other. When you plug the monitor in or pull
 it out, the app waits a couple of seconds for the displays to settle and
-then puts every pinned window where that setup says.
+then puts every pinned window where that plan says.
 
-A pin you don't want in one of the setups: drag it to the *Different between
-setups* box in the left sidebar. It stays in the other setup.
+A pin you don't want in one of the plans: drag it to the *Placed in one plan
+only* box in the left sidebar. It stays in the other plan.
 
 ## 7. Profiles: desk, café, presentation
 
-A profile is a whole set of pins with a name. The chips under the toolbar
-switch between them instantly.
+A profile is a whole set of pins with a name. **Profile: … ▾** in the toolbar
+switches between them instantly.
 
-![Profiles with their pin counts](images/en/04-profiles.png)
+![Settings › Profiles](images/en/07-settings-profiles.png)
 
-- **+** makes an empty profile; click the active one to rename, duplicate,
-  export or delete it.
+- **Settings › Profiles** lists them: **Use** switches, **⋯** renames,
+  duplicates, exports or deletes; **New empty profile** and **Import…** below.
 - Export writes a `.deskmap.json` file — that's how you carry your setup
   to another Mac, or share it.
 
 ## 8. When you change your mind
 
 - **Undo**: after unpinning, dragging a pin, or reordering desktops, the
-  footer shows *"Pin removed · Undo"* for ten seconds. Click it or press
+  footer shows *"Pin deleted · Undo"* for ten seconds. Click it or press
   **⌘Z**. There are no confirmation dialogs anywhere in the app; this is why.
-- **Pause**: the switch at the top left. Nothing is moved while it is off,
-  and the menu bar icon shows a pause sign. It survives restarts, so if the
-  app ever seems asleep, look there first.
+- **Recent moves** (toolbar): which pinned window Deskmap sent where, and
+  when — the answer to "why did my window jump?".
+- **Pause**: the **Deskmap on** switch at the top left, or right-click the
+  menu bar icon › **Pause for 15 minutes**. Nothing is moved while it is off,
+  and the menu bar icon shows a pause sign. A switched-off Deskmap stays off
+  after restarts, so if the app ever seems asleep, look there first.
+- **?** in the toolbar explains every color and badge on the map.
+
+Right-clicking the menu bar icon also offers **Pin it where it is** for the
+front window, the free-move times for a pinned one, the profiles, Settings
+and Quit. A left click opens the map.
 
 ## 9. One-key setups (optional)
 
@@ -161,10 +192,11 @@ profile".
 
 | What you see | What it means |
 |---|---|
-| Window doesn't move at all | Routing is paused (top left), or the Accessibility permission was lost after an app update — grant it again. |
+| Window doesn't move at all | Deskmap is paused (top left), or the Accessibility permission was lost after an app update — grant it again. |
 | Window lands on the wrong desktop | "Automatically rearrange Spaces" is on, or the app's Dock **Assign To** isn't **None**. |
 | A pin's chip looks faded | Another, more specific pin matches that window first. Hover it to see which. |
-| Orange **D5→3** badge | That desktop doesn't exist; add desktops in Mission Control. |
+| Orange **Desktop 5 missing** badge | That desktop doesn't exist; add desktops in Mission Control. |
+| A window jumped and you don't know why | **Recent moves** in the toolbar lists each move and its target. |
 | Nothing moves between desktops, but sizes work | This macOS version didn't expose the private calls the app uses for desktops. Displays and layouts still work. |
 
 Longer troubleshooting, the full rules of matching, and the data file

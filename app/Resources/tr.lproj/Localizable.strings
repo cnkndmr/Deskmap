@@ -52,7 +52,7 @@
 "A desktop named %@ already exists" = "%@ adlı bir masaüstü zaten var";
 "A profile named %@ already exists" = "%@ adlı bir profil zaten var";
 "Desktop %ld on %@ does not exist" = "%2$@ üzerinde %1$ld. masaüstü yok";
-"Rule has no target in this setup: %@" = "Kuralın bu düzende hedefi yok: %@";
+"Rule has no target in this plan: %@" = "Kuralın bu düzende hedefi yok: %@";
 "No open window for rule: %@" = "Kurala uyan açık pencere yok: %@";
 
 /* Services/MacSettings.swift (ayar adları macOS'taki İngilizce adlarıyla kalır) */
@@ -79,7 +79,7 @@
 "1 pin" = "1 sabit pencere";
 "%ld pins" = "%ld sabit pencere";
 "%@ · %ld temporary" = "%1$@ · %2$ld geçici";
-"Pins in %@ mode: %ld" = "%1$@ planında %2$ld sabit pencere";
+"Pins in the %@ plan: %ld" = "%1$@ planında %2$ld sabit pencere";
 "1 window is pinned for this session only (not saved to the profile)" = "1 pencere yalnızca bu oturum için sabit (profile yazılmaz)";
 "%ld windows are pinned for this session only (not saved to the profile)" = "%ld pencere yalnızca bu oturum için sabit (profile yazılmaz)";
 "Place pinned windows now (⌘R)" = "Sabit pencereleri şimdi yerine koy (⌘R)";
@@ -128,7 +128,7 @@
 "Close" = "Kapat";
 "Use current size and position" = "Şu anki boyutu ve konumu kullan";
 "Save the window's current position and size as this pin's layout. Screen and desktop stay the same." = "Pencerenin şu anki konum ve boyutunu bu sabitlemenin düzeni olarak kaydeder. Ekran ve masaüstü değişmez.";
-"Switch to this mode to read the window's size." = "Pencerenin boyutunu okumak için bu moda geçin.";
+"Switch to this plan to read the window's size." = "Pencerenin boyutunu okumak için bu moda geçin.";
 "Open a matching window to read its size." = "Boyutunu okumak için bu sabitlemeye uyan bir pencere açın.";
 "The window's size can't be read right now." = "Pencerenin boyutu şu anda okunamıyor.";
 "The saved layout already matches the window." = "Kayıtlı düzen pencereyle zaten aynı.";
@@ -193,7 +193,7 @@
 "Getting Started" = "Başlarken";
 "Click the pin button on a window row below." = "Aşağıda bir pencere satırındaki raptiye düğmesine tıklayın.";
 "Select the part of the title that identifies the window; it now stays on that desktop." = "Başlığın bu pencereyi tanımlayan parçasını seçin; pencere artık o masaüstünde kalır.";
-"Dragging a row to another desktop moves the window once without pinning it. The laptop / monitor switch at the top is for the other setup; the two are configured separately." = "Bir satırı başka masaüstüne sürüklemek pencereyi bir kez taşır, sabitlemez. Üstteki Plan seçimi (Monitör bağlı / Sadece laptop) iki ayrı plandır; ikisi ayrı ayarlanır.";
+"Dragging a row to another desktop moves the window once without pinning it. The Plan switch at the top (Monitor connected / Laptop only) shows two separate plans; each is set up on its own." = "Bir satırı başka masaüstüne sürüklemek pencereyi bir kez taşır, sabitlemez. Üstteki Plan seçimi (Monitör bağlı / Sadece laptop) iki ayrı plandır; ikisi ayrı ayarlanır.";
 
 /* Views/RuleChip.swift: pin çipi ipucu */
 "Its window is not open right now. Double-click to open it; drag to move." = "Penceresi şu an açık değil. Açmak için çift tıklayın; sürükleyerek taşıyın.";
@@ -231,13 +231,13 @@
 
 /* Laptop düzenini monitör moduna kopyalama */
 "Layout copied" = "Düzen kopyalandı";
-"Copy the Laptop only layout here; the current Monitor connected setup is replaced (⌘Z undoes)" = "Sadece laptop planını buraya kopyala; şu anki Monitör bağlı planı silinir (⌘Z geri alır)";
-"Copy the Laptop only layout here" = "Sadece laptop planını buraya kopyala";
+"Copy the Laptop only plan here; the current Monitor connected plan is replaced (⌘Z undoes)" = "Sadece laptop planını buraya kopyala; şu anki Monitör bağlı planı silinir (⌘Z geri alır)";
+"Copy the Laptop only plan here" = "Sadece laptop planını buraya kopyala";
 "Click to add a desktop to this display (opens Mission Control briefly)." = "Bu ekrana masaüstü eklemek için tıklayın (Mission Control kısa süre açılır).";
 "Connect this display to add desktops." = "Masaüstü eklemek için bu ekranı bağlayın.";
 "Could not add a desktop to %@" = "%@ ekranına masaüstü eklenemedi";
 "Desktop added" = "Masaüstü eklendi";
-"Click to add a desktop to this setup; it is created when this setup becomes active." = "Bu plana masaüstü eklemek için tıklayın; plan geçerli olunca masaüstü yaratılır.";
+"Click to add a desktop to this plan; it is created when this plan takes effect." = "Bu plana masaüstü eklemek için tıklayın; plan geçerli olunca masaüstü yaratılır.";
 "Remove Desktop %ld" = "Masaüstünü sil (%ld)";
 "Could not remove desktop %ld on %@" = "%2$@ ekranında masaüstü %1$ld silinemedi";
 "Desktop removed" = "Masaüstü silindi";
@@ -256,12 +256,12 @@
 "1 minute" = "1 dakika";
 "%ld minutes" = "%ld dakika";
 "%ld of %ld windows" = "%ld/%ld pencere";
-"Different between setups" = "Yalnız bir planda yeri olanlar";
-"Pinned only for %@" = "Yalnız şu planda sabit: %@";
-"No place in this setup; drag onto a desktop to pin here too." = "Bu planda yeri yok; burada da sabitlemek için bir masaüstüne sürükleyin.";
-"Left alone in the other setup." = "Diğer planda dokunulmaz.";
+"Placed in one plan only" = "Yalnız bir planda yeri olanlar";
+"Pinned only in the %@ plan" = "Yalnız şu planda sabit: %@";
+"No place in this plan; drag onto a desktop to pin it here too." = "Bu planda yeri yok; burada da sabitlemek için bir masaüstüne sürükleyin.";
+"Left alone in the other plan." = "Diğer planda dokunulmaz.";
 "Unassigned windows" = "Yeri olmayan pencereler";
-"Open windows with no pin in either setup" = "İki planda da sabit yeri olmayan açık pencereler; Deskmap bunlara dokunmaz";
+"Open windows with no pin in either plan; Deskmap leaves them alone" = "İki planda da sabit yeri olmayan açık pencereler; Deskmap bunlara dokunmaz";
 "Every open window has a pin." = "Açık her pencerenin sabit yeri var.";
 "Top left" = "Sol üst";
 "Top right" = "Sağ üst";
@@ -292,11 +292,11 @@
 "Left 30%" = "Sol %30";
 "1 unassigned window" = "1 yeri olmayan pencere";
 "%ld unassigned windows" = "%ld yeri olmayan pencere";
-"Not pinned: dropping it opens a pin for this setup; the window is not moved." = "Sabit değil: bırakınca bu plan için sabitleme açılır; pencere taşınmaz.";
+"Not pinned: dropping it opens a pin for this plan; the window is not moved." = "Sabit değil: bırakınca bu plan için sabitleme açılır; pencere taşınmaz.";
 "Pin for %@" = "Şu plan için sabitleme: %@";
 "Connect this display once so its size is known." = "Boyutu öğrenilsin diye bu ekranı bir kez bağlayın.";
 "Windows are not listed yet." = "Pencereler henüz listelenmedi.";
-"Drag onto a desktop to set this setup's place." = "Bu plandaki yerini belirlemek için bir masaüstüne sürükleyin.";
+"Drag onto a desktop to give it a place in this plan." = "Bu plandaki yerini belirlemek için bir masaüstüne sürükleyin.";
 "Drag onto a desktop to pin it for %@; the window is not moved" = "%@ planında sabitlemek için bir masaüstüne sürükleyin; pencere taşınmaz";
 "No open windows." = "Açık pencere yok.";
 "Full-screen windows without a pin are left alone." = "Sabit olmayan tam ekran pencerelere dokunulmaz.";
@@ -399,7 +399,6 @@
 "The desktop the pin asks for does not exist right now; the window waits on the last one. Add the desktop in Mission Control and it moves there." = "Sabitlemenin istediği masaüstü şu an yok; pencere sonuncuda bekler. Mission Control'de masaüstünü eklersen oraya gider.";
 "Layout" = "Düzen";
 "Where on the screen the window sits: full, left half, a corner…" = "Pencerenin ekranda durduğu yer: tamamı, sol yarı, bir köşe…";
-"Full Screen" = "Tam ekran";
 "macOS gives a full-screen window its own space; Deskmap does not touch it." = "macOS tam ekran pencereye ayrı bir masaüstü açar; Deskmap ona dokunmaz.";
 "Plan" = "Plan";
 "Monitor connected and Laptop only are two separate plans. The one in effect right now is marked." = "Monitör bağlı ve Sadece laptop iki ayrı plandır. Şu an geçerli olan işaretlidir.";
