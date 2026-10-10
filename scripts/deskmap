@@ -330,13 +330,47 @@ def layout(text):
         die(str(error))
 
 
+_BUNDLES = {}
+
+
+def bundle_id(app):
+    """Bundle id of an installed app by name; '' if not found.
+
+    Rules without one match by name only, Safari reopen skips its own path and
+    the map puts them in a separate app group."""
+    if app not in _BUNDLES:
+        import plistlib
+        found = ""
+        try:  # running apps first: process names differ from .app names (Code)
+            with open(STATUS) as f:
+                for w in json.load(f).get("windows", []):
+                    if w.get("app") == app and w.get("bundleID"):
+                        found = w["bundleID"]
+                        break
+        except (OSError, ValueError):
+            pass
+        for root in () if found else ("/Applications", "/System/Applications",
+                     "/System/Applications/Utilities", "/System/Volumes/Preboot/Cryptexes/App/System/Applications",
+                     str(Path.home() / "Applications")):
+            plist = Path(root) / f"{app}.app" / "Contents" / "Info.plist"
+            try:
+                with open(plist, "rb") as f:
+                    found = plistlib.load(f).get("CFBundleIdentifier", "")
+            except (OSError, plistlib.InvalidFileException):
+                continue
+            if found:
+                break
+        _BUNDLES[app] = found
+    return _BUNDLES[app]
+
+
 def rule_add(args):
     s = fresh_status()
     if not args.screen and not args.undocked_screen:
         die("give --screen and/or --undocked-screen")
     lay = layout(args.layout) if args.layout else {"x": 0, "y": 0, "w": 1, "h": 1}
     rule = {"id": str(uuid.uuid4()).upper(), "appName": args.app,
-            "bundleID": args.bundle or "", "tokens": args.title or []}
+            "bundleID": args.bundle or bundle_id(args.app), "tokens": args.title or []}
     if args.screen:
         screen, desktop = resolve_place(s, args.screen, args.desktop)
         rule["docked"] = {"screen": screen, "desktop": desktop, "layout": lay}
@@ -474,7 +508,7 @@ def build_plan(spec):
             title = item.get("title") or []
             tokens = [title] if isinstance(title, str) else [str(t) for t in title]
             rule = {"id": str(uuid.uuid4()).upper(), "appName": item["app"],
-                    "bundleID": item.get("bundle", ""), "tokens": tokens}
+                    "bundleID": item.get("bundle") or bundle_id(item["app"]), "tokens": tokens}
             both = item.get("place")
             for mode in MODES:
                 place = parse_place(item.get(mode, both))
