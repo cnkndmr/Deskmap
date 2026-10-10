@@ -9,6 +9,8 @@ import SwiftUI
 struct SetupCard: View {
 
     let checks: [MacSettings.Check]
+    /// false: Ayarlar penceresinde; "Anladım" düğmesi yok.
+    var dismissible = true
 
     @EnvironmentObject private var store: Store
 
@@ -33,7 +35,7 @@ struct SetupCard: View {
                 Spacer()
                 Button(L("Open Desktop & Dock")) { MacSettings.openDesktopAndDock() }
                     .controlSize(.small)
-                if allOK {
+                if allOK && dismissible {
                     Button(L("Got It")) { store.document.setupNoticeDismissed = true }
                         .controlSize(.small)
                         .help(L("Hide this card; it comes back if a setting changes"))

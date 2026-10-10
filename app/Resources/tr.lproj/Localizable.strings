@@ -33,11 +33,11 @@
 "Could not read rules.json: %@" = "rules.json okunamadı: %@";
 "%@ (backup: rules.json.bak)" = "%@ (yedek: rules.json.bak)";
 "Could not write rules.json: %@" = "rules.json yazılamadı: %@";
-"Pin deleted" = "Pin silindi";
-"Pin moved" = "Pin taşındı";
-"Pin updated" = "Pin güncellendi";
+"Pin deleted" = "Sabitleme silindi";
+"Pin moved" = "Sabit yer taşındı";
+"Pin updated" = "Sabitleme güncellendi";
 "Title parts changed" = "Başlık parçaları değişti";
-"Pin removed" = "Pin kaldırıldı";
+"Pin removed" = "Sabitleme kaldırıldı";
 "Layout saved" = "Düzen kaydedildi";
 "Desktop order changed" = "Masaüstü sırası değişti";
 "Profile deleted: %@" = "Profil silindi: %@";
@@ -61,11 +61,11 @@
 "Group windows by application" = "Pencereleri uygulamaya göre grupla";
 "Displays have separate Spaces" = "Ekranların ayrı Alanları var";
 "Recommended" = "Önerilen";
-"Must be OFF. When on, macOS reorders your desktops: switching to an app from the Dock goes to the wrong Space and pin desktop numbers shift." = "KAPALI olmalı. Açıkken macOS masaüstü sırasını değiştirir; Dock'tan uygulamaya geçiş yanlış Space'e gider, pinlerin masaüstü numaraları kayar.";
+"Must be OFF. When on, macOS reorders your desktops: switching to an app from the Dock goes to the wrong Space and pin desktop numbers shift." = "KAPALI olmalı. Açıkken macOS masaüstü sırasını değiştirir; Dock'tan uygulamaya geçiş yanlış Space'e gider, sabit pencerelerin masaüstü numaraları kayar.";
 "Must be ON. When off, clicking an app in the Dock does not switch desktops." = "AÇIK olmalı. Kapalıyken Dock'a tıklamak masaüstü değiştirmez.";
 "OFF is recommended. When on, the Mission Control order may not match desktop numbers." = "KAPALI önerilir; açıkken Mission Control sırası ile masaüstü numaraları uyuşmayabilir.";
 "Must be ON. When off, Deskmap cannot see the external display's desktops." = "AÇIK olmalı. Kapalıyken Deskmap harici ekranın masaüstlerini göremez.";
-"For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Deskmap's moves." = "Pinlediğiniz uygulamaların Dock simgesinde sağ tık › Options › Assign To \"None\" olmalı. \"This Desktop\" / \"All Desktops\" seçiliyse macOS pencereyi kendi atadığı Space'e çeker; Deskmap'in taşımasıyla çelişir.";
+"For apps you pin, right-click the Dock icon › Options › Assign To must be \"None\". With \"This Desktop\" or \"All Desktops\", macOS pulls the window to the Space it assigned, which conflicts with Deskmap's moves." = "Sabitlediğiniz uygulamaların Dock simgesinde sağ tık › Options › Assign To \"None\" olmalı. \"This Desktop\" / \"All Desktops\" seçiliyse macOS pencereyi kendi atadığı Space'e çeker; Deskmap'in taşımasıyla çelişir.";
 "Settings: System Settings › Desktop & Dock › Mission Control section." = "Ayarlar: System Settings › Desktop & Dock › Mission Control bölümü.";
 
 /* Services/Router.swift */
@@ -75,20 +75,19 @@
 /* Views/RootView.swift: üst çubuk, alt çubuk */
 "Routing on" = "Yönlendirme açık";
 "Routing paused" = "Yönlendirme duraklatıldı";
-"now" = "şu an";
-"no pins" = "pin yok";
-"1 pin" = "1 pin";
-"%ld pins" = "%ld pin";
+"no pins" = "sabit pencere yok";
+"1 pin" = "1 sabit pencere";
+"%ld pins" = "%ld sabit pencere";
 "%@ · %ld temporary" = "%1$@ · %2$ld geçici";
-"Pins in %@ mode: %ld" = "%1$@ modunda %2$ld pin";
-"1 window is pinned for this session only (not saved to the profile)" = "1 pencere yalnızca bu oturum için pinli (profile yazılmaz)";
-"%ld windows are pinned for this session only (not saved to the profile)" = "%ld pencere yalnızca bu oturum için pinli (profile yazılmaz)";
-"Place pinned windows now (⌘R)" = "Pinli pencereleri şimdi yerleştir (⌘R)";
-"Place pinned windows now" = "Pinli pencereleri şimdi yerleştir";
+"Pins in %@ mode: %ld" = "%1$@ planında %2$ld sabit pencere";
+"1 window is pinned for this session only (not saved to the profile)" = "1 pencere yalnızca bu oturum için sabit (profile yazılmaz)";
+"%ld windows are pinned for this session only (not saved to the profile)" = "%ld pencere yalnızca bu oturum için sabit (profile yazılmaz)";
+"Place pinned windows now (⌘R)" = "Sabit pencereleri şimdi yerine koy (⌘R)";
+"Place pinned windows now" = "Sabit pencereleri şimdi yerine koy";
 "%@ not responding; skipped for now" = "%@ yanıt vermiyor; geçici olarak atlanıyor";
 "The app did not answer Accessibility requests (frozen or stopped in a debugger). It is listed again automatically once it responds." = "Uygulama Accessibility sorularına yanıt vermedi (donmuş ya da hata ayıklayıcıda). Yanıt verince otomatik olarak yeniden listelenir.";
-"Pin a window, or drag it to another desktop." = "Bir pencereyi pinleyin ya da başka masaüstüne sürükleyin.";
-"Pinned windows are kept in place; others are left alone." = "Pinli pencereler yerinde tutulur; diğerlerine dokunulmaz.";
+"Pin a window, or drag it to another desktop." = "Bir pencereyi sabitleyin ya da başka masaüstüne sürükleyin.";
+"Pinned windows are kept in place; others are left alone." = "Sabit pencereler yerinde tutulur; diğerlerine dokunulmaz.";
 "%@ · Undo" = "%@ · Geri al";
 "Undo the last action (⌘Z)" = "Son işlemi geri al (⌘Z)";
 "Launch at login" = "Girişte başlat";
@@ -103,15 +102,15 @@
 /* Views/ScreenMapView.swift: harita */
 "Desktop %ld" = "Masaüstü %ld";
 "not connected" = "bağlı değil";
-"Double-click to name this desktop; drag to move it (with its pins) up, down or to another display" = "Ad vermek için çift tıklayın; sürükleyerek masaüstünü (pinleriyle birlikte) yukarı/aşağı ya da başka ekrana taşıyın";
+"Double-click to name this desktop; drag to move it (with its pins) up, down or to another display" = "Ad vermek için çift tıklayın; sürükleyerek masaüstünü (sabit pencereleriyle birlikte) yukarı/aşağı ya da başka ekrana taşıyın";
 "Desktop moved to another display" = "Masaüstü başka ekrana taşındı";
 "empty" = "boş";
 "doesn't exist yet" = "henüz yok";
 "%ld windows" = "%ld pencere";
 "%ld closed" = "%ld kapalı";
 "%ld + %ld closed" = "%ld + %ld kapalı";
-"Drop a window here to unpin it while a monitor is connected." = "Buraya bırakılan pencerenin monitör bağlıyken pini kalkar.";
-"Drop a window here to unpin it while on the laptop only." = "Buraya bırakılan pencerenin sadece laptoptayken pini kalkar.";
+"Drop a window here to unpin it while a monitor is connected." = "Buraya bırakılan pencerenin monitör bağlıyken sabitlemesi kalkar.";
+"Drop a window here to unpin it while on the laptop only." = "Buraya bırakılan pencerenin sadece laptoptayken sabitlemesi kalkar.";
 
 /* Views/PinPanel.swift: pin taslağı */
 "Untitled window" = "Adsız pencere";
@@ -120,46 +119,46 @@
 "Full-screen space. Deskmap leaves these windows alone; exit full screen to pin them." = "Tam ekran alanı. Deskmap bu pencerelere dokunmaz; sabitlemek için tam ekrandan çık.";
 "Cancel (Esc)" = "Vazgeç (Esc)";
 "Cancel" = "Vazgeç";
-"Pin" = "Pinle";
+"Pin" = "Sabitle";
 "The title is ignored; every window of %@ matches." = "Başlığa bakılmaz; %@ uygulamasının her penceresi uyar.";
 "1 window matches right now." = "Şu an 1 pencere uyuyor.";
 
 /* Views/RulePanels.swift: pin bilgisi, geçici pin */
-"Unpin" = "Pini kaldır";
+"Unpin" = "Sabitlemeyi kaldır";
 "Close (Esc)" = "Kapat (Esc)";
 "Close" = "Kapat";
 "Use current size and position" = "Şu anki boyutu ve konumu kullan";
-"Save the window's current position and size as this pin's layout. Screen and desktop stay the same." = "Pencerenin şu anki konum ve boyutunu bu pinin düzeni olarak kaydeder. Ekran ve masaüstü değişmez.";
+"Save the window's current position and size as this pin's layout. Screen and desktop stay the same." = "Pencerenin şu anki konum ve boyutunu bu sabitlemenin düzeni olarak kaydeder. Ekran ve masaüstü değişmez.";
 "Switch to this mode to read the window's size." = "Pencerenin boyutunu okumak için bu moda geçin.";
-"Open a matching window to read its size." = "Boyutunu okumak için bu pine uyan bir pencere açın.";
+"Open a matching window to read its size." = "Boyutunu okumak için bu sabitlemeye uyan bir pencere açın.";
 "The window's size can't be read right now." = "Pencerenin boyutu şu anda okunamıyor.";
 "The saved layout already matches the window." = "Kayıtlı düzen pencereyle zaten aynı.";
 "Window now: %@" = "Pencere şu an: %@";
-"%@: no pin" = "%@: pin yok";
-"%@: pinned" = "%@: pinli";
+"%@: no pin" = "%@: sabit değil";
+"%@: pinned" = "%@: sabit";
 "Apply" = "Uygula";
-"Use the selected parts as this pin's title parts" = "Seçili parçaları bu pinin başlık parçaları yap";
+"Use the selected parts as this pin's title parts" = "Seçili parçaları bu sabitlemenin başlık parçaları yap";
 "All windows" = "Tüm pencereler";
-"To change the parts, a window matching this pin must be open." = "Parçaları değiştirmek için bu pine uyan bir pencere açık olmalı.";
-"A pin with these parts already exists: “%@”" = "Bu parçalarla zaten bir pin var: “%@”";
+"To change the parts, a window matching this pin must be open." = "Parçaları değiştirmek için bu sabitlemeye uyan bir pencere açık olmalı.";
+"A pin with these parts already exists: “%@”" = "Bu parçalarla zaten bir sabitleme var: “%@”";
 "Select at least one part, or All windows." = "En az bir parça seçin ya da Tüm pencereler.";
 "%ld windows match right now." = "Şu an %ld pencere uyuyor.";
 "Temporary · window #%ld" = "Geçici · pencere #%ld";
 "Only this window, for this session. Not saved to the profile." = "Yalnızca bu pencere, bu oturum için. Profile yazılmaz.";
 
 /* Views/ProfileViews.swift: profiller, dışa/içe aktarma */
-"Profiles: each one is a separate set of pins" = "Profiller: her biri ayrı bir pin kümesi";
+"Profiles: each one is a separate set of pins" = "Profiller: her biri ayrı bir sabitleme takımı";
 "New empty profile" = "Yeni boş profil";
 "Import a profile from a file (.deskmap.json)" = "Profili dosyadan içe aktar (.deskmap.json)";
 "Import a profile from a file" = "Profili dosyadan içe aktar";
 "Active profile: click to rename, duplicate, export or delete" = "Aktif profil: ad değiştirme, kopyalama, dışa aktarma ve silme için tıklayın";
-"Switch to this profile (1 pin)" = "Bu profile geç (1 pin)";
-"Switch to this profile (%ld pins)" = "Bu profile geç (%ld pin)";
+"Switch to this profile (1 pin)" = "Bu profile geç (1 sabit pencere)";
+"Switch to this profile (%ld pins)" = "Bu profile geç (%ld sabit pencere)";
 "Profile name" = "Profil adı";
 "Save" = "Kaydet";
 "%@ copy" = "%@ kopyası";
 "Duplicate" = "Kopyala";
-"Create a new profile with these pins" = "Bu pinlerle yeni profil oluştur";
+"Create a new profile with these pins" = "Bu sabitlemelerle yeni profil oluştur";
 "Export" = "Dışa aktar";
 "Save as %@.deskmap.json" = "%@.deskmap.json olarak kaydet";
 "Delete" = "Sil";
@@ -174,17 +173,17 @@
 /* Views/WindowRow.swift: pencere satırı */
 "Minimized" = "Simge durumunda";
 "Layout: %@" = "Düzen: %@";
-"Click to change the layout; drag to change the pin's target; double-click to go to the window; ⌘-click to select several" = "Tıklayarak düzeni, sürükleyerek pinin hedefini değiştirin; pencereye gitmek için çift tıklayın; birden çok seçmek için ⌘-tıklayın";
-"Drag to move (does not pin); click the pin to keep it here; double-click to go to the window; ⌘-click to select several" = "Sürükleyerek taşıyın (pinlenmez); sabitlemek için pin düğmesine tıklayın; pencereye gitmek için çift tıklayın; birden çok seçmek için ⌘-tıklayın";
-"Temporary pin (this window only, this session). Click to remove." = "Geçici pin (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın.";
-"Pinned: %@. Click to remove." = "Pinli: %@. Kaldırmak için tıklayın.";
-"Pin to this desktop" = "Bu masaüstüne pinle";
-"Temporary pin moved" = "Geçici pin taşındı";
+"Click to change the layout; drag to change the pin's target; double-click to go to the window; ⌘-click to select several" = "Tıklayarak düzeni, sürükleyerek sabit yerini değiştirin; pencereye gitmek için çift tıklayın; birden çok seçmek için ⌘-tıklayın";
+"Drag to move (does not pin); click the pin to keep it here; double-click to go to the window; ⌘-click to select several" = "Sürükleyerek taşıyın (sabitlenmez); sabitlemek için raptiye düğmesine tıklayın; pencereye gitmek için çift tıklayın; birden çok seçmek için ⌘-tıklayın";
+"Temporary pin (this window only, this session). Click to remove." = "Geçici sabitleme (yalnızca bu pencere, bu oturum). Kaldırmak için tıklayın.";
+"Pinned: %@. Click to remove." = "Sabit: %@. Kaldırmak için tıklayın.";
+"Pin to this desktop" = "Bu masaüstüne sabitle";
+"Temporary pin moved" = "Geçici sabitleme taşındı";
 
 /* Views/StatusCards.swift: macOS ayarları, izin, ilk adımlar */
 "macOS settings look good" = "macOS ayarları uygun";
 "macOS settings need fixing" = "macOS ayarları düzeltilmeli";
-"Things to check once during setup are listed below." = "Kurulumda bir kez kontrol edilmesi gerekenler aşağıda.";
+"Things to check once during setup are listed below." = "İlk kurulumda bir kez kontrol edilmesi gerekenler aşağıda.";
 "With these settings Deskmap cannot work properly: switching from the Dock goes to the wrong desktop, and windows appear and vanish." = "Bu ayarlar böyle kalırsa Deskmap düzgün çalışmaz: Dock'tan geçiş yanlış masaüstüne gider, pencereler belirip kaybolur.";
 "Open Desktop & Dock" = "Desktop & Dock'u aç";
 "Got It" = "Anladım";
@@ -193,16 +192,16 @@
 "Needed to see and move windows." = "Pencereleri görmek ve taşımak için.";
 "Grant Access" = "İzin ver";
 "Getting Started" = "Başlarken";
-"Click the pin button on a window row below." = "Aşağıda bir pencere satırındaki pin düğmesine tıklayın.";
+"Click the pin button on a window row below." = "Aşağıda bir pencere satırındaki raptiye düğmesine tıklayın.";
 "Select the part of the title that identifies the window; it now stays on that desktop." = "Başlığın bu pencereyi tanımlayan parçasını seçin; pencere artık o masaüstünde kalır.";
-"Dragging a row to another desktop moves the window once without pinning it. The laptop / monitor switch at the top is for the other setup; the two are configured separately." = "Bir satırı başka masaüstüne sürüklemek pencereyi bir kez taşır, pinlemez. Üstteki laptop / monitör düğmesi diğer kurulum içindir; ikisi ayrı ayarlanır.";
+"Dragging a row to another desktop moves the window once without pinning it. The laptop / monitor switch at the top is for the other setup; the two are configured separately." = "Bir satırı başka masaüstüne sürüklemek pencereyi bir kez taşır, sabitlemez. Üstteki Plan seçimi (Monitör bağlı / Sadece laptop) iki ayrı plandır; ikisi ayrı ayarlanır.";
 
 /* Views/RuleChip.swift: pin çipi ipucu */
 "Its window is not open right now. Double-click to open it; drag to move." = "Penceresi şu an açık değil. Açmak için çift tıklayın; sürükleyerek taşıyın.";
 "Could not find the app %@" = "%@ uygulaması bulunamadı";
-"a temporary pin" = "geçici pin";
-"the “%@” pin" = "“%@” pini";
-"This window is matched first by %@; this pin does not take effect." = "Bu pencereye önce %@ uyuyor; bu pin devreye girmiyor.";
+"a temporary pin" = "geçici sabitleme";
+"the “%@” pin" = "“%@” sabitlemesi";
+"This window is matched first by %@; this pin does not take effect." = "Bu pencereye önce %@ uyuyor; bu sabitleme devreye girmiyor.";
 
 /* Views/LayoutEditor.swift: kenar boşlukları */
 "Left" = "Sol";
@@ -212,8 +211,6 @@
 "Gap to leave from each edge, within the display's usable area." = "Ekranın kullanılabilir alanında, kenardan bırakılacak boşluk.";
 
 /* Views/MissingDesktopBadge.swift: eksik masaüstü rozeti (D = Desktop, M = Masaüstü) */
-"D%ld→%ld" = "M%ld→%ld";
-"Desktops on this display: %ld. Add desktops in Mission Control or drag the pin to another desktop." = "Bu ekranda yalnızca %ld masaüstü var; Mission Control'de masaüstü ekleyin ya da pini başka masaüstüne sürükleyin.";
 
 /* Düşük mod (masaüstü taşıma doğrulanamadı) */
 "Reduced mode: desktop moves are off" = "Düşük mod: masaüstü taşıma kapalı";
@@ -228,20 +225,20 @@
 "Deskmap works offline: it makes no network connections and never reads what is inside your windows, only their titles, positions and desktops." = "Deskmap çevrimdışı çalışır: ağ bağlantısı kurmaz ve pencerelerinizin içeriğini asla okumaz; yalnız başlıklarını, konumlarını ve masaüstlerini.";
 
 /* Neden burada? ve sürükleme ipucu */
-"Why here: temporary pin for this window → %@ (%@)" = "Neden burada: bu pencerenin geçici pini → %1$@ (%2$@)";
-"Why here: pin \"%@\" → %@ (%@)" = "Neden burada: \"%1$@\" pini → %2$@ (%3$@)";
-"Pinned: dropping it updates the saved desktop." = "Pinli: bırakınca kaydedilen masaüstü güncellenir.";
-"Not pinned: dropping it moves the window once; nothing is saved." = "Pinsiz: bırakınca pencere bir kez taşınır, hiçbir şey kaydedilmez.";
+"Why here: temporary pin for this window → %@ (%@)" = "Neden burada: bu pencerenin geçici sabitlemesi → %1$@ (%2$@)";
+"Why here: pin \"%@\" → %@ (%@)" = "Neden burada: \"%1$@\" sabitlemesi → %2$@ (%3$@)";
+"Pinned: dropping it updates the saved desktop." = "Sabit: bırakınca kayıtlı masaüstü güncellenir.";
+"Not pinned: dropping it moves the window once; nothing is saved." = "Sabit değil: bırakınca pencere bir kez taşınır, hiçbir şey kaydedilmez.";
 
 /* Laptop düzenini monitör moduna kopyalama */
 "Layout copied" = "Düzen kopyalandı";
-"Copy the Laptop only layout here; the current Monitor connected setup is replaced (⌘Z undoes)" = "Sadece laptop düzenini buraya kopyala; şu anki monitör bağlı kurulumu silinir (⌘Z geri alır)";
-"Copy the Laptop only layout here" = "Sadece laptop düzenini buraya kopyala";
+"Copy the Laptop only layout here; the current Monitor connected setup is replaced (⌘Z undoes)" = "Sadece laptop planını buraya kopyala; şu anki Monitör bağlı planı silinir (⌘Z geri alır)";
+"Copy the Laptop only layout here" = "Sadece laptop planını buraya kopyala";
 "Click to add a desktop to this display (opens Mission Control briefly)." = "Bu ekrana masaüstü eklemek için tıklayın (Mission Control kısa süre açılır).";
 "Connect this display to add desktops." = "Masaüstü eklemek için bu ekranı bağlayın.";
 "Could not add a desktop to %@" = "%@ ekranına masaüstü eklenemedi";
 "Desktop added" = "Masaüstü eklendi";
-"Click to add a desktop to this setup; it is created when this setup becomes active." = "Bu kuruluma masaüstü eklemek için tıklayın; kurulum etkin olunca masaüstü yaratılır.";
+"Click to add a desktop to this setup; it is created when this setup becomes active." = "Bu plana masaüstü eklemek için tıklayın; plan geçerli olunca masaüstü yaratılır.";
 "Remove Desktop %ld" = "Masaüstünü sil (%ld)";
 "Could not remove desktop %ld on %@" = "%2$@ ekranında masaüstü %1$ld silinemedi";
 "Desktop removed" = "Masaüstü silindi";
@@ -253,20 +250,20 @@
 "Free move" = "Serbest bırak";
 "Let this window be moved freely for a while" = "Bu pencere bir süre serbestçe taşınabilsin";
 "Free to move · %@ left" = "Serbest · %@ kaldı";
-"Then it goes back to its pin." = "Sonra pinine döner.";
+"Then it goes back to its pin." = "Sonra sabit yerine döner.";
 "+5 min" = "+5 dk";
 "End now" = "Şimdi bitir";
-"End free movement; the window goes back to its pin" = "Serbestliği bitir; pencere pinine döner";
+"End free movement; the window goes back to its pin" = "Serbestliği bitir; pencere sabit yerine döner";
 "1 minute" = "1 dakika";
 "%ld minutes" = "%ld dakika";
 "%ld of %ld windows" = "%ld/%ld pencere";
-"Different between setups" = "Kurulumlar arasında farklı";
-"Pinned only for %@" = "Yalnız şu kurulumda pinli: %@";
-"No place in this setup; drag onto a desktop to pin here too." = "Bu kurulumda yeri yok; burada da pinlemek için bir masaüstüne sürükleyin.";
-"Left alone in the other setup." = "Diğer kurulumda dokunulmaz.";
-"Unassigned windows" = "Sahipsiz pencereler";
-"Open windows with no pin in either setup" = "İki kurulumda da pini olmayan açık pencereler";
-"Every open window has a pin." = "Açık her pencerenin pini var.";
+"Different between setups" = "Yalnız bir planda yeri olanlar";
+"Pinned only for %@" = "Yalnız şu planda sabit: %@";
+"No place in this setup; drag onto a desktop to pin here too." = "Bu planda yeri yok; burada da sabitlemek için bir masaüstüne sürükleyin.";
+"Left alone in the other setup." = "Diğer planda dokunulmaz.";
+"Unassigned windows" = "Yeri olmayan pencereler";
+"Open windows with no pin in either setup" = "İki planda da sabit yeri olmayan açık pencereler; Deskmap bunlara dokunmaz";
+"Every open window has a pin." = "Açık her pencerenin sabit yeri var.";
 "Top left" = "Sol üst";
 "Top right" = "Sağ üst";
 "Bottom left" = "Sol alt";
@@ -294,26 +291,26 @@
 "Anchor" = "Sabitleme";
 "Right 70%" = "Sağ %70";
 "Left 30%" = "Sol %30";
-"1 unassigned window" = "1 sahipsiz pencere";
-"%ld unassigned windows" = "%ld sahipsiz pencere";
-"Not pinned: dropping it opens a pin for this setup; the window is not moved." = "Pinli değil: bırakınca bu kurulum için pin açılır; pencere taşınmaz.";
-"Pin for %@" = "Şu kurulum için pin: %@";
+"1 unassigned window" = "1 yeri olmayan pencere";
+"%ld unassigned windows" = "%ld yeri olmayan pencere";
+"Not pinned: dropping it opens a pin for this setup; the window is not moved." = "Sabit değil: bırakınca bu plan için sabitleme açılır; pencere taşınmaz.";
+"Pin for %@" = "Şu plan için sabitleme: %@";
 "Connect this display once so its size is known." = "Boyutu öğrenilsin diye bu ekranı bir kez bağlayın.";
 "Windows are not listed yet." = "Pencereler henüz listelenmedi.";
-"Drag onto a desktop to set this setup's place." = "Bu kurulumdaki yerini belirlemek için bir masaüstüne sürükleyin.";
-"Drag onto a desktop to pin it for %@; the window is not moved" = "%@ için pinlemek üzere bir masaüstüne sürükleyin; pencere taşınmaz";
+"Drag onto a desktop to set this setup's place." = "Bu plandaki yerini belirlemek için bir masaüstüne sürükleyin.";
+"Drag onto a desktop to pin it for %@; the window is not moved" = "%@ planında sabitlemek için bir masaüstüne sürükleyin; pencere taşınmaz";
 "No open windows." = "Açık pencere yok.";
-"Full-screen windows without a pin are left alone." = "Pinsiz tam ekran pencerelere dokunulmaz.";
+"Full-screen windows without a pin are left alone." = "Sabit olmayan tam ekran pencerelere dokunulmaz.";
 "Window now: %@ (the anchor sets the position)" = "Pencere şu an: %@ (konumu sabitleme belirler)";
-"Desktop %ld on %@ still has pinned rules" = "%2$@ ekranındaki %1$ld. masaüstünde hâlâ pinli kurallar var";
+"Desktop %ld on %@ still has pinned rules" = "%2$@ ekranındaki %1$ld. masaüstünde hâlâ sabit pencereler var";
 "Send to" = "Gönder";
-"Moves the pin for all %@ windows" = "Tüm %@ pencerelerinin pinini taşır";
-"Moves the pin \"%@\" (all matching windows)" = "\"%@\" pinini taşır (uyan tüm pencereler)";
+"Moves the pin for all %@ windows" = "Tüm %@ pencerelerinin sabit yerini taşır";
+"Moves the pin \"%@\" (all matching windows)" = "\"%@\" sabitlemesini taşır (uyan tüm pencereler)";
 "Deleted desktop" = "Silinen masaüstü";
 "deleted" = "silindi";
-"Deleted in Mission Control · %ld pins" = "Mission Control'de silindi · %ld pin";
+"Deleted in Mission Control · %ld pins" = "Mission Control'de silindi · %ld sabit pencere";
 "Restore" = "Geri getir";
-"Open a new desktop on this display and bring the name and pins back" = "Bu ekranda yeni masaüstü açar, adı ve pinleri geri getirir";
+"Open a new desktop on this display and bring the name and pins back" = "Bu ekranda yeni masaüstü açar, adını ve sabit pencerelerini geri getirir";
 "Connect this display to restore the desktop" = "Masaüstünü geri getirmek için bu ekranı bağlayın";
 "Forget Deleted Desktop" = "Silinen masaüstünü tamamen unut";
 "Deleted desktop restored" = "Silinen masaüstü geri getirildi";
@@ -321,12 +318,12 @@
 "Could not open a %@ window" = "%@ penceresi açılamadı";
 "Double-click opens %@" = "Çift tıklama %@ açar";
 "%@ is open, but Deskmap does not know this window's file or folder yet. Open it once; after that a double-click opens it." = "%@ açık, ama Deskmap bu pencerenin dosyasını ya da klasörünü henüz bilmiyor. Bir kez açın; sonra çift tıklama onu açar.";
-"Windows pinned" = "Pencereler pinlendi";
+"Windows pinned" = "Pencereler sabitlendi";
 "%ld windows selected" = "%ld pencere seçili";
-"Each is pinned to its current desktop with its current size and position." = "Her biri bulunduğu masaüstüne, şu anki boyut ve konumuyla pinlenir.";
+"Each is pinned to its current desktop with its current size and position." = "Her biri bulunduğu masaüstüne, şu anki boyut ve konumuyla sabitlenir.";
 "%ld of them only until the window closes: their titles also match other open windows." = "%ld tanesi yalnız pencere kapanana dek: başlıkları başka açık pencerelere de uyuyor.";
 "⌘-click windows to add or remove them." = "Eklemek ya da çıkarmak için pencerelere ⌘ ile tıklayın.";
-"Pin %ld where they are" = "%ld pencereyi yerinde pinle";
+"Pin %ld where they are" = "%ld pencereyi olduğu yerde sabitle";
 "Clear" = "Seçimi kaldır";
 
 "Desktop only" = "Yalnız masaüstü";
@@ -341,7 +338,7 @@
 "This window has no stable name to match." = "Bu pencerenin eşleşecek kararlı bir adı yok.";
 "Accessibility permission is missing" = "Erişilebilirlik izni yok";
 "Target desktop missing: %@" = "Hedef masaüstü yok: %@";
-"All pinned windows are in place" = "Pinli pencerelerin hepsi yerinde";
+"All pinned windows are in place" = "Sabit pencerelerin hepsi yerinde";
 "Setting up after a display change…" = "Ekran değişikliğinden sonra yerleştiriliyor…";
 "1 window not in place: %@" = "1 pencere yerinde değil: %@";
 "%ld windows not in place: %@" = "%ld pencere yerinde değil: %@";
@@ -351,3 +348,61 @@
 "Send group to" = "Grubu gönder";
 "Desktop %ld (%@)" = "Masaüstü %ld (%@)";
 "Drag to move the whole group to another desktop; click to collapse" = "Bütün grubu başka masaüstüne taşımak için sürükleyin; daraltmak için tıklayın";
+
+/* Views/RootView.swift, Views/SettingsView.swift: yazılı üst çubuk, Ayarlar, açıklama paneli */
+"Deskmap on" = "Deskmap açık";
+"Paused" = "Duraklatıldı";
+"Plan:" = "Plan:";
+"active now" = "şu an geçerli";
+"This plan is in effect right now" = "Bu plan şu an geçerli";
+"Applies when the monitor is unplugged" = "Monitör çıkınca geçerli";
+"Applies when a monitor is connected" = "Monitör takılınca geçerli";
+"Changes here do not move any window now; they are used when this plan takes effect." = "Burada yaptığın değişiklik şimdi hiçbir pencereyi taşımaz; bu plan geçerli olunca kullanılır.";
+"Profile: %@" = "Profil: %@";
+"Manage profiles…" = "Profilleri yönet…";
+"What do the colors and badges mean?" = "Renkler ve rozetler ne anlama geliyor?";
+"Settings (⌘,)" = "Ayarlar (⌘,)";
+"Settings" = "Ayarlar";
+"Settings…" = "Ayarlar…";
+"More" = "Diğer";
+"Deskmap Settings" = "Deskmap Ayarları";
+"General" = "Genel";
+"macOS Settings" = "macOS ayarları";
+"Profiles" = "Profiller";
+"Shortcuts" = "Kısayollar";
+"When paused, Deskmap moves no windows; the map still shows them." = "Duraklatınca Deskmap hiçbir pencereyi taşımaz; harita yine gösterir.";
+"Windows stay where they are; nothing is moved until Deskmap runs again." = "Pencereler olduğu yerde kalır; Deskmap yeniden açılana dek hiçbiri taşınmaz.";
+"Quit" = "Çık";
+"Deskmap needs a few Mission Control settings. They are checked continuously; if one changes, the menu bar icon turns orange." = "Deskmap birkaç Mission Control ayarına ihtiyaç duyar. Sürekli denetlenir; biri değişirse menü çubuğu simgesi turuncuya döner.";
+"Check Again" = "Yeniden denetle";
+"A profile is a separate set of pinned windows, for example one for the office desk and one for working elsewhere. Only the active profile places windows." = "Profil ayrı bir sabit pencere takımıdır; örneğin biri ofis masası, biri başka yerde çalışmak için. Pencereleri yalnız etkin profil yerleştirir.";
+"Import…" = "İçe aktar…";
+"active" = "etkin";
+"Use" = "Kullan";
+"Switch to this profile" = "Bu profile geç";
+"Rename" = "Yeniden adlandır";
+"Export…" = "Dışa aktar…";
+"Rename, duplicate, export or delete" = "Yeniden adlandır, kopyala, dışa aktar ya da sil";
+"These work while the map is open." = "Bunlar harita açıkken çalışır.";
+"Show the Monitor connected plan" = "Monitör bağlı planını göster";
+"Show the Laptop only plan" = "Sadece laptop planını göster";
+"Undo the last action" = "Son işlemi geri al";
+"Select several windows" = "Birden çok pencere seç";
+"⌘-click" = "⌘-tık";
+"What the map shows" = "Harita ne gösteriyor";
+"Pinned" = "Sabit";
+"Deskmap keeps this window on this desktop and in this layout. Moved by hand, it goes back." = "Deskmap bu pencereyi bu masaüstünde ve bu düzende tutar. Elle taşınırsa geri döner.";
+"Not pinned" = "Sabit değil";
+"Deskmap leaves this window alone. Click its pin to keep it where it is." = "Deskmap bu pencereye dokunmaz. Olduğu yerde tutmak için raptiyesine tıkla.";
+"Free for a while" = "Bir süre serbest";
+"You can move a pinned window by hand; when the time is up it goes back." = "Sabit pencereyi elle taşıyabilirsin; süre bitince yerine döner.";
+"Missing desktop" = "Eksik masaüstü";
+"The desktop the pin asks for does not exist right now; the window waits on the last one. Add the desktop in Mission Control and it moves there." = "Sabitlemenin istediği masaüstü şu an yok; pencere sonuncuda bekler. Mission Control'de masaüstünü eklersen oraya gider.";
+"Layout" = "Düzen";
+"Where on the screen the window sits: full, left half, a corner…" = "Pencerenin ekranda durduğu yer: tamamı, sol yarı, bir köşe…";
+"Full Screen" = "Tam ekran";
+"macOS gives a full-screen window its own space; Deskmap does not touch it." = "macOS tam ekran pencereye ayrı bir masaüstü açar; Deskmap ona dokunmaz.";
+"Plan" = "Plan";
+"Monitor connected and Laptop only are two separate plans. The one in effect right now is marked." = "Monitör bağlı ve Sadece laptop iki ayrı plandır. Şu an geçerli olan işaretlidir.";
+"Desktop %ld missing" = "Masaüstü %ld yok";
+"For now the window is on desktop %ld, the last one on this display. Add desktops in Mission Control, or drag the window to another desktop." = "Pencere şimdilik bu ekranın son masaüstünde (%ld. masaüstü). Mission Control'de masaüstü ekle ya da pencereyi başka masaüstüne sürükle.";

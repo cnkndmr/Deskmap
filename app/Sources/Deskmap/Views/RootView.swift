@@ -1,5 +1,4 @@
 import AppKit
-import ServiceManagement
 import SwiftUI
 
 struct RootView: View {
@@ -16,9 +15,8 @@ struct RootView: View {
     @State private var liveMode: Mode?
     /// Gerekli macOS ayarlarının canlı durumu (her taramada yenilenir).
     @State private var settingChecks: [MacSettings.Check] = MacSettings.checks()
-    /// "Girişte başlat" kaydının gerçek durumu; her taramada ve kayıt
-    /// değişince yeniden okunur (kullanıcı Sistem Ayarları'ndan kapatabilir).
-    @State private var loginStatus: SMAppService.Status = SMAppService.mainApp.status
+    /// Üst çubuktaki "?" açıklama paneli açık mı.
+    @State private var showLegend = false
     /// Sürükleme sırasında gelen tarama sonucu; sürükleme bitince uygulanır.
     @State private var pendingWindows: [Router.WindowSnapshot]?
     /// Harita ekranda mı (örtülme bildirimi aynı durumu yineleyebilir).
@@ -150,14 +148,6 @@ struct RootView: View {
                 .padding(.top, 6)
                 .padding(.bottom, 6)
 
-            // Tek profil varken çubuk gizli; yeni profil / içe aktarma
-            // üst çubuktaki menüde.
-            if store.profiles.count > 1 {
-                ProfileBar()
-                    .padding(.horizontal, 14)
-                    .padding(.bottom, 8)
-            }
-
             Divider()
             }
             .measuresHeight("top")
@@ -280,7 +270,6 @@ struct RootView: View {
             // Kullanıcı Sistem Ayarları'nda düzeltince kart kendiliğinden güncellensin.
             let checks = MacSettings.checks()
             if checks != settingChecks { settingChecks = checks }
-            refreshLoginStatus()
         }
         // Mission Control'de eklenen/silinen masaüstü haritaya yansısın;
         // pencere listesi değişmese de (Router ayrı yayınlar).
@@ -506,110 +495,178 @@ struct RootView: View {
     private var header: some View {
         HStack(spacing: 12) {
             Toggle(isOn: $store.document.enabled) {
-                Image(systemName: "power")
+                Text(store.document.enabled ? L("Deskmap on") : L("Paused"))
+                    .foregroundStyle(store.document.enabled ? Color.primary : Color.orange)
             }
             .toggleStyle(.switch)
             .controlSize(.small)
-            .labelsHidden()
             .help(store.document.enabled ? L("Routing on") : L("Routing paused"))
-            .accessibilityLabel(store.document.enabled ? L("Routing on") : L("Routing paused"))
 
-            Picker("", selection: $mode) {
-                ForEach(Array(Mode.allCases.enumerated()), id: \.element) { index, candidate in
-                    Image(systemName: candidate.symbol)
-                        .help(candidate.title + " (⌘\(index + 1))")
-                        .accessibilityLabel(candidate.title)
-                        .tag(candidate)
+            HStack(spacing: 6) {
+                Text(L("Plan:"))
+                    .foregroundStyle(.secondary)
+                Picker("", selection: $mode) {
+                    ForEach(Array(Mode.allCases.enumerated()), id: \.element) { index, candidate in
+                        Text(candidate.title)
+                            .help(candidate.title + " (⌘\(index + 1))")
+                            .tag(candidate)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .fixedSize()
+                .background(shortcuts)
+                planNote
+            }
+
+            Spacer(minLength: 8)
+
+            profileMenu
+
+            Button {
+                showLegend.toggle()
+            } label: {
+                Image(systemName: "questionmark.circle")
+            }
+            .buttonStyle(.borderless)
+            .help(L("What do the colors and badges mean?"))
+            .accessibilityLabel(L("What do the colors and badges mean?"))
+            .popover(isPresented: $showLegend, arrowEdge: .bottom) { LegendView() }
+
+            Button {
+                openSettings()
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.borderless)
+            .help(L("Settings (⌘,)"))
+            .accessibilityLabel(L("Settings"))
+
+            moreMenu
+        }
+        .font(.callout)
+    }
+
+    /// Seçili planın şu an geçerli olup olmadığı; değilse ne zaman geçerli olacağı.
+    @ViewBuilder
+    private var planNote: some View {
+        if mode == screens.mode {
+            HStack(spacing: 4) {
+                Circle().fill(Color.green).frame(width: 6, height: 6)
+                Text(L("active now"))
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .help(L("This plan is in effect right now"))
+        } else {
+            Text(mode == .undocked ? L("Applies when the monitor is unplugged")
+                 : L("Applies when a monitor is connected"))
+                .font(.caption)
+                .foregroundStyle(.orange)
+                .lineLimit(1)
+                .help(L("Changes here do not move any window now; they are used when this plan takes effect."))
+        }
+    }
+
+    /// Etkin profilin adı; menüde profiller arası geçiş ve yönetim.
+    private var profileMenu: some View {
+        Menu {
+            ForEach(store.profiles) { profile in
+                Button {
+                    ui.panel = nil
+                    store.switchProfile(to: profile.id)
+                } label: {
+                    if profile.id == store.document.activeProfileID {
+                        Label(profile.name, systemImage: "checkmark")
+                    } else {
+                        Text(profile.name)
+                    }
                 }
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 110)
-            .background(modeShortcuts)
-
-            if mode == screens.mode {
-                Text(L("now"))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            Divider()
+            Button(L("New empty profile")) {
+                store.addProfile()
+                openSettings(.profiles)
             }
+            Button(L("Import a profile from a file (.deskmap.json)")) {
+                ui.panel = nil
+                ProfileFiles.importProfile(into: store)
+            }
+            Button(L("Manage profiles…")) { openSettings(.profiles) }
+        } label: {
+            Text(L("Profile: %@", store.activeProfile?.name ?? ""))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(L("Profiles: each one is a separate set of pins"))
+    }
 
+    /// Seyrek kullanılan eylemler.
+    private var moreMenu: some View {
+        Menu {
+            Button(L("Place pinned windows now (⌘R)")) { router.reapplyAll() }
             // Onay penceresi yok: menü çubuğu penceresinde sheet'in düğmesine
             // basılınca pencere kapanıyor ve eylem düşüyordu. Diğer yıkıcı
             // işlemler gibi alt çubuktaki "Geri al" ile korunur.
             if mode == .docked {
-                Button {
+                Button(L("Copy the Laptop only layout here")) {
                     store.copyLayout(from: .undocked, to: .docked)
-                } label: {
-                    Image(systemName: "laptopcomputer.and.arrow.down")
                 }
-                .buttonStyle(.borderless)
                 .disabled(!store.document.rules.contains { $0.undocked != nil })
                 .help(L("Copy the Laptop only layout here; the current Monitor connected setup is replaced (⌘Z undoes)"))
-                .accessibilityLabel(L("Copy the Laptop only layout here"))
             }
-
-            Spacer()
-
-            if store.profiles.count <= 1 {
-                Menu {
-                    Button(L("New empty profile")) {
-                        store.addProfile()
-                        ui.panel = .profile
-                    }
-                    Button(L("Import a profile from a file (.deskmap.json)")) {
-                        ui.panel = nil
-                        ProfileFiles.importProfile(into: store)
-                    }
-                } label: {
-                    Image(systemName: "square.stack.3d.up")
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .help(L("Profiles: each one is a separate set of pins"))
-                .accessibilityLabel(L("Profiles: each one is a separate set of pins"))
-            }
-
-            // Seçili moddaki pin sayısı; geçici pinler moddan bağımsız ama
-            // yalnızca şu anki modun haritasında görünür, orada sayılır.
-            let pinned = store.document.rules.filter { $0[mode] != nil }.count
-            let session = mode == screens.mode ? router.sessionPins.count : 0
-            let pinText = pinned == 0 ? L("no pins")
-                : pinned == 1 ? L("1 pin") : L("%ld pins", pinned)
-            Text(session > 0 ? L("%@ · %ld temporary", pinText, session) : pinText)
-                .font(.caption2)
-                .foregroundStyle(.tertiary)
-                .help(session == 0
-                      ? L("Pins in %@ mode: %ld", mode.title, pinned)
-                      : session == 1
-                        ? L("1 window is pinned for this session only (not saved to the profile)")
-                        : L("%ld windows are pinned for this session only (not saved to the profile)", session))
-
-            Button {
-                router.reapplyAll()
-            } label: {
-                Image(systemName: "arrow.clockwise")
-            }
-            .buttonStyle(.borderless)
-            .keyboardShortcut("r", modifiers: .command)
-            .help(L("Place pinned windows now (⌘R)"))
-            .accessibilityLabel(L("Place pinned windows now"))
+            Divider()
+            Button(L("Settings…")) { openSettings() }
+            Button(L("Quit Deskmap")) { NSApplication.shared.terminate(nil) }
+        } label: {
+            Image(systemName: "ellipsis.circle")
         }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help(L("More"))
+        .accessibilityLabel(L("More"))
     }
 
-    /// ⌘1 / ⌘2 seçicideki sırayla modu seçer. Görünmez, boyutsuz düğmeler;
-    /// pencere önde olduğu sürece kısayollar çalışır.
-    private var modeShortcuts: some View {
+    private func openSettings(_ tab: SettingsTab = .general) {
+        showLegend = false
+        SettingsWindow.shared.show(tab: tab, store: store)
+    }
+
+    /// ⌘1 / ⌘2 seçicideki sırayla modu seçer; ⌘R sabit pencereleri yerine
+    /// koyar, ⌘, Ayarlar'ı açar. Görünmez, boyutsuz düğmeler; pencere önde
+    /// olduğu sürece kısayollar çalışır.
+    private var shortcuts: some View {
         HStack(spacing: 0) {
             ForEach(Array(Mode.allCases.enumerated()), id: \.element) { index, candidate in
                 Button("") { mode = candidate }
                     .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
             }
+            Button("") { router.reapplyAll() }
+                .keyboardShortcut("r", modifiers: .command)
+            Button("") { openSettings() }
+                .keyboardShortcut(",", modifiers: .command)
         }
         .buttonStyle(.plain)
         .opacity(0)
         .frame(width: 0, height: 0)
         .accessibilityHidden(true)
+    }
+
+    /// Seçili plandaki sabit pencere sayısı; geçici sabitlemeler plandan
+    /// bağımsız ama yalnızca şu anki planın haritasında görünür, orada sayılır.
+    private var pinSummary: some View {
+        let pinned = store.document.rules.filter { $0[mode] != nil }.count
+        let session = mode == screens.mode ? router.sessionPins.count : 0
+        let pinText = pinCount(pinned)
+        return Text(session > 0 ? L("%@ · %ld temporary", pinText, session) : pinText)
+            .foregroundStyle(.tertiary)
+            .lineLimit(1)
+            .help(session == 0
+                  ? L("Pins in %@ mode: %ld", mode.title, pinned)
+                  : session == 1
+                    ? L("1 window is pinned for this session only (not saved to the profile)")
+                    : L("%ld windows are pinned for this session only (not saved to the profile)", session))
     }
 
     // MARK: - Alt çubuk
@@ -657,32 +714,8 @@ struct RootView: View {
                 .help(L("Undo the last action (⌘Z)"))
             }
 
-            Toggle(L("Launch at login"), isOn: Binding(
-                get: { loginStatus == .enabled || loginStatus == .requiresApproval },
-                set: { setLaunchAtLogin($0) }))
-                .toggleStyle(.checkbox)
-                .controlSize(.small)
+            pinSummary
                 .layoutPriority(1)
-                .help(launchAtLoginHelp)
-
-            if loginStatus == .requiresApproval {
-                // Kayıt var ama macOS onay bekliyor (Login Items'ta kapalı).
-                Button(L("Approval needed")) { SMAppService.openSystemSettingsLoginItems() }
-                    .buttonStyle(.link)
-                    .controlSize(.small)
-                    .foregroundStyle(.orange)
-                    .help(L("Turn on Deskmap in System Settings › General › Login Items"))
-            }
-
-            Button {
-                NSApplication.shared.terminate(nil)
-            } label: {
-                Image(systemName: "xmark.circle")
-            }
-            .buttonStyle(.borderless)
-            .layoutPriority(1)
-            .help(L("Quit Deskmap"))
-            .accessibilityLabel(L("Quit Deskmap"))
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -696,39 +729,6 @@ struct RootView: View {
             return
         }
         store.undo()
-    }
-
-    // MARK: - Girişte başlat
-
-    /// Bu kopya /Applications dışındaysa (build/ içinden çalışıyorsa)
-    /// girişte bu yol açılır; taşınır ya da silinirse kayıt boşa düşer.
-    private var launchAtLoginHelp: String {
-        let path = Bundle.main.bundleURL.path
-        if path.hasPrefix("/Applications/") {
-            return L("Deskmap starts when you log in to macOS")
-        }
-        return L("This copy opens at login: %@. For a permanent install, copy it to /Applications.", path)
-    }
-
-    private func refreshLoginStatus() {
-        let status = SMAppService.mainApp.status
-        if status != loginStatus { loginStatus = status }
-    }
-
-    private func setLaunchAtLogin(_ enabled: Bool) {
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-        } catch {
-            store.report(enabled
-                ? L("Could not turn on launch at login: %@", error.localizedDescription)
-                : L("Could not turn off launch at login: %@", error.localizedDescription))
-        }
-        // Gerçek durumu oku: register sonrası .requiresApproval da olabilir.
-        refreshLoginStatus()
     }
 }
 

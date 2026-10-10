@@ -132,6 +132,30 @@ enum Shots {
             }
         }
 
+        /// Harita dışındaki bir görünümü kendi boyunda, ayrı bir pencerede çizer.
+        func captureView<V: View>(_ name: String, _ view: V) {
+            guard shouldCapture(name, options: options) else { return }
+            let host = NSHostingView(rootView: ZStack {
+                Color(nsColor: .windowBackgroundColor)
+                view
+            })
+            host.frame = NSRect(origin: .zero, size: host.fittingSize)
+            let extra = ShotsWindow(contentRect: host.frame, styleMask: [.borderless],
+                                    backing: .buffered, defer: false)
+            extra.isReleasedWhenClosed = false
+            extra.contentView = host
+            extra.makeKeyAndOrderFront(nil)
+            pump(0.3)
+            if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
+                host.cacheDisplay(in: host.bounds, to: rep)
+                if let data = rep.representation(using: .png, properties: [:]) {
+                    let url = URL(fileURLWithPath: options.directory).appendingPathComponent("\(name).png")
+                    try? data.write(to: url, options: .atomic)
+                }
+            }
+            extra.orderOut(nil)
+        }
+
         // 01 — ana görünüm: iki ekran, masaüstleri, pinli çipler, canlı pencereler.
         capture("01-map")
 
@@ -168,6 +192,17 @@ enum Shots {
         store.document.setupNoticeDismissed = false
         store.remove(DemoData.extraRuleID)
         capture("05-setup")
+
+        // 07 — Ayarlar penceresi (Genel ve macOS ayarları sekmeleri) ve 08 —
+        // üst çubuktaki "?" açıklama paneli. Ayrı barındırıcıda çizilir;
+        // harita penceresi değişmez.
+        let settingsState = SettingsState()
+        captureView("07-settings", SettingsView(state: settingsState).environmentObject(store))
+        settingsState.tab = .macOS
+        captureView("07-settings-macos", SettingsView(state: settingsState).environmentObject(store))
+        settingsState.tab = .profiles
+        captureView("07-settings-profiles", SettingsView(state: settingsState).environmentObject(store))
+        captureView("08-legend", LegendView())
 
         window.orderOut(nil)
         exit(0)
