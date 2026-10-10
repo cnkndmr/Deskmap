@@ -345,3 +345,9 @@
 "Setting up after a display change…" = "Ekran değişikliğinden sonra yerleştiriliyor…";
 "1 window not in place: %@" = "1 pencere yerinde değil: %@";
 "%ld windows not in place: %@" = "%ld pencere yerinde değil: %@";
+
+/* Uygulama grubunu taşıma */
+"Group moved" = "Grup taşındı";
+"Send group to" = "Grubu gönder";
+"Desktop %ld (%@)" = "Masaüstü %ld (%@)";
+"Drag to move the whole group to another desktop; click to collapse" = "Bütün grubu başka masaüstüne taşımak için sürükleyin; daraltmak için tıklayın";

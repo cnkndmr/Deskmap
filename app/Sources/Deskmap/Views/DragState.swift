@@ -37,6 +37,8 @@ enum DragItem: Equatable {
     case window(CGWindowID)
     /// Bir masaüstü satırı; üstündeki pinlerle birlikte sıralanır.
     case desktop(screen: String, desktop: Int)
+    /// Bir masaüstündeki uygulama grubunun tamamı (başlıktan sürüklenir).
+    case group(screen: String, desktop: Int, app: String, name: String)
 }
 
 extension View {

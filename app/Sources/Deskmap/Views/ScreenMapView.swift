@@ -786,6 +786,10 @@ private struct DesktopRow: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .gesture(groupDrag(group))
+                .help(L("Drag to move the whole group to another desktop; click to collapse"))
+                .opacity(ui.drag?.item == groupItem(group) ? 0.4 : 1)
+                .contextMenu { groupSendMenu(group) }
 
                 if !collapsed {
                     ForEach(group.windows) { window in
@@ -805,6 +809,78 @@ private struct DesktopRow: View {
                 }
             }
         }
+    }
+
+    private func groupItem(_ group: AppGroup) -> DragItem {
+        .group(screen: screen.id, desktop: desktop, app: group.id, name: group.appName)
+    }
+
+    /// Grup başlığını sürüklemek: bırakılan masaüstüne grubun her öğesi,
+    /// tek sürüklemeyle aynı kurallarla taşınır.
+    private func groupDrag(_ group: AppGroup) -> some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
+            .onChanged { value in
+                if ui.drag == nil { ui.holdFocusForDrag() }
+                ui.drag = ChipDrag(item: groupItem(group), location: value.location,
+                                   hover: ui.target(at: value.location))
+            }
+            .onEnded { value in
+                defer { ui.drag = nil }
+                guard case .desktop(let toScreen, let toDesktop)? = ui.target(at: value.location)
+                else { return }
+                moveGroup(group, to: Router.Placement(screen: toScreen, desktop: toDesktop))
+            }
+    }
+
+    @ViewBuilder private func groupSendMenu(_ group: AppGroup) -> some View {
+        let targets = GroupMovePlan.sendTargets(screens: store.screens(for: mode),
+                                                tileCounts: tileCounts, current: placement)
+        if !targets.isEmpty {
+            Menu(L("Send group to")) {
+                ForEach(targets, id: \.screen) { target in
+                    Section(target.name) {
+                        ForEach(target.desktops, id: \.desktop) { item in
+                            Button(store.desktopName(screen: target.screen, desktop: item.desktop,
+                                                     mode: mode)
+                                    .map { L("Desktop %ld (%@)", item.desktop, $0) }
+                                    ?? L("Desktop %ld", item.desktop)) {
+                                moveGroup(group, to: Router.Placement(screen: target.screen,
+                                                                      desktop: item.desktop))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Grubu taşır (bkz. `GroupMovePlan`): oturum pinleri ve pinsiz
+    /// pencereler router'da, kural hedefleri tek geri alma adımıyla belgede.
+    private func moveGroup(_ group: AppGroup, to target: Router.Placement) {
+        let plan = GroupMovePlan.make(group: group, to: target, mode: mode, isLive: isLive,
+                                      rules: store.document.rules, sessionPins: router.sessionPins)
+        guard !plan.isEmpty else { return }
+        switch ui.panel {
+        case .rule, .session: ui.panel = nil
+        default: break
+        }
+        let router = router
+        for move in plan.sessions { router.pinSession(move.window, destination: move.to) }
+        for id in plan.windows {
+            router.moveWindow(id, to: target)
+            if var draft = ui.pinDraft, draft.window.id == id {
+                draft.target = target
+                ui.panel = .pin(draft)
+            }
+        }
+        let sessions = plan.sessions
+        store.moveGroup(
+            plan.rules, mode: mode,
+            undoingSessionPins: sessions.isEmpty ? nil : {
+                for move in sessions where router.sessionPins[move.window] != nil {
+                    router.pinSession(move.window, destination: move.from)
+                }
+            })
     }
 
     /// Grup başlığındaki sayı: "3 pencere", "3 + 2 kapalı" ya da "2 kapalı".
@@ -912,7 +988,7 @@ struct SetupDifferenceTray: View {
     private var isTargeted: Bool {
         guard let drag = ui.drag, drag.hover == .tray, !drag.fromTray else { return false }
         switch drag.item {
-        case .desktop:
+        case .desktop, .group:
             return false
         case .rule(let id):
             return store.rule(id)?[mode] != nil
@@ -1149,6 +1225,13 @@ struct DragGhost: View {
                         WindowRow(window: window, mode: mode, isGhost: true)
                             .frame(width: 260)
                     }
+                case .group(_, _, _, let name):
+                    Label(name, systemImage: "square.stack")
+                        .font(.caption.weight(.medium))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color(nsColor: .controlBackgroundColor)))
+                        .overlay(Capsule().strokeBorder(Color.accentColor, lineWidth: 1))
                 case .desktop(let screen, let desktop):
                     Label(store.desktopName(screen: screen, desktop: desktop, mode: mode)
                             .map { "\(desktop) · \($0)" } ?? L("Desktop %ld", desktop),

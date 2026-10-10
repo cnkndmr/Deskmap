@@ -1645,6 +1645,20 @@ final class Store: ObservableObject {
         }
     }
 
+    /// Uygulama grubunun taşınması: kuralların hedefleri `moveRule` ile
+    /// aynı biçimde yazılır (ad bağları dahil); oturum pinleri çağıran
+    /// tarafından taşınır, `undoingSessionPins` onları geri getirir. Tek
+    /// geri alma adımı.
+    func moveGroup(_ moves: [GroupMovePlan.RuleMove], mode: Mode,
+                   undoingSessionPins: (() -> Void)? = nil) {
+        guard !moves.isEmpty || undoingSessionPins != nil else { return }
+        recording(L("Group moved"), companion: undoingSessionPins) {
+            for move in moves {
+                document.setDestination(move.destination, for: move.id, mode: mode)
+            }
+        }
+    }
+
     /// Kuralın başlık parçalarını değiştirir (geri alınabilir). Başka bir
     /// kuralla anahtar çakışırsa dokunmaz ve false döner.
     @discardableResult
