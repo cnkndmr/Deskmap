@@ -70,9 +70,9 @@ struct RuleSentence<MatchMenu: View>: View {
                 part(matchText, help: L("Which windows this applies to"), wraps: true) { matchMenu() }
             }
             Text("→").foregroundStyle(.secondary)
-            part(screenName, help: L("Display")) { screenItems }
+            part(screenName, help: L("Display"), wraps: true) { screenItems }
             Text("·").foregroundStyle(.secondary)
-            part(desktopName(destination.desktop), help: L("Desktop")) { desktopItems }
+            part(desktopName(destination.desktop), help: L("Desktop"), wraps: true) { desktopItems }
             Text("·").foregroundStyle(.secondary)
             part(destination.layout.label, help: L("Layout")) { layoutItems }
         }
@@ -83,7 +83,7 @@ struct RuleSentence<MatchMenu: View>: View {
     }
 
     /// Menü açan, bağlantı görünümlü parça. `wraps`: uzun olabilen parça
-    /// (pencere başlığı içerir); satıra sığmazsa alt satıra kırılır, sütunu
+    /// (pencere başlığı, ekran ya da masaüstü adı); satıra sığmazsa alt satıra kırılır, sütunu
     /// genişletmez.
     @ViewBuilder
     private func part<Content: View>(_ text: String, help: String, wraps: Bool = false,
