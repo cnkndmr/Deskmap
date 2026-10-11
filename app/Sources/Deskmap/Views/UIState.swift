@@ -65,8 +65,12 @@ enum BottomPanel: Equatable {
 /// menü açılınca kapandığı için her şey aynı pencerede, satır içi gösterilir.
 @MainActor
 final class UIState: ObservableObject {
-    /// Açık alt panel; nil = kapalı.
-    @Published var panel: BottomPanel?
+    /// Açık alt panel; nil = kapalı. Bir panel açılınca ⌘-seçim düşer:
+    /// seçim varken ayrıntı sütunu toplu pinleme çubuğunu gösterir, açılan
+    /// panel görünmezdi (⌘-tıklama önce paneli kapatır, sonra seçer).
+    @Published var panel: BottomPanel? {
+        didSet { if panel != nil, !selection.isEmpty { selection = [] } }
+    }
     /// Kural paneli bir pencere satırından açıldıysa o pencere; çipten
     /// açıldıysa nil. "Şu anki boyutu kullan" düğmesi ölçüyü bu pencereden
     /// okur; yoksa kurala uyan ilk pencereden.
@@ -113,18 +117,68 @@ final class UIState: ObservableObject {
         let hit = Self.matches(query: search, appName: appName, title: title)
         return (!hit, hit)
     }
-    /// Son fare basışında ⌘ basılı mıydı. Tek tıklama çift tıklama süresi
-    /// dolunca işlenir; o anda ⌘ bırakılmış olabilir, bu yüzden basış
-    /// anında yerel izleyiciyle kaydedilir.
+    /// Son fare basışında ⌘ basılı mıydı; basış anında yerel izleyiciyle
+    /// kaydedilir (dokunma işlendiğinde ⌘ bırakılmış olabilir).
     private(set) var commandAtMouseDown = false
+    /// Son fare basışının tıklama sayısı (1 tek, 2 çift tıklamanın ikincisi).
+    private(set) var clickCountAtMouseDown = 1
     private var mouseMonitor: Any?
 
     func watchCommandClicks() {
         guard mouseMonitor == nil else { return }
         mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             self?.commandAtMouseDown = event.modifierFlags.contains(.command)
+            self?.clickCountAtMouseDown = event.clickCount
             return event
         }
+    }
+
+    /// İlk tıklamadan önceki panel ve seçim; çift tıklamanın ikincisi geri yükler.
+    private var beforeClick: (panel: BottomPanel?, source: CGWindowID?, selection: Set<CGWindowID>)?
+
+    /// Satır ve çip tıklaması. Tek tıklama hemen işlenir (çift tıklama
+    /// süresini beklemez); çift tıklamanın ikinci basışı ilk tıklamanın
+    /// panel/seçim değişikliğini geri alır, sonra çift tıklama işini yapar.
+    /// Üçüncü ve sonraki basışlar yok sayılır.
+    func handleClick(single: () -> Void, double: () -> Void) {
+        handleClick(count: clickCountAtMouseDown, single: single, double: double)
+    }
+
+    func handleClick(count: Int, single: () -> Void, double: () -> Void) {
+        switch count {
+        case 1:
+            beforeClick = (panel, panelSourceWindowID, selection)
+            single()
+        case 2:
+            if let before = beforeClick {
+                panel = before.panel
+                panelSourceWindowID = before.source
+                selection = before.selection
+            }
+            beforeClick = nil
+            double()
+        default:
+            break
+        }
+    }
+
+    /// Daraltılmış grup anahtarlarını masaüstü yeniden numaralanınca taşır
+    /// (saf): `map` (ekran, masaüstü) için yeni yeri verir, nil = anahtar
+    /// düşer. Biçimi bozuk anahtar olduğu gibi kalır.
+    nonisolated static func remapCollapsed(
+        _ keys: Set<String>, _ map: (String, Int) -> (screen: String, desktop: Int)?
+    ) -> Set<String> {
+        Set(keys.compactMap { key in
+            let parts = key.split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false)
+            guard parts.count == 3, let desktop = Int(parts[1]) else { return key }
+            guard let next = map(String(parts[0]), desktop) else { return nil }
+            return "\(next.screen)|\(next.desktop)|\(parts[2])"
+        })
+    }
+
+    func remapCollapsed(_ map: (String, Int) -> (screen: String, desktop: Int)?) {
+        let next = Self.remapCollapsed(collapsed, map)
+        if next != collapsed { collapsed = next }
     }
 
     /// Sürükleme sırasında canlı durum ve bilinen hedef çerçeveleri.

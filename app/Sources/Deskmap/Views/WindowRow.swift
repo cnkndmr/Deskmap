@@ -65,15 +65,16 @@ struct WindowRow: View {
     var body: some View {
         HStack(spacing: 6) {
             if showsApp {
+                // Seçim işareti simgenin köşesinde: satırda yer kaplamaz,
+                // ⌘-tıklama başlığı kaydırmaz.
                 AppIcon(bundleID: window.bundleID, size: 16)
+                    .overlay(alignment: .bottomTrailing) {
+                        if isMultiSelected { selectionMark(size: 9).offset(x: 3, y: 3) }
+                    }
                 Text(window.appName)
                     .font(.caption.weight(.medium))
                     .lineLimit(1)
-            }
-            if isMultiSelected {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.accentColor)
+                    .layoutPriority(1)
             }
             if window.isMinimized {
                 Image(systemName: "arrow.down.right.and.arrow.up.left")
@@ -120,6 +121,10 @@ struct WindowRow: View {
         .padding(.horizontal, 8)
         .padding(.vertical, 3)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .overlay(alignment: .leading) {
+            // Gruplu satırda simge yok: işaret grubun 16 pt'lik girintisinde.
+            if !showsApp, isMultiSelected { selectionMark(size: 12).offset(x: -15) }
+        }
         .background(
             RoundedRectangle(cornerRadius: 6)
                 .fill(rowFill))
@@ -128,33 +133,16 @@ struct WindowRow: View {
                 .strokeBorder(rowStroke, lineWidth: 1))
         .contentShape(Rectangle())
         .opacity(isBeingDragged ? 0.35 : 1)
-        .onTapGesture(count: 2) {
-            // Çift tıklama: harita kapanır, pencere öne gelir, masaüstüne
-            // geçilir. Harita odak gidince kendiliğinden kapanmıyor; `dismiss`
-            // simgenin durumunu da günceller (`close()`/`hide` sonraki tıkı
-            // boşa düşürüyor; ölçüldü 07.10).
-            guard !isGhost else { return }
-            dismiss()
-            AX.focus(windowID: window.id, pid: window.pid)
-        }
         .onTapGesture {
-            // ⌘-tıklama: toplu pinleme için seçime ekle/çıkar.
-            if ui.commandAtMouseDown, !isGhost, mode == screens.mode,
-               window.placement != nil, window.fullscreen == nil {
-                ui.panel = nil
-                if ui.selection.contains(window.id) {
-                    ui.selection.remove(window.id)
-                } else {
-                    ui.selection.insert(window.id)
-                }
-                return
-            }
-            // Pinli satıra tıklamak düzen panelini açar (tekrar tıklamak kapatır).
-            if sessionPin != nil {
-                ui.toggle(.session(window.id))
-            } else if let rule = pinnedRule {
-                ui.toggle(.rule(rule.id), from: window.id)
-            }
+            ui.handleClick(single: click, double: {
+                // Çift tıklama: harita kapanır, pencere öne gelir, masaüstüne
+                // geçilir. Harita odak gidince kendiliğinden kapanmıyor; `dismiss`
+                // simgenin durumunu da günceller (`close()`/`hide` sonraki tıkı
+                // boşa düşürüyor; ölçüldü 07.10).
+                guard !isGhost else { return }
+                dismiss()
+                AX.focus(windowID: window.id, pid: window.pid)
+            })
         }
         .gesture(dragGesture, including: isGhost ? .none : .all)
         .contextMenu {
@@ -172,6 +160,36 @@ struct WindowRow: View {
 
     private var searchLook: (dimmed: Bool, highlighted: Bool) {
         isGhost ? (false, false) : ui.searchLook(appName: window.appName, title: window.title)
+    }
+
+    private func selectionMark(size: CGFloat) -> some View {
+        Image(systemName: "checkmark.circle.fill")
+            .font(.system(size: size))
+            .foregroundStyle(Color.white, Color.accentColor)
+    }
+
+    /// Tek tıklama (hemen işlenir; çift tıklamada `UIState.handleClick` geri alır).
+    private func click() {
+        // ⌘-tıklama: toplu pinleme için seçime ekle/çıkar.
+        if ui.commandAtMouseDown, !isGhost, mode == screens.mode,
+           window.placement != nil, window.fullscreen == nil {
+            ui.panel = nil
+            if ui.selection.contains(window.id) {
+                ui.selection.remove(window.id)
+            } else {
+                ui.selection.insert(window.id)
+            }
+            return
+        }
+        // Pinli satıra tıklamak düzen panelini açar (tekrar tıklamak kapatır).
+        if sessionPin != nil {
+            ui.toggle(.session(window.id))
+        } else if let rule = pinnedRule {
+            ui.toggle(.rule(rule.id), from: window.id)
+        } else if !isGhost, window.fullscreen == nil {
+            // Pinsiz satır: pin düğmesiyle aynı taslak (tekrar tıklamak kapatır).
+            togglePin()
+        }
     }
 
     // Derleyici tür denetimi zaman aşımına düşmesin diye `body` dışında.
