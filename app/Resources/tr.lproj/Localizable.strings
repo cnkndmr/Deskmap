@@ -417,6 +417,7 @@
 "Desktop %ld · %@" = "Masaüstü %ld · %@";
 "Other layouts…" = "Diğer düzenler…";
 "As it is" = "Olduğu gibi";
+"Custom" = "Özel";
 "Advanced" = "Gelişmiş";
 "every layout, margins, fixed size" = "bütün düzenler, kenar boşluğu, sabit boyut";
 "title parts, every layout, margins" = "başlık parçaları, bütün düzenler, kenar boşluğu";

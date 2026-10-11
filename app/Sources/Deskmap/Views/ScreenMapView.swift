@@ -1362,31 +1362,42 @@ struct FlowLayout: SwiftUI.Layout {
 
     private func arrange(width: CGFloat, subviews: Subviews)
         -> (size: CGSize, origins: [CGPoint], widths: [CGFloat]) {
+        // Satırdan geniş öğe satır genişliğine sığdırılır (metin kısalır ya
+        // da kırılır, dar kenar çubuğunda taşmaz) ve satırın tamamını alır:
+        // ardından gelen parça kırılan metnin yanına sıkışmaz.
+        let ideals = subviews.map { $0.sizeThatFits(.unspecified) }
+        let sizes = zip(subviews, ideals).map { subview, ideal in
+            ideal.width > width
+                ? CGSize(width: width,
+                         height: subview.sizeThatFits(ProposedViewSize(width: width, height: nil)).height)
+                : ideal
+        }
+        let placed = Self.place(sizes: sizes, width: width, spacing: spacing)
+        return (placed.size, placed.origins, ideals.map(\.width))
+    }
+
+    /// Ölçülmüş öğeleri satırlara dizer (saf). Küçülmeyen öğe de satırdan
+    /// geniş sayılmaz: düzen önerilenden geniş rapor etmez, içinde durduğu
+    /// sütunu (ör. sağdaki ayrıntı sütunu) itmez.
+    static func place(sizes: [CGSize], width: CGFloat, spacing: CGFloat)
+        -> (size: CGSize, origins: [CGPoint]) {
         var origins: [CGPoint] = []
-        var widths: [CGFloat] = []
         var x: CGFloat = 0
         var y: CGFloat = 0
         var rowHeight: CGFloat = 0
         var maxX: CGFloat = 0
-
-        for subview in subviews {
-            // Satırdan geniş öğe satır genişliğine sığdırılır (metin kısalır,
-            // dar kenar çubuğunda taşmaz).
-            let ideal = subview.sizeThatFits(.unspecified)
-            let size = ideal.width > width
-                ? subview.sizeThatFits(ProposedViewSize(width: width, height: nil))
-                : ideal
-            if x > 0, x + size.width > width {
+        for size in sizes {
+            let itemWidth = min(size.width, width)
+            if x > 0, x + itemWidth > width {
                 x = 0
                 y += rowHeight + spacing
                 rowHeight = 0
             }
             origins.append(CGPoint(x: x, y: y))
-            widths.append(subview.sizeThatFits(.unspecified).width)
-            x += size.width + spacing
+            x += itemWidth + spacing
             rowHeight = max(rowHeight, size.height)
             maxX = max(maxX, x - spacing)
         }
-        return (CGSize(width: maxX, height: y + rowHeight), origins, widths)
+        return (CGSize(width: maxX, height: y + rowHeight), origins)
     }
 }

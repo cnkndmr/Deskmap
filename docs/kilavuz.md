@@ -108,7 +108,9 @@ seçebilirsin; ya da satıra sağ tık › **Gönder**.
 
 Sabit bir satıra ya da çipe tıkla. Cümlenin altında dört düzen var: **Tam**,
 **Sol yarı**, **Sağ yarı** ve **Olduğu gibi** (yalnız masaüstü korunur;
-Deskmap pencereyi orada hiç taşımaz, boyutuna dokunmaz). Gerisi **Gelişmiş ▸**
+Deskmap pencereyi orada hiç taşımaz, boyutuna dokunmaz). Pencerenin başka bir
+düzeni varsa beşinci döşeme **Özel** onu gösterir, tam adı satırın altında
+yazar. Gerisi **Gelişmiş ▸**
 altında: başlık parçaları, üzerinde sürükleyerek alan seçilen ızgara, bütün
 hazır düzenler (%70/%30, üçte birler, çeyrekler, üst/alt yarı, orta),
 kenarlardan bırakılacak boşluk ve sabit boyut. Gelişmiş'i bir kez açarsan

@@ -113,3 +113,74 @@ struct RedesignTests {
         #expect(small <= 1000 - 2 * RootView.screenMargin)
     }
 }
+
+/// Sağ sütunun taşmaması ve kayması: akış düzeni önerilenden geniş rapor
+/// etmez, ızgara ve döşemeler sütuna sığar, sütun önce pencereyi uzatır,
+/// kaydırma yalnız seçim değişince başa döner.
+struct InspectorFitTests {
+
+    @Test func flowLayoutNeverReportsWiderThanItsRow() {
+        // Küçülmeyen 336 pt'lik parça 308 pt'lik satırda: satır genişliği aşılmaz.
+        let sizes = [CGSize(width: 60, height: 18), CGSize(width: 336, height: 18),
+                     CGSize(width: 40, height: 18)]
+        let placed = FlowLayout.place(sizes: sizes, width: 308, spacing: 4)
+        #expect(placed.size.width <= 308)
+        #expect(placed.origins[1] == CGPoint(x: 0, y: 22))
+        #expect(placed.origins[2] == CGPoint(x: 0, y: 44))
+        #expect(placed.size.height == 62)
+        // Sığanlar aynı satırda kalır.
+        let row = FlowLayout.place(sizes: [CGSize(width: 50, height: 10), CGSize(width: 50, height: 12)],
+                                   width: 308, spacing: 4)
+        #expect(row.origins[1] == CGPoint(x: 54, y: 0) && row.size == CGSize(width: 104, height: 12))
+    }
+
+    @Test func layoutGridFitsTheInspectorAndKeepsTheAspect() {
+        for aspect in [1.33, 1.54, 1.78, 2.0, 2.37, 3.56] {
+            let size = LayoutGrid.size(aspect: aspect)
+            #expect(size.width <= RootView.inspectorBudget)
+            #expect(abs(size.width / size.height - aspect) < 1e-6)
+        }
+        // Normal ekranda eski boy (170 pt yükseklik) değişmez.
+        let normal = LayoutGrid.size(aspect: 1.6)
+        #expect(abs(normal.width - 272) < 1e-6 && abs(normal.height - 170) < 1e-6)
+        #expect(RootView.inspectorBudget + 32 + RootView.scrollerGutter == RootView.inspectorWidth)
+    }
+
+    @Test func customLayoutTileGetsAShortLabel() {
+        #expect(BasicLayoutRow.shortLabel(.leftHalf) == WindowLayout.leftHalf.label)
+        let odd = WindowLayout(x: 0.1, y: 0.1, w: 0.62, h: 0.57)
+        #expect(BasicLayoutRow.shortLabel(odd) == L("Custom"))
+        #expect(BasicLayoutRow.shortLabel(.anyFrame) == L("As it is"))
+    }
+
+    @Test func tallInspectorGrowsTheWindowUntilTheRoomIsFull() {
+        let base = RootView.heights(chrome: 120, panel: 0, room: 1400, preferredTotal: 740)
+        #expect(base.map == 620)
+        // Kısa sütun haritayı değiştirmez; uzun sütun satırı uzatır.
+        #expect(RootView.heights(chrome: 120, panel: 0, room: 1400, preferredTotal: 740,
+                                 inspector: 400).map == 620)
+        #expect(RootView.heights(chrome: 120, panel: 0, room: 1400, preferredTotal: 740,
+                                 inspector: 900).map == 900)
+        // Alan dolunca sütun kendi içinde kayar.
+        #expect(RootView.heights(chrome: 120, panel: 0, room: 1000, preferredTotal: 740,
+                                 inspector: 1200).map == 880)
+    }
+
+    @Test func scrollResetsOnlyWhenTheSubjectChanges() {
+        func window(_ id: CGWindowID, _ title: String) -> Router.WindowSnapshot {
+            Router.WindowSnapshot(id: id, pid: 1, appName: "A", bundleID: "a", title: title,
+                                  placement: Router.Placement(screen: "s", desktop: 1),
+                                  frame: .zero, isMinimized: false)
+        }
+        let a = PinDraft(window: window(1, "x"), target: Router.Placement(screen: "s", desktop: 1))
+        var moved = a
+        moved.target = Router.Placement(screen: "s", desktop: 2)
+        moved.window = window(1, "y")
+        let key = RootView.inspectorSubject
+        #expect(key(false, .pin(a)) == key(false, .pin(moved)))
+        #expect(key(false, .pin(a)) != key(false, .pin(PinDraft(window: window(2, "x"), target: a.target))))
+        #expect(key(false, .rule("r1")) != key(false, .rule("r2")))
+        #expect(key(true, .rule("r1")) == key(true, nil))
+        #expect(key(false, nil) != key(false, .profile))
+    }
+}

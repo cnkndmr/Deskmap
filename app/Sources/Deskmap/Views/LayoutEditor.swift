@@ -81,7 +81,7 @@ struct LayoutEditor: View {
                     .accessibilityLabel(preset.label)
                 }
             }
-            .frame(maxWidth: 360, alignment: .leading)
+            .frame(maxWidth: RootView.inspectorBudget, alignment: .leading)
 
             Toggle(L("Fixed size"), isOn: fixedBinding)
                 .toggleStyle(.checkbox)
@@ -354,12 +354,13 @@ struct LayoutGrid: View {
         aspect >= WindowLayout.ultrawideAspect ? (24, 6) : (12, 8)
     }
 
-    /// Çizim boyutu (saf): ultra genişte 420 pt genişlik, normalde 170 pt
-    /// yükseklik; oran ekranınki.
-    static func size(aspect: Double) -> CGSize {
+    /// Çizim boyutu (saf): normalde 170 pt yükseklik, ultra genişte ve geniş
+    /// ekranda `maxWidth` (sağ sütuna sığan genişlik) kadar; oran hep
+    /// ekranınki.
+    static func size(aspect: Double, maxWidth: CGFloat = RootView.inspectorBudget) -> CGSize {
         let a = max(aspect, 0.5)
-        if a >= WindowLayout.ultrawideAspect { return CGSize(width: 420, height: max(420 / a, 70)) }
-        return CGSize(width: min(170 * a, 360), height: 170)
+        let width = a >= WindowLayout.ultrawideAspect ? maxWidth : min(170 * a, maxWidth)
+        return CGSize(width: width, height: width / a)
     }
 
     /// İki hücre arasındaki dikdörtgen (uçlar dahil) düzen olarak (saf).

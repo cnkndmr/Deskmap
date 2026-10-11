@@ -107,7 +107,9 @@ another one, or right-click the row › **Send to**.
 
 Click a pinned row or chip. Under the sentence are four layouts: **Full**,
 **Left half**, **Right half** and **As it is** (only the desktop is kept;
-Deskmap never moves or resizes the window there). Everything else is under
+Deskmap never moves or resizes the window there). If the window has some
+other layout, a fifth tile, **Custom**, shows it, with its full name under the
+row. Everything else is under
 **Advanced ▸**: the title parts, a grid to drag across, all presets (70/30,
 thirds, quarters, top/bottom half, center), a gap to leave from the edges and
 a fixed size. Advanced stays open for the next window once you open it.

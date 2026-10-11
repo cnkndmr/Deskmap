@@ -192,7 +192,20 @@ enum Shots {
         // 03b — aynı panelin "Gelişmiş" bölümü açık hâli.
         ui.showAdvanced = true
         capture("03-layout-advanced")
+
+        // 13 — uzun, bölünmeyen başlık parçası + Gelişmiş açık: sağ sütun
+        // kendi genişliğinde kalmalı (kaydırma çubuğunun altına taşmamalı).
+        store.add(DemoData.longTitleRule())
+        ui.panel = .rule(DemoData.longTitleRuleID)
+        capture("13-long-title")
+        ui.panel = .pin(PinDraft(window: DemoData.longTitleWindow(),
+                                 target: Router.Placement(screen: "builtin", desktop: 2)))
+        capture("13-long-title-pin")
         ui.showAdvanced = false
+        capture("13-long-title-pin-basic")
+        // Geri alma kaydı bırakmadan (05'in "Geri al" çubuğu bozulmasın).
+        store.document.rules.removeAll { $0.id == DemoData.longTitleRuleID }
+        ui.panel = .rule(DemoData.messagesRuleID)
 
         // 06 — serbest hareket: pinli pencerenin panelinde kalan süre ve
         // satırında sayaç. (Numara sonradan eklendi; sıra burada çünkü aynı

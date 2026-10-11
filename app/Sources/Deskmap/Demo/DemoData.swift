@@ -148,6 +148,29 @@ enum DemoData {
         return World(document: document, screens: [builtinScreen, externalScreen], windows: windows)
     }
 
+    // MARK: - Uzun başlık senaryosu
+
+    /// Uzun, bölünmeyen başlık parçalı kural ve pencere: sağ sütunun taşmadığını
+    /// gösteren kareler (13-long-title*) için; dünyaya eklenmez, Shots.swift o
+    /// kareler için ekleyip kaldırır.
+    static let longTitleRuleID = "demo-rule-long-title"
+    static let longTitleToken = "Vega"
+
+    static func longTitleRule() -> Rule {
+        Rule(id: longTitleRuleID, appName: "Preview", bundleID: "com.apple.Preview",
+             tokens: [longTitleToken, "v2"],
+             docked: Destination(screen: "external", desktop: 2, layout: .topHalf))
+    }
+
+    /// Yarım ya da tam olmayan çerçeve: temel düzen satırına beşinci döşeme gelir.
+    static func longTitleWindow() -> Router.WindowSnapshot {
+        Router.WindowSnapshot(
+            id: 13, pid: 5113, appName: "Preview", bundleID: "com.apple.Preview",
+            title: "\(longTitleToken)_v2_final.pdf — Preview",
+            placement: Router.Placement(screen: "builtin", desktop: 2),
+            frame: CGRect(x: 140, y: 120, width: 860, height: 610), isMinimized: false)
+    }
+
     private static func window(
         _ id: CGWindowID, pid: pid_t, app: String, bundle: String, title: String,
         screen: String, desktop: Int

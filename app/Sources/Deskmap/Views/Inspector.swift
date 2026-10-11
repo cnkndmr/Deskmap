@@ -67,7 +67,7 @@ struct RuleSentence<MatchMenu: View>: View {
             if MatchMenu.self == EmptyView.self {
                 Text(matchText)
             } else {
-                part(matchText, help: L("Which windows this applies to")) { matchMenu() }
+                part(matchText, help: L("Which windows this applies to"), wraps: true) { matchMenu() }
             }
             Text("→").foregroundStyle(.secondary)
             part(screenName, help: L("Display")) { screenItems }
@@ -82,20 +82,39 @@ struct RuleSentence<MatchMenu: View>: View {
         .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.05)))
     }
 
-    /// Menü açan, bağlantı görünümlü parça.
-    private func part<Content: View>(_ text: String, help: String,
+    /// Menü açan, bağlantı görünümlü parça. `wraps`: uzun olabilen parça
+    /// (pencere başlığı içerir); satıra sığmazsa alt satıra kırılır, sütunu
+    /// genişletmez.
+    @ViewBuilder
+    private func part<Content: View>(_ text: String, help: String, wraps: Bool = false,
                                      @ViewBuilder content: () -> Content) -> some View {
-        Menu {
-            content()
-        } label: {
-            Text(text)
-                .underline(pattern: .dot)
-                .foregroundStyle(Color.accentColor)
+        if wraps {
+            Menu {
+                content()
+            } label: {
+                Text(text)
+                    .underline(pattern: .dot)
+                    .foregroundStyle(Color.accentColor)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .help(help)
+        } else {
+            Menu {
+                content()
+            } label: {
+                Text(text)
+                    .underline(pattern: .dot)
+                    .foregroundStyle(Color.accentColor)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help(help)
         }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .help(help)
     }
 
     private var screenName: String {
@@ -162,6 +181,7 @@ struct BasicLayoutRow: View {
 
     var body: some View {
         let shown = Self.basic.contains(layout) ? Self.basic : Self.basic + [layout]
+        VStack(alignment: .leading, spacing: 4) {
         HStack(spacing: 6) {
             ForEach(shown, id: \.self) { candidate in
                 let isSelected = candidate == layout
@@ -176,7 +196,9 @@ struct BasicLayoutRow: View {
                             .lineLimit(1)
                             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     }
-                    .frame(width: 64)
+                    // Döşemeler sütunu paylaşır: beşinci (özel) döşeme de
+                    // sütunu taşırmaz.
+                    .frame(minWidth: 0, maxWidth: .infinity)
                     .padding(.vertical, 5)
                     .background(RoundedRectangle(cornerRadius: 6)
                         .fill(isSelected ? Color.accentColor.opacity(0.15) : Color.primary.opacity(0.04)))
@@ -190,10 +212,21 @@ struct BasicLayoutRow: View {
                 .accessibilityLabel(candidate.label)
             }
         }
+        // Özel düzenin tam adı döşemeye sığmaz; altında okunur.
+        if !Self.basic.contains(layout) {
+            Text(layout.label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        }
     }
 
+    /// Döşeme yazısı (saf): temel düzenlerin adı, başka bir düzen için kısa
+    /// "Özel" (tam adı ipucunda ve satırın altında).
     static func shortLabel(_ layout: WindowLayout) -> String {
-        layout.isDesktopOnly ? L("As it is") : layout.label
+        if layout.isDesktopOnly { return L("As it is") }
+        return basic.contains(layout) ? layout.label : L("Custom")
     }
 
     @ViewBuilder private func glyph(_ layout: WindowLayout) -> some View {

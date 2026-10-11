@@ -62,6 +62,11 @@ struct RootView: View {
 
     /// Sağdaki ayrıntı sütununun genişliği.
     static let inspectorWidth: CGFloat = 360
+    /// Eski tip (hep görünen) kaydırma çubuğunun kapladığı genişlik (≈15 pt).
+    static let scrollerGutter: CGFloat = 16
+    /// Sütundaki sabit genişlikli öğelerin (ızgara, döşemeler) her koşulda
+    /// sığması gereken genişlik: iç boşluk (2 × 16) ve kaydırma çubuğu hariç.
+    static let inspectorBudget: CGFloat = inspectorWidth - 32 - scrollerGutter
 
     /// Harita, kenar çubuğu ve ayrıntı sütunuyla toplam genişlik (saf):
     /// sütun haritadan yer almaz; ekrana sığmazsa harita daralır.
@@ -79,8 +84,9 @@ struct RootView: View {
     /// Pencerenin ekranın kullanılabilir alanının altında bıraktığı boşluk.
     static let screenMargin: CGFloat = 12
 
-    /// Ölçülen yükseklikler: "top" (üst çubuklar), "panel" (alt panel),
-    /// "bottom" (alt çubuk). Harita alanı bunlardan hesaplanır.
+    /// Ölçülen yükseklikler: "top" (üst çubuklar), "inspector" (sağ
+    /// sütunun doğal içeriği), "bottom" (alt çubuk). Harita alanı bunlardan
+    /// hesaplanır.
     @State private var heights: [String: CGFloat] = [:]
 
     /// Pencerenin üst kenarından, bulunduğu ekranın kullanılabilir alt
@@ -88,24 +94,30 @@ struct RootView: View {
     /// `screenMargin`. `WindowRoomReader` pencere ekran değiştirince ya da
     /// çözünürlük değişince yeniler; bilinmiyorsa nil.
     @State private var room: WindowRoom?
+    /// Sistem hep görünen kaydırma çubuğu kullanıyor mu (fare takılıyken);
+    /// sağ sütun o zaman çubuğun yerini baştan ayırır.
+    @State private var legacyScrollers = NSScroller.preferredScrollerStyle == .legacy
     /// Son görülen bekleyen masaüstü silmeleri (taslağı kapatmak için).
     @State private var lastPendingRemovals: [String: [PendingRemoval]]?
 
     /// Harita alanı (kenar çubuğu + harita) ve alt panelin tavanı (saf).
     /// `room`: pencereye düşen toplam yükseklik; `chrome`: üst ve alt
-    /// çubuklar; `panel`: panelin doğal yüksekliği (kapalıysa 0).
+    /// çubuklar; `panel`: panelin doğal yüksekliği (kapalıysa 0);
+    /// `inspector`: haritanın yanındaki sağ sütunun doğal yüksekliği.
     ///
     /// - Panel kapalıyken pencere `preferredTotal` olur (sığarsa).
     /// - Panel açılınca pencere aşağı uzar, harita daralmaz.
+    /// - Sağ sütun uzunsa harita satırı (sütun onun yanında) en çok alanın
+    ///   kalanı kadar uzar; sütun yalnız ekran dolunca kendi içinde kayar.
     /// - Sığmazsa önce harita taşan kadar kısalır, en az `minMapHeight`
     ///   (çok küçük ekranda alanın yarısı) kalır; panel yine sığmazsa
     ///   `panelCap` yüksekliğinde kendi içinde kayar.
     ///
     /// Sonuç her zaman: chrome + map + min(panel, panelCap) ≤ room.
     nonisolated static func heights(chrome: CGFloat, panel: CGFloat, room: CGFloat,
-                                    preferredTotal: CGFloat)
+                                    preferredTotal: CGFloat, inspector: CGFloat = 0)
         -> (map: CGFloat, panelCap: CGFloat?) {
-        let preferred = preferredTotal - chrome
+        let preferred = max(preferredTotal - chrome, inspector)
         let space = max(room - chrome, 0)
         let map = max(min(preferred, max(space - panel, min(minMapHeight, space / 2))), 0)
         let left = space - map
@@ -129,9 +141,10 @@ struct RootView: View {
     private var layoutHeights: (map: CGFloat, panelCap: CGFloat?) {
         let room = currentRoom
         return Self.heights(chrome: (heights["top"] ?? 90) + (heights["bottom"] ?? 36),
-                            panel: heights["panel"] ?? 0,
+                            panel: 0,
                             room: room.height,
-                            preferredTotal: Self.preferredHeight(visibleHeight: room.visible.height))
+                            preferredTotal: Self.preferredHeight(visibleHeight: room.visible.height),
+                            inspector: heights["inspector"] ?? 0)
     }
 
     /// Sürüklerken: pinli pencere bırakılınca kaydedilen hedef güncellenir,
@@ -240,9 +253,25 @@ struct RootView: View {
 
                 // Sağ: seçili pencerenin ayrıntısı. Sütun hep yerinde durur
                 // (pencere tıklamayla genişleyip daralmasın); seçim yoksa
-                // ipuçları.
-                ScrollView {
-                    inspector
+                // ipuçları. İçerik genişliği kaydırma çubuğu çıksa da
+                // değişmez (sütun yana kaymasın); yüksekliği ölçülür, pencere
+                // önce uzar, sütun yalnız ekran dolunca kayar.
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            Color.clear.frame(height: 0).id(Self.inspectorTop)
+                            inspector
+                        }
+                        .frame(width: Self.inspectorWidth - (legacyScrollers ? Self.scrollerGutter : 0),
+                               alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .measuresHeight("inspector")
+                    }
+                    // Başka pencere ya da kural seçilince baştan başlar; aynı
+                    // pencerenin taslağı güncellenince yerinde kalır.
+                    .onChange(of: Self.inspectorSubject(multi: showsMultiPin, panel: ui.panel)) { _ in
+                        proxy.scrollTo(Self.inspectorTop, anchor: .top)
+                    }
                 }
                 .frame(width: Self.inspectorWidth)
             }
@@ -259,6 +288,10 @@ struct RootView: View {
         .frame(width: totalWidth)
         .fixedSize(horizontal: false, vertical: true)
         .onPreferenceChange(HeightPreference.self) { heights = $0 }
+        .onReceive(NotificationCenter.default.publisher(
+            for: NSScroller.preferredScrollerStyleDidChangeNotification)) { _ in
+            legacyScrollers = NSScroller.preferredScrollerStyle == .legacy
+        }
         .background(WindowRoomReader(margin: Self.screenMargin) { room = $0 })
         .background(.regularMaterial)
         .onAppear {
@@ -441,10 +474,29 @@ struct RootView: View {
 
     // MARK: - Ayrıntı sütunu
 
+    private static let inspectorTop = "inspectorTop"
+
+    /// Çoklu seçim çubuğu mu gösteriliyor.
+    private var showsMultiPin: Bool { !ui.selection.isEmpty && mode == screens.mode }
+
+    /// Sütunda neyin gösterildiği (saf): kaydırma yalnız bu değişince başa
+    /// döner. Taslağın kendisi değil penceresi sayılır; pencere hareket edince
+    /// ya da hedef sürüklenince taslak yeniden yazılır, sütun zıplamamalı.
+    nonisolated static func inspectorSubject(multi: Bool, panel: BottomPanel?) -> String {
+        if multi { return "multi" }
+        switch panel {
+        case .pin(let draft): return "pin-\(draft.window.id)"
+        case .rule(let id): return "rule-\(id)"
+        case .session(let id): return "session-\(id)"
+        case .profile: return "profile"
+        case nil: return "none"
+        }
+    }
+
     /// Açık panele göre içerik; pin taslağı yalnızca şu anki modda anlamlı.
     @ViewBuilder
     private var inspector: some View {
-        if !ui.selection.isEmpty, mode == screens.mode {
+        if showsMultiPin {
             MultiPinBar(mode: mode)
                 .inspectorChrome()
         } else {
