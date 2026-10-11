@@ -997,6 +997,8 @@ final class Router: ObservableObject {
     }
 
     private func saveSessionPins() {
+        // Shots modu gerçek kullanıcının dosyasına yazmasın.
+        guard !isDemo else { return }
         do {
             try FileManager.default.createDirectory(
                 at: Store.directoryURL, withIntermediateDirectories: true)
