@@ -12,6 +12,8 @@ struct PinPanelHeader<Trailing: View>: View {
     let close: () -> Void
     @ViewBuilder let trailing: () -> Trailing
 
+    @EnvironmentObject private var ui: UIState
+
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             AppIcon(bundleID: bundleID, size: 28)
@@ -29,7 +31,7 @@ struct PinPanelHeader<Trailing: View>: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.borderless)
-            .keyboardShortcut(.cancelAction)
+            .keyboardShortcut(ui.cancelShortcut)
             .help(L("Close (Esc)"))
             .accessibilityLabel(L("Close"))
         }
@@ -244,11 +246,13 @@ struct RulePanel: View {
         } else if let title = sourceTitle {
             VStack(alignment: .leading, spacing: 6) {
                 TokenPicker(segments: segments, chosen: $chosen, appWide: $appWide)
-                HStack(spacing: 8) {
+                // Açıklama sarar: çakışmada sondaki sabitleme adı kesilmesin.
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
                     Text(tokenCaption)
                         .font(.caption2)
                         .foregroundStyle(conflict != nil ? Color.orange : Color.secondary)
-                        .lineLimit(1)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .help(tokenCaption)
                     Spacer()
                     Button(L("Apply")) {
                         store.setTokens(draftTokens, for: rule.id)
@@ -440,34 +444,36 @@ struct FreeMoveRow: View {
     /// gösterilir ve kalanlar için süre menüsü açık kalır.
     private func active(remaining: TimeInterval, free: [CGWindowID]) -> some View {
         let rest = windowIDs.filter { !free.contains($0) }
-        return HStack(spacing: 8) {
-            Image(systemName: "timer")
-                .foregroundStyle(Color.teal)
-            Text(L("Free to move · %@ left", Router.freeMoveRemaining(remaining)))
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(Color.teal)
-            if rest.isEmpty {
-                Text(L("Then it goes back to its pin."))
+        // İki satır: geri sayım ve açıklama üstte (sarmadan), düğmeler altta.
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Image(systemName: "timer")
+                    .foregroundStyle(Color.teal)
+                Text(L("Free to move · %@ left", Router.freeMoveRemaining(remaining)))
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(Color.teal)
+                    .fixedSize()
+                Text(rest.isEmpty ? L("Then it goes back to its pin.")
+                                  : L("%ld of %ld windows", free.count, windowIDs.count))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
-            } else {
-                Text(L("%ld of %ld windows", free.count, windowIDs.count))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Spacer()
-            if !rest.isEmpty {
-                durationMenu(for: rest)
+            HStack(spacing: 8) {
+                Spacer()
+                if !rest.isEmpty {
+                    durationMenu(for: rest)
+                }
+                Button(L("+5 min")) {
+                    router.extendFreeMove(free, by: 5 * 60)
+                }
+                .controlSize(.small)
+                Button(L("End now")) {
+                    router.endFreeMove(free)
+                }
+                .controlSize(.small)
+                .help(L("End free movement; the window goes back to its pin"))
             }
-            Button(L("+5 min")) {
-                router.extendFreeMove(free, by: 5 * 60)
-            }
-            .controlSize(.small)
-            Button(L("End now")) {
-                router.endFreeMove(free)
-            }
-            .controlSize(.small)
-            .help(L("End free movement; the window goes back to its pin"))
         }
     }
 
@@ -524,22 +530,25 @@ struct SaveCurrentLayoutRow: View {
         return window.currentLayout(like: stored, screens: screens.screens)
     }
 
+    /// Açıklama üstte sarar, düğme altta sağda: yan yana açıklamaya yer kalmıyordu.
     var body: some View {
-        HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(caption)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-                .lineLimit(1)
-            Spacer()
-            Button {
-                if let current { save(current) }
-            } label: {
-                Label(L("Use current size and position"),
-                      systemImage: "arrow.down.right.and.arrow.up.left")
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Spacer()
+                Button {
+                    if let current { save(current) }
+                } label: {
+                    Label(L("Use current size and position"),
+                          systemImage: "arrow.down.right.and.arrow.up.left")
+                }
+                .controlSize(.small)
+                .disabled(current == nil || current == stored)
+                .help(L("Save the window's current position and size as this pin's layout. Screen and desktop stay the same."))
             }
-            .controlSize(.small)
-            .disabled(current == nil || current == stored)
-            .help(L("Save the window's current position and size as this pin's layout. Screen and desktop stay the same."))
         }
     }
 

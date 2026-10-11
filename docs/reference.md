@@ -127,7 +127,7 @@ reminder (the card comes back if one of the live-checked settings changes).
    project name rather than the file name. The panel shows how many open
    windows match right now. Pick a layout if you want one (the default is
    the window's current position and size).
-4. Click **Pin** (or press Return). From now on, every window of that app
+4. Click **Pin** (or press ⌘Return). From now on, every window of that app
    whose title contains that part goes to this desktop, in this layout.
 5. To pin the window to a different desktop, drag its row or chip onto
    another desktop row on the map.
@@ -489,8 +489,8 @@ These work while the Deskmap window is open and focused.
 | ⌘R | Place pinned windows now |
 | ⌘1 / ⌘2 | Show the *Monitor connected* / *Laptop only* setup |
 | ⌘Z | Undo the last action (while the "· Undo" link is visible) |
-| Return | Confirm the pin panel (**Pin**) |
-| Esc | Close the open panel at the bottom |
+| ⌘Return | Confirm the pin panel (**Pin**) or pin the ⌘-clicked windows |
+| Esc | Close the open panel, or clear the ⌘-click selection (while typing in the search or a desktop name field, Esc acts on the field first) |
 
 ## Troubleshooting
 

@@ -111,45 +111,63 @@ struct ProfilePanel: View {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                     }
                     .buttonStyle(.borderless)
-                    .keyboardShortcut(.cancelAction)
+                    .keyboardShortcut(ui.cancelShortcut)
                     .help(L("Close (Esc)"))
                     .accessibilityLabel(L("Close"))
                 }
 
-                HStack(spacing: 8) {
-                    Text(profile.rules.count == 1 ? L("1 pin") : L("%ld pins", profile.rules.count))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button {
-                        store.addProfile(named: L("%@ copy", profile.name), copyingCurrent: true)
-                        name = store.activeProfile?.name ?? ""
-                    } label: {
-                        Label(L("Duplicate"), systemImage: "doc.on.doc")
+                // Türkçede sayı ve üç düğme tek satıra sığmıyor ("Dışa ak…"):
+                // sığmazsa sayı üstte, düğmeler altta.
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        pinCount(profile)
+                        Spacer()
+                        actions(profile)
                     }
-                    .help(L("Create a new profile with these pins"))
-
-                    Button {
-                        ProfileFiles.exportProfile(profile.id, from: store)
-                    } label: {
-                        Label(L("Export"), systemImage: "square.and.arrow.up")
+                    VStack(alignment: .leading, spacing: 6) {
+                        pinCount(profile)
+                        HStack(spacing: 8) { actions(profile) }
                     }
-                    .help(L("Save as %@.deskmap.json", profile.name))
-
-                    Button(role: .destructive) {
-                        store.deleteProfile(profile.id)
-                        name = store.activeProfile?.name ?? ""
-                    } label: {
-                        Label(L("Delete"), systemImage: "trash")
-                    }
-                    .disabled(store.profiles.count < 2)
-                    .help(store.profiles.count < 2 ? L("The last profile cannot be deleted") : L("Delete profile"))
                 }
                 .controlSize(.small)
             }
             .onAppear { name = profile.name }
             .onChange(of: profile.id) { _ in name = store.activeProfile?.name ?? "" }
         }
+    }
+
+    private func pinCount(_ profile: Profile) -> some View {
+        Text(profile.rules.count == 1 ? L("1 pin") : L("%ld pins", profile.rules.count))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .fixedSize()
+    }
+
+    /// Kopyala, dışa aktar, sil; etiketler hiç kısaltılmaz.
+    @ViewBuilder private func actions(_ profile: Profile) -> some View {
+        Button {
+            store.addProfile(named: L("%@ copy", profile.name), copyingCurrent: true)
+            name = store.activeProfile?.name ?? ""
+        } label: {
+            Label(L("Duplicate"), systemImage: "doc.on.doc")
+        }
+        .help(L("Create a new profile with these pins"))
+
+        Button {
+            ProfileFiles.exportProfile(profile.id, from: store)
+        } label: {
+            Label(L("Export"), systemImage: "square.and.arrow.up")
+        }
+        .help(L("Save as %@.deskmap.json", profile.name))
+
+        Button(role: .destructive) {
+            store.deleteProfile(profile.id)
+            name = store.activeProfile?.name ?? ""
+        } label: {
+            Label(L("Delete"), systemImage: "trash")
+        }
+        .disabled(store.profiles.count < 2)
+        .help(store.profiles.count < 2 ? L("The last profile cannot be deleted") : L("Delete profile"))
     }
 }
 

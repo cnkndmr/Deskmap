@@ -318,12 +318,16 @@
 "Double-click opens %@" = "Çift tıklama %@ açar";
 "%@ is open, but Deskmap does not know this window's file or folder yet. Open it once; after that a double-click opens it." = "%@ açık, ama Deskmap bu pencerenin dosyasını ya da klasörünü henüz bilmiyor. Bir kez açın; sonra çift tıklama onu açar.";
 "Windows pinned" = "Pencereler sabitlendi";
+"1 window selected" = "1 pencere seçili";
 "%ld windows selected" = "%ld pencere seçili";
 "Each is pinned to its current desktop with its current size and position." = "Her biri bulunduğu masaüstüne, şu anki boyut ve konumuyla sabitlenir.";
-"%ld of them only until the window closes: their titles also match other open windows." = "%ld tanesi yalnız pencere kapanana dek: başlıkları başka açık pencerelere de uyuyor.";
+"1 window is pinned only until it closes: its title also matches other open windows." = "1 pencere yalnız kapanana dek sabitlenir: başlığı başka açık pencerelere de uyuyor.";
+"%ld windows are pinned only until they close: their titles also match other open windows." = "%ld pencere yalnız kapanana dek sabitlenir: başlıkları başka açık pencerelere de uyuyor.";
 "⌘-click windows to add or remove them." = "Eklemek ya da çıkarmak için pencerelere ⌘ ile tıklayın.";
-"Pin %ld where they are" = "%ld pencereyi olduğu yerde sabitle";
+"Pin %ld where they are" = "%ld pencereyi olduğu yere sabitle";
 "Clear" = "Seçimi kaldır";
+"Clear (Esc)" = "Seçimi kaldır (Esc)";
+"Pin (⌘Return)" = "Sabitle (⌘Return)";
 
 "Desktop only" = "Yalnız masaüstü";
 "Desktop only (keep position and size)" = "Yalnız masaüstü (konum ve boyut serbest)";
@@ -331,8 +335,8 @@
 "Send Desktop to %@" = "Masaüstünü %@ ekranına gönder";
 "All windows of %@" = "%@ uygulamasının bütün pencereleri";
 "This window (%@)" = "Bu pencere (%@)";
-"Matches the file %@" = "Şu dosyaya uyar: %@";
-"Matches: \"%@\"" = "Eşleşen: \"%@\"";
+"Matches the file %@." = "Şu dosyaya uyar: %@.";
+"Matches titles containing “%@”." = "Başlığında “%@” geçen pencerelere uyar.";
 "Narrowed by %ld more detail(s) from the title." = "Başlıktaki %ld ayrıntıyla daraltıldı.";
 "This window has no stable name to match." = "Bu pencerenin eşleşecek kararlı bir adı yok.";
 "Accessibility permission is missing" = "Erişilebilirlik izni yok";

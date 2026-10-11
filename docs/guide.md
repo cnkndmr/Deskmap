@@ -79,7 +79,7 @@ has assigned the app to a desktop itself, it will fight over the window.
    If the window has no stable key (every part of its title changes, like a
    Safari window without a tab group) or the key would also match another
    open window, only **All windows** is offered.
-5. Click **Pin** (or press Return).
+5. Click **Pin** (or press ⌘Return).
 
 Several windows at once: **Pin all … where they are** in the *Unassigned
 windows* box (or ⌘-click rows) selects them; confirm in the right-hand
