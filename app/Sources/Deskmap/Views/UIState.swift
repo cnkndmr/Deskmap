@@ -81,6 +81,13 @@ final class UIState: ObservableObject {
     /// Daraltılmış uygulama grupları ("plan|ekran|masaüstü|bundleID",
     /// `collapseKey`). Plan anahtarda: iki plan sekmesi ayrı numaralanır.
     @Published var collapsed: Set<String> = []
+    /// Görsel haritada pencere listesi açık kartlar ("plan|ekran|masaüstü",
+    /// `listKey`). Masaüstleri yeniden numaralanınca taşınmaz: en kötü
+    /// durumda liste komşu kartta açık kalır.
+    @Published var listedDesktops: Set<String> = []
+    nonisolated static func listKey(mode: Mode, screen: String, desktop: Int) -> String {
+        "\(mode.rawValue)|\(screen)|\(desktop)"
+    }
     /// Adı düzenlenen masaüstü ("plan|ekran|masaüstü"); düzenleme sürerken
     /// o ekran kartının etiket sütunu geniştir.
     @Published var renamingDesktop: String?
@@ -102,6 +109,9 @@ final class UIState: ObservableObject {
     }
     /// false: tercihler diske yazılmaz (Shots modu).
     var persistsPreferences = true
+    /// Shots modu: haritanın plan sekmesini buna çevirir (kullanıcı arayüzü
+    /// bunu hiç yazmaz; sekme `RootView`'ın kendi durumunda).
+    @Published var requestedPlan: Mode?
     /// Haritada pencere arama metni; boşsa arama yok.
     @Published var search = ""
     /// Şu an odakta olan metin alanları (arama, masaüstü adı). Biri

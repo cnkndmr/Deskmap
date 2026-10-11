@@ -225,8 +225,6 @@
 "Deskmap works offline: it makes no network connections and never reads what is inside your windows, only their titles, positions and desktops." = "Deskmap çevrimdışı çalışır: ağ bağlantısı kurmaz ve pencerelerinin içeriğini asla okumaz; yalnız başlıklarını, konumlarını ve masaüstlerini.";
 
 /* Neden burada? ve sürükleme ipucu */
-"Why here: temporary pin for this window → %@ (%@)" = "Neden burada: bu pencerenin geçici sabitlemesi → %1$@ (%2$@)";
-"Why here: pin \"%@\" → %@ (%@)" = "Neden burada: \"%1$@\" sabitlemesi → %2$@ (%3$@)";
 "Pinned: dropping it updates the saved desktop." = "Sabit: bırakınca kayıtlı masaüstü güncellenir.";
 "Not pinned: dropping it moves the window once; nothing is saved." = "Sabit değil: bırakınca pencere bir kez taşınır, hiçbir şey kaydedilmez.";
 
@@ -451,10 +449,8 @@
 "Clear the search" = "Aramayı temizle";
 "Visual" = "Görsel";
 "List" = "Liste";
-"Visual shows a small picture of each desktop next to its windows" = "Görsel, her masaüstünün küçük resmini pencerelerinin yanında gösterir";
 "What Deskmap moved, when and where" = "Deskmap neyi, ne zaman, nereye taşıdı";
 "Pin it where it is…" = "Olduğu yere sabitle…";
-"Pin all %ld where they are…" = "Hepsini olduğu yere sabitle (%ld)…";
 "Each window is pinned to its current desktop with its current size and position. You confirm on the right." = "Her pencere şu anki masaüstüne, şu anki boyut ve konumuyla sabitlenir. Sağda onaylarsın.";
 "Welcome guide" = "Başlangıç rehberi";
 "The three first steps: permission, macOS settings, how to start." = "İlk üç adım: izin, macOS ayarları, nasıl başlanacağı.";
@@ -482,3 +478,25 @@
 "Close the guide; it can be opened again from Settings › General" = "Rehberi kapat; Ayarlar › Genel'den yeniden açılabilir";
 "Back" = "Geri";
 "Continue" = "Devam";
+
+/* Görsel harita: masaüstü kartları */
+"· %ld desktops" = "· %ld masaüstü";
+"Add desktop" = "Masaüstü ekle";
+"Empty · drag a window here" = "Boş · bir pencereyi buraya sürükle";
+"Hide the window list" = "Pencere listesini gizle";
+"Show this desktop's windows as a list" = "Bu masaüstünün pencerelerini liste olarak göster";
+"+%ld more" = "+%ld daha";
+"Not drawn here: %@. Click to list this desktop's windows." = "Burada çizilmeyenler: %@. Bu masaüstünün pencerelerini listelemek için tıkla.";
+"macOS gives a full-screen window its own desktop; Deskmap leaves it alone." = "macOS tam ekran pencereye kendi masaüstünü açar; Deskmap ona dokunmaz.";
+"Visual: each desktop is a card with its windows drawn where they sit. List: one row per desktop." = "Görsel: her masaüstü bir kart, pencereler durdukları yerde çizili. Liste: her masaüstü bir satır.";
+"now: %@" = "şu an: %@";
+"Quick start" = "Hızlı başlangıç";
+"If your windows are fine where they are, pin them all where they are; then fix them one by one." = "Pencerelerin şu an iyi duruyorsa hepsini olduğu yere sabitle; sonra tek tek düzeltirsin.";
+"Pin all where they are (%ld)" = "Hepsini olduğu yere sabitle (%ld)";
+"Why here?" = "Neden burada?";
+"Why here: %@" = "Neden burada: %@";
+"temporary pin for this window → %@ (%@)" = "bu pencerenin geçici sabitlemesi → %1$@ (%2$@)";
+"pin \"%@\" → %@ (%@)" = "\"%1$@\" sabitlemesi → %2$@ (%3$@)";
+"This takes effect when the %@ plan is active; nothing moves now." = "Bu, %@ planı etkinleşince uygulanır; şimdi hiçbir pencere taşınmaz.";
+"Deskmap puts matching windows back here whenever they open or are moved somewhere else by hand." = "Uyan pencereler her açıldığında ya da elle başka yere taşındığında Deskmap onları buraya geri koyar.";
+"1 window" = "1 pencere";

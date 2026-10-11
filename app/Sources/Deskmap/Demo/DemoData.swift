@@ -171,6 +171,164 @@ enum DemoData {
             frame: CGRect(x: 140, y: 120, width: 860, height: 610), isMinimized: false)
     }
 
+    // MARK: - Kalabalık senaryo (`--scenario crowded`)
+
+    /// Görsel haritanın gerçek kullanımdaki hâli: laptop + harici ekran,
+    /// adlı masaüstleri, bir masaüstünde 10 tam boy pencere, iki pencereli
+    /// Terminal grubu, penceresi kapalı 4 Preview sabitlemesi, uzun başlık,
+    /// boş ve eksik masaüstü, tam ekran space. Kişisel veri yok.
+    static let crowdedOutlookRuleID = "crowded-rule-outlook"
+    static let crowdedOutlookWindowID: CGWindowID = 102
+    static let crowdedMessagesWindowID: CGWindowID = 109
+    static let crowdedFreeWindowID: CGWindowID = 131
+    static let crowdedVegaRuleID = "crowded-rule-Vega"
+    static let crowdedVegaWindowID: CGWindowID = 121
+
+    private static let retinaScreen = ScreenInfo(
+        id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0002", name: "Built-in Retina Display",
+        isBuiltin: true, frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+        visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 945))
+
+    private static let monitorScreen = ScreenInfo(
+        id: "external", uuid: "DEMO-EXTERNAL-SCREEN-0002", name: "Studio Display",
+        isBuiltin: false, frame: CGRect(x: 1512, y: -248, width: 2560, height: 1440),
+        visibleFrame: CGRect(x: 1512, y: -248, width: 2560, height: 1415))
+
+    /// Ekran başına gerçek masaüstü sayısı (Shots bunu sabitler): laptopta 4,
+    /// bu yüzden 5. masaüstüne sabitli pin "eksik" görünür.
+    static let crowdedDesktopCounts = ["builtin": 4, "external": 3]
+
+    static func crowded() -> World {
+        func dest(_ screen: String, _ desktop: Int, _ layout: WindowLayout = .full) -> Destination {
+            Destination(screen: screen, desktop: desktop, layout: layout)
+        }
+        func rule(id: String? = nil, _ app: String, _ bundle: String, _ tokens: [String],
+                  docked: Destination?, undocked: Destination? = nil) -> Rule {
+            if let id {
+                return Rule(id: id, appName: app, bundleID: bundle, tokens: tokens,
+                            docked: docked, undocked: undocked)
+            }
+            return Rule(appName: app, bundleID: bundle, tokens: tokens, docked: docked, undocked: undocked)
+        }
+
+        let rules: [Rule] = [
+            // Laptop · Masaüstü 1 "AI Setup": hepsi tam boy.
+            rule("Calendar", "com.apple.iCal", [],
+                 docked: dest("builtin", 1), undocked: dest("builtin", 1)),
+            rule(id: crowdedOutlookRuleID, "Microsoft Outlook", "com.microsoft.Outlook", [],
+                 docked: dest("builtin", 1), undocked: dest("builtin", 1)),
+            rule("Microsoft Teams", "com.microsoft.teams2", [],
+                 docked: dest("builtin", 1), undocked: dest("builtin", 1)),
+            rule("Reminders", "com.apple.reminders", [], docked: dest("builtin", 1)),
+            rule("ChatGPT", "com.openai.codex", [], docked: dest("builtin", 1),
+                 undocked: dest("builtin", 2)),
+            rule("Claude", "com.anthropic.claudefordesktop", [], docked: dest("builtin", 1),
+                 undocked: dest("builtin", 2)),
+            rule("OpenCode", "ai.opencode.desktop", [], docked: dest("builtin", 1)),
+            rule("Safari", "com.apple.Safari", ["Acme"], docked: dest("builtin", 1)),
+            // Masaüstü 2 "Notes Hub": Obsidian tam, iki Terminal sağ yarıda.
+            rule("Obsidian", "md.obsidian", [], docked: dest("builtin", 2),
+                 undocked: dest("builtin", 3)),
+            rule("Terminal", "com.apple.Terminal", [], docked: dest("builtin", 2, .rightHalf),
+                 undocked: dest("builtin", 3, .rightHalf)),
+            // Masaüstü 3 "Nova Projesi": uzun başlıklı PDF, kod,
+            // penceresi kapalı dört PDF.
+            rule(id: crowdedVegaRuleID, "Preview", "com.apple.Preview", [longTitleToken],
+                 docked: dest("builtin", 3, .leftHalf), undocked: dest("builtin", 4)),
+            rule("Visual Studio Code", "com.microsoft.VSCode", ["Nova"],
+                 docked: dest("builtin", 3, .rightHalf), undocked: dest("builtin", 4)),
+            rule("Preview", "com.apple.Preview", ["Orion"],
+                 docked: dest("builtin", 3), undocked: dest("builtin", 4)),
+            rule("Preview", "com.apple.Preview", ["Nova_draft"],
+                 docked: dest("builtin", 3), undocked: dest("builtin", 4)),
+            rule("Preview", "com.apple.Preview", ["Expo_template"],
+                 docked: dest("builtin", 3), undocked: dest("builtin", 4)),
+            rule("Preview", "com.apple.Preview", ["Comet_notes"],
+                 docked: dest("builtin", 3), undocked: dest("builtin", 4)),
+            // Masaüstü 5 "Lumen Makale" bu laptopta yok (gerçekte 4 masaüstü).
+            rule("Notes", "com.apple.Notes", ["Lumen"], docked: dest("builtin", 5)),
+            // Harici · Masaüstü 1 "Orion Projesi".
+            rule("Safari", "com.apple.Safari", ["Orion"],
+                 docked: dest("external", 1, .leftHalf), undocked: dest("builtin", 4)),
+            rule("Visual Studio Code", "com.microsoft.VSCode", ["Orion"],
+                 docked: dest("external", 1, .rightHalf)),
+            // Harici · Masaüstü 2.
+            rule("Mail", "com.apple.mail", [], docked: dest("external", 2),
+                 undocked: dest("builtin", 2)),
+        ]
+
+        var document = Document()
+        document.enabled = true
+        document.setupNoticeDismissed = true
+        document.screens = [retinaScreen.known, monitorScreen.known]
+        let profile = Profile(id: "crowded-profile", name: "Desk", rules: rules)
+        document.profiles = [profile]
+        document.activeProfileID = profile.id
+        document.rules = rules
+        for mode in Mode.allCases {
+            _ = document.setDesktopName("AI Setup", screen: "builtin", desktop: 1, mode: mode)
+            _ = document.setDesktopName("Notes Hub", screen: "builtin", desktop: 2, mode: mode)
+            _ = document.setDesktopName("Nova Projesi", screen: "builtin", desktop: 3,
+                                        mode: mode)
+            _ = document.setDesktopName("Lumen Makale", screen: "builtin", desktop: 5, mode: mode)
+        }
+        _ = document.setDesktopName("Orion Projesi", screen: "external", desktop: 1, mode: .docked)
+
+        let screens = [retinaScreen, monitorScreen]
+        // AX koordinatlarında (sol üst köşe tabanlı) ekranın kullanılabilir
+        // alanına göre bir çerçeve: pinsiz pencereler gerçek yerinde çizilir.
+        func frame(_ screen: ScreenInfo, _ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
+            let area = Coordinates.axRect(fromCocoa: screen.visibleFrame, screens: screens)
+            return CGRect(x: area.minX + area.width * x, y: area.minY + area.height * y,
+                          width: area.width * w, height: area.height * h)
+        }
+        func win(_ id: CGWindowID, _ app: String, _ bundle: String, _ title: String,
+                 _ screen: String, _ desktop: Int, frame: CGRect? = nil) -> Router.WindowSnapshot {
+            Router.WindowSnapshot(
+                id: id, pid: pid_t(6000 + Int(id)), appName: app, bundleID: bundle, title: title,
+                placement: Router.Placement(screen: screen, desktop: desktop),
+                frame: frame, isMinimized: false)
+        }
+        let windows: [Router.WindowSnapshot] = [
+            win(101, "Calendar", "com.apple.iCal", "Calendar", "builtin", 1),
+            win(crowdedOutlookWindowID, "Microsoft Outlook", "com.microsoft.Outlook",
+                "Inbox • Acme Acme", "builtin", 1),
+            win(103, "Microsoft Teams", "com.microsoft.teams2", "Chat | Team weekly | Microsoft Teams",
+                "builtin", 1),
+            win(104, "Reminders", "com.apple.reminders", "Reminders", "builtin", 1),
+            win(105, "ChatGPT", "com.openai.codex", "ChatGPT", "builtin", 1),
+            win(106, "Claude", "com.anthropic.claudefordesktop", "Claude", "builtin", 1),
+            win(107, "OpenCode", "ai.opencode.desktop", "OpenCode — Atlas", "builtin", 1),
+            win(108, "Safari", "com.apple.Safari", "Acme Intranet — Safari", "builtin", 1),
+            // Geçici sabitleme (turuncu), tam boy.
+            win(crowdedMessagesWindowID, "Messages", "com.apple.MobileSMS", "Messages", "builtin", 1),
+            // Pinsiz, kendi yerinde ve boyunda.
+            win(110, "Notes", "com.apple.Notes", "Quick Note", "builtin", 1,
+                frame: frame(retinaScreen, 0.62, 0.30, 0.34, 0.55)),
+            win(111, "Obsidian", "md.obsidian", "Hub — Obsidian", "builtin", 2),
+            win(112, "Terminal", "com.apple.Terminal", "~/Documents/Atlas — zsh", "builtin", 2),
+            win(113, "Terminal", "com.apple.Terminal", "claude — Atlas — 120×40", "builtin", 2),
+            win(crowdedVegaWindowID, "Preview", "com.apple.Preview",
+                "\(longTitleToken)_v2_final.pdf — Preview", "builtin", 3),
+            win(122, "Visual Studio Code", "com.microsoft.VSCode", "vega.py — Nova",
+                "builtin", 3),
+            win(130, "Safari", "com.apple.Safari", "Orion — Overleaf — Safari", "external", 1),
+            win(crowdedFreeWindowID, "Visual Studio Code", "com.microsoft.VSCode",
+                "comet.py — Orion", "external", 1),
+            win(140, "Mail", "com.apple.mail", "Inbox — Mail", "external", 2),
+            win(141, "Finder", "com.apple.finder", "Downloads", "external", 2,
+                frame: frame(monitorScreen, 0.55, 0.45, 0.32, 0.38)),
+            win(150, "Music", "com.apple.Music", "Music", "external", 3,
+                frame: frame(monitorScreen, 0.12, 0.10, 0.50, 0.62)),
+            Router.WindowSnapshot(
+                id: 160, pid: 6160, appName: "Keynote", bundleID: "com.apple.iWork.Keynote",
+                title: "Q3 Review — Keynote", placement: nil, frame: nil, isMinimized: false,
+                fullscreen: Router.FullscreenSlot(
+                    screen: "external", space: 9101, afterDesktop: 2, order: 2)),
+        ]
+        return World(document: document, screens: screens, windows: windows)
+    }
+
     private static func window(
         _ id: CGWindowID, pid: pid_t, app: String, bundle: String, title: String,
         screen: String, desktop: Int

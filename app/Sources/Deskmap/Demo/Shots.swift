@@ -17,6 +17,9 @@ enum Shots {
         var directory: String
         /// Yalnızca bu adlardaki kareler üretilsin (ör. "01-map"); nil = hepsi.
         var only: Set<String>?
+        /// `--scenario crowded`: kalabalık demo dünyası ve görsel harita
+        /// kareleri (`g…`); nil = mağaza/kılavuz kareleri.
+        var scenario: String? = nil
     }
 
     /// `--shots <dizin>` (zorunlu, yoksa nil döner ve normal uygulama açılır)
@@ -36,7 +39,11 @@ enum Shots {
                 .filter { !$0.isEmpty }
             only = Set(names)
         }
-        return Options(directory: directory, only: only)
+        var scenario: String?
+        if let index = arguments.firstIndex(of: "--scenario"), arguments.indices.contains(index + 1) {
+            scenario = arguments[index + 1]
+        }
+        return Options(directory: directory, only: only, scenario: scenario)
     }
 
     /// Bu kare `--only` süzgeciyle üretilmeli mi (saf).
@@ -53,7 +60,8 @@ enum Shots {
     static func run(_ options: Options) -> Never {
         NSApplication.shared.setActivationPolicy(.accessory)
 
-        let world = DemoData.make()
+        let crowded = options.scenario == "crowded"
+        let world = crowded ? DemoData.crowded() : DemoData.make()
         let store = Store(demo: world.document)
         let screens = ScreenService(demo: world.screens)
         let router = Router(store: store, screens: screens, demoWindows: world.windows)
@@ -105,7 +113,7 @@ enum Shots {
         // Gerçek makinenin SkyLight verisi bizim uydurma ekran UUID'lerimizle
         // hiç eşleşmez; "eksik masaüstü" rozetini sergilemek için ekran
         // başına gerçek masaüstü sayısını burada elle sabitliyoruz.
-        let fixedDesktopCounts = ["builtin": 4, "external": 3]
+        let fixedDesktopCounts = crowded ? DemoData.crowdedDesktopCounts : ["builtin": 4, "external": 3]
 
         func capture(_ name: String) {
             guard shouldCapture(name, options: options) else { return }
@@ -156,6 +164,12 @@ enum Shots {
                 }
             }
             extra.orderOut(nil)
+        }
+
+        if crowded {
+            captureCrowded(ui: ui, router: router, store: store, world: world, capture: capture)
+            window.orderOut(nil)
+            exit(0)
         }
 
         // 01 — ana görünüm: iki ekran, masaüstleri, pinli çipler, canlı pencereler.
@@ -258,6 +272,72 @@ enum Shots {
 
         window.orderOut(nil)
         exit(0)
+    }
+
+    /// Kalabalık senaryonun kareleri: görsel harita (canlı ve öbür plan),
+    /// arama, seçili pencere ve ayrıntı sütunu, geçici sabitleme, toplu
+    /// sabitleme, liste görünümü.
+    @MainActor
+    private static func captureCrowded(ui: UIState, router: Router, store: Store,
+                                       world: DemoData.World, capture: (String) -> Void) {
+        // Geçici sabitleme (turuncu kutu) ve serbest hareket (turkuaz kesikli).
+        // Demo router diske yazmaz, pencere taşımaz.
+        router.pinSession(DemoData.crowdedMessagesWindowID,
+                          destination: Destination(screen: "builtin", desktop: 1, layout: .full))
+        router.allowFreeMove([DemoData.crowdedFreeWindowID], for: 15 * 60)
+        pump(0.2)
+
+        capture("g01-grid")
+        // Kalabalık laptop masaüstüne kaydırılmış hâli.
+        ui.reveal = RevealRequest(window: 105, seq: 1)
+        pump(0.5)
+        capture("g01b-grid-crowded")
+        // Alt kısım: uzun başlık, penceresi kapalı Preview sabitlemeleri, boş masaüstü.
+        ui.reveal = RevealRequest(window: DemoData.crowdedVegaWindowID, seq: 10)
+        pump(0.5)
+        capture("g01c-grid-closed-pins")
+
+        ui.search = "orion"
+        ui.reveal = RevealRequest(window: 130, seq: 2)
+        pump(0.5)
+        capture("g02-grid-search")
+        ui.search = ""
+
+        ui.panel = .rule(DemoData.crowdedOutlookRuleID)
+        ui.panelSourceWindowID = DemoData.crowdedOutlookWindowID
+        ui.reveal = RevealRequest(window: DemoData.crowdedOutlookWindowID, seq: 3)
+        pump(0.5)
+        capture("g03-selected")
+
+        ui.panel = .rule(DemoData.crowdedVegaRuleID)
+        ui.panelSourceWindowID = DemoData.crowdedVegaWindowID
+        capture("g04-selected-long")
+
+        ui.panel = .session(DemoData.crowdedMessagesWindowID)
+        ui.panelSourceWindowID = nil
+        capture("g05-session")
+
+        // Kalabalık kartın pencere listesi açık ("+1 daha" ya da başlıktaki düğme).
+        ui.panel = nil
+        ui.listedDesktops = [UIState.listKey(mode: .docked, screen: "builtin", desktop: 1)]
+        capture("g05b-crowded-list-open")
+        ui.listedDesktops = []
+
+        ui.panel = nil
+        ui.selection = Set(QuickStartCard.placeable(ScreenMapView.unownedWindows(
+            world.windows, rules: store.document.rules, sessionPins: router.sessionPins)).map(\.id))
+        capture("g06-pin-all")
+        ui.selection = []
+
+        ui.visualMap = false
+        capture("g07-list")
+        ui.visualMap = true
+
+        ui.requestedPlan = .undocked
+        pump(0.2)
+        capture("g08-other-plan")
+        ui.panel = .rule(DemoData.crowdedOutlookRuleID)
+        capture("g09-other-plan-selected")
     }
 
     /// SwiftUI'nin durum değişikliğini işleyip yeniden çizmesi için ana

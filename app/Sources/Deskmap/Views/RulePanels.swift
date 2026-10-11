@@ -87,6 +87,9 @@ struct RulePanel: View {
                     matchMenu: { matchItems },
                     setDestination: { store.setDestination($0, for: rule.id, mode: mode) },
                     showAdvanced: { ui.showAdvanced = true })
+                DestinationPickers(
+                    destination: store.rule(rule.id)?[mode] ?? destination, mode: mode,
+                    setDestination: { store.setDestination($0, for: rule.id, mode: mode) })
                 BasicLayoutRow(layout: layoutBinding(destination))
             } else {
                 Text(L("Drag onto a desktop to give it a place in this plan."))
@@ -125,7 +128,40 @@ struct RulePanel: View {
                     ui.panel = nil
                 }
             }
+
+            if let why = whyHere {
+                WhyHereBox(reason: why.reason, note: why.note)
+            }
         }
+    }
+
+    /// "Neden burada?" kutusu: bu planda hedefi varsa kural ve hedefi; canlı
+    /// planda penceresi daha özgül bir kurala (ya da geçici pine) düşüyorsa
+    /// bunu söyler, öbür planda ne zaman uygulanacağını.
+    private var whyHere: (reason: String, note: String)? {
+        guard let destination = store.rule(rule.id)?[mode] ?? rule[mode],
+              let reason = Routing.reason(
+                for: Routing.Match(destination: destination, ruleID: rule.id, rule: rule),
+                screenName: store.screens(for: mode).first { $0.id == destination.screen }?.name)
+        else { return nil }
+        guard mode == screens.mode else {
+            return (WhyHereBox.sentence(reason),
+                    L("This takes effect when the %@ plan is active; nothing moves now.", mode.title))
+        }
+        let winners = matching.compactMap {
+            Routing.select(rules: store.document.rules, sessionPins: router.sessionPins,
+                           mode: mode, windowID: $0.id, bundleID: $0.bundleID,
+                           appName: $0.appName, title: $0.title, document: $0.document)?.ruleID
+        }
+        if let winner = winners.first, !winners.contains(rule.id) {
+            let name = winner == Routing.sessionRuleID
+                ? L("a temporary pin")
+                : L("the “%@” pin", store.rule(winner)?.title ?? "")
+            return (WhyHereBox.sentence(reason),
+                    L("This window is matched first by %@; this pin does not take effect.", name))
+        }
+        return (WhyHereBox.sentence(reason),
+                L("Deskmap puts matching windows back here whenever they open or are moved somewhere else by hand."))
     }
 
     /// "Sabitlemeyi kaldır"ın etki ettiği plan (saf): bu planda hedef varsa
@@ -353,6 +389,8 @@ struct SessionPinPanel: View {
                 matchMenu: { EmptyView() },
                 setDestination: { router.pinSession(window.id, destination: $0) },
                 showAdvanced: { ui.showAdvanced = true })
+            DestinationPickers(destination: current, mode: screens.mode,
+                               setDestination: { router.pinSession(window.id, destination: $0) })
             BasicLayoutRow(layout: layoutBinding)
             FreeMoveRow(windowIDs: [window.id])
 
@@ -386,6 +424,13 @@ struct SessionPinPanel: View {
             UnpinButton {
                 router.unpinSession(window.id)
                 ui.panel = nil
+            }
+
+            if let reason = Routing.reason(
+                for: Routing.Match(destination: current, ruleID: Routing.sessionRuleID, rule: nil),
+                screenName: store.screens(for: screens.mode).first { $0.id == current.screen }?.name) {
+                WhyHereBox(reason: WhyHereBox.sentence(reason),
+                           note: L("Only this window, for this session. Not saved to the profile."))
             }
         }
     }

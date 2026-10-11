@@ -35,6 +35,7 @@ struct WindowRow: View {
 
     var body: some View {
         let actions = actions
+        VStack(alignment: .leading, spacing: 1) {
         HStack(spacing: 6) {
             if showsApp {
                 // Seçim işareti simgenin köşesinde: satırda yer kaplamaz,
@@ -54,22 +55,12 @@ struct WindowRow: View {
                     .foregroundStyle(.tertiary)
                     .help(L("Minimized"))
             }
-            VStack(alignment: .leading, spacing: 0) {
-                Text(window.title.isEmpty ? L("Untitled window") : window.title)
-                    .font(.caption)
-                    .foregroundStyle(window.title.isEmpty ? .tertiary : .secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .help(actions.whyHere ?? window.title)
-                if let location {
-                    Text(location)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .help(location)
-                }
-            }
+            Text(window.title.isEmpty ? L("Untitled window") : window.title)
+                .font(.caption)
+                .foregroundStyle(window.title.isEmpty ? .tertiary : .secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .help(actions.whyHere ?? window.title)
 
             Spacer(minLength: 4)
 
@@ -99,6 +90,19 @@ struct WindowRow: View {
             .buttonStyle(.plain)
             .help(actions.pinButtonHelp)
             .accessibilityLabel(actions.pinButtonHelp)
+        }
+            // İkinci satır satırın tamamını kullanır (dar kenar çubuğunda
+            // başlığın yanına sıkışmaz); simgenin hizasından başlar.
+            if let location {
+                Text(location)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, showsApp ? 22 : 0)
+                    .padding(.trailing, 24)
+                    .help(location)
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 3)

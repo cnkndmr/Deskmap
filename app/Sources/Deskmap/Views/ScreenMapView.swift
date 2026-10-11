@@ -145,23 +145,23 @@ private struct ScreenCard: View {
         return FullscreenSpace.grouped(ui.windows, screen: screen.id, rowCount: tileCount)
     }
 
+    /// Liste görünümünün etiket sütunu: her satırın solunda önizleme var.
     private var labelWidth: CGFloat {
-        let named = !store.ghosts(on: screen.id, mode: mode).isEmpty
-            || (1..<(tileCount + 1)).contains {
-                store.desktopName(screen: screen.id, desktop: $0, mode: mode) != nil
-            }
-            // Ad verilirken de geniş: alan sıkışmasın, bütün satırlar birlikte genişler.
-            || ui.renamingDesktop?.hasPrefix("\(mode.rawValue)|\(screen.id)|") == true
-        return ScreenMapView.labelWidth(visual: ui.visualMap, hasNamedRows: named)
+        ScreenMapView.labelWidth(visual: true, hasNamedRows: false)
     }
 
     var body: some View {
-        let fullscreen = fullscreenSpaces
-        let labelWidth = labelWidth
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: screen.isBuiltin ? "laptopcomputer" : "display")
                 Text(screen.name)
+                    .lineLimit(1)
+                if ui.visualMap {
+                    Text(L("· %ld desktops", realCount ?? tileCount))
+                        .fontWeight(.regular)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
                 if !isConnected {
                     Text(L("not connected"))
                         .foregroundStyle(.tertiary)
@@ -171,22 +171,7 @@ private struct ScreenCard: View {
             .foregroundStyle(.secondary)
             .padding(.bottom, 4)
 
-            ForEach(fullscreen[0] ?? []) { FullscreenRow(space: $0, labelWidth: labelWidth) }
-            ForEach(1..<(tileCount + 1), id: \.self) { desktop in
-                DesktopRow(
-                    screen: screen, desktop: desktop, mode: mode, isLive: isLive,
-                    exists: realCount.map { desktop <= $0 } ?? true,
-                    realCount: realCount,
-                    rowCount: tileCount, tileCounts: tileCounts, shadowed: shadowed,
-                    labelWidth: labelWidth)
-                ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0, labelWidth: labelWidth) }
-            }
-            ForEach(store.ghosts(on: screen.id, mode: mode)) { ghost in
-                DeletedDesktopRow(ghost: ghost, mode: mode,
-                                  canRestore: isLive && isConnected, labelWidth: labelWidth)
-            }
-            GhostRow(screen: screen, desktop: tileCount + 1, mode: mode,
-                     isLive: isLive, canAdd: !isLive || isConnected)
+            if ui.visualMap { grid } else { rows }
         }
         .padding(10)
         .background(
@@ -195,6 +180,54 @@ private struct ScreenCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(.quaternary, lineWidth: 1))
+    }
+
+    /// Görsel görünüm: masaüstü kartları ızgarada, sonda "+ Masaüstü ekle";
+    /// altında silinmiş masaüstleri ve tam ekran space'ler (salt okunur).
+    private var grid: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            CardGridLayout {
+                ForEach(1..<(tileCount + 1), id: \.self) { desktop in
+                    desktopRow(desktop, labelWidth: 0, asCard: true)
+                }
+                GhostRow(screen: screen, desktop: tileCount + 1, mode: mode,
+                         isLive: isLive, canAdd: !isLive || isConnected, asCard: true)
+            }
+            ForEach(store.ghosts(on: screen.id, mode: mode)) { ghost in
+                DeletedDesktopRow(ghost: ghost, mode: mode, canRestore: isLive && isConnected,
+                                  labelWidth: ScreenMapView.labelWidth(visual: false, hasNamedRows: true))
+            }
+            let fullscreen = fullscreenSpaces.sorted { $0.key < $1.key }.flatMap(\.value)
+            ForEach(fullscreen) { space in
+                FullscreenRow(space: space, labelWidth: 84, showsNote: true)
+            }
+        }
+    }
+
+    private func desktopRow(_ desktop: Int, labelWidth: CGFloat, asCard: Bool) -> some View {
+        DesktopRow(
+            screen: screen, desktop: desktop, mode: mode, isLive: isLive,
+            exists: realCount.map { desktop <= $0 } ?? true,
+            realCount: realCount,
+            rowCount: tileCount, tileCounts: tileCounts, shadowed: shadowed,
+            labelWidth: labelWidth, asCard: asCard)
+    }
+
+    /// Liste görünümü: masaüstü başına satır, tam ekran space'ler gerçek sırasında.
+    @ViewBuilder private var rows: some View {
+        let fullscreen = fullscreenSpaces
+        let labelWidth = labelWidth
+        ForEach(fullscreen[0] ?? []) { FullscreenRow(space: $0, labelWidth: labelWidth) }
+        ForEach(1..<(tileCount + 1), id: \.self) { desktop in
+            desktopRow(desktop, labelWidth: labelWidth, asCard: false)
+            ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0, labelWidth: labelWidth) }
+        }
+        ForEach(store.ghosts(on: screen.id, mode: mode)) { ghost in
+            DeletedDesktopRow(ghost: ghost, mode: mode,
+                              canRestore: isLive && isConnected, labelWidth: labelWidth)
+        }
+        GhostRow(screen: screen, desktop: tileCount + 1, mode: mode,
+                 isLive: isLive, canAdd: !isLive || isConnected)
     }
 }
 
@@ -354,6 +387,8 @@ private struct FullscreenRow: View {
 
     let space: FullscreenSpace
     let labelWidth: CGFloat
+    /// Görsel görünümde açıklama satırda görünür (listede ipucunda).
+    var showsNote = false
 
     @EnvironmentObject private var ui: UIState
 
@@ -390,6 +425,12 @@ private struct FullscreenRow: View {
                     }
                     .searchLook(dimmed: look.dimmed, highlighted: look.highlighted)
                     .id(WindowAnchor(id: window.id))
+                }
+                if showsNote {
+                    Text(L("macOS gives a full-screen window its own desktop; Deskmap leaves it alone."))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             Spacer(minLength: 0)
@@ -463,664 +504,6 @@ struct AppGroup: Identifiable {
             }
         }
         return result
-    }
-}
-
-// MARK: - Masaüstü satırı
-
-/// Masaüstü etiketi: ad varsa ad (iki satıra kadar) ve altında küçük
-/// numara, yoksa "Masaüstü N".
-private struct DesktopLabel: View {
-    let desktop: Int
-    let name: String?
-    let exists: Bool
-
-    var body: some View {
-        if let name {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(name)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(exists ? .primary : .tertiary)
-                    .lineLimit(2)
-                Text(L("Desktop %ld", desktop))
-                    .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
-            }
-        } else {
-            Text(L("Desktop %ld", desktop))
-                .font(.caption.weight(.medium))
-                .foregroundStyle(exists ? .secondary : .tertiary)
-        }
-    }
-}
-
-/// Her masaüstü tam genişlikte bir satır: solda numara, sağda uygulama
-/// başına gruplanmış pencereler ve penceresi kapalı pinler.
-private struct DesktopRow: View {
-
-    let screen: KnownScreen
-    let desktop: Int
-    let mode: Mode
-    let isLive: Bool
-    /// Bağlı ekranda bu masaüstü gerçekten var mı?
-    let exists: Bool
-    /// Bağlı ekrandaki gerçek masaüstü sayısı (bağlı değilse nil).
-    let realCount: Int?
-    /// Bu ekran kartındaki satır sayısı (sıralama için).
-    let rowCount: Int
-    /// Haritadaki her ekranın satır sayısı (ekranlar arası sürükleme için).
-    let tileCounts: [String: Int]
-    /// Gölgede kalan kural → onu geçen kural; soluk çip olarak gösterilir.
-    let shadowed: [String: String]
-    /// Ekran kartının ortak etiket sütunu (`ScreenCard.labelWidth`).
-    let labelWidth: CGFloat
-
-    @EnvironmentObject private var store: Store
-    @EnvironmentObject private var ui: UIState
-    @EnvironmentObject private var router: Router
-    @EnvironmentObject private var screens: ScreenService
-    /// Ad düzenleniyor mu (etikete çift tıklama ya da sağ tık menüsü).
-    @State private var isRenaming = false
-    @State private var nameDraft = ""
-    @FocusState private var nameFocused: Bool
-
-    private var name: String? { store.desktopName(screen: screen.id, desktop: desktop, mode: mode) }
-
-    private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
-    /// `UIState.textEditors` içindeki ad alanı kimliği.
-    private var editorID: String { "desktop|\(screen.id)|\(desktop)" }
-    private var isTargeted: Bool { ui.drag?.hover == target && acceptsDrag }
-    private var placement: Router.Placement {
-        Router.Placement(screen: screen.id, desktop: desktop)
-    }
-
-    /// Masaüstü sürüklemesi kendi satırına bırakılamaz; başka ekrana olur.
-    private var acceptsDrag: Bool {
-        if case .desktop(let fromScreen, let from) = ui.drag?.item {
-            return ScreenMapView.acceptsDesktopDrop(fromScreen: fromScreen, from: from,
-                                           toScreen: screen.id, to: desktop)
-        }
-        return true
-    }
-    private var isBeingDragged: Bool {
-        ui.drag?.item == .desktop(screen: screen.id, desktop: desktop)
-    }
-
-    /// Bu masaüstündeki canlı pencereler (yalnızca şu anki modda).
-    private var windows: [Router.WindowSnapshot] {
-        guard isLive else { return [] }
-        return ui.windows.filter { $0.placement == placement }
-    }
-
-    private var groups: [AppGroup] {
-        AppGroup.grouped(windows: windows, closed: orphanRules)
-    }
-
-    /// Önizlemedeki kutular: açık pencereler (sabitse kayıtlı düzeninde,
-    /// değilse şu anki yerinde) ve açık penceresi olmayan sabitlemeler.
-    private var previewItems: [DesktopPreview.Item] {
-        let openItems: [DesktopPreview.Item] = windows.filter { $0.fullscreen == nil }.map { window in
-            let match = Routing.select(
-                rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
-                windowID: window.id, bundleID: window.bundleID, appName: window.appName,
-                title: window.title, document: window.document)
-            let current = window.currentLayout(screens: screens.screens) ?? .center
-            let layout = match.map { $0.destination.layout.isDesktopOnly ? current : $0.destination.layout }
-                ?? current
-            let look = ui.searchLook(appName: window.appName, title: window.title)
-            return DesktopPreview.Item(
-                id: "w\(window.id)", bundleID: window.bundleID,
-                title: window.title.isEmpty ? window.appName : "\(window.appName) — \(window.title)",
-                label: DesktopPreview.label(appName: window.appName, title: window.title),
-                layout: layout, pinned: match != nil, isOpen: true,
-                isSelected: isShown(window, ruleID: match?.rule?.id),
-                dimmed: look.dimmed, highlighted: look.highlighted,
-                action: { openPanel(for: window) })
-        }
-        let closed: [DesktopPreview.Item] = orphanRules.compactMap { rule in
-            guard let destination = rule[mode] else { return nil }
-            let look = ui.searchLook(appName: rule.appName, title: rule.title)
-            return DesktopPreview.Item(
-                id: "r\(rule.id)", bundleID: rule.bundleID,
-                title: "\(rule.appName) — \(rule.title)",
-                label: rule.isAppWide ? rule.appName
-                                      : DesktopPreview.label(appName: rule.appName, title: rule.title),
-                layout: destination.layout.isDesktopOnly ? .center : destination.layout,
-                pinned: true, isOpen: false, isSelected: ui.panel == .rule(rule.id),
-                dimmed: look.dimmed, highlighted: look.highlighted,
-                action: { ui.toggle(.rule(rule.id)) })
-        }
-        return closed + openItems
-    }
-
-    /// Bu pencerenin paneli açık mı.
-    private func isShown(_ window: Router.WindowSnapshot, ruleID: String?) -> Bool {
-        switch ui.panel {
-        case .session(let id): return id == window.id
-        case .pin(let draft): return draft.window.id == window.id
-        case .rule(let id): return id == ruleID && (ui.panelSourceWindowID ?? window.id) == window.id
-        default: return false
-        }
-    }
-
-    /// Önizlemedeki kutuya tıklama: satırına tıklanmış gibi panel açılır
-    /// (aynısı açıksa kapanır); sabit olmayan pencerede sabitleme taslağı.
-    private func openPanel(for window: Router.WindowSnapshot) {
-        let sessionPinned = router.sessionPins[window.id] != nil
-        let rule = Routing.select(
-            rules: store.document.rules, sessionPins: [:], mode: mode,
-            windowID: window.id, bundleID: window.bundleID, appName: window.appName,
-            title: window.title, document: window.document)?.rule
-        guard let panel = UIState.openingPanel(for: window, sessionPinned: sessionPinned,
-                                               ruleID: rule?.id) else { return }
-        ui.selection = []
-        if isShown(window, ruleID: rule?.id) {
-            ui.panel = nil
-            ui.panelSourceWindowID = nil
-        } else {
-            ui.panel = panel
-            ui.panelSourceWindowID = sessionPinned || rule == nil ? nil : window.id
-        }
-    }
-
-    /// Hedefi burası olan ama şu an açık penceresi olmayan pinler; canlı
-    /// modda ayrıca penceresi olduğu hâlde başka kurala yenilen (gölgede)
-    /// pinler, yoksa haritada hiç görünmezlerdi.
-    private var orphanRules: [Rule] {
-        store.document.rules.filter { rule in
-            guard let destination = rule[mode],
-                  destination.screen == screen.id, destination.desktop == desktop
-            else { return false }
-            guard isLive else { return true }
-            if shadowed[rule.id] != nil { return true }
-            return !ui.windows.contains {
-                rule.matches($0)
-            }
-        }
-    }
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 4) {
-                Image(systemName: "line.3.horizontal")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.quaternary)
-                if isRenaming {
-                    TextField(L("Desktop %ld", desktop), text: $nameDraft)
-                        .textFieldStyle(.roundedBorder)
-                        .font(.caption)
-                        .focused($nameFocused)
-                        .onSubmit { commitName() }
-                        .onExitCommand { endRenaming() }
-                        .onChange(of: nameFocused) { focused in
-                            ui.setEditing(editorID, focused)
-                            if !focused && isRenaming { commitName() }
-                        }
-                        // Satır düzenlemedeyken kaybolursa sütun geniş kalmasın, alan da düzenleyici sayılmasın.
-                        .onDisappear {
-                            ui.setEditing(editorID, false)
-                            if isRenaming { endRenaming() }
-                        }
-                } else {
-                    DesktopLabel(desktop: desktop, name: name, exists: exists)
-                }
-            }
-            .frame(width: labelWidth, alignment: .leading)
-            .padding(.top, 2)
-            .contentShape(Rectangle())
-            .onTapGesture(count: 2) { startRenaming() }
-            .gesture(desktopDrag, including: isRenaming ? .none : .all)
-            .help(L("Double-click to name this desktop; drag to move it (with its pins) up, down or to another display"))
-
-                if ui.visualMap {
-                    DesktopPreview(screenSize: screen.visibleSize, items: previewItems)
-                }
-            }
-
-            // Sondaki boşluk yok: satırlar kartın sağ kenarına da 8 pt kalır.
-            if groups.isEmpty {
-                Text(exists ? L("empty") : L("doesn't exist yet"))
-                    .font(.caption)
-                    .foregroundStyle(.quaternary)
-                    .padding(.top, 2)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(groups) { group in
-                        groupView(group)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, minHeight: 34, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isTargeted ? Color.accentColor.opacity(0.18)
-                                 : Color.primary.opacity(exists ? 0.05 : 0.02)))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(
-                    isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
-                    style: StrokeStyle(lineWidth: 1, dash: exists ? [] : [4, 3])))
-        .opacity(isBeingDragged ? 0.4 : 1)
-        .dropTarget(target)
-        .contextMenu {
-            Button(name == nil ? L("Name Desktop…") : L("Rename Desktop…")) { startRenaming() }
-            if name != nil {
-                Button(L("Remove Name")) {
-                    store.setDesktopName(nil, screen: screen.id, desktop: desktop, mode: mode)
-                }
-            }
-            let others = store.screens(for: mode).filter { $0.id != screen.id && tileCounts[$0.id] != nil }
-            if !others.isEmpty {
-                Divider()
-                // Sürükle-bırakla aynı taşıma: masaüstü pencereleri, pinleri
-                // ve adıyla hedef ekranın sonuna gider.
-                ForEach(others) { other in
-                    Button(L("Send Desktop to %@", other.name)) {
-                        moveAcross(to: other.id, at: (tileCounts[other.id] ?? 0) + 1)
-                    }
-                }
-            }
-            Divider()
-            Button(L("Remove Desktop %ld", desktop), role: .destructive) { remove() }
-        }
-    }
-
-    private var renamingKey: String { "\(mode.rawValue)|\(screen.id)|\(desktop)" }
-
-    private func startRenaming() {
-        nameDraft = name ?? ""
-        isRenaming = true
-        nameFocused = true
-        ui.renamingDesktop = renamingKey
-    }
-
-    private func endRenaming() {
-        isRenaming = false
-        // Başka satırda düzenleme başladıysa onunkine dokunma.
-        if ui.renamingDesktop == renamingKey { ui.renamingDesktop = nil }
-    }
-
-    private func commitName() {
-        endRenaming()
-        let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed != (name ?? "") else { return }
-        if !store.setDesktopName(
-            trimmed, screen: screen.id, desktop: desktop, mode: mode,
-            space: isLive ? router.currentSpace(on: screen.id, desktop: desktop) : nil) {
-            store.report(L("A desktop named %@ already exists", trimmed))
-        }
-    }
-
-    /// Satırı siler; kısıt yok. Etkin modda gerçekte var olan masaüstü
-    /// Mission Control ile hemen silinir (pinler kayar); etkin olmayan modda
-    /// silme o mod etkinleşince yapılır. Gerçekte olmayan (plan/pin) satırda
-    /// yalnız numaralar kayar. Bu ikisi ⌘Z ile geri alınır.
-    private func remove() {
-        // Bu ekrana açık pin taslağı varsa masaüstü numaraları kayacak:
-        // eski numarayla yanlış masaüstüne pin yazılmasın.
-        if let draft = ui.pinDraft, draft.target.screen == screen.id { ui.panel = nil }
-        let existing = desktop <= (realCount ?? 0)
-        let ui = ui, screenID = screen.id, removed = desktop
-        // Daraltılmış gruplar numarayla tutulur: silinenin anahtarları düşer,
-        // sonrakiler bir yukarı kayar. Gerçek silme Router'da bütün planlarda
-        // kayar; öbürü yalnız bu planda.
-        let remapCollapsed = { (modes: [Mode]) in
-            ui.remapCollapsed(modes: modes) { s, d in
-                guard s == screenID, d >= removed else { return (s, d) }
-                return d == removed ? nil : (s, d - 1)
-            }
-        }
-        if isLive && existing {
-            let router = router, store = store, desktop = desktop
-            Task {
-                if await router.removeDesktop(on: screenID, desktop: desktop) {
-                    remapCollapsed(Mode.allCases)
-                } else {
-                    store.report(L("Could not remove desktop %ld on %@", desktop, screenID))
-                }
-            }
-            return
-        }
-        let queued = !isLive && existing
-        let space = queued
-            ? router.spaceForPendingRemoval(on: screen.id, desktop: desktop, mode: mode) : nil
-        // Başka yerde adlı gerçek masaüstü sıraya alınmaz (Store bildirir);
-        // reddedilirse daraltılmış gruplar da kaymaz.
-        guard !store.refusesPendingRemoval(on: screen.id, desktop: desktop, mode: mode,
-                                           existing: queued, space: space) else { return }
-        let undoCollapsed = remapCollapsed([mode])
-        store.removeDesktopLater(
-            on: screen.id, desktop: desktop, mode: mode, existing: queued, space: space,
-            undoing: undoCollapsed)
-    }
-
-    /// Satırı tutup sürüklemek: bırakılan masaüstü sırasına taşınır, o
-    /// ekrandaki pinler yeniden numaralanır; router pencereleri taşır.
-    /// Geri alma belgeyle birlikte oturum pinlerini de ters taşımayla
-    /// (to → from, aynı satır sayısı) geri getirir.
-    private var desktopDrag: some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
-            .onChanged { value in
-                ui.drag = ChipDrag(
-                    item: .desktop(screen: screen.id, desktop: desktop),
-                    location: value.location,
-                    hover: ui.target(at: value.location))
-            }
-            .onEnded { value in
-                defer { ui.drag = nil }
-                guard case .desktop(let toScreen, let dropped)? = ui.target(at: value.location)
-                else { return }
-                if toScreen != screen.id {
-                    moveAcross(to: toScreen, at: dropped)
-                    return
-                }
-                // "+ Masaüstü N" satırına bırakmak = en sona.
-                let to = min(dropped, rowCount)
-                guard to != desktop else { return }
-                // Pin hedefleri yeniden numaralanıyor; pin ve taslak panelleri kapanır.
-                switch ui.panel {
-                case .rule, .pin: ui.panel = nil
-                default: break
-                }
-                let router = router
-                let screenID = screen.id, from = desktop, count = rowCount
-                // Etkin modda pencereler de taşınır: masaüstü sırası gerçekten değişir.
-                let live = isLive
-                let liveSpaces = router.reorderedSpaces(on: screenID, from: from, to: to,
-                                                        reorderWindows: live)
-                let sessionMoved = router.moveDesktop(on: screenID, from: from, to: to, count: count,
-                                                      reorderWindows: live)
-                // Belgeyle aynı planlar: etkin modda laptop masaüstleri iki planda ortak.
-                let modes = live && screenID == "builtin" ? Mode.allCases : [mode]
-                let undoCollapsed = Document.desktopMapping(from: from, to: to, count: count)
-                    .flatMap { mapping in
-                        ui.remapCollapsed(modes: modes) { s, d in
-                            s == screenID ? (s, mapping[d] ?? d) : (s, d)
-                        }
-                    }
-                store.moveDesktop(
-                    on: screenID, from: from, to: to, count: count, mode: mode, sharedLaptop: live,
-                    liveSpaces: liveSpaces,
-                    undoingSessionPins: UIState.chain(
-                        sessionMoved
-                            ? { router.moveDesktop(on: screenID, from: to, to: from, count: count,
-                                                   reorderWindows: live) }
-                            : nil,
-                        undoCollapsed))
-            }
-    }
-
-    /// Masaüstünü başka ekranın `at` sırasına taşır (bkz.
-    /// `Document.moveDesktopAcross`). Etkin modda hedefte bir gerçek
-    /// masaüstü eksikse önce Mission Control ile eklenir; eklenemezse hiçbir
-    /// şey değişmez. Kaynakta kalan boş gerçek masaüstü silinmez.
-    private func moveAcross(to toScreen: String, at dropped: Int) {
-        guard let toCount = tileCounts[toScreen] else { return }
-        let to = min(max(dropped, 1), toCount + 1)
-        switch ui.panel {
-        case .rule, .pin: ui.panel = nil
-        default: break
-        }
-        let router = router, store = store, mode = mode, live = isLive, ui = ui
-        let fromScreen = screen.id, from = desktop
-        let apply = {
-            let undoCollapsed = ui.remapCollapsed(modes: [mode]) { s, d in
-                Document.acrossPlacement(screen: s, desktop: d, from: fromScreen, desktop: from,
-                                         to: toScreen, at: to) ?? (s, d)
-            }
-            let sessionMoved = router.moveDesktopAcross(
-                from: fromScreen, desktop: from, to: toScreen, at: to, moveWindows: live)
-            store.moveDesktopAcross(
-                from: fromScreen, desktop: from, to: toScreen, at: to, toCount: toCount, mode: mode,
-                undoingSessionPins: UIState.chain(
-                    sessionMoved
-                        ? { router.moveDesktopAcross(from: toScreen, desktop: to, to: fromScreen,
-                                                     at: from, moveWindows: live) }
-                        : nil,
-                    undoCollapsed))
-        }
-        let real = router.desktopCounts[toScreen] ?? 0
-        let missing = live ? Document.desktopsToAddAcross(real: real, at: to) : 0
-        guard missing > 0 else { apply(); return }
-        Task {
-            for _ in 0..<missing {
-                guard await router.addDesktop(on: toScreen) else {
-                    store.report(L("Could not add a desktop to %@", toScreen))
-                    return
-                }
-            }
-            apply()
-        }
-    }
-
-    @ViewBuilder
-    private func groupView(_ group: AppGroup) -> some View {
-        if !group.showsHeader {
-            if let window = group.windows.first {
-                WindowRow(window: window, mode: mode, showsApp: true)
-                    .id(WindowAnchor(id: window.id))
-            } else if let rule = group.closed.first {
-                RuleChip(rule: rule, mode: mode, shadowedBy: shadowed[rule.id])
-            }
-        } else {
-            let key = UIState.collapseKey(mode: mode, screen: screen.id, desktop: desktop,
-                                          group: group.id)
-            let collapsed = ui.collapsed.contains(key)
-            VStack(alignment: .leading, spacing: 2) {
-                Button {
-                    if collapsed { ui.collapsed.remove(key) } else { ui.collapsed.insert(key) }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: collapsed ? "chevron.right" : "chevron.down")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.tertiary)
-                            .frame(width: 10)
-                        AppIcon(bundleID: group.bundleID, size: 16)
-                        Text(group.appName)
-                            .font(.caption.weight(.medium))
-                        Text(countLabel(group))
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                        if collapsed {
-                            let pinned = group.windows.filter(isPinned).count + group.closed.count
-                            if pinned > 0 {
-                                Image(systemName: "pin.fill")
-                                    .font(.system(size: 8))
-                                    .foregroundStyle(Color.accentColor)
-                                Text("\(pinned)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 2)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .gesture(groupDrag(group))
-                .help(L("Drag to move the whole group to another desktop; click to collapse"))
-                .opacity(ui.drag?.item == groupItem(group) ? 0.4 : 1)
-                .contextMenu { groupSendMenu(group) }
-
-                if !collapsed {
-                    ForEach(group.windows) { window in
-                        WindowRow(window: window, mode: mode, showsApp: false)
-                            .padding(.leading, 16)
-                            .id(WindowAnchor(id: window.id))
-                    }
-                    // Kapalı pinler açık pencerelerden sonra, soluk çip olarak.
-                    if !group.closed.isEmpty {
-                        FlowLayout(spacing: 6) {
-                            ForEach(group.closed) { rule in
-                                RuleChip(rule: rule, mode: mode, shadowedBy: shadowed[rule.id])
-                            }
-                        }
-                        .padding(.leading, 16)
-                    }
-                }
-            }
-        }
-    }
-
-    private func groupItem(_ group: AppGroup) -> DragItem {
-        .group(screen: screen.id, desktop: desktop, app: group.id, name: group.appName)
-    }
-
-    /// Grup başlığını sürüklemek: bırakılan masaüstüne grubun her öğesi,
-    /// tek sürüklemeyle aynı kurallarla taşınır.
-    private func groupDrag(_ group: AppGroup) -> some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
-            .onChanged { value in
-                if ui.drag == nil { ui.holdFocusForDrag() }
-                ui.drag = ChipDrag(item: groupItem(group), location: value.location,
-                                   hover: ui.target(at: value.location))
-            }
-            .onEnded { value in
-                defer { ui.drag = nil }
-                guard case .desktop(let toScreen, let toDesktop)? = ui.target(at: value.location)
-                else { return }
-                moveGroup(group, to: Router.Placement(screen: toScreen, desktop: toDesktop))
-            }
-    }
-
-    @ViewBuilder private func groupSendMenu(_ group: AppGroup) -> some View {
-        let targets = GroupMovePlan.sendTargets(screens: store.screens(for: mode),
-                                                tileCounts: tileCounts, current: placement)
-        if !targets.isEmpty {
-            Menu(L("Send group to")) {
-                ForEach(targets, id: \.screen) { target in
-                    Section(target.name) {
-                        ForEach(target.desktops, id: \.desktop) { item in
-                            Button(store.desktopName(screen: target.screen, desktop: item.desktop,
-                                                     mode: mode)
-                                    .map { L("Desktop %ld (%@)", item.desktop, $0) }
-                                    ?? L("Desktop %ld", item.desktop)) {
-                                moveGroup(group, to: Router.Placement(screen: target.screen,
-                                                                      desktop: item.desktop))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    /// Grubu taşır (bkz. `GroupMovePlan`): oturum pinleri ve pinsiz
-    /// pencereler router'da, kural hedefleri tek geri alma adımıyla belgede.
-    private func moveGroup(_ group: AppGroup, to target: Router.Placement) {
-        let plan = GroupMovePlan.make(group: group, to: target, mode: mode, isLive: isLive,
-                                      rules: store.document.rules, sessionPins: router.sessionPins)
-        guard !plan.isEmpty else { return }
-        switch ui.panel {
-        case .rule, .session: ui.panel = nil
-        default: break
-        }
-        let router = router
-        for move in plan.sessions { router.pinSession(move.window, destination: move.to) }
-        for id in plan.windows {
-            router.moveWindow(id, to: target)
-            if var draft = ui.pinDraft, draft.window.id == id {
-                draft.target = target
-                ui.panel = .pin(draft)
-            }
-        }
-        let sessions = plan.sessions
-        store.moveGroup(
-            plan.rules, mode: mode,
-            undoingSessionPins: sessions.isEmpty ? nil : {
-                for move in sessions where router.sessionPins[move.window] != nil {
-                    router.pinSession(move.window, destination: move.from)
-                }
-            })
-    }
-
-    /// Grup başlığındaki sayı: "3 pencere", "3 + 2 kapalı" ya da "2 kapalı".
-    private func countLabel(_ group: AppGroup) -> String {
-        if group.closed.isEmpty { return L("%ld windows", group.windows.count) }
-        if group.windows.isEmpty { return L("%ld closed", group.closed.count) }
-        return L("%ld + %ld closed", group.windows.count, group.closed.count)
-    }
-
-    /// Oturum pini ya da bu modda hedefi olan bir kural var mı (router ile
-    /// aynı seçim).
-    private func isPinned(_ window: Router.WindowSnapshot) -> Bool {
-        Routing.select(rules: store.document.rules, sessionPins: router.sessionPins,
-                       mode: mode, windowID: window.id, bundleID: window.bundleID,
-                       appName: window.appName, title: window.title, document: window.document) != nil
-    }
-}
-
-/// Yeni bir masaüstü numarası oluşturmak için bırakma satırı.
-private struct GhostRow: View {
-
-    let screen: KnownScreen
-    let desktop: Int
-    let mode: Mode
-    /// Etkin modda tıklama gerçek masaüstü ekler; değilse plana yazar.
-    let isLive: Bool
-    let canAdd: Bool
-
-    @EnvironmentObject private var store: Store
-    @EnvironmentObject private var ui: UIState
-    @EnvironmentObject private var router: Router
-    @State private var isAdding = false
-
-    private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
-    private var isTargeted: Bool {
-        guard ui.drag?.hover == target else { return false }
-        // Masaüstü sürüklemesinde de her ekranın "+ Masaüstü" satırı hedeftir.
-        return true
-    }
-
-    var body: some View {
-        HStack(spacing: 6) {
-            if isAdding {
-                ProgressView().controlSize(.mini)
-            } else {
-                Image(systemName: "plus")
-            }
-            Text(L("Desktop %ld", desktop))
-        }
-        .font(.caption)
-        .foregroundStyle(isTargeted ? Color.accentColor : Color.secondary.opacity(0.5))
-        .frame(maxWidth: .infinity, minHeight: 24)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(isTargeted ? Color.accentColor.opacity(0.18) : .clear))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(
-                    isTargeted ? Color.accentColor : Color.primary.opacity(0.08),
-                    style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-        .dropTarget(target)
-        .opacity(ui.drag == nil ? 0.7 : 1)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard canAdd, !isAdding, ui.drag == nil else { return }
-            guard isLive else {
-                store.planDesktop(on: screen.id, mode: mode, count: desktop)
-                return
-            }
-            isAdding = true
-            let router = router, store = store, screenID = screen.id, name = screen.name
-            Task {
-                if await !router.addDesktop(on: screenID) {
-                    store.report(L("Could not add a desktop to %@", name))
-                }
-                isAdding = false
-            }
-        }
-        .help(!canAdd ? L("Connect this display to add desktops.")
-              : isLive ? L("Click to add a desktop to this display (opens Mission Control briefly).")
-              : L("Click to add a desktop to this plan; it is created when this plan takes effect."))
     }
 }
 
@@ -1211,6 +594,58 @@ struct SetupDifferenceTray: View {
     }
 }
 
+// MARK: - Hızlı başlangıç
+
+/// Kenar çubuğunun başındaki kart: atanmamış pencere varken hepsini
+/// olduğu yere sabitlemeyi önerir. Düğme toplu sabitleme çubuğunu açar
+/// (ayrıntı sütununda onaylanır ya da ⌘-tıklayla daraltılır).
+struct QuickStartCard: View {
+
+    let mode: Mode
+
+    @EnvironmentObject private var store: Store
+    @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var router: Router
+    @EnvironmentObject private var screens: ScreenService
+
+    var body: some View {
+        let placeable = Self.placeable(ScreenMapView.unownedWindows(
+            ui.windows, rules: store.document.rules, sessionPins: router.sessionPins))
+        if mode == screens.mode, !placeable.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Label(L("Quick start"), systemImage: "bolt.fill")
+                    .font(.caption.weight(.semibold))
+                Text(L("If your windows are fine where they are, pin them all where they are; then fix them one by one."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button {
+                    ui.panel = nil
+                    ui.selection = Set(placeable.map(\.id))
+                } label: {
+                    Label(placeable.count == 1 ? L("Pin it where it is…")
+                          : L("Pin all where they are (%ld)", placeable.count),
+                          systemImage: "pin.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .help(L("Each window is pinned to its current desktop with its current size and position. You confirm on the right."))
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: 10).fill(Color.accentColor.opacity(0.08)))
+            .overlay(RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1))
+        }
+    }
+
+    /// Toplu sabitlenebilecek pencereler (saf): yeri bilinen, tam ekran olmayan.
+    static func placeable(_ windows: [Router.WindowSnapshot]) -> [Router.WindowSnapshot] {
+        windows.filter { $0.placement != nil && $0.fullscreen == nil }
+    }
+}
+
 // MARK: - Sahipsiz pencereler
 
 /// Hiçbir kurulumda pini olmayan (ne kuralı ne geçici pini olan) açık
@@ -1264,25 +699,9 @@ struct UnownedWindowsTray: View {
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 } else {
-                    let placeable = windows.filter { $0.placement != nil && $0.fullscreen == nil }
-                    if mode == screens.mode, !placeable.isEmpty {
-                        Button {
-                            // Toplu sabitleme çubuğu ayrıntı sütununda açılır;
-                            // kullanıcı orada onaylar (ya da ⌘-tıkla daraltır).
-                            ui.panel = nil
-                            ui.selection = Set(placeable.map(\.id))
-                        } label: {
-                            Label(placeable.count == 1 ? L("Pin it where it is…")
-                                  : L("Pin all %ld where they are…", placeable.count),
-                                  systemImage: "pin.fill")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .controlSize(.small)
-                        .help(L("Each window is pinned to its current desktop with its current size and position. You confirm on the right."))
-                    }
                     VStack(spacing: 3) {
                         ForEach(windows) { window in
-                            WindowRow(window: window, mode: mode)
+                            WindowRow(window: window, mode: mode, location: location(of: window))
                         }
                     }
                 }
@@ -1298,6 +717,20 @@ struct UnownedWindowsTray: View {
 }
 
 extension UnownedWindowsTray {
+
+    /// Satırın ikinci satırı: pencerenin şu an bulunduğu ekran ve masaüstü.
+    private func location(of window: Router.WindowSnapshot) -> String? {
+        guard let placement = window.placement else { return nil }
+        let screenName = screens.screens.first { $0.id == placement.screen }?.name
+            ?? store.screens(for: screens.mode).first { $0.id == placement.screen }?.name
+            ?? placement.screen
+        var place = L("%@ · Desktop %ld", screenName, placement.desktop)
+        if let name = store.desktopName(screen: placement.screen, desktop: placement.desktop,
+                                        mode: screens.mode) {
+            place += " · " + name
+        }
+        return L("now: %@", place)
+    }
 
     /// Kutu boşken metin (saf): izin yoksa listelenmedi; hiç pencere yoksa
     /// açık pencere yok; pinsiz olanların hepsi tam ekran/yersizse onlara

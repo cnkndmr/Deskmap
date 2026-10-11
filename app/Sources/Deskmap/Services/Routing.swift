@@ -51,18 +51,24 @@ enum Routing {
     /// hedefe gönderiyor. Yeni pencere-başı durum tutulmaz; seçim her
     /// seferinde `select` ile yeniden yapılır. Eşleşme yoksa nil.
     static func explanation(for match: Match?, screenName: String?) -> String? {
+        reason(for: match, screenName: screenName).map { L("Why here: %@", $0) }
+    }
+
+    /// Açıklamanın "Neden burada:" öneki olmadan gövdesi (saf; ayrıntı
+    /// sütunundaki "Neden burada?" kutusu kendi başlığıyla gösterir).
+    static func reason(for match: Match?, screenName: String?) -> String? {
         guard let match else { return nil }
         let destination = match.destination
         let target = L("%@ · Desktop %ld", screenName ?? destination.screen,
                        destination.desktop)
         let layout = L("Layout: %@", destination.layout.label)
         guard let rule = match.rule else {
-            return L("Why here: temporary pin for this window → %@ (%@)", target, layout)
+            return L("temporary pin for this window → %@ (%@)", target, layout)
         }
         let name = ([rule.appName.isEmpty ? rule.bundleID : rule.appName]
                     + (rule.path != nil ? [rule.title] : rule.tokens))
             .joined(separator: " · ")
-        return L("Why here: pin \"%@\" → %@ (%@)", name, target, layout)
+        return L("pin \"%@\" → %@ (%@)", name, target, layout)
     }
 
     // MARK: - Düzen denemeleri

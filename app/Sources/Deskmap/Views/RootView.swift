@@ -188,6 +188,7 @@ struct RootView: View {
                 // görünür, buradan haritaya yana doğru sürüklenir.
                 ScrollView {
                     VStack(spacing: 10) {
+                        QuickStartCard(mode: mode)
                         SetupDifferenceTray(mode: mode)
                         // İki sekmede de: sahipsizlik kurulumdan bağımsız.
                         UnownedWindowsTray(mode: mode)
@@ -309,6 +310,9 @@ struct RootView: View {
                 liveMode = screens.mode
                 mode = screens.mode
             }
+        }
+        .onReceive(ui.$requestedPlan) { plan in
+            if let plan { mode = plan }
         }
         .onReceive(router.$windows) { windows in
             if ui.drag == nil {
@@ -687,7 +691,7 @@ struct RootView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .fixedSize()
-            .help(L("Visual shows a small picture of each desktop next to its windows"))
+            .help(L("Visual: each desktop is a card with its windows drawn where they sit. List: one row per desktop."))
 
             Spacer()
 
