@@ -110,18 +110,31 @@ struct MultiPinBar: View {
         let plan = plan(selected: ids, windows: router.windows, history: router.identity) {
             $0.currentLayout(screens: screens.screens) ?? .full
         }
-        store.pinMany(plan.rules, mode: screens.mode)
-        for item in plan.sessions {
-            router.pinSession(item.window, destination: item.destination)
-        }
+        apply(plan, store: store, router: router, mode: screens.mode)
         return plan.rules.count + plan.sessions.count
     }
 
     private func pinAll(_ plan: Plan) {
-        store.pinMany(plan.rules, mode: mode)
+        Self.apply(plan, store: store, router: router, mode: mode)
+        ui.selection = []
+    }
+
+    /// Planı uygular; tek "Geri al" kalıcı kuralları da oturum pinlerini de
+    /// (önceki oturum pini varsa ona) geri getirir.
+    private static func apply(_ plan: Plan, store: Store, router: Router, mode: Mode) {
+        let previous = plan.sessions.map { ($0.window, router.sessionPins[$0.window]) }
+        let undoSessions: (() -> Void)? = previous.isEmpty ? nil : { [weak router] in
+            for (id, old) in previous {
+                if let old { router?.pinSession(id, destination: old) } else { router?.unpinSession(id) }
+            }
+        }
+        if !plan.rules.isEmpty {
+            store.pinMany(plan.rules, mode: mode, companion: undoSessions)
+        } else if let undoSessions {
+            store.recordSessionChange(L("Windows pinned"), undo: undoSessions)
+        }
         for item in plan.sessions {
             router.pinSession(item.window, destination: item.destination)
         }
-        ui.selection = []
     }
 }

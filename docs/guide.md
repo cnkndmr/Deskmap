@@ -156,6 +156,7 @@ switches between them instantly.
 
 - **Settings › Profiles** lists them: **Use** switches, **⋯** renames,
   duplicates, exports or deletes; **New empty profile** and **Import…** below.
+  A new or duplicated profile does not switch on by itself: press **Use**.
 - Export writes a `.deskmap.json` file — that's how you carry your setup
   to another Mac, or share it.
 

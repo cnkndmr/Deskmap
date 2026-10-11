@@ -152,7 +152,9 @@ struct ActivityLogView: View {
                                 Text(entry.date, format: .dateTime.hour().minute())
                                     .monospacedDigit()
                                     .foregroundStyle(.secondary)
-                                    .frame(width: 44, alignment: .leading)
+                                    // 12 saatlik biçim ("12:49 PM") 44 pt'ye sığmıyordu.
+                                    .lineLimit(1)
+                                    .frame(width: 54, alignment: .leading)
                                 Text(entry.text)
                                     .fixedSize(horizontal: false, vertical: true)
                                 Spacer(minLength: 0)

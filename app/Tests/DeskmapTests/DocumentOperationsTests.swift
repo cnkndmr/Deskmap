@@ -300,6 +300,39 @@ struct DocumentOperationsTests {
         #expect(doc.profiles.count == 3)
     }
 
+    /// Ayarlar'daki "Yeni boş profil" etkin profili değiştirmez.
+    @Test func addProfileWithoutActivatingKeepsActiveRules() {
+        var doc = Document()
+        doc.rules = [rule("a")]
+        let active = doc.activeProfileID
+        let added = doc.addProfile(activate: false)
+        #expect(added.rules.isEmpty)
+        #expect(doc.activeProfileID == active)
+        #expect(doc.rules.map(\.id) == ["a"])
+        #expect(doc.profiles.count == 2)
+    }
+
+    /// Kopyala: tıklanan (etkin olmayan) profilin kuralları, yeni kimliklerle;
+    /// etkin profil ve kuralları yerinde.
+    @Test func duplicateProfileCopiesSourceWithoutSwitching() {
+        var doc = Document()
+        doc.rules = [rule("a")]
+        let active = doc.activeProfileID
+        doc.profiles.append(Profile(id: "p2", name: "İş", rules: [rule("b", tokens: ["B"])]))
+        let copy = doc.duplicateProfile("p2", named: "İş kopyası")
+        #expect(copy?.name == "İş kopyası")
+        #expect(copy?.rules.map(\.tokens) == [["B"]])
+        #expect(copy?.rules.first?.id != "b")
+        #expect(doc.activeProfileID == active)
+        #expect(doc.rules.map(\.id) == ["a"])
+        // Etkin profilin kopyası canlı kurallardan alınır.
+        doc.rules.append(rule("c"))
+        let activeCopy = doc.duplicateProfile(active, named: "Kopya")
+        #expect(activeCopy?.rules.count == 2)
+        #expect(doc.duplicateProfile("nope", named: "X") == nil)
+        #expect(doc.profiles.count == 4)
+    }
+
     @Test func deleteProfileKeepsLastAndSwitchesFromActive() {
         var doc = Document()
         let only = doc.activeProfileID
