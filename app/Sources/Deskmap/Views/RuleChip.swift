@@ -21,7 +21,6 @@ struct RuleChip: View {
     @EnvironmentObject private var screens: ScreenService
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var router: Router
-    @Environment(\.dismiss) private var dismiss
 
     private var isSelected: Bool { ui.panel == .rule(rule.id) }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .rule(rule.id) }
@@ -63,51 +62,13 @@ struct RuleChip: View {
                                         lineWidth: 1))
         .contentShape(Capsule())
         .opacity(isBeingDragged ? 0.35 : (shadowedBy == nil ? 1 : 0.5))
-        .onTapGesture {
-            ui.handleClick(single: { ui.toggle(.rule(rule.id)) }, double: reopen)
-        }
-        .gesture(dragGesture, including: isGhost ? .none : .all)
+        .modifier(RuleInteractions(rule: rule, mode: mode, isGhost: isGhost, inTray: inTray))
         .help(helpText)
         .searchLook(dimmed: searchLook.dimmed, highlighted: searchLook.highlighted, cornerRadius: 12)
     }
 
     private var searchLook: (dimmed: Bool, highlighted: Bool) {
         isGhost ? (false, false) : ui.searchLook(appName: rule.appName, title: rule.title)
-    }
-
-    /// Çift tıklama: kapalı pencereyi açar (hatırlanan dosya/klasör/sayfa
-    /// ya da yalnız uygulama); Router onu pinli masaüstüne yerleştirir.
-    /// Penceresi açıksa (gölgede kalan pin) ona gidilir.
-    private func reopen() {
-        guard !isGhost else { return }
-        if let window = ui.windows.first(where: {
-            rule.matches($0)
-        }) {
-            dismiss()
-            AX.focus(windowID: window.id, pid: window.pid)
-            return
-        }
-        let target = router.reopenTargets[rule.id]
-        if Reopen.isSafari(rule) {
-            dismiss()
-            let rule = rule, router = router, store = store
-            let destination = rule[screens.mode]
-            Task {
-                if await !Reopen.openSafari(rule: rule, target: target,
-                                             destination: destination, router: router) {
-                    store.report(L("Could not open a %@ window", rule.appName))
-                }
-            }
-            return
-        }
-        switch Reopen.open(rule: rule, target: target) {
-        case .opened:
-            dismiss()
-        case .appOnly:
-            store.report(L("%@ is open, but Deskmap does not know this window's file or folder yet. Open it once; after that a double-click opens it.", rule.appName))
-        case .noApp:
-            store.report(L("Could not find the app %@", rule.appName))
-        }
     }
 
     /// Çift tıklamayla açılacak şeyin kısa adı (dosya/klasör adı ya da
@@ -135,34 +96,6 @@ struct RuleChip: View {
             ? L("a temporary pin")
             : L("the “%@” pin", store.rule(shadowedBy)?.title ?? "")
         return base + "\n" + L("This window is matched first by %@; this pin does not take effect.", winner)
-    }
-
-    private var dragGesture: some Gesture {
-        DragGesture(minimumDistance: 4, coordinateSpace: .named(MapSpace.name))
-            .onChanged { value in
-                if ui.drag == nil { ui.holdFocusForDrag() }
-                ui.drag = ChipDrag(
-                    item: .rule(rule.id),
-                    location: value.location,
-                    hover: ui.target(at: value.location),
-                    fromTray: inTray)
-            }
-            .onEnded { value in
-                defer { ui.drag = nil }
-                guard let target = ui.target(at: value.location) else { return }
-                switch target {
-                case .desktop(let screen, let desktop):
-                    let layout = rule[mode]?.layout ?? .full
-                    store.moveRule(
-                        rule.id,
-                        to: Destination(screen: screen, desktop: desktop, layout: layout),
-                        mode: mode)
-                case .tray:
-                    // Kutudan başlayıp kutuya bırakılan çip: vazgeçildi.
-                    guard !inTray else { return }
-                    store.unpin(rule.id, mode: mode)
-                }
-            }
     }
 }
 
