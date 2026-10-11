@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - Sağ sütun çerçevesi
@@ -85,36 +86,9 @@ struct RuleSentence<MatchMenu: View>: View {
     /// Menü açan, bağlantı görünümlü parça. `wraps`: uzun olabilen parça
     /// (pencere başlığı, ekran ya da masaüstü adı); satıra sığmazsa alt satıra kırılır, sütunu
     /// genişletmez.
-    @ViewBuilder
     private func part<Content: View>(_ text: String, help: String, wraps: Bool = false,
-                                     @ViewBuilder content: () -> Content) -> some View {
-        if wraps {
-            Menu {
-                content()
-            } label: {
-                Text(text)
-                    .underline(pattern: .dot)
-                    .foregroundStyle(Color.accentColor)
-                    .multilineTextAlignment(.leading)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .menuStyle(.button)
-            .buttonStyle(.plain)
-            .menuIndicator(.hidden)
-            .help(help)
-        } else {
-            Menu {
-                content()
-            } label: {
-                Text(text)
-                    .underline(pattern: .dot)
-                    .foregroundStyle(Color.accentColor)
-            }
-            .menuStyle(.borderlessButton)
-            .menuIndicator(.hidden)
-            .fixedSize()
-            .help(help)
-        }
+                                     @ViewBuilder content: @escaping () -> Content) -> some View {
+        SentenceLink(text: text, help: help, wraps: wraps, content: content)
     }
 
     private var screenName: String {
@@ -401,3 +375,40 @@ struct AdvancedToggle: View {
         .foregroundStyle(Color.accentColor)
     }
 }
+
+/// Kural cümlesindeki menü bağlantısı: düz vurgu rengi; alt çizgi ve el imleci
+/// yalnız fare üstündeyken. Sürekli kesikli alt çizgi göz yoruyordu.
+private struct SentenceLink<Content: View>: View {
+    let text: String
+    let help: String
+    let wraps: Bool
+    @ViewBuilder let content: () -> Content
+
+    @State private var hovering = false
+
+    var body: some View {
+        Menu {
+            content()
+        } label: {
+            Text(text)
+                .underline(hovering)
+                .foregroundStyle(Color.accentColor)
+                .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: !wraps, vertical: true)
+        }
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .fixedSize(horizontal: !wraps, vertical: false)
+        .onHover { inside in
+            guard inside != hovering else { return }
+            hovering = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .onDisappear {
+            if hovering { NSCursor.pop() }
+        }
+        .help(help)
+    }
+}
+
