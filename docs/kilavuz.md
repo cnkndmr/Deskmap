@@ -79,7 +79,7 @@ sabitleyeceğin her uygulamanın Dock simgesine sağ tık › **Options › Assi
    Pencerenin kararlı anahtarı yoksa (başlığının her parçası değişiyor,
    örneğin sekme grubu olmayan Safari penceresi) ya da anahtar başka açık
    bir pencereye de uyuyorsa yalnız **bütün pencereler** sunulur.
-5. **Sabitle**'ye bas (ya da Return).
+5. **Sabitle**'ye bas (ya da ⌘Return).
 
 Sabitleme bu demek: yarın aynı dosya ya da projeyle açılan pencere, yeniden
 başlattıktan sonraki — hepsi aynı yere.

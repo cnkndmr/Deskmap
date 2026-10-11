@@ -63,13 +63,16 @@ struct MultiPinBar: View {
     var body: some View {
         let plan = plan
         let count = plan.rules.count + plan.sessions.count
+        let selected = ui.windows.filter { ui.selection.contains($0.id) }.count
         VStack(alignment: .leading, spacing: 8) {
-            Label(L("%ld windows selected", ui.windows.filter { ui.selection.contains($0.id) }.count),
+            Label(selected == 1 ? L("1 window selected") : L("%ld windows selected", selected),
                   systemImage: "checkmark.circle.fill")
                 .font(.callout.weight(.semibold))
             Text(plan.sessions.isEmpty
                  ? L("Each is pinned to its current desktop with its current size and position.")
-                 : L("%ld of them only until the window closes: their titles also match other open windows.",
+                 : plan.sessions.count == 1
+                 ? L("1 window is pinned only until it closes: its title also matches other open windows.")
+                 : L("%ld windows are pinned only until they close: their titles also match other open windows.",
                      plan.sessions.count))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -80,17 +83,22 @@ struct MultiPinBar: View {
             Button {
                 pinAll(plan)
             } label: {
-                Label(L("Pin %ld where they are", count), systemImage: "pin.fill")
+                Label(count == 1 ? L("Pin it where it is") : L("Pin %ld where they are", count),
+                      systemImage: "pin.fill")
                     .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
             .disabled(count == 0)
-            .keyboardShortcut(.defaultAction)
+            // Yalın Return arama alanında da hepsini sabitlerdi.
+            .keyboardShortcut(.return, modifiers: .command)
+            .help(L("Pin (⌘Return)"))
+            // Esc kısayolu odak gerektirmez (onExitCommand gerektirirdi).
             Button(L("Clear")) { ui.selection = [] }
                 .buttonStyle(.link)
+                .keyboardShortcut(ui.cancelShortcut)
+                .help(L("Clear (Esc)"))
         }
-        .onExitCommand { ui.selection = [] }
     }
 
     /// Verilen pencereleri olduğu yere sabitler (toplu çubukla aynı plan):

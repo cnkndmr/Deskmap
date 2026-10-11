@@ -96,6 +96,18 @@ final class UIState: ObservableObject {
     var persistsPreferences = true
     /// Haritada pencere arama metni; boşsa arama yok.
     @Published var search = ""
+    /// Şu an odakta olan metin alanları (arama, masaüstü adı). Biri
+    /// düzenlenirken panellerin Esc kısayolu kapalı: Esc önce alana gider.
+    @Published var textEditors: Set<String> = []
+    /// Panellerin Esc kısayolu (saf): metin alanı düzenlenirken yok.
+    nonisolated static func cancelShortcut(textEditing: Bool) -> KeyboardShortcut? {
+        textEditing ? nil : .cancelAction
+    }
+    var cancelShortcut: KeyboardShortcut? { Self.cancelShortcut(textEditing: !textEditors.isEmpty) }
+    /// Odak değişince alanı kümeye ekler ya da çıkarır.
+    func setEditing(_ id: String, _ editing: Bool) {
+        if editing { textEditors.insert(id) } else { textEditors.remove(id) }
+    }
 
     /// Pencere aramaya uyuyor mu (saf): uygulama adı ya da başlıkta geçen,
     /// büyük/küçük harf ve aksan duyarsız. Boş sorgu her şeye uyar.

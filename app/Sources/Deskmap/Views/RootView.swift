@@ -580,6 +580,7 @@ struct RootView: View {
                     .focused($searchFocused)
                     .frame(width: 190)
                     .onExitCommand { ui.search = ""; searchFocused = false }
+                    .onChange(of: searchFocused) { ui.setEditing("search", $0) }
                 if !ui.search.trimmingCharacters(in: .whitespaces).isEmpty {
                     let hits = ui.windows.filter {
                         UIState.matches(query: ui.search, appName: $0.appName, title: $0.title)

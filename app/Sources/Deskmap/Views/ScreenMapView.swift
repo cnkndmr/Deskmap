@@ -496,6 +496,8 @@ private struct DesktopRow: View {
     private var name: String? { store.desktopName(screen: screen.id, desktop: desktop, mode: mode) }
 
     private var target: DropTarget { .desktop(screen: screen.id, desktop: desktop) }
+    /// `UIState.textEditors` içindeki ad alanı kimliği.
+    private var editorID: String { "desktop|\(screen.id)|\(desktop)" }
     private var isTargeted: Bool { ui.drag?.hover == target && acceptsDrag }
     private var placement: Router.Placement {
         Router.Placement(screen: screen.id, desktop: desktop)
@@ -618,8 +620,10 @@ private struct DesktopRow: View {
                         .onSubmit { commitName() }
                         .onExitCommand { isRenaming = false }
                         .onChange(of: nameFocused) { focused in
+                            ui.setEditing(editorID, focused)
                             if !focused && isRenaming { commitName() }
                         }
+                        .onDisappear { ui.setEditing(editorID, false) }
                 } else {
                     DesktopLabel(desktop: desktop, name: name, exists: exists)
                 }

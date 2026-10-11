@@ -79,10 +79,13 @@ struct PinPanel: View {
             HStack {
                 Spacer()
                 Button(L("Cancel")) { ui.panel = nil }
-                    .keyboardShortcut(.cancelAction)
+                    .keyboardShortcut(ui.cancelShortcut)
                     .controlSize(.small)
+                // Panel harita açılınca kendiliğinden görünür: yalın Return
+                // arama alanında da sabitlerdi, bu yüzden ⌘Return.
                 Button(L("Pin"), action: pin)
-                    .keyboardShortcut(.defaultAction)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .help(L("Pin (⌘Return)"))
                     .buttonStyle(.borderedProminent)
                     .controlSize(.small)
                     .disabled(draftRule == nil)
@@ -154,7 +157,7 @@ struct PinPanel: View {
                                     : L("%ld windows match right now.", matchCount)
         guard let rule = draftRule else { return count }
         if let path = rule.path {
-            return L("Matches the file %@", path) + " " + count
+            return L("Matches the file %@.", path) + " " + count
         }
         if rule.isAppWide {
             let reason = windowKey == .none
@@ -165,7 +168,7 @@ struct PinPanel: View {
         let tokens = rule.tokens
         // Yalnız ana parça; daraltma ayrıntıları ham liste olarak basılmaz.
         let extra = tokens.count > 1 ? " " + L("Narrowed by %ld more detail(s) from the title.", tokens.count - 1) : ""
-        return L("Matches: \"%@\"", tokens[0]) + extra + " " + count
+        return L("Matches titles containing “%@”.", tokens[0]) + extra + " " + count
     }
 
     /// Pencerenin şu anki çerçevesi, bulunduğu ekranın kullanılabilir
