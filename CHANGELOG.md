@@ -6,6 +6,19 @@ number comes from the `VERSION` file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Desktop names no longer get lost through the other setup's plan.** Removing
+  a laptop desktop row from the setup that is not active used to drop the
+  active setup's names on the same and later numbers right away (their pins
+  stayed); now names shift together with their pins when the removal actually
+  runs. A laptop desktop that is named elsewhere (in the other setup or on the
+  monitor) can no longer be queued for removal from a plan where it looks
+  empty. Queued removals of the other setup no longer make live named desktops
+  look deleted (which turned them into deleted-desktop rows and took their pins
+  and their other-setup counterparts along), and a name whose desktop still
+  exists is never treated as deleted.
+
 ## [0.5.0] — 2026-09-30
 
 The first release with a download: a universal `Deskmap.app` on the

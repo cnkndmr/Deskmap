@@ -189,8 +189,9 @@ struct DesktopNameDeskmapOpsTests {
         d.setDesktopName("C", screen: "builtin", desktop: 3, mode: U)
         d.removeDesktopLater(on: "builtin", desktop: 2, mode: .undocked, existing: true, space: nil)
         #expect(names(d, U)["builtin"] == ["1": "A", "2": "C"])
-        d.removeDesktop(on: "builtin", desktop: 2, modes: [.docked], shiftNames: false)
+        d.removeDesktop(on: "builtin", desktop: 2, modes: [.docked], expandCounterparts: false)
         #expect(names(d, U)["builtin"] == ["1": "A", "2": "C"])
+        #expect(names(d, D)["builtin"] == ["1": "A", "2": "C"])
     }
 
     @Test func reorderShiftsPinsInEveryProfile() {

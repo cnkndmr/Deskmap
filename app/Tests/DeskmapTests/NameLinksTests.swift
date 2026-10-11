@@ -256,13 +256,16 @@ struct NameLinkTests {
         #expect(names(d, D)["external"] == ["1": "B"])
     }
 
-    @Test func reconcileOverflowFallbackReportsDroppedNotPhantom() {
+    @Test func reconcileOverflowFallbackReportsUnplacedNotPhantom() {
         var d = Document()
         // A kimlikle 2'ye gider; B (bağsız) de 2'de duruyor ve 3 yok.
         d.desktopNames["docked|external"] = ["1": "A", "2": "B"]
         d.desktopNameSpaces["docked|external"] = ["1": 22]
+        d.rules = [pinRule("PA", docked: ("external", 2))]
         let result = d.reconcileNames(spaces: ["external": [11, 22]], seen: [], mode: D)
-        #expect(result.dropped.map(\.name) == ["B"])
+        // Masaüstü silinmedi: hayalet açılmaz (2'deki pinler A'nın), ad yerleşemedi.
+        #expect(result.dropped.isEmpty)
+        #expect(result.unplaced.map(\.name) == ["B"])
         #expect(names(d, D)["external"] == ["2": "A"])
     }
 
@@ -313,16 +316,21 @@ struct NameLinkTests {
         #expect(d.place(mode: U, ofName: "nova")?.slot == Slot(screen: "builtin", desktop: 3))
     }
 
-    @Test func deferredRemovalShiftsNamesInAllModesOnce() {
+    @Test func deferredRemovalShiftsEachSetupsNamesOnceWithItsPins() {
         var d = Document()
         d.setDesktopName("A", screen: "builtin", desktop: 1, mode: U)
         d.setDesktopName("C", screen: "builtin", desktop: 3, mode: U)
+        d.rules = [pinRule("P", docked: ("builtin", 3), undocked: ("builtin", 3))]
         d.removeDesktopLater(on: "builtin", desktop: 2, mode: U, existing: true, space: nil)
+        // Sıraya girerken yalnız bu kurulum kayar; öbürünün adı pinleriyle yerinde.
+        #expect(names(d, U)["builtin"] == ["1": "A", "2": "C"])
+        #expect(names(d, D)["builtin"] == ["1": "A", "3": "C"])
+        #expect(d.rules[0].undocked?.desktop == 2 && d.rules[0].docked?.desktop == 3)
+        // Gerçek silme yürüyünce öbür kurulumun adları ve pinleri birlikte bir kez kayar.
+        d.removeDesktop(on: "builtin", desktop: 2, modes: [D], expandCounterparts: false)
         #expect(names(d, U)["builtin"] == ["1": "A", "2": "C"])
         #expect(names(d, D)["builtin"] == ["1": "A", "2": "C"])
-        d.removeDesktop(on: "builtin", desktop: 2, modes: [D], shiftNames: false)
-        #expect(names(d, U)["builtin"] == ["1": "A", "2": "C"])
-        #expect(names(d, D)["builtin"] == ["1": "A", "2": "C"])
+        #expect(d.rules[0].undocked?.desktop == 2 && d.rules[0].docked?.desktop == 2)
     }
 
     @Test func removeNamedDesktopRemovesCounterpartAndPins() {
@@ -554,7 +562,7 @@ struct NameLinkTests {
         #expect(d.rules[0].docked?.desktop == 3)
         #expect(d.plannedDesktops(mode: D, screen: "builtin") == 4)
         // Gerçek silme yürüyünce bir kez kayar.
-        d.removeDesktop(on: "builtin", desktop: 2, modes: [D], shiftNames: false)
+        d.removeDesktop(on: "builtin", desktop: 2, modes: [D], expandCounterparts: false)
         #expect(d.rules[0].docked?.desktop == 2)
         #expect(d.plannedDesktops(mode: D, screen: "builtin") == 3)
     }

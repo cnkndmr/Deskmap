@@ -41,6 +41,8 @@ struct ReconcileResult: Equatable {
     var changed = false
     var moves: [NameMove] = []
     var dropped: [DroppedName] = []
+    /// Masaüstü yerinde ama ad yerleşemedi (numarası dolu); hayalet açılmaz.
+    var unplaced: [DroppedName] = []
     var adopted: [NamePlace] = []
 }
 

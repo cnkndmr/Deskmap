@@ -459,11 +459,12 @@ enum URLCommands {
         } else {
             for desktop in stride(from: have, to: count, by: -1) {
                 let existing = desktop <= (shown ?? 0)
-                store.removeDesktopLater(
+                // Başka yerde adlı gerçek masaüstü sıraya alınmaz: dur (bildirildi).
+                guard store.removeDesktopLater(
                     on: screen, desktop: desktop, mode: mode, existing: existing,
                     space: existing
                         ? router.spaceForPendingRemoval(on: screen, desktop: desktop, mode: mode)
-                        : nil)
+                        : nil) else { return }
             }
         }
     }

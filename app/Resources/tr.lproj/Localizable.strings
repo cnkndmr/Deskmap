@@ -241,6 +241,7 @@
 "Remove Desktop %ld" = "Masaüstünü sil (%ld)";
 "Could not remove desktop %ld on %@" = "%2$@ ekranında masaüstü %1$ld silinemedi";
 "Desktop removed" = "Masaüstü silindi";
+"Desktop %ld is the desktop named “%@” elsewhere; remove it where it has that name" = "Masaüstü %1$ld başka bir yerde “%2$@” adlı masaüstü; onu bu adı taşıdığı yerde silin";
 "Desktop renamed" = "Masaüstü adı değişti";
 "Name Desktop…" = "Masaüstüne ad ver…";
 "Rename Desktop…" = "Masaüstünü yeniden adlandır…";

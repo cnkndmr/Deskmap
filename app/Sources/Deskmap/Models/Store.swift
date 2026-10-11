@@ -413,14 +413,21 @@ struct Document: Codable, Equatable {
     ///   Kimlikler yenilendiyse ve kurulum değiştiyse, yalnız bayat monitör
     ///   adları laptop'a yeni eklenen masaüstülerine, özgün sırayla, sayılar
     ///   birebir tutuyorsa atanır.
+    /// - `live`: şu an gerçekten var olan bütün kimlikler (`spaces` mantıksal
+    ///   liste olup kuyruktaki silmeleri düşmüş olabilir; nil = `spaces`).
+    ///   Canlı kimliğe bağlı ad asla silinmiş sayılmaz; yeri bulunamayan ad
+    ///   (numarası dolu, sonrası yok) hayalete değil `unplaced`'a girer: pinleri
+    ///   başka bir canlı masaüstünden alınmaz.
     mutating func reconcileNames(spaces: [String: [UInt64]], seen: Set<UInt64>, mode: Mode,
-                                 previous: [String: [UInt64]] = [:]) -> ReconcileResult {
+                                 previous: [String: [UInt64]] = [:],
+                                 live: Set<UInt64>? = nil) -> ReconcileResult {
         let original = self
         var result = ReconcileResult()
         var location: [UInt64: (screen: String, desktop: Int)] = [:]
         for (screen, list) in spaces {
             for (index, id) in list.enumerated() { location[id] = (screen, index + 1) }
         }
+        let live = live ?? Set(spaces.values.joined())
         // Kimlikleri yenilenmiş ekranlar: bağlı kimliklerinin hiçbiri yok.
         // Önceki okuma varsa ölçüt onun kimlikleri (biri bile duruyorsa silme
         // gerçektir); yoksa adı bağlı kimliklerin hiçbiri.
@@ -479,9 +486,11 @@ struct Document: Codable, Equatable {
                 name: item.name))
         }
         for item in rest {
-            if let space = item.space, seen.contains(space), location[space] == nil,
-               !renewed.contains(item.screen) {
-                drop(item)   // silinmiş masaüstü
+            // Silinmiş masaüstü: kimlik bu oturumda canlı görülmüş ve artık
+            // hiçbir listede yok. Ad eşleşmesi ya da numara tek başına yetmez.
+            if let space = item.space, seen.contains(space), !live.contains(space),
+               location[space] == nil, !renewed.contains(item.screen) {
+                drop(item)
                 continue
             }
             if let list = spaces[item.screen] {
@@ -491,7 +500,15 @@ struct Document: Codable, Equatable {
                 var n = item.desktop + 1
                 while names[Self.planKey(mode: mode, screen: item.screen)]?[String(n)] != nil { n += 1 }
                 // Var olmayan masaüstüne ad yazılmaz (hayalet ad olmasın).
-                guard n <= list.count else { drop(item); continue }
+                // Masaüstü silinmiş değil: hayalet açılmaz (o numaradaki pinler
+                // başka bir canlı masaüstünün), yalnız ad yerleşemedi.
+                guard n <= list.count else {
+                    result.unplaced.append(DroppedName(
+                        place: NamePlace(mode: mode, screen: item.screen, desktop: item.desktop,
+                                         space: item.space),
+                        name: item.name))
+                    continue
+                }
                 if put(item.name, item.screen, n, list[n - 1]) {
                     result.moves.append(NameMove(
                         mode: mode, name: item.name,
@@ -630,8 +647,12 @@ struct Document: Codable, Equatable {
     }
 
     /// Silinen masaüstü + adı varsa öbür kurulumlardaki karşılıkları.
+    /// `live` verilirse canlı bir masaüstüne bağlı karşılık atlanır: aynı ad
+    /// başka bir gerçek masaüstünde yaşıyor, silinmiş değil (yalnız ad eşleşmesi
+    /// silme sebebi olmaz).
     private func removalTargets(screen: String, desktop: Int, modes: [Mode], name: String?,
-                                droppedSpace: UInt64? = nil, droppedMode: Mode? = nil)
+                                droppedSpace: UInt64? = nil, droppedMode: Mode? = nil,
+                                live: Set<UInt64>? = nil)
         -> (targets: [Target], name: String?) {
         var targets = modes.map { Target(mode: $0, screen: screen, desktop: desktop) }
         var name = name
@@ -653,6 +674,7 @@ struct Document: Codable, Equatable {
         let seedTargets = Set(seeds.map { Target(mode: $0.mode, screen: $0.screen, desktop: $0.desktop) })
         for seed in seeds {
             for twin in counterparts(of: seed, name: name) {
+                if let live, let bound = twin.space, bound != seed.space, live.contains(bound) { continue }
                 let target = Target(mode: twin.mode, screen: twin.screen, desktop: twin.desktop)
                 if targets.contains(target) { continue }
                 // Karşılık varsa o kurulumda aynı numaralı yer değil karşılık
@@ -672,15 +694,17 @@ struct Document: Codable, Equatable {
     /// varsa onunla birleşir. Ad ya da pin yoksa hayalet açılmaz (kaydırma
     /// yine yapılır). Hayalet döner. `name`: ad tablodan zaten düşmüşse
     /// (reconcile) adı verir; `shiftNames: false` adları kaydırmaz.
+    /// `live`: şu an canlı masaüstü kimlikleri (biliniyorsa); başka canlı
+    /// masaüstüne bağlı karşılık silinmiş sayılmaz (yalnız adı tutuyor).
     @discardableResult
     mutating func ghostDesktop(on screen: String, desktop: Int, modes: [Mode],
                                now: Date = Date(), name droppedName: String? = nil,
                                droppedSpace: UInt64? = nil, droppedMode: Mode? = nil,
-                               shiftNames: Bool = true)
+                               shiftNames: Bool = true, live: Set<UInt64>? = nil)
         -> GhostDesktop? {
         let resolved = removalTargets(screen: screen, desktop: desktop, modes: modes,
                                       name: droppedName, droppedSpace: droppedSpace,
-                                      droppedMode: droppedMode)
+                                      droppedMode: droppedMode, live: live)
         let targets = resolved.targets
         let name = resolved.name
         var pins: [GhostDesktop.Pin] = []
@@ -808,6 +832,27 @@ struct Document: Codable, Equatable {
         guard existing else { return }
         pendingRemovals[Self.planKey(mode: mode, screen: screen), default: []]
             .append(PendingRemoval(desktop: desktop, space: space))
+    }
+
+    /// Etkin olmayan kurulumun planından silinecek gerçek masaüstü (`space`)
+    /// başka bir yerde başka bir ada bağlıysa o ad (yoksa nil). Laptop
+    /// masaüstleri iki kurulumda aynı fiziksel masaüstü: bu kurulumda boş
+    /// görünen satır öbür kurulumun (ya da bu kurulumun monitördeki) adlı
+    /// masaüstü olabilir; sıraya alınan silme kurulum değişince onu yok
+    /// ederdi (11.10). Satırın kendi adı (aynı mantıksal masaüstü) engel değil.
+    func pendingRemovalConflict(on screen: String, desktop: Int, mode: Mode,
+                                space: UInt64) -> String? {
+        let own = desktopName(screen: screen, desktop: desktop, mode: mode).map(Self.normalizedName)
+        let ownKey = Self.planKey(mode: mode, screen: screen)
+        for (key, list) in desktopNameSpaces.sorted(by: { $0.key < $1.key }) {
+            for (slot, bound) in list.sorted(by: { $0.key < $1.key }) where bound == space {
+                if key == ownKey && slot == String(desktop) { continue }
+                guard let name = desktopNames[key]?[slot] else { continue }
+                if Self.normalizedName(name) == own { continue }
+                return name
+            }
+        }
+        return nil
     }
 
     mutating func clearPendingRemovals(mode: Mode, screen: String) {
@@ -1170,11 +1215,15 @@ struct Document: Codable, Equatable {
     /// yanlış masaüstüne gitmesin). Planlar da bir azalır. Adlı masaüstü tek
     /// mantıksal masaüstüdür: adı ve pinleri öbür kurulumdaki karşılığıyla
     /// (başka ekranda olsa da) birlikte düşer, orada da sonrakiler kayar.
-    /// `shiftNames`: adlar bir kez kaymalı (laptop adları iki kurulumda);
-    /// bekleyen silme yapılırken adlar sıraya girerken kaydığı için false,
-    /// o zaman karşılıklara da dokunulmaz.
+    /// `shiftNames: false`: adlar kaymaz, karşılıklara da dokunulmaz.
     /// `expandCounterparts: false`: adlı masaüstünün öbür kurulumdaki
     /// karşılığının pinleri ve planı kaydırılmaz.
+    /// Adlar yalnız pinleri kayan kurulumlarda kayar: laptop masaüstü iki
+    /// kurulumda aynı fiziksel masaüstü olsa da yalnız bu kurulumun planından
+    /// silinen (henüz silinmemiş) satır öbür kurulumun adını düşürmez; öbür
+    /// kurulumun adları ve pinleri gerçek silme yürüyünce birlikte kayar
+    /// (11.10: kurulum dışı plandan silinen laptop satırları canlı kurulumun
+    /// 7–9 adlarını düşürmüştü, pinler yerinde kalmıştı).
     mutating func removeDesktop(on screen: String, desktop: Int, modes: [Mode],
                                 shiftNames: Bool = true, expandCounterparts: Bool = true) {
         var targets = modes.map { Target(mode: $0, screen: screen, desktop: desktop) }
@@ -1198,16 +1247,10 @@ struct Document: Codable, Equatable {
                 setPlannedDesktops(planned - 1, mode: target.mode, screen: target.screen)
             }
         }
-        // Silinen masaüstünün adı düşer, sonrakiler bir yukarı kayar. Laptop
-        // adları iki kurulumda aynı fiziksel masaüstü olduğundan ikisinde de.
+        // Silinen masaüstünün adı düşer, sonrakiler bir yukarı kayar; yalnız
+        // pinleri kayan yerlerde (ad ile pin aynı adımda kayar).
         guard shiftNames else { return }
-        var nameTargets = targets
-        if screen == "builtin" {
-            for mode in Mode.allCases {
-                let extra = Target(mode: mode, screen: screen, desktop: desktop)
-                if !nameTargets.contains(extra) { nameTargets.append(extra) }
-            }
-        }
+        let nameTargets = targets
         remapNames { mode, name, number in
             guard let target = nameTargets.first(where: { $0.mode == mode && $0.screen == name }),
                   number >= target.desktop else { return nil }
@@ -1737,13 +1780,34 @@ final class Store: ObservableObject {
     /// Etkin olmayan modda masaüstü siler (bkz. `Document.removeDesktopLater`);
     /// yalnız belge değişir, ⌘Z geri alır (`undoing`: belgeyle birlikte
     /// geri alınan arayüz durumu, ör. daraltılmış grupların numaraları).
+    /// Silinecek gerçek masaüstü başka bir yerde başka bir ada bağlıysa
+    /// (`Document.pendingRemovalConflict`) reddedilir, bildirilir: false.
+    @discardableResult
     func removeDesktopLater(on screen: String, desktop: Int, mode: Mode,
                             existing: Bool, space: UInt64?,
-                            undoing companion: (() -> Void)? = nil) {
+                            undoing companion: (() -> Void)? = nil) -> Bool {
+        guard !refusesPendingRemoval(on: screen, desktop: desktop, mode: mode,
+                                     existing: existing, space: space) else { return false }
+        Log.app.notice("Desktop \(desktop) on \(screen, privacy: .public) removed from the \(mode.rawValue, privacy: .public) setup (existing: \(existing), space: \(space.map(String.init) ?? "none", privacy: .public))")
         recording(L("Desktop removed"), companion: companion) {
             document.removeDesktopLater(on: screen, desktop: desktop, mode: mode,
                                         existing: existing, space: space)
         }
+        return true
+    }
+
+    /// Etkin olmayan kurulumdan silme reddedilecek mi (`removeDesktopLater`):
+    /// reddedilirse bildirir. Arayüz numaraları kaydırmadan önce sorar.
+    func refusesPendingRemoval(on screen: String, desktop: Int, mode: Mode,
+                               existing: Bool, space: UInt64?) -> Bool {
+        guard existing, let space,
+              let name = document.pendingRemovalConflict(on: screen, desktop: desktop,
+                                                         mode: mode, space: space)
+        else { return false }
+        Log.app.notice("Removal of desktop \(desktop) on \(screen, privacy: .public) in the \(mode.rawValue, privacy: .public) setup refused: it is a named desktop elsewhere")
+        report(L("Desktop %ld is the desktop named “%@” elsewhere; remove it where it has that name",
+                 desktop, name))
+        return true
     }
 
     /// Bekleyen ilk silme yapıldı ya da geçersiz (geri alma kaydı yok).
@@ -1759,8 +1823,10 @@ final class Store: ObservableObject {
     /// Gerçek masaüstü silindikten sonra pinleri yeniden numaralar. Geri
     /// alma kaydı yok: ⌘Z masaüstünü geri getiremez, yalnız numaraları
     /// bozardı.
-    func removeDesktop(on screen: String, desktop: Int, modes: [Mode], shiftNames: Bool = true) {
-        document.removeDesktop(on: screen, desktop: desktop, modes: modes, shiftNames: shiftNames)
+    func removeDesktop(on screen: String, desktop: Int, modes: [Mode], shiftNames: Bool = true,
+                       expandCounterparts: Bool = true) {
+        document.removeDesktop(on: screen, desktop: desktop, modes: modes, shiftNames: shiftNames,
+                               expandCounterparts: expandCounterparts)
     }
 
     func desktopName(screen: String, desktop: Int, mode: Mode) -> String? {
@@ -1791,9 +1857,10 @@ final class Store: ObservableObject {
     /// olmuş bir değişikliği izler). `name`: ad tablodan zaten düştüyse.
     func ghostDesktop(on screen: String, desktop: Int, modes: [Mode],
                       name: String? = nil, space: UInt64? = nil, droppedMode: Mode? = nil,
-                      shiftNames: Bool = true) {
+                      shiftNames: Bool = true, live: Set<UInt64>? = nil) {
         document.ghostDesktop(on: screen, desktop: desktop, modes: modes, name: name,
-                              droppedSpace: space, droppedMode: droppedMode, shiftNames: shiftNames)
+                              droppedSpace: space, droppedMode: droppedMode, shiftNames: shiftNames,
+                              live: live)
     }
 
     /// Hayaleti yeni açılan masaüstüne geri getirir (geri alınabilir).
@@ -1814,9 +1881,11 @@ final class Store: ObservableObject {
     /// (geri alma kaydı yok; macOS'ta olmuş bir değişikliği izler).
     @discardableResult
     func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>, mode: Mode,
-                               previous: [String: [UInt64]] = [:]) -> ReconcileResult {
+                               previous: [String: [UInt64]] = [:],
+                               live: Set<UInt64>? = nil) -> ReconcileResult {
         var copy = document
-        let result = copy.reconcileNames(spaces: spaces, seen: seen, mode: mode, previous: previous)
+        let result = copy.reconcileNames(spaces: spaces, seen: seen, mode: mode, previous: previous,
+                                         live: live)
         if result.changed { document = copy }
         return result
     }

@@ -787,12 +787,16 @@ private struct DesktopRow: View {
             }
             return
         }
+        let queued = !isLive && existing
+        let space = queued
+            ? router.spaceForPendingRemoval(on: screen.id, desktop: desktop, mode: mode) : nil
+        // Başka yerde adlı gerçek masaüstü sıraya alınmaz (Store bildirir);
+        // reddedilirse daraltılmış gruplar da kaymaz.
+        guard !store.refusesPendingRemoval(on: screen.id, desktop: desktop, mode: mode,
+                                           existing: queued, space: space) else { return }
         let undoCollapsed = remapCollapsed([mode])
         store.removeDesktopLater(
-            on: screen.id, desktop: desktop, mode: mode, existing: !isLive && existing,
-            space: !isLive && existing
-                ? router.spaceForPendingRemoval(on: screen.id, desktop: desktop, mode: mode)
-                : nil,
+            on: screen.id, desktop: desktop, mode: mode, existing: queued, space: space,
             undoing: undoCollapsed)
     }
 

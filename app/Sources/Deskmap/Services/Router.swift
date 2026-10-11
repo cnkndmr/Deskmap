@@ -1092,7 +1092,12 @@ final class Router: ObservableObject {
             // Mission Control'de silmeyle aynı: pinleri ve adı hayalete
             // geçer (satırdan geri getirilebilir), sonrakiler bir yukarı kayar.
             Log.app.notice("Desktop \(desktop) on \(screenID, privacy: .public) removed in Deskmap; pins kept on a deleted-desktop row")
-            store.ghostDesktop(on: screenID, desktop: desktop, modes: Mode.allCases)
+            // Taze liste: başka canlı masaüstüne bağlı adlı karşılık düşmez.
+            let live = Set(Self.desktopSpaces(
+                displays: SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(screens.screens)),
+                screens: screens.screens).values.joined())
+            store.ghostDesktop(on: screenID, desktop: desktop, modes: Mode.allCases,
+                               live: live.isEmpty ? nil : live.subtracting(space.map { [$0] } ?? []))
             shiftSessionPins(screen: screenID, removed: desktop)
             updateBaseline(removed: space.map { [$0] } ?? [])
         }
@@ -1347,11 +1352,29 @@ final class Router: ObservableObject {
     /// `externallyRemovedDesktops`, ama Deskmap'in sıraya aldığı silmelerin
     /// (kuyruktaki, pinleri zaten kaymış) kimlikleri iki listeden de çıkarılır:
     /// dönen numaralar kaymış pin numaralarıyla uyuşur.
+    /// `numbering`: dönen numaraların sayıldığı liste yalnız bu kuyruğu düşer
+    /// (etkin kurulumun kuyruğu; nil = `pending`). Öbür kurulumun kuyruğu
+    /// etkin kurulumun numaralarını kaydırmaz: yoksa sonraki gerçek masaüstü
+    /// yerine bir öncekinin (canlı) adı ve pinleri hayalete giderdi.
     nonisolated static func removedOutsideDeskmap(
-        before: [String: [UInt64]], after: [String: [UInt64]], pending: Set<UInt64>
+        before: [String: [UInt64]], after: [String: [UInt64]], pending: Set<UInt64>,
+        numbering: Set<UInt64>? = nil
     ) -> [String: [Int]] {
-        externallyRemovedDesktops(before: before.mapValues { $0.filter { !pending.contains($0) } },
-                                  after: after.mapValues { $0.filter { !pending.contains($0) } })
+        let filtered = before.mapValues { $0.filter { !pending.contains($0) } }
+        let found = externallyRemovedDesktops(
+            before: filtered, after: after.mapValues { $0.filter { !pending.contains($0) } })
+        guard let numbering, numbering != pending else { return found }
+        var result: [String: [Int]] = [:]
+        for (screen, numbers) in found {
+            let old = filtered[screen] ?? []
+            let counted = (before[screen] ?? []).filter { !numbering.contains($0) }
+            let mapped = numbers.compactMap { number -> Int? in
+                guard number >= 1, number <= old.count else { return nil }
+                return counted.firstIndex(of: old[number - 1]).map { $0 + 1 }
+            }
+            if !mapped.isEmpty { result[screen] = mapped.sorted(by: >) }
+        }
+        return result
     }
 
     /// Masaüstü adlarını gerçek masaüstülerine göre yerleştirir: macOS'ta
@@ -1372,24 +1395,24 @@ final class Router: ObservableObject {
         // (pinler zaten kaydı) ekran yine karşılaştırılır; kimliği bilinmeyen
         // silmesi olan ekranda numaralar gerçek masaüstülerinden önce
         // kaymıştır, o ekran silme bitene dek karşılaştırılmaz.
-        var pendingSpaces = Set<UInt64>()
-        var unresolved = Set<String>()
-        for (key, list) in store.document.pendingRemovals where !list.isEmpty {
-            let screen = key.split(separator: "|").last.map(String.init) ?? key
-            for removal in list {
-                if let space = removal.space { pendingSpaces.insert(space) } else { unresolved.insert(screen) }
-            }
-        }
+        // `activePending`: yalnız etkin kurulumun kuyruğu. Etkin kurulumun
+        // numaraları ve adları yalnız onunla kaymıştır; öbür kurulumun kuyruğu
+        // (henüz silinmemiş, canlı masaüstüleri) etkin kurulumun adlarını
+        // silinmiş saydırmamalı (11.10: monitörlü planın laptop kuyruğu
+        // laptop kurulumunun canlı 7–9 adlarını hayalete çevirdi).
+        let queue = Self.pendingQueue(store.document.pendingRemovals, mode: screens.mode)
+        let pendingSpaces = queue.all, activePending = queue.active, unresolved = queue.unresolved
         let comparable = spaces.filter { !unresolved.contains($0.key) }
         let previous = knownDesktopSpaces.filter { !unresolved.contains($0.key) }
         // Mission Control'de silinen masaüstü: pinleri ve adı hayalete
         // geçer, sonrakilerin pinleri bir yukarı kayar (yoksa hepsi bir
         // sonraki masaüstüne giderdi).
+        let live = Set(spaces.values.joined())
         for (screen, desktops) in Self.removedOutsideDeskmap(
-            before: previous, after: comparable, pending: pendingSpaces) {
+            before: previous, after: comparable, pending: pendingSpaces, numbering: activePending) {
             for desktop in desktops {
                 Log.app.notice("Desktop \(desktop) on \(screen, privacy: .public) was removed outside Deskmap; pins kept on a deleted-desktop row")
-                store.ghostDesktop(on: screen, desktop: desktop, modes: Mode.allCases)
+                store.ghostDesktop(on: screen, desktop: desktop, modes: Mode.allCases, live: live)
                 shiftSessionPins(screen: screen, removed: desktop)
             }
         }
@@ -1398,22 +1421,48 @@ final class Router: ObservableObject {
         for screen in unresolved { baseline[screen] = knownDesktopSpaces[screen] }
         let before = knownDesktopSpaces
         setDesktopBaseline(baseline)
-        // Adlar mantıksal numaralara göre: kuyruktaki silmeler düşülür.
-        let logical = comparable.mapValues { $0.filter { !pendingSpaces.contains($0) } }
+        // Adlar etkin kurulumun mantıksal numaralarına göre: yalnız onun
+        // kuyruğundaki silmeler düşülür. Canlı kimlik (`live`) hiçbir zaman
+        // silinmiş sayılmaz.
+        let logical = comparable.mapValues { $0.filter { !activePending.contains($0) } }
         if !store.document.desktopNames.isEmpty, !logical.isEmpty {
             let result = store.reconcileDesktopNames(
                 spaces: logical, seen: seenDesktopSpaces, mode: screens.mode,
-                previous: before.mapValues { $0.filter { !pendingSpaces.contains($0) } })
+                previous: before.mapValues { $0.filter { !activePending.contains($0) } },
+                live: live)
             applySessionMoves(result.moves)
             for drop in result.dropped.sorted(by: { $0.place.desktop > $1.place.desktop }) {
                 Log.app.notice("Named desktop \(drop.name, privacy: .private) lost its desktop; kept on a deleted-desktop row")
                 store.ghostDesktop(on: drop.place.screen, desktop: drop.place.desktop,
                                    modes: Mode.allCases, name: drop.name, space: drop.place.space,
-                                   droppedMode: drop.place.mode)
+                                   droppedMode: drop.place.mode, live: live)
                 shiftSessionPins(screen: drop.place.screen, removed: drop.place.desktop)
+            }
+            for item in result.unplaced {
+                Log.app.notice("Named desktop \(item.name, privacy: .private) could not be placed on \(item.place.screen, privacy: .public); name dropped, pins left in place")
             }
         }
         seenDesktopSpaces.formUnion(spaces.values.joined())
+    }
+
+    /// Bekleyen silmeler (saf): `all` bütün kurulumların kimlikleri, `active`
+    /// yalnız `mode` kurulumununkiler, `unresolved` kimliği bilinmeyen silmesi
+    /// olan ekranlar.
+    nonisolated static func pendingQueue(_ pending: [String: [PendingRemoval]], mode: Mode)
+        -> (all: Set<UInt64>, active: Set<UInt64>, unresolved: Set<String>) {
+        var all = Set<UInt64>(), active = Set<UInt64>(), unresolved = Set<String>()
+        for (key, list) in pending where !list.isEmpty {
+            let parts = Document.splitNameKey(key)
+            for removal in list {
+                if let space = removal.space {
+                    all.insert(space)
+                    if parts?.mode == mode { active.insert(space) }
+                } else {
+                    unresolved.insert(parts?.screen ?? key)
+                }
+            }
+        }
+        return (all, active, unresolved)
     }
 
     /// Mission Control'de yer değiştiren adlı masaüstlerinin oturum pinleri
@@ -1534,10 +1583,12 @@ final class Router: ObservableObject {
                         return
                     }
                     self.store.dropFirstPendingRemoval(mode: mode, screen: screenID)
-                    // Bu modun pinleri silme sıraya girerken kaydı; öbürleri şimdi.
+                    // Bu modun pinleri ve adları silme sıraya girerken kaydı;
+                    // öbür kurulumlarınkiler şimdi, birlikte (karşılık genişletmesi
+                    // yok: bu kurulum zaten kaydı).
                     self.store.removeDesktop(on: screenID, desktop: index,
                                              modes: Mode.allCases.filter { $0 != mode },
-                                             shiftNames: false)
+                                             expandCounterparts: false)
                     self.shiftSessionPins(screen: screenID, removed: index)
                     self.updateBaseline(removed: [removedSpace])
                 }
