@@ -482,3 +482,33 @@ struct UnpinnedDropTests {
     }
 
 }
+
+/// "Yalnız bir planda sabit" kutusundaki çipin panelinde "Sabitlemeyi
+/// kaldır": bakılan planda pin yoksa pinin durduğu öbür planı kaldırır
+/// (eskiden bakılan planı hedefleyip hiçbir şey yapmıyordu).
+struct TrayUnpinTests {
+
+    private let builtin2 = Destination(screen: "builtin", desktop: 2)
+
+    @Test func unpinTargetsThePlanBeingViewedWhenItHasAPin() {
+        let rule = Rule(id: "r", appName: "Telegram", bundleID: "tg", tokens: [],
+                        docked: builtin2, undocked: builtin2)
+        #expect(RulePanel.unpinMode(for: rule, viewing: .docked) == .docked)
+        #expect(RulePanel.unpinMode(for: rule, viewing: .undocked) == .undocked)
+    }
+
+    @Test func unpinFallsBackToTheOtherPlanForAnOtherPlanOnlyChip() {
+        let laptopOnly = Rule(id: "r", appName: "Telegram", bundleID: "tg", tokens: [],
+                              undocked: builtin2)
+        #expect(RulePanel.unpinMode(for: laptopOnly, viewing: .docked) == .undocked)
+        var doc = Document()
+        doc.rules = [laptopOnly]
+        doc.unpin("r", mode: RulePanel.unpinMode(for: laptopOnly, viewing: .docked)!)
+        #expect(doc.rules.isEmpty)
+    }
+
+    @Test func noUnpinWithoutAnyPin() {
+        let empty = Rule(id: "r", appName: "A", bundleID: "a", tokens: [])
+        #expect(RulePanel.unpinMode(for: empty, viewing: .docked) == nil)
+    }
+}

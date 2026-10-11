@@ -40,10 +40,11 @@ struct PinPanelHeader<Trailing: View>: View {
 
 /// Panellerin en altındaki "Sabitlemeyi kaldır" düğmesi.
 struct UnpinButton: View {
+    var title = L("Unpin")
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            Label(L("Unpin"), systemImage: "pin.slash")
+            Label(title, systemImage: "pin.slash")
         }
         .controlSize(.small)
     }
@@ -116,12 +117,24 @@ struct RulePanel: View {
                 }
             }
 
-            Divider()
-            UnpinButton {
-                store.unpin(rule.id, mode: mode)
-                ui.panel = nil
+            if let target = Self.unpinMode(for: rule, viewing: mode) {
+                Divider()
+                UnpinButton(title: target == mode ? L("Unpin")
+                                                  : L("Unpin in the %@ plan", target.title)) {
+                    store.unpin(rule.id, mode: target)
+                    ui.panel = nil
+                }
             }
         }
+    }
+
+    /// "Sabitlemeyi kaldır"ın etki ettiği plan (saf): bu planda hedef varsa
+    /// bu plan; yoksa (çip "yalnız diğer planda sabit" kutusundan açıldı)
+    /// pinin durduğu diğer plan. Eskiden düğme hep bu planı hedefliyordu ve
+    /// o durumda hiçbir şey yapmıyordu. Hiç hedef yoksa nil (düğme gizli).
+    static func unpinMode(for rule: Rule, viewing mode: Mode) -> Mode? {
+        if rule[mode] != nil { return mode }
+        return Mode.allCases.first { $0 != mode && rule[$0] != nil }
     }
 
     /// Her zaman depodaki güncel değeri okur; yakalanan `destination` bir

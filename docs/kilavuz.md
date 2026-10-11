@@ -148,7 +148,8 @@ yere her sabit pencereyi yerleştirir.
 
 Bir sabitlemeyi planlardan birinde istemiyorsan: sol kenar çubuğundaki
 *Yalnız bir planda yeri olanlar* kutusuna sürükle. Öteki planda kalmaya
-devam eder.
+devam eder. Kutuda öteki plana ait görünen bir sabitlemeyi tamamen
+kaldırmak için ona tıkla ve **… planındaki sabitlemeyi kaldır**ı seç.
 
 ## 7. Profiller: masa, kafe, sunum
 

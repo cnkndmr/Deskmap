@@ -145,7 +145,8 @@ it out, the app waits a couple of seconds for the displays to settle and
 then puts every pinned window where that plan says.
 
 A pin you don't want in one of the plans: drag it to the *Placed in one plan
-only* box in the left sidebar. It stays in the other plan.
+only* box in the left sidebar. It stays in the other plan. To drop a pin that
+is listed there for the other plan, click it and use **Unpin in the … plan**.
 
 ## 7. Profiles: desk, café, presentation
 

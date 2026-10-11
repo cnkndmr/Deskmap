@@ -124,6 +124,7 @@
 
 /* Views/RulePanels.swift: pin bilgisi, geçici pin */
 "Unpin" = "Sabitlemeyi kaldır";
+"Unpin in the %@ plan" = "%@ planındaki sabitlemeyi kaldır";
 "Close (Esc)" = "Kapat (Esc)";
 "Close" = "Kapat";
 "Use current size and position" = "Şu anki boyutu ve konumu kullan";
