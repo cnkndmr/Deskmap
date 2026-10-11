@@ -373,6 +373,9 @@ private struct ProfileSettings: View {
 
     /// Ad alanını açar ve odaklar; başka satırda açık taslak önce kaydedilir.
     private func beginEditing(_ profile: Profile) {
+        // Önce odağı bırak: yoksa eski alan kapanırken düşen odak yeni
+        // alanın onChange'ini tetikler ve yeni taslak hemen kaydedilip kapanır.
+        nameFocused = false
         if let old = editing, old != profile.id { commit(old) }
         editing = profile.id
         name = profile.name
