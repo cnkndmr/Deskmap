@@ -51,9 +51,26 @@ struct RedesignTests {
         #expect(hits("obsidian", .docked, live: true) == 1)
         // Öbür planda o planın pinleri (ikisi) + atanmamış Mail; pinli Code penceresi listelenmez.
         #expect(hits("acme", .docked, live: false) == 3)
-        // Pini olmayan planda yalnız atanmamış pencere.
-        #expect(hits("acme", .undocked, live: false) == 1)
+        // Pini olmayan planda iki pin "Yalnız öbür planda sabitli" çipi + atanmamış Mail.
+        #expect(hits("acme", .undocked, live: false) == 3)
         #expect(hits("zzz", .docked, live: true) == 0)
+
+        // Yalnız öbür planda sabitli pin kenar çubuğu kutusunda çip olarak
+        // vurgulanır; sayı turuncu sıfır göstermez.
+        let laptopOnly = Rule(id: "laptop", appName: "Notes", bundleID: "b.Notes", tokens: [],
+                              docked: nil, undocked: Destination(screen: "builtin", desktop: 1))
+        func hitsWith(_ query: String, _ windows: [Router.WindowSnapshot], live: Bool) -> Int {
+            UIState.searchHits(query: query, windows: windows, rules: [laptopOnly], sessionPins: [:],
+                               mode: .docked, isLive: live)
+        }
+        // Kapalı: iki sekmede de tek çip.
+        #expect(hitsWith("notes", [], live: true) == 1)
+        #expect(hitsWith("notes", [], live: false) == 1)
+        // Açık: canlıda pencere (çip ikinci kez sayılmaz), öbür sekmede çip
+        // (penceresi pinli olduğundan atanmamışlar arasında değil).
+        let notesWindow = [win(4, "Notes", title: "Shopping")]
+        #expect(hitsWith("notes", notesWindow, live: true) == 1)
+        #expect(hitsWith("notes", notesWindow, live: false) == 1)
     }
 
     // MARK: Son hareketler

@@ -128,16 +128,20 @@ final class UIState: ObservableObject {
     }
 
     /// Araç çubuğundaki sonuç sayısı (saf): seçili planın haritasında
-    /// vurgulanan öğeler. Canlı planda uyan açık pencereler ve açık penceresi
-    /// olmayan uyan pinler (penceresi açık pin penceresiyle bir kez sayılır);
-    /// öbür planda o planın uyan pinleri ve hiçbir planda pini olmayan uyan
-    /// pencereler (Atanmamış pencereler kutusu).
+    /// vurgulanan öğeler. Pinler iki planda da çizilir: bu planın masaüstü
+    /// satırlarında ya da kenar çubuğundaki "Yalnız öbür planda sabitli"
+    /// kutusunda; bu yüzden herhangi bir planda yeri olan her uyan pin sayılır.
+    /// Canlı planda uyan açık pencereler ve açık penceresi olmayan uyan pinler
+    /// (penceresi açık pin penceresiyle bir kez sayılır); öbür planda uyan
+    /// pinler ve hiçbir planda pini olmayan uyan pencereler (Atanmamış
+    /// pencereler kutusu).
     nonisolated static func searchHits(
         query: String, windows: [Router.WindowSnapshot], rules: [Rule],
         sessionPins: [CGWindowID: Destination], mode: Mode, isLive: Bool
     ) -> Int {
         let hitPins = rules.filter {
-            $0[mode] != nil && matches(query: query, appName: $0.appName, title: $0.title)
+            ($0.docked != nil || $0.undocked != nil)
+                && matches(query: query, appName: $0.appName, title: $0.title)
         }
         let shownWindows = isLive
             ? windows
