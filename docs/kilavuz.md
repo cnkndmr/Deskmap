@@ -34,18 +34,19 @@ Bu kılavuz on dakika sürer. macOS 13 ya da üstü gerekir.
 
 Uygulama bu ayarları canlı denetler: başlangıç rehberinin 2. adımı,
 **Ayarlar › macOS ayarları** sekmesi ve sonradan biri bozulursa haritadaki
-turuncu kart. **Desktop & Dock'u aç**'a bas ve şunları ayarla:
+turuncu kart. **Masaüstü ve Dock'u aç**'a bas ve şunları ayarla (parantez
+içinde İngilizce macOS'taki adı):
 
 | Ayar | Olması gereken |
 |---|---|
-| Automatically rearrange Spaces based on most recent use | **Kapalı** |
-| When switching to an application, switch to a Space with open windows | **Açık** |
-| Displays have separate Spaces | **Açık** |
-| Group windows by application | Kapalı (önerilir) |
+| Alanları en son kullanıma göre otomatik olarak yeniden düzenle (Automatically rearrange Spaces based on most recent use) | **Kapalı** |
+| Bir uygulamaya geçildiğinde, uygulamanın açık pencerelerinin olduğu bir Alan'a geç (When switching to an application, switch to a Space with open windows) | **Açık** |
+| Ekranların ayrı Alanları var (Displays have separate Spaces) | **Açık** |
+| Pencereleri uygulamaya göre grupla (Group windows by application) | Kapalı (önerilir) |
 
 Bir tane daha var, macOS hiçbir uygulamanın denetlemesine izin vermiyor:
-sabitleyeceğin her uygulamanın Dock simgesine sağ tık › **Options › Assign To
-→ None**. macOS uygulamayı kendi bir masaüstüne atadıysa pencere için
+sabitleyeceğin her uygulamanın Dock simgesine sağ tık › **Seçenekler › Ata →
+Hiçbiri** (Options › Assign To → None). macOS uygulamayı kendi bir masaüstüne atadıysa pencere için
 çekişirler.
 
 ![Ayar kartı hangi ayarın bozuk olduğunu tek tek söyler](images/tr/05-setup.png)
@@ -157,8 +158,8 @@ anında geçiş yapar.
 ![Ayarlar › Profiller](images/tr/07-settings-profiles.png)
 
 - **Ayarlar › Profiller** hepsini listeler: **Kullan** geçer, **⋯** yeniden
-  adlandırır, kopyalar, dışa aktarır ya da siler; altta **Yeni boş profil** ve
-  **İçe aktar…**. Yeni ya da kopyalanan profil kendiliğinden geçerli olmaz:
+  adlandırır, çoğaltır, dışa aktarır ya da siler; altta **Yeni boş profil** ve
+  **İçe aktar…**. Yeni ya da çoğaltılan profil kendiliğinden geçerli olmaz:
   **Kullan**'a bas.
 - Dışa aktarma `.deskmap.json` dosyası yazar — düzenini başka Mac'e
   taşımanın ya da paylaşmanın yolu.
@@ -201,7 +202,7 @@ otomasyonuna: "Çalışma odağı açılınca Masa profiline geç".
 | Gördüğün | Anlamı |
 |---|---|
 | Pencere hiç kıpırdamıyor | Deskmap duraklatılmış (sol üst) ya da uygulama güncellemesinden sonra Erişilebilirlik izni düşmüş — yeniden ver. |
-| Pencere yanlış masaüstüne gidiyor | "Automatically rearrange Spaces" açık kalmış ya da uygulamanın Dock **Assign To** ayarı **None** değil. |
+| Pencere yanlış masaüstüne gidiyor | "Alanları en son kullanıma göre otomatik olarak yeniden düzenle" (Automatically rearrange Spaces) açık kalmış ya da uygulamanın Dock **Ata** (Assign To) ayarı **Hiçbiri** (None) değil. |
 | Sabitlemenin çipi soluk görünüyor | O pencereye daha özgül başka bir sabitleme önce uyuyor. Üzerine gel, hangisi olduğunu söyler. |
 | Turuncu **Masaüstü 5 yok** rozeti | O masaüstü yok; Mission Control'den masaüstü ekle. |
 | Bir pencere zıpladı, nedenini bilmiyorsun | Araç çubuğundaki **Son hareketler** her taşımayı ve hedefini listeler. |
