@@ -41,7 +41,7 @@ in or unplug a monitor.
 
 <table>
   <tr>
-    <td width="50%" align="center"><img src="docs/images/en/01-map.png" alt="The map: one card per display, one row per desktop, pinned windows in place"></td>
+    <td width="50%" align="center"><img src="docs/images/en/01-map.png" alt="The map: each display as cards of desktops, pinned windows in place"></td>
     <td width="50%" align="center"><img src="docs/images/en/02-pin.png" alt="Pinning a window by the part of its title that names the workspace"></td>
   </tr>
   <tr>
@@ -50,7 +50,7 @@ in or unplug a monitor.
   </tr>
   <tr>
     <td width="50%" align="center"><img src="docs/images/en/03-layout.png" alt="A pin's panel: title parts, a layout grid and presets"></td>
-    <td width="50%" align="center"><img src="docs/images/en/06-free-move.png" alt="A pinned window with 15 minutes of free movement; the row shows the time left"></td>
+    <td width="50%" align="center"><img src="docs/images/en/06-free-move.png" alt="A pinned window with 15 minutes of free movement; the panel shows the time left"></td>
   </tr>
   <tr>
     <td align="center"><b>Layouts</b></td>
@@ -66,7 +66,7 @@ in or unplug a monitor.
   preset, or set a fixed size.
 - **Two setups.** *Monitor connected* and *Laptop only* have separate targets.
   Plug in or unplug, and every window moves to its place.
-- **The map.** Every display, every desktop, every window. Drag a row to move
+- **The map.** Every display, every desktop, every window. Drag a window to move
   it. Add, remove and reorder desktops.
 - **Free move.** Let a pinned window roam for 1 to 60 minutes; then it goes
   home. Also from a right-click on the menu bar icon.

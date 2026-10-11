@@ -53,20 +53,29 @@ has assigned the app to a desktop itself, it will fight over the window.
 ## 3. Pin your first window
 
 1. Open the window you care about — say a project in VS Code.
-2. Click the menu bar icon. The **map** shows one card per display and one
-   row per desktop, with the windows that are on each of them right now.
-   Next to each desktop, a small **preview** draws its windows where they sit
-   (turn it off with **Visual | List**). Looking for one window? Press **⌘F**
-   and type part of its name.
-3. Find your window and click its row or its **pin** button (or right-click
-   the row › **Pin to this desktop…**). Its details open in the column on the
-   right.
+2. Click the menu bar icon. The **map** shows each display with one small
+   card per desktop. A card is a mini screen: every window on that desktop
+   is a box at its own place and size. A card that gets crowded stacks the
+   boxes that cover the same area, each with its title showing, and tucks the
+   rest behind a **+3 more**-style button; the **≡** button on a card opens its
+   plain list. Looking for one window? Press **⌘F** and type part of its
+   name.
+
+![The List view: one row per desktop, with a small preview](images/en/01-map-list.png)
+
+   Prefer rows? **List** (next to **Visual**) shows one row per desktop with
+   a small preview next to it.
+3. Find your window and click its box (or right-click it › **Pin to this
+   desktop…**). Its details open in the column on the right. Windows that
+   don't belong anywhere yet wait in the *Unassigned windows* box on the
+   left, each showing where it is *now*; click one there, or its **pin**
+   button.
 
 ![Choosing which part of the title identifies the window](images/en/02-pin.png)
 
 4. The panel starts with one sentence, for example *Messages · this window
-   (general) → Built-in Display · Desktop 2 · Full*. Each underlined part is a
-   menu. The first one offers two choices:
+   (general) → Built-in Display · Desktop 2 · Full*. Each blue part is a link
+   that opens a menu. The first one offers two choices:
    - **This window (key)** — Deskmap works out a stable key for the window
      and shows it in brackets. In order: the file the window shows (Preview,
      Pages, Word, Excel, TextEdit… — two different `main.pdf` files stay
@@ -82,23 +91,32 @@ has assigned the app to a desktop itself, it will fight over the window.
    open window, only **All windows** is offered.
 5. Click **Pin** (or press ⌘Return).
 
-Several windows at once: **Pin all … where they are** in the *Unassigned
-windows* box (or ⌘-click rows) selects them; confirm in the right-hand
-column. Each one keeps its current desktop, size and position.
+Under the sentence, the **Display** and **Desktop** menus move the pin
+somewhere else, and at the bottom a **Why here?** box says in plain words
+which pin put the window there.
+
+Several windows at once: the **Quick start** card at the top of the left
+sidebar has **Pin all where they are (N)** (or ⌘-click boxes to pick some);
+confirm in the right-hand column. Each one keeps its current desktop, size
+and position.
 
 That's a pin. Tomorrow's window with the same file or project, the one after
 a restart — same place.
 
 ## 4. Move it where it belongs
 
-Drag the row (or the chip) onto another desktop row — on any display. That
-is how you say "no, this one lives on the monitor, desktop 3". You can also
-click **Desktop 2** or the display's name in the panel's sentence and pick
-another one, or right-click the row › **Send to**.
+Drag the window's box (or its chip) onto another desktop's card — on any
+display. That is how you say "no, this one lives on the monitor, desktop 3".
+You can also use the **Display** and **Desktop** menus in the panel, or
+right-click the box › **Send to**. An empty card says *Empty · drag a window
+here*; the last card, **+ Add desktop**, adds one to the map.
 
 - Desktops that don't exist yet are drawn with a dashed line. macOS only
   lets *you* create desktops: open Mission Control and add them, then the
-  row becomes solid.
+  card becomes solid.
+- Right-click a card to **Rename Desktop…**, **Remove Name** or **Remove Desktop**.
+- Pinned windows that are closed right now wait as chips under the card's
+  mini screen.
 - An orange **Desktop 5 missing** badge means the pin wants desktop 5 but the
   display has only 3, so the window waits on the last one (hover it for the
   details).
@@ -106,7 +124,7 @@ another one, or right-click the row › **Send to**.
 
 ## 5. Give it a size
 
-Click a pinned row or chip. Under the sentence are four layouts: **Full**,
+Click a pinned window's box or chip. Under the sentence are four layouts: **Full**,
 **Left half**, **Right half** and **As it is** (only the desktop is kept;
 Deskmap never moves or resizes the window there). If the window has some
 other layout, a fifth tile, **Custom**, shows it, with its full name under the
@@ -122,10 +140,10 @@ like — the app won't keep snapping it back. Press **⌘R** (or **⋯ › Place
 pinned windows now**) when you want everything placed again from scratch.
 
 Need to move a pinned window by hand for a while? **Free move** in the panel,
-or right-click its row › **Free move** › 5, 15, 30… minutes. Deskmap leaves it
+or right-click its box › **Free move** › 5, 15, 30… minutes. Deskmap leaves it
 alone until the time is up, then puts it back.
 
-Found a size you like by hand? Click the pinned row, open **Advanced** and
+Found a size you like by hand? Click the pinned window, open **Advanced** and
 press **Use current size and position**: the window's current place and
 size become the pin's layout. The pin stays on its display and desktop.
 Undo with ⌘Z if you change your mind.

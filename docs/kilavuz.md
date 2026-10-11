@@ -54,18 +54,28 @@ Hiçbiri** (Options › Assign To → None). macOS uygulamayı kendi bir masaüs
 ## 3. İlk pencereni sabitle
 
 1. Önemsediğin pencereyi aç — diyelim VS Code'da bir proje.
-2. Menü çubuğu simgesine tıkla. **Harita** her ekran için bir kart, her
-   masaüstü için bir satır gösterir; satırlarda o an orada duran pencereler
-   vardır. Her masaüstünün yanında küçük bir **önizleme** pencereleri
-   durdukları yerde çizer (**Görsel | Liste** ile kapatılır). Tek bir pencere
-   mi arıyorsun? **⌘F**'ye bas, adının bir parçasını yaz.
-3. Pencereni bul, satırına ya da **raptiye** düğmesine tıkla (ya da satıra
-   sağ tık › **Bu masaüstüne sabitle…**). Ayrıntısı sağdaki sütunda açılır.
+2. Menü çubuğu simgesine tıkla. **Harita** her ekranı, masaüstü başına bir
+   küçük kartla gösterir. Kart minik bir ekrandır: o masaüstündeki her
+   pencere kendi yerinde ve boyutunda bir kutudur. Kalabalıklaşan kart,
+   aynı alanı kaplayan kutuları üst üste dizer ve her birinin başlığı
+   görünür kalır; fazlasını **+3 daha** gibi bir düğmenin arkasına koyar.
+   Kartın **≡** düğmesi düz listesini açar. Tek bir pencere mi arıyorsun?
+   **⌘F**'ye bas, adının bir parçasını yaz.
+
+![Liste görünümü: masaüstü başına bir satır, yanında küçük önizleme](images/tr/01-map-list.png)
+
+   Satır mı istiyorsun? **Liste** (**Görsel**'in yanında) her masaüstü için
+   bir satır ve yanında küçük bir önizleme gösterir.
+3. Pencereni bul, kutusuna tıkla (ya da sağ tık › **Bu masaüstüne
+   sabitle…**). Ayrıntısı sağdaki sütunda açılır. Henüz bir yere ait
+   olmayan pencereler solda *Yeri olmayan pencereler* kutusunda bekler ve
+   her biri *şu an* nerede olduğunu gösterir; oradan birine ya da
+   **raptiye** düğmesine tıklayabilirsin.
 
 ![Başlığın hangi parçası bu pencereyi tanımlıyor?](images/tr/02-pin.png)
 
 4. Panel tek bir cümleyle başlar, örneğin *Messages · bu pencere (general) →
-   Built-in Display · Masaüstü 2 · Tam*. Altı çizili her parça bir menüdür.
+   Built-in Display · Masaüstü 2 · Tam*. Mavi her parça bir menü açan bağlantıdır.
    İlki iki seçenek sunar:
    - **Bu pencere (anahtar)** — Deskmap pencere için kararlı bir anahtar
      bulur ve parantez içinde gösterir. Sırayla: pencerenin gösterdiği dosya
@@ -85,20 +95,30 @@ Hiçbiri** (Options › Assign To → None). macOS uygulamayı kendi bir masaüs
 Sabitleme bu demek: yarın aynı dosya ya da projeyle açılan pencere, yeniden
 başlattıktan sonraki — hepsi aynı yere.
 
-Birden çok pencere birden: *Yeri olmayan pencereler* kutusundaki **Hepsini
-olduğu yere sabitle (…)…** (ya da satırlara ⌘-tık) onları seçer; sağdaki
-sütunda onayla. Her biri şu anki masaüstünü, boyutunu ve konumunu korur.
+Cümlenin altındaki **Ekran** ve **Masaüstü** menüleri sabitlemeyi başka
+yere taşır; en altta **Neden burada?** kutusu, pencereyi hangi sabitlemenin
+oraya koyduğunu düz sözlerle söyler.
+
+Birden çok pencere birden: solda yan sütunun en üstündeki **Hızlı başlangıç**
+kartında **Hepsini olduğu yere sabitle (N)** var (ya da bazılarını seçmek
+için kutulara ⌘-tık); sağdaki sütunda onayla. Her biri şu anki masaüstünü,
+boyutunu ve konumunu korur.
 
 ## 4. Ait olduğu yere taşı
 
-Satırı (ya da çipi) başka bir masaüstü satırına sürükle — istediğin ekranda.
-"Hayır, bu monitörde, 3. masaüstünde yaşar" demenin yolu bu. Paneldeki
-cümlede **Masaüstü 2**'ye ya da ekranın adına tıklayıp başkasını da
-seçebilirsin; ya da satıra sağ tık › **Gönder**.
+Pencerenin kutusunu (ya da çipini) başka bir masaüstünün kartına sürükle —
+istediğin ekranda. "Hayır, bu monitörde, 3. masaüstünde yaşar" demenin yolu
+bu. Paneldeki **Ekran** ve **Masaüstü** menülerini de kullanabilirsin; ya da
+kutuya sağ tık › **Gönder**. Boş kartta *Boş · bir pencereyi buraya sürükle*
+yazar; son kart **+ Masaüstü ekle** haritaya bir tane ekler.
 
 - Henüz var olmayan masaüstleri kesik çizgiyle çizilir. Masaüstü oluşturmaya
-  yalnızca **sen** izinlisin: Mission Control'ü aç, ekle; satır düz çizgiye
+  yalnızca **sen** izinlisin: Mission Control'ü aç, ekle; kart düz çizgiye
   döner.
+- Karta sağ tıkla: **Masaüstünü yeniden adlandır…**, **Adı kaldır** ya da
+  **Masaüstünü sil**.
+- Şu an kapalı olan sabit pencereler, kartın minik ekranının altında çip
+  olarak bekler.
 - Turuncu **Masaüstü 5 yok** rozeti, sabitleme 5. masaüstünü istiyor ama
   ekranda 3 tane var demek; pencere sonuncuda bekler (ayrıntı için üzerine
   gel).
@@ -107,7 +127,7 @@ seçebilirsin; ya da satıra sağ tık › **Gönder**.
 
 ## 5. Boyutunu ver
 
-Sabit bir satıra ya da çipe tıkla. Cümlenin altında dört düzen var: **Tam**,
+Sabit bir pencerenin kutusuna ya da çipine tıkla. Cümlenin altında dört düzen var: **Tam**,
 **Sol yarı**, **Sağ yarı** ve **Olduğu gibi** (yalnız masaüstü korunur;
 Deskmap pencereyi orada hiç taşımaz, boyutuna dokunmaz). Pencerenin başka bir
 düzeni varsa beşinci döşeme **Özel** onu gösterir, tam adı satırın altında
@@ -124,10 +144,10 @@ uygulama geri zıplatmaz. Her şeyin baştan yerleşmesini istersen **⌘R** (ya
 **⋯ › Sabit pencereleri şimdi yerine koy**).
 
 Sabit bir pencereyi bir süre elle mi taşıyacaksın? Paneldeki **Serbest bırak**
-ya da satıra sağ tık › **Serbest bırak** › 5, 15, 30… dakika. Süre bitene dek
+ya da kutuya sağ tık › **Serbest bırak** › 5, 15, 30… dakika. Süre bitene dek
 Deskmap ona dokunmaz, sonra yerine koyar.
 
-Elle boyutlandırıp beğendiğin bir ölçü mü var? Sabit satıra tıkla,
+Elle boyutlandırıp beğendiğin bir ölçü mü var? Sabit pencereye tıkla,
 **Gelişmiş**'i aç ve **Şu anki boyutu ve konumu kullan**'a bas: pencerenin şu
 anki yeri ve boyutu sabitlemenin düzeni olur. Ekran ve masaüstü değişmez.
 Vazgeçersen ⌘Z ile geri al.
