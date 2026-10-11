@@ -63,4 +63,16 @@ struct MultiPinTests {
         store.undo()
         #expect(store.document.rules.isEmpty)
     }
+
+    /// Toplu pinin oturum pinleri de aynı geri alma adımında kalkar.
+    @MainActor @Test func storePinManyRunsCompanionOnUndo() {
+        let store = Store(demo: Document())
+        var undone = false
+        store.pinMany([(rule: Rule(appName: "A", bundleID: "a", tokens: ["x"]),
+                        destination: Destination(screen: "external", desktop: 1))],
+                      mode: .docked, companion: { undone = true })
+        store.undo()
+        #expect(undone)
+        #expect(store.document.rules.isEmpty)
+    }
 }

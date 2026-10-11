@@ -385,7 +385,7 @@
 "These work while the map is open." = "Bunlar harita açıkken çalışır.";
 "Show the Monitor connected plan" = "Monitör bağlı planını göster";
 "Show the Laptop only plan" = "Sadece laptop planını göster";
-"Undo the last action" = "Son işlemi geri al";
+"Undo the last action (for 10 seconds)" = "Son işlemi geri al (10 saniye içinde)";
 "Select several windows" = "Birden çok pencere seç";
 "⌘-click" = "⌘-tık";
 "What the map shows" = "Harita ne gösteriyor";
@@ -401,7 +401,7 @@
 "Where on the screen the window sits: full, left half, a corner…" = "Pencerenin ekranda durduğu yer: tamamı, sol yarı, bir köşe…";
 "macOS gives a full-screen window its own space; Deskmap does not touch it." = "macOS tam ekran pencereye ayrı bir masaüstü açar; Deskmap ona dokunmaz.";
 "Plan" = "Plan";
-"Monitor connected and Laptop only are two separate plans. The one in effect right now is marked." = "Monitör bağlı ve Sadece laptop iki ayrı plandır. Şu an geçerli olan işaretlidir.";
+"Monitor connected and Laptop only are two separate plans. The one in effect right now is marked; the other says in orange when it applies, and changes to it move no window until then." = "Monitör bağlı ve Sadece laptop iki ayrı plandır. Şu an geçerli olan işaretlidir; öteki ne zaman geçerli olacağını turuncuyla yazar, ona yaptığın değişiklikler o zamana dek hiçbir pencereyi taşımaz.";
 "Desktop %ld missing" = "Masaüstü %ld yok";
 "For now the window is on desktop %ld, the last one on this display. Add desktops in Mission Control, or drag the window to another desktop." = "Pencere şimdilik bu ekranın son masaüstünde (%ld. masaüstü). Mission Control'de masaüstü ekle ya da pencereyi başka masaüstüne sürükle.";
 
@@ -465,8 +465,10 @@
 "Fixed settings turn green by themselves." = "Düzelttiğin ayar kendiliğinden yeşile döner.";
 "How do you want to start?" = "Nasıl başlamak istersin?";
 "Pin my windows where they are (recommended)" = "Pencerelerimi olduğu yere sabitle (önerilen)";
-"1 open window is pinned to its current desktop, size and position. Fix any of them later; one click undoes it." = "Açık 1 pencere şu anki masaüstüne, boyutuna ve konumuna sabitlenir. Sonra istediğini düzeltirsin; tek tıkla geri alınır.";
-"%ld open windows are pinned to their current desktop, size and position. Fix any of them later; one click undoes it." = "Açık %ld pencere şu anki masaüstüne, boyutuna ve konumuna sabitlenir. Sonra istediğini düzeltirsin; tek tıkla geri alınır.";
+"Pin my windows where they are" = "Pencerelerimi olduğu yere sabitle";
+"No unpinned open windows right now." = "Şu an sabitlenmemiş açık pencere yok.";
+"1 open window is pinned to its current desktop, size and position. You can change or unpin any of them later on the map." = "Açık 1 pencere şu anki masaüstüne, boyutuna ve konumuna sabitlenir. Sonra haritada istediğini değiştirebilir ya da sabitlemesini kaldırabilirsin.";
+"%ld open windows are pinned to their current desktop, size and position. You can change or unpin any of them later on the map." = "Açık %ld pencere şu anki masaüstüne, boyutuna ve konumuna sabitlenir. Sonra haritada istediğini değiştirebilir ya da sabitlemesini kaldırabilirsin.";
 "Start empty" = "Boş başla";
 "Nothing is pinned. Click the Deskmap icon in the menu bar and drag a window onto a desktop, or click its pin." = "Hiçbir şey sabitlenmez. Menü çubuğundaki Deskmap simgesine tıkla, bir pencereyi masaüstüne sürükle ya da raptiyesine tıkla.";
 "Later" = "Sonra";

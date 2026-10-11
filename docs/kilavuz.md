@@ -156,7 +156,8 @@ anında geçiş yapar.
 
 - **Ayarlar › Profiller** hepsini listeler: **Kullan** geçer, **⋯** yeniden
   adlandırır, kopyalar, dışa aktarır ya da siler; altta **Yeni boş profil** ve
-  **İçe aktar…**.
+  **İçe aktar…**. Yeni ya da kopyalanan profil kendiliğinden geçerli olmaz:
+  **Kullan**'a bas.
 - Dışa aktarma `.deskmap.json` dosyası yazar — düzenini başka Mac'e
   taşımanın ya da paylaşmanın yolu.
 

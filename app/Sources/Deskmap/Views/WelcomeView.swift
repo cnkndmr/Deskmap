@@ -35,24 +35,40 @@ final class WelcomeWindow {
     }
 
     func show() {
-        let model = AppModel.shared
-        if window == nil {
-            let view = WelcomeView { [weak self] in self?.finish() }
-                .environmentObject(model.store)
-                .environmentObject(model.router)
-                .environmentObject(model.screens)
-            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+        // Görünüm her gösterişte yeniden kurulur: kapanan pencere görünümü
+        // canlı tuttuğundan `step` son adımda kalıyor, rehber 3. adımdan
+        // açılıyordu.
+        let content = makeContent()
+        let window: NSWindow
+        if let existing = self.window {
+            existing.contentViewController = content
+            window = existing
+        } else {
+            window = NSWindow(contentViewController: content)
             window.title = L("Welcome to Deskmap")
             window.styleMask = [.titled, .closable]
             window.isReleasedWhenClosed = false
-            window.center()
             self.window = window
         }
+        window.center()
         MapWindow.close()
         NSApp.activate(ignoringOtherApps: true)
-        window?.makeKeyAndOrderFront(nil)
+        window.makeKeyAndOrderFront(nil)
     }
 
+    private func makeContent() -> NSViewController {
+        let model = AppModel.shared
+        let view = WelcomeView { [weak self] in self?.finish() }
+            .environmentObject(model.store)
+            .environmentObject(model.router)
+            .environmentObject(model.screens)
+        return NSHostingController(rootView: view)
+    }
+
+    /// Rehber bitti olarak işaretlenir ve kapanır. `setupNoticeDismissed`
+    /// bir belge değişimi: pinlemeden SONRA yazılırsa az önceki "Pencereler
+    /// sabitlendi" geri alma kaydını düşürür, bu yüzden pinlemeden önce
+    /// çağrılır.
     private func finish() {
         UserDefaults.standard.set(true, forKey: Self.doneKey)
         AppModel.shared.store.document.setupNoticeDismissed = true
@@ -194,24 +210,31 @@ struct WelcomeView: View {
     }
 
     private var startStep: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let windows = unpinned
+        // Sabitlenecek pencere yoksa (hepsi sabit ya da tam ekran) ilk kart
+        // sönük ve önerisiz, vurgu "Boş başla"ya geçer.
+        let none = windows.isEmpty
+        return VStack(alignment: .leading, spacing: 12) {
             Text(L("How do you want to start?")).font(.title2.weight(.semibold))
             choice(
-                title: L("Pin my windows where they are (recommended)"),
-                detail: unpinned.count == 1
-                    ? L("1 open window is pinned to its current desktop, size and position. Fix any of them later; one click undoes it.")
-                    : L("%ld open windows are pinned to their current desktop, size and position. Fix any of them later; one click undoes it.", unpinned.count),
-                prominent: true
+                title: none ? L("Pin my windows where they are")
+                            : L("Pin my windows where they are (recommended)"),
+                detail: none ? L("No unpinned open windows right now.")
+                    : windows.count == 1
+                    ? L("1 open window is pinned to its current desktop, size and position. You can change or unpin any of them later on the map.")
+                    : L("%ld open windows are pinned to their current desktop, size and position. You can change or unpin any of them later on the map.", windows.count),
+                prominent: !none
             ) {
-                MultiPinBar.pinWhereTheyAre(Set(unpinned.map(\.id)), store: store,
-                                            router: router, screens: screens)
+                let ids = Set(windows.map(\.id))
                 finish()
+                MultiPinBar.pinWhereTheyAre(ids, store: store, router: router, screens: screens)
             }
-            .disabled(unpinned.isEmpty)
+            .disabled(none)
+            .opacity(none ? 0.6 : 1)
             choice(
                 title: L("Start empty"),
                 detail: L("Nothing is pinned. Click the Deskmap icon in the menu bar and drag a window onto a desktop, or click its pin."),
-                prominent: false,
+                prominent: none,
                 action: finish)
             footer(back: true, canContinue: nil)
         }

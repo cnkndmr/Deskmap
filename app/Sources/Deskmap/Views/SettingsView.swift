@@ -96,7 +96,12 @@ struct SettingsView: View {
                     Button {
                         state.tab = tab
                     } label: {
-                        Label(tab.title, systemImage: tab.symbol)
+                        // Simgeler farklı genişlikte; sabit kutu başlıkları aynı çizgiye dizer.
+                        Label {
+                            Text(tab.title)
+                        } icon: {
+                            Image(systemName: tab.symbol).frame(width: 20)
+                        }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -242,15 +247,24 @@ private struct MacOSSettings: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(L("Deskmap needs a few Mission Control settings. They are checked continuously; if one changes, the menu bar icon turns orange."))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            // "Yeniden denetle" üstte: sabit yükseklikli pencerede kartın
+            // altında (Türkçede, ya da bir ayar bozukken) görünmez kalıyordu.
+            HStack(alignment: .top, spacing: 12) {
+                Text(L("Deskmap needs a few Mission Control settings. They are checked continuously; if one changes, the menu bar icon turns orange."))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button(L("Check Again")) { checks = MacSettings.checks() }
+                    .controlSize(.small)
+            }
             SetupCard(checks: checks, dismissible: false)
-            Button(L("Check Again")) { checks = MacSettings.checks() }
-                .controlSize(.small)
         }
         .onAppear { checks = MacSettings.checks() }
+        // Sistem Ayarları'ndan dönünce kart kendiliğinden tazelensin.
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            checks = MacSettings.checks()
+        }
     }
 }
 
@@ -263,6 +277,7 @@ private struct ProfileSettings: View {
     /// Yeniden adlandırılan profil ve taslak adı.
     @State private var editing: String?
     @State private var name = ""
+    @FocusState private var nameFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -278,9 +293,8 @@ private struct ProfileSettings: View {
 
             HStack(spacing: 8) {
                 Button {
-                    let profile = store.addProfile()
-                    editing = profile.id
-                    name = profile.name
+                    // Etkin profil değişmez: yeni profil "Kullan" ile açılır.
+                    beginEditing(store.addProfile(activate: false))
                 } label: {
                     Label(L("New empty profile"), systemImage: "plus")
                 }
@@ -296,6 +310,8 @@ private struct ProfileSettings: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .top) { Divider() }
         }
+        // Sekme değişince ya da pencere kapanınca taslak kaybolmasın.
+        .onDisappear { if let id = editing { commit(id) } }
     }
 
     private func row(_ profile: Profile) -> some View {
@@ -307,7 +323,12 @@ private struct ProfileSettings: View {
                 TextField(L("Profile name"), text: $name)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 180)
+                    .focused($nameFocused)
                     .onSubmit { commit(profile.id) }
+                    .onExitCommand { editing = nil }
+                    .onChange(of: nameFocused) { focused in
+                        if !focused, editing == profile.id { commit(profile.id) }
+                    }
                 Button(L("Save")) { commit(profile.id) }
                     .controlSize(.small)
             } else {
@@ -323,12 +344,13 @@ private struct ProfileSettings: View {
             if !isActive {
                 Button(L("Use")) { store.switchProfile(to: profile.id) }
                     .help(L("Switch to this profile"))
+                    .disabled(editing == profile.id)
             }
             Menu {
-                Button(L("Rename")) { editing = profile.id; name = profile.name }
+                Button(L("Rename")) { beginEditing(profile) }
                 Button(L("Duplicate")) {
-                    if !isActive { store.switchProfile(to: profile.id) }
-                    store.addProfile(named: L("%@ copy", profile.name), copyingCurrent: true)
+                    // Tıklanan profilin kopyası; etkin profil ve pencereler yerinde kalır.
+                    store.duplicateProfile(profile.id, named: L("%@ copy", profile.name))
                 }
                 Button(L("Export…")) { ProfileFiles.exportProfile(profile.id, from: store) }
                 Divider()
@@ -340,12 +362,22 @@ private struct ProfileSettings: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .disabled(editing == profile.id)
             .help(L("Rename, duplicate, export or delete"))
             .accessibilityLabel(L("Rename, duplicate, export or delete"))
         }
         .controlSize(.small)
         .padding(.vertical, 8)
         .overlay(alignment: .top) { Divider() }
+    }
+
+    /// Ad alanını açar ve odaklar; başka satırda açık taslak önce kaydedilir.
+    private func beginEditing(_ profile: Profile) {
+        if let old = editing, old != profile.id { commit(old) }
+        editing = profile.id
+        name = profile.name
+        // Menü kapanırken verilen odak düşüyor; bir sonraki turda ver.
+        DispatchQueue.main.async { nameFocused = true }
     }
 
     private func commit(_ id: String) {
@@ -392,7 +424,7 @@ private struct ShortcutSettings: View {
             row(L("Show the Laptop only plan"), "⌘2")
             row(L("Place pinned windows now"), "⌘R")
             row(L("Search windows"), "⌘F")
-            row(L("Undo the last action"), "⌘Z")
+            row(L("Undo the last action (for 10 seconds)"), "⌘Z")
             row(L("Settings"), "⌘,")
             row(L("Select several windows"), L("⌘-click"))
         }
@@ -442,9 +474,9 @@ struct LegendView: View {
                     .font(.caption2).foregroundStyle(.purple)),
                   title: L("Full screen"),
                   text: L("macOS gives a full-screen window its own space; Deskmap does not touch it."))
-            entry(swatch: AnyView(Text(L("active now")).font(.caption2).foregroundStyle(.green)),
+            entry(swatch: AnyView(ActivePlanBadge()),
                   title: L("Plan"),
-                  text: L("Monitor connected and Laptop only are two separate plans. The one in effect right now is marked."))
+                  text: L("Monitor connected and Laptop only are two separate plans. The one in effect right now is marked; the other says in orange when it applies, and changes to it move no window until then."))
         }
         .padding(14)
         .frame(width: 420)
@@ -476,5 +508,18 @@ struct LegendView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+}
+
+/// Üst çubukta geçerli planın işareti (yeşil nokta + "şu an geçerli");
+/// açıklama paneli de aynısını gösterir.
+struct ActivePlanBadge: View {
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle().fill(Color.green).frame(width: 6, height: 6)
+            Text(L("active now"))
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 }

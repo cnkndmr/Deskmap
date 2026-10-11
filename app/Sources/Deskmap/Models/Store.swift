@@ -1255,17 +1255,33 @@ struct Document: Codable, Equatable {
         rules = target.rules
     }
 
-    /// Yeni profil ekler ve ona geçer. `copyingCurrent`: mevcut pinlerle başla
-    /// (kural kimlikleri yenilenir).
+    /// Yeni profil ekler; `activate` ise ona geçer. `copyingCurrent`: mevcut
+    /// pinlerle başla (kural kimlikleri yenilenir).
     @discardableResult
-    mutating func addProfile(named name: String? = nil, copyingCurrent: Bool = false) -> Profile {
+    mutating func addProfile(named name: String? = nil, copyingCurrent: Bool = false,
+                             activate: Bool = true) -> Profile {
         syncActiveProfile()
         let profile = Profile(
             name: Self.uniqueName(name ?? L("Profile %ld", profiles.count + 1), in: profiles),
             rules: copyingCurrent ? Self.regeneratingIDs(rules) : [])
         profiles.append(profile)
-        activeProfileID = profile.id
-        rules = profile.rules
+        if activate {
+            activeProfileID = profile.id
+            rules = profile.rules
+        }
+        return profile
+    }
+
+    /// Verilen profilin kopyasını ekler (kural kimlikleri yenilenir); etkin
+    /// profil değişmez, pencereler yerinde kalır. Etkin profil kopyalanıyorsa
+    /// kurallar canlı `rules`'tan alınır.
+    @discardableResult
+    mutating func duplicateProfile(_ id: String, named name: String) -> Profile? {
+        syncActiveProfile()
+        guard let source = profiles.first(where: { $0.id == id }) else { return nil }
+        let profile = Profile(name: Self.uniqueName(name, in: profiles),
+                              rules: Self.regeneratingIDs(source.rules))
+        profiles.append(profile)
         return profile
     }
 
@@ -1636,9 +1652,10 @@ final class Store: ObservableObject {
     }
 
     /// Toplu pinleme: hepsi tek adımda yazılır, ⌘Z hepsini geri alır.
-    func pinMany(_ items: [(rule: Rule, destination: Destination)], mode: Mode) {
+    func pinMany(_ items: [(rule: Rule, destination: Destination)], mode: Mode,
+                 companion: (() -> Void)? = nil) {
         guard !items.isEmpty else { return }
-        recording(L("Windows pinned")) {
+        recording(L("Windows pinned"), companion: companion) {
             for item in items {
                 document.pin(item.rule, destination: item.destination, mode: mode)
             }
@@ -1824,10 +1841,17 @@ final class Store: ObservableObject {
         document = doc
     }
 
-    /// Yeni profil ekler ve ona geçer. `copyingCurrent`: mevcut pinlerle başla.
+    /// Yeni profil ekler; `activate` ise ona geçer. `copyingCurrent`: mevcut pinlerle başla.
     @discardableResult
-    func addProfile(named name: String? = nil, copyingCurrent: Bool = false) -> Profile {
-        document.addProfile(named: name, copyingCurrent: copyingCurrent)
+    func addProfile(named name: String? = nil, copyingCurrent: Bool = false,
+                    activate: Bool = true) -> Profile {
+        document.addProfile(named: name, copyingCurrent: copyingCurrent, activate: activate)
+    }
+
+    /// Profilin kopyasını ekler; etkin profil değişmez.
+    @discardableResult
+    func duplicateProfile(_ id: String, named name: String) -> Profile? {
+        document.duplicateProfile(id, named: name)
     }
 
     func renameProfile(_ id: String, to name: String) {

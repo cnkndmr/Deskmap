@@ -628,13 +628,8 @@ struct RootView: View {
     @ViewBuilder
     private var planNote: some View {
         if mode == screens.mode {
-            HStack(spacing: 4) {
-                Circle().fill(Color.green).frame(width: 6, height: 6)
-                Text(L("active now"))
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .help(L("This plan is in effect right now"))
+            ActivePlanBadge()
+                .help(L("This plan is in effect right now"))
         } else {
             Text(mode == .undocked ? L("Applies when the monitor is unplugged")
                  : L("Applies when a monitor is connected"))
@@ -656,7 +651,7 @@ struct RootView: View {
             }
             Divider()
             Button(L("New empty profile")) {
-                store.addProfile()
+                store.addProfile(activate: false)
                 openSettings(.profiles)
             }
             Button(L("Import a profile from a file (.deskmap.json)")) {
