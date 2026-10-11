@@ -490,7 +490,7 @@ These work while the Deskmap window is open and focused.
 | ⌘1 / ⌘2 | Show the *Monitor connected* / *Laptop only* setup |
 | ⌘Z | Undo the last action (while the "· Undo" link is visible) |
 | ⌘Return | Confirm the pin panel (**Pin**) or pin the ⌘-clicked windows |
-| Esc | Close the open panel, or clear the ⌘-click selection (in the search or a desktop name field, Esc acts on the field first) |
+| Esc | Close the open panel, or clear the ⌘-click selection (while typing in the search or a desktop name field, Esc acts on the field first) |
 
 ## Troubleshooting
 

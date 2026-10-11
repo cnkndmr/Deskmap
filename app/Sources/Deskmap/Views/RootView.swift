@@ -580,7 +580,9 @@ struct RootView: View {
                     .focused($searchFocused)
                     .frame(width: 190)
                     .onExitCommand { ui.search = ""; searchFocused = false }
-                    .onChange(of: searchFocused) { ui.setEditing("search", $0) }
+                    // Yalnız odakta ve yazı varken: boş aramada Esc panele kalır.
+                    .onChange(of: searchFocused) { ui.setEditing("search", $0 && !ui.search.isEmpty) }
+                    .onChange(of: ui.search) { ui.setEditing("search", searchFocused && !$0.isEmpty) }
                 if !ui.search.trimmingCharacters(in: .whitespaces).isEmpty {
                     let hits = ui.windows.filter {
                         UIState.matches(query: ui.search, appName: $0.appName, title: $0.title)
