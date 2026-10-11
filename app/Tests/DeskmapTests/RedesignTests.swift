@@ -29,6 +29,33 @@ struct RedesignTests {
         #expect(!UIState.matches(query: "mail", appName: "Safari", title: "Docs"))
     }
 
+    /// Sonuç sayısı haritada vurgulananı sayar: canlı planda açık pencereler
+    /// ve penceresi kapalı pinler (açık pin bir kez), öbür planda o planın
+    /// pinleri ve atanmamış pencereler.
+    @Test func searchHitsCountWhatTheSelectedPlanHighlights() {
+        let open = Rule(id: "open", appName: "Code", bundleID: "b.Code", tokens: ["acme"],
+                        docked: Destination(screen: "builtin", desktop: 1), undocked: nil)
+        let closed = Rule(id: "closed", appName: "Obsidian", bundleID: "b.Obsidian",
+                          tokens: ["acme"],
+                          docked: Destination(screen: "builtin", desktop: 2), undocked: nil)
+        let windows = [win(1, "Code", title: "acme — Code"), win(2, "Mail", title: "acme news"),
+                       win(3, "Safari", title: "Docs")]
+        let rules = [open, closed]
+        func hits(_ query: String, _ mode: Mode, live: Bool) -> Int {
+            UIState.searchHits(query: query, windows: windows, rules: rules, sessionPins: [:],
+                               mode: mode, isLive: live)
+        }
+        // Canlı: Code ve Mail pencereleri + kapalı Obsidian pini; açık Code pini ikinci kez sayılmaz.
+        #expect(hits("acme", .docked, live: true) == 3)
+        // Yalnız kapalı pine uyan arama turuncu sıfır göstermez.
+        #expect(hits("obsidian", .docked, live: true) == 1)
+        // Öbür planda o planın pinleri (ikisi) + atanmamış Mail; pinli Code penceresi listelenmez.
+        #expect(hits("acme", .docked, live: false) == 3)
+        // Pini olmayan planda yalnız atanmamış pencere.
+        #expect(hits("acme", .undocked, live: false) == 1)
+        #expect(hits("zzz", .docked, live: true) == 0)
+    }
+
     // MARK: Son hareketler
 
     @Test func logPutsNewestFirstAndKeepsTheLimit() {
@@ -102,6 +129,26 @@ struct RedesignTests {
         #expect(StatusItemMenu.unpinnedFront(
             2, windows: windows, rules: [rule],
             sessionPins: [2: Destination(screen: "builtin", desktop: 2)], mode: .docked) == nil)
+    }
+
+    /// Hızlı duraklatma yalnız arada anahtar başka yoldan değişmediyse
+    /// kendiliğinden devam eder.
+    @Test func quickPauseResumesOnlyIfNothingElseToggledIt() {
+        #expect(StatusItemMenu.autoResumes(armedAt: 3, changes: 3, enabled: false))
+        // Anahtarla açılıp yeniden kapatıldı: süresiz duraklatma kalır.
+        #expect(!StatusItemMenu.autoResumes(armedAt: 3, changes: 5, enabled: false))
+        #expect(!StatusItemMenu.autoResumes(armedAt: 3, changes: 4, enabled: true))
+    }
+
+    @MainActor @Test func storeCountsOnlyEnabledChanges() {
+        let store = Store(demo: Document())
+        store.document.enabled = false
+        #expect(store.enabledChanges == 1)
+        store.document.screens = []
+        store.document.enabled = false
+        #expect(store.enabledChanges == 1)
+        store.document.enabled = true
+        #expect(store.enabledChanges == 2)
     }
 
     // MARK: Pencere genişliği

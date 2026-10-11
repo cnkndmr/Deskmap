@@ -180,11 +180,22 @@ final class StatusItemMenu: NSObject {
         let store = AppModel.shared.store
         store.document.enabled = false
         resumeTask?.cancel()
+        let armed = store.enabledChanges
         resumeTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(Self.quickPause * 1_000_000_000))
-            guard !Task.isCancelled else { return }
-            if !store.document.enabled { store.document.enabled = true }
+            guard !Task.isCancelled,
+                  Self.autoResumes(armedAt: armed, changes: store.enabledChanges,
+                                   enabled: store.document.enabled)
+            else { return }
+            store.document.enabled = true
         }
+    }
+
+    /// Hızlı duraklatmanın süresi dolunca devam edilir mi (saf): yalnız
+    /// duraklatmadan beri anahtar başka yoldan değişmediyse. Arada açılıp
+    /// yeniden kapatılan Deskmap süresiz duraklatılmıştır.
+    nonisolated static func autoResumes(armedAt: Int, changes: Int, enabled: Bool) -> Bool {
+        !enabled && changes == armedAt
     }
 
     @objc private func resume(_ sender: NSMenuItem) {

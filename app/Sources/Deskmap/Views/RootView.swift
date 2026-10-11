@@ -368,6 +368,9 @@ struct RootView: View {
                               reapply: Date().timeIntervalSince(mapShownAt) < 0.5)
         }
         .onChange(of: ui.windows) { windows in
+            // Kapanan pencereler çoklu seçimden düşer; seçim boşalınca panel döner.
+            let open = Set(windows.map(\.id))
+            if !ui.selection.isSubset(of: open) { ui.selection.formIntersection(open) }
             // Taslağın ya da geçici pinin penceresi kapandıysa paneli kapat.
             switch ui.panel {
             case .pin(let draft):
@@ -426,15 +429,21 @@ struct RootView: View {
         return action
     }
 
-    /// Harita açıldı: önceki açılıştan kalan panel kapanır, kullanıcının en
-    /// son tıkladığı pencere satırına tıklanmış gibi seçilir ve görünür
-    /// yere kaydırılır. Öndeki pencere yoksa (masaüstü, penceresiz uygulama)
-    /// yalnız panel kapanır.
+    /// Harita açıldı: önceki açılıştan kalan panel, çoklu seçim ve arama
+    /// kapanır, harita şu an geçerli planda açılır; kullanıcının en son
+    /// tıkladığı pencere satırına tıklanmış gibi seçilir ve görünür yere
+    /// kaydırılır. Öndeki pencere yoksa (masaüstü, penceresiz uygulama)
+    /// seçim yapılmaz.
     private func showFrontWindow() {
         ui.panel = nil
         ui.panelSourceWindowID = nil
+        ui.selection = []
+        ui.search = ""
+        searchFocused = false
         mapShownAt = Date()
         pendingFront = AX.frontWindowID().map { ($0, Date().addingTimeInterval(2), false) }
+        // Sekme değişimi `onChange(of: mode)` ile öndeki pencereyi yeniden seçer.
+        mode = screens.mode
         selectFrontWindow(in: router.windows)
     }
 
@@ -570,8 +579,14 @@ struct RootView: View {
     private var header: some View {
         HStack(spacing: 12) {
             Toggle(isOn: $store.document.enabled) {
-                Text(store.document.enabled ? L("Deskmap on") : L("Paused"))
-                    .foregroundStyle(store.document.enabled ? Color.primary : Color.orange)
+                // İki etiketin genişi yer ayırır: anahtar ve plan seçici
+                // tıklamadan sonra kaymaz.
+                ZStack(alignment: .leading) {
+                    Text(L("Deskmap on")).hidden().accessibilityHidden(true)
+                    Text(L("Paused")).hidden().accessibilityHidden(true)
+                    Text(store.document.enabled ? L("Deskmap on") : L("Paused"))
+                        .foregroundStyle(store.document.enabled ? Color.primary : Color.orange)
+                }
             }
             .toggleStyle(.switch)
             .controlSize(.small)
@@ -636,13 +651,18 @@ struct RootView: View {
                     // Yalnız odakta ve yazı varken: boş aramada Esc panele kalır.
                     .onChange(of: searchFocused) { ui.setEditing("search", $0 && !ui.search.isEmpty) }
                     .onChange(of: ui.search) { ui.setEditing("search", searchFocused && !$0.isEmpty) }
-                if !ui.search.trimmingCharacters(in: .whitespaces).isEmpty {
-                    let hits = ui.windows.filter {
-                        UIState.matches(query: ui.search, appName: $0.appName, title: $0.title)
-                    }.count
-                    Text(hits == 1 ? L("1 match") : L("%ld matches", hits))
-                        .font(.caption)
-                        .foregroundStyle(hits == 0 ? Color.orange : Color.secondary)
+                // Sayı ve temizleme düğmesi hep yer kaplar (boşken gizli):
+                // yazınca kapsül genişleyip Görsel / Liste'yi itmez.
+                let searching = !ui.search.trimmingCharacters(in: .whitespaces).isEmpty
+                let hits = searching ? searchHits : 0
+                HStack(spacing: 6) {
+                    ZStack(alignment: .trailing) {
+                        Text(L("1 match")).hidden().accessibilityHidden(true)
+                        Text(L("%ld matches", 888)).hidden().accessibilityHidden(true)
+                        Text(hits == 1 ? L("1 match") : L("%ld matches", hits))
+                            .foregroundStyle(hits == 0 ? Color.orange : Color.secondary)
+                    }
+                    .font(.caption.monospacedDigit())
                     Button {
                         ui.search = ""
                     } label: {
@@ -652,6 +672,9 @@ struct RootView: View {
                     .help(L("Clear the search"))
                     .accessibilityLabel(L("Clear the search"))
                 }
+                .opacity(searching ? 1 : 0)
+                .allowsHitTesting(searching)
+                .accessibilityHidden(!searching)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
@@ -680,6 +703,13 @@ struct RootView: View {
         .font(.callout)
     }
 
+    /// Seçili planın haritasında aramaya uyan öğe sayısı.
+    private var searchHits: Int {
+        UIState.searchHits(query: ui.search, windows: ui.windows, rules: store.document.rules,
+                           sessionPins: router.sessionPins, mode: mode,
+                           isLive: mode == screens.mode)
+    }
+
     /// Seçili planın şu an geçerli olup olmadığı; değilse ne zaman geçerli olacağı.
     @ViewBuilder
     private var planNote: some View {
@@ -701,6 +731,8 @@ struct RootView: View {
         Menu {
             ForEach(store.profiles) { profile in
                 MenuCheck(profile.name, checked: profile.id == store.document.activeProfileID) {
+                    // Zaten etkin profili seçmek menüyü kapatır; taslak kalır.
+                    guard profile.id != store.document.activeProfileID else { return }
                     ui.panel = nil
                     store.switchProfile(to: profile.id)
                 }

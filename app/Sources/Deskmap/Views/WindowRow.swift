@@ -181,6 +181,9 @@ struct WindowRow: View {
             }
             return
         }
+        // Düz tıklama çoklu seçimi bırakır; yoksa açılan panel çubuğun
+        // arkasında kalırdı (önizleme kutusuyla aynı).
+        ui.selection = []
         // Pinli satıra tıklamak düzen panelini açar (tekrar tıklamak kapatır).
         if sessionPin != nil {
             ui.toggle(.session(window.id))

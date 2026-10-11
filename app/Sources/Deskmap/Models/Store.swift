@@ -1407,8 +1407,13 @@ final class Store: ObservableObject {
             // silerdi; kayıt düşer. Kaydı bırakan işlemin kendi değişimi
             // `recording` içinde kayıttan önce gerçekleşir, ona dokunmaz.
             undoBuffer.invalidate(ifChangedFrom: document)
+            if oldValue.enabled != document.enabled { enabledChanges += 1 }
         }
     }
+    /// Açık/duraklat anahtarı kaç kez değişti (kaydedilmez); "15 dakika
+    /// duraklat" süresi dolunca yalnız arada başka yoldan (anahtar, Ayarlar,
+    /// URL komutu) değişmediyse devam ettirir.
+    private(set) var enabledChanges = 0
     @Published private(set) var lastError: String?
     /// Son yıkıcı işlemden önceki belge; alt çubuktaki "Geri al" bunu geri
     /// yükler. Düzen adımları ve profil geçişi kaydedilmez; araya girerlerse

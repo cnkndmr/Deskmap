@@ -127,6 +127,30 @@ final class UIState: ObservableObject {
             || title.range(of: q, options: options) != nil
     }
 
+    /// Araç çubuğundaki sonuç sayısı (saf): seçili planın haritasında
+    /// vurgulanan öğeler. Canlı planda uyan açık pencereler ve açık penceresi
+    /// olmayan uyan pinler (penceresi açık pin penceresiyle bir kez sayılır);
+    /// öbür planda o planın uyan pinleri ve hiçbir planda pini olmayan uyan
+    /// pencereler (Atanmamış pencereler kutusu).
+    nonisolated static func searchHits(
+        query: String, windows: [Router.WindowSnapshot], rules: [Rule],
+        sessionPins: [CGWindowID: Destination], mode: Mode, isLive: Bool
+    ) -> Int {
+        let hitPins = rules.filter {
+            $0[mode] != nil && matches(query: query, appName: $0.appName, title: $0.title)
+        }
+        let shownWindows = isLive
+            ? windows
+            : ScreenMapView.unownedWindows(windows, rules: rules, sessionPins: sessionPins)
+        let hitWindows = shownWindows.filter {
+            matches(query: query, appName: $0.appName, title: $0.title)
+        }
+        let hitRules = isLive
+            ? hitPins.filter { rule in !windows.contains { rule.matches($0) } }
+            : hitPins
+        return hitWindows.count + hitRules.count
+    }
+
     /// Arama sürerken bu öğe soluk mu (uymuyor), vurgulu mu (uyuyor)?
     func searchLook(appName: String, title: String) -> (dimmed: Bool, highlighted: Bool) {
         guard !search.trimmingCharacters(in: .whitespaces).isEmpty else { return (false, false) }

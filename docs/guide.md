@@ -169,7 +169,8 @@ switches between them instantly.
   when — the answer to "why did my window jump?".
 - **Pause**: the **Deskmap on** switch at the top left, or right-click the
   menu bar icon › **Pause for 15 minutes**. Nothing is moved while it is off,
-  and the menu bar icon shows a pause sign. A switched-off Deskmap stays off
+  and the menu bar icon shows a pause sign. Flipping the switch yourself
+  during those 15 minutes cancels the timer. A switched-off Deskmap stays off
   after restarts, so if the app ever seems asleep, look there first.
 - **?** in the toolbar explains every color and badge on the map.
 

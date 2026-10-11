@@ -174,7 +174,8 @@ anında geçiş yapar.
   nereye gönderdi — "pencerem neden zıpladı?" sorusunun cevabı.
 - **Duraklat**: sol üstteki **Deskmap açık** anahtarı ya da menü çubuğu
   simgesine sağ tık › **15 dakika duraklat**. Kapalıyken hiçbir pencere
-  taşınmaz, menü çubuğu simgesi duraklat işaretine döner. Kapatılan Deskmap
+  taşınmaz, menü çubuğu simgesi duraklat işaretine döner. O 15 dakika
+  içinde anahtarı kendin açıp kapatırsan süre iptal olur. Kapatılan Deskmap
   yeniden başlatınca da kapalı kalır, yani uygulama uyuyor gibi görünüyorsa
   önce oraya bak.
 - Araç çubuğundaki **?** haritadaki her rengi ve rozeti açıklar.
