@@ -11,7 +11,10 @@ struct DesktopPreview: View {
     struct Item: Identifiable {
         let id: String
         let bundleID: String
+        /// Tam ad ("Uygulama — başlık"); imleç ipucunda.
         let title: String
+        /// Kutuda simgenin yanındaki kısa yazı (`label(appName:title:)`).
+        let label: String
         let layout: WindowLayout
         let pinned: Bool
         /// Penceresi açık mı (kapalı sabitleme soluk çizilir).
@@ -20,6 +23,19 @@ struct DesktopPreview: View {
         let dimmed: Bool
         let highlighted: Bool
         let action: () -> Void
+    }
+
+    /// Kutu yazısı (saf): uygulamayı simge zaten gösterdiği için yalnız
+    /// başlık; sondaki " — Uygulama" (ya da " - Uygulama") atılır. Başlık
+    /// boşsa (ya da yalnız uygulama adıysa) uygulama adı.
+    nonisolated static func label(appName: String, title: String) -> String {
+        var text = title.trimmingCharacters(in: .whitespaces)
+        for separator in [" — ", " – ", " - "] where text.hasSuffix(separator + appName) {
+            text = String(text.dropLast(separator.count + appName.count))
+            break
+        }
+        text = text.trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? appName : text
     }
 
     /// Önizlemenin genişliği; yükseklik ekranın oranından.
@@ -90,7 +106,7 @@ struct DesktopPreview: View {
                 HStack(spacing: 3) {
                     AppIcon(bundleID: item.bundleID, size: 11)
                     if size.width > 54 {
-                        Text(item.title)
+                        Text(item.label)
                             .font(.system(size: 8))
                             .lineLimit(1)
                             .foregroundStyle(.secondary)

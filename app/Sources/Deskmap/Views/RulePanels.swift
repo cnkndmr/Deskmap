@@ -497,6 +497,7 @@ struct FreeMoveBadge: View {
                     Text(Router.freeMoveRemaining(left))
                         .monospacedDigit()
                 }
+                .fixedSize()
                 .font(.system(size: 9))
                 .foregroundStyle(Color.teal)
                 .help(L("Free to move · %@ left", Router.freeMoveRemaining(left)))

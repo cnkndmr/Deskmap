@@ -63,8 +63,9 @@ struct RuleChip: View {
                                         lineWidth: 1))
         .contentShape(Capsule())
         .opacity(isBeingDragged ? 0.35 : (shadowedBy == nil ? 1 : 0.5))
-        .onTapGesture(count: 2) { reopen() }
-        .onTapGesture { ui.toggle(.rule(rule.id)) }
+        .onTapGesture {
+            ui.handleClick(single: { ui.toggle(.rule(rule.id)) }, double: reopen)
+        }
         .gesture(dragGesture, including: isGhost ? .none : .all)
         .help(helpText)
         .searchLook(dimmed: searchLook.dimmed, highlighted: searchLook.highlighted, cornerRadius: 12)

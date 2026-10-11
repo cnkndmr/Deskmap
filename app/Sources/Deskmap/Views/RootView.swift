@@ -460,7 +460,8 @@ struct RootView: View {
         ui.panelSourceWindowID = sessionPinned || rule == nil ? nil : window.id
         if let placement = window.placement {
             let group = window.bundleID.isEmpty ? window.appName : window.bundleID
-            ui.collapsed.remove("\(placement.screen)|\(placement.desktop)|\(group)")
+            ui.collapsed.remove(UIState.collapseKey(mode: screens.mode, screen: placement.screen,
+                                                    desktop: placement.desktop, group: group))
         }
         revealSeq += 1
         ui.reveal = RevealRequest(window: window.id, seq: revealSeq)

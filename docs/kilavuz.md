@@ -58,8 +58,8 @@ sabitleyeceğin her uygulamanın Dock simgesine sağ tık › **Options › Assi
    vardır. Her masaüstünün yanında küçük bir **önizleme** pencereleri
    durdukları yerde çizer (**Görsel | Liste** ile kapatılır). Tek bir pencere
    mi arıyorsun? **⌘F**'ye bas, adının bir parçasını yaz.
-3. Pencereni bul ve **raptiye** düğmesine bas (ya da satıra sağ tık ›
-   **Bu masaüstüne sabitle…**). Ayrıntısı sağdaki sütunda açılır.
+3. Pencereni bul, satırına ya da **raptiye** düğmesine tıkla (ya da satıra
+   sağ tık › **Bu masaüstüne sabitle…**). Ayrıntısı sağdaki sütunda açılır.
 
 ![Başlığın hangi parçası bu pencereyi tanımlıyor?](images/tr/02-pin.png)
 

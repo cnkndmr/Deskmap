@@ -1713,10 +1713,12 @@ final class Store: ObservableObject {
     }
 
     /// Etkin olmayan modda masaüstü siler (bkz. `Document.removeDesktopLater`);
-    /// yalnız belge değişir, ⌘Z geri alır.
+    /// yalnız belge değişir, ⌘Z geri alır (`undoing`: belgeyle birlikte
+    /// geri alınan arayüz durumu, ör. daraltılmış grupların numaraları).
     func removeDesktopLater(on screen: String, desktop: Int, mode: Mode,
-                            existing: Bool, space: UInt64?) {
-        recording(L("Desktop removed")) {
+                            existing: Bool, space: UInt64?,
+                            undoing companion: (() -> Void)? = nil) {
+        recording(L("Desktop removed"), companion: companion) {
             document.removeDesktopLater(on: screen, desktop: desktop, mode: mode,
                                         existing: existing, space: space)
         }

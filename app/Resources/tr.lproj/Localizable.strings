@@ -293,7 +293,7 @@
 "1 unassigned window" = "1 yeri olmayan pencere";
 "%ld unassigned windows" = "%ld yeri olmayan pencere";
 "Not pinned: dropping it opens a pin for this plan; the window is not moved." = "Sabit değil: bırakınca bu plan için sabitleme açılır; pencere taşınmaz.";
-"Pin for %@" = "Şu plan için sabitleme: %@";
+"Pin for %@" = "%@ planı için sabitle";
 "Connect this display once so its size is known." = "Boyutu öğrenilsin diye bu ekranı bir kez bağlayın.";
 "Windows are not listed yet." = "Pencereler henüz listelenmedi.";
 "Drag onto a desktop to give it a place in this plan." = "Bu plandaki yerini belirlemek için bir masaüstüne sürükleyin.";

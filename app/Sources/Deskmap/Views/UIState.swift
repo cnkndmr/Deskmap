@@ -65,8 +65,12 @@ enum BottomPanel: Equatable {
 /// menü açılınca kapandığı için her şey aynı pencerede, satır içi gösterilir.
 @MainActor
 final class UIState: ObservableObject {
-    /// Açık alt panel; nil = kapalı.
-    @Published var panel: BottomPanel?
+    /// Açık alt panel; nil = kapalı. Bir panel açılınca ⌘-seçim düşer:
+    /// seçim varken ayrıntı sütunu toplu pinleme çubuğunu gösterir, açılan
+    /// panel görünmezdi (⌘-tıklama önce paneli kapatır, sonra seçer).
+    @Published var panel: BottomPanel? {
+        didSet { if panel != nil, !selection.isEmpty { selection = [] } }
+    }
     /// Kural paneli bir pencere satırından açıldıysa o pencere; çipten
     /// açıldıysa nil. "Şu anki boyutu kullan" düğmesi ölçüyü bu pencereden
     /// okur; yoksa kurala uyan ilk pencereden.
@@ -74,8 +78,12 @@ final class UIState: ObservableObject {
     /// Haritada görünür yere kaydırılacak pencere satırı; `seq` aynı
     /// pencere için isteği yeniler.
     @Published var reveal: RevealRequest?
-    /// Daraltılmış uygulama grupları ("ekran|masaüstü|bundleID").
+    /// Daraltılmış uygulama grupları ("plan|ekran|masaüstü|bundleID",
+    /// `collapseKey`). Plan anahtarda: iki plan sekmesi ayrı numaralanır.
     @Published var collapsed: Set<String> = []
+    /// Adı düzenlenen masaüstü ("plan|ekran|masaüstü"); düzenleme sürerken
+    /// o ekran kartının etiket sütunu geniştir.
+    @Published var renamingDesktop: String?
     /// Haritada gösterilen pencereler. Sürükleme sürerken yenilenmez.
     @Published var windows: [Router.WindowSnapshot] = []
     /// Bağlı ekranlardaki gerçek masaüstü sayısı (ekran id → sayı); her
@@ -125,18 +133,101 @@ final class UIState: ObservableObject {
         let hit = Self.matches(query: search, appName: appName, title: title)
         return (!hit, hit)
     }
-    /// Son fare basışında ⌘ basılı mıydı. Tek tıklama çift tıklama süresi
-    /// dolunca işlenir; o anda ⌘ bırakılmış olabilir, bu yüzden basış
-    /// anında yerel izleyiciyle kaydedilir.
+    /// Son fare basışında ⌘ basılı mıydı; basış anında yerel izleyiciyle
+    /// kaydedilir (dokunma işlendiğinde ⌘ bırakılmış olabilir).
     private(set) var commandAtMouseDown = false
+    /// Son fare basışının tıklama sayısı (1 tek, 2 çift tıklamanın ikincisi).
+    private(set) var clickCountAtMouseDown = 1
     private var mouseMonitor: Any?
 
     func watchCommandClicks() {
         guard mouseMonitor == nil else { return }
         mouseMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
             self?.commandAtMouseDown = event.modifierFlags.contains(.command)
+            self?.clickCountAtMouseDown = event.clickCount
             return event
         }
+    }
+
+    /// İlk tıklamadan önceki panel ve seçim; çift tıklamanın ikincisi geri yükler.
+    private var beforeClick: (panel: BottomPanel?, source: CGWindowID?, selection: Set<CGWindowID>)?
+
+    /// Satır ve çip tıklaması. Tek tıklama hemen işlenir (çift tıklama
+    /// süresini beklemez); çift tıklamanın ikinci basışı ilk tıklamanın
+    /// panel/seçim değişikliğini geri alır, sonra çift tıklama işini yapar.
+    /// Üçüncü ve sonraki basışlar yok sayılır.
+    func handleClick(single: () -> Void, double: () -> Void) {
+        handleClick(count: clickCountAtMouseDown, single: single, double: double)
+    }
+
+    func handleClick(count: Int, single: () -> Void, double: () -> Void) {
+        switch count {
+        case 1:
+            beforeClick = (panel, panelSourceWindowID, selection)
+            single()
+        case 2:
+            if let before = beforeClick {
+                panel = before.panel
+                panelSourceWindowID = before.source
+                selection = before.selection
+            }
+            beforeClick = nil
+            double()
+        default:
+            break
+        }
+    }
+
+    nonisolated static func collapseKey(mode: Mode, screen: String, desktop: Int,
+                                        group: String) -> String {
+        "\(mode.rawValue)|\(screen)|\(desktop)|\(group)"
+    }
+
+    /// Daraltılmış grup anahtarlarını masaüstü yeniden numaralanınca taşır
+    /// (saf): yalnız `modes` planlarının anahtarları; `map` (ekran, masaüstü)
+    /// için yeni yeri verir, nil = anahtar düşer. Biçimi bozuk anahtar
+    /// olduğu gibi kalır.
+    nonisolated static func remapCollapsed(
+        _ keys: Set<String>, modes: [Mode],
+        _ map: (String, Int) -> (screen: String, desktop: Int)?
+    ) -> Set<String> {
+        Set(keys.compactMap { key in
+            let parts = key.split(separator: "|", maxSplits: 3, omittingEmptySubsequences: false)
+            guard parts.count == 4, let mode = Mode(rawValue: String(parts[0])),
+                  let desktop = Int(parts[2]) else { return key }
+            guard modes.contains(mode) else { return key }
+            guard let next = map(String(parts[1]), desktop) else { return nil }
+            return "\(parts[0])|\(next.screen)|\(next.desktop)|\(parts[3])"
+        })
+    }
+
+    /// Yeniden numaralamayı geri alır (saf): eklenen anahtarlar çıkar,
+    /// düşenler döner; arada elle açılıp kapanan öbür gruplar korunur.
+    nonisolated static func revertRemap(_ current: Set<String>, before: Set<String>,
+                                        after: Set<String>) -> Set<String> {
+        current.subtracting(after.subtracting(before)).union(before.subtracting(after))
+    }
+
+    /// Anahtarları taşır; değiştiyse ⌘Z ile çalışacak geri alma kapanışını
+    /// döner (belge geri gelince numaralar da eski hâline döner).
+    @discardableResult
+    func remapCollapsed(modes: [Mode],
+                        _ map: (String, Int) -> (screen: String, desktop: Int)?) -> (() -> Void)? {
+        let before = collapsed
+        let next = Self.remapCollapsed(before, modes: modes, map)
+        guard next != before else { return nil }
+        collapsed = next
+        return { [weak self] in
+            guard let self else { return }
+            self.collapsed = Self.revertRemap(self.collapsed, before: before, after: next)
+        }
+    }
+
+    /// Birden çok geri alma kapanışını tek kapanışta birleştirir; hepsi nil ise nil.
+    nonisolated static func chain(_ closures: (() -> Void)?...) -> (() -> Void)? {
+        let all = closures.compactMap { $0 }
+        guard !all.isEmpty else { return nil }
+        return { all.forEach { $0() } }
     }
 
     /// Sürükleme sırasında canlı durum ve bilinen hedef çerçeveleri.

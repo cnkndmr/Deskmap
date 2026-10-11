@@ -12,6 +12,7 @@ struct MissingDesktopBadge: View {
     var body: some View {
         Text(L("Desktop %ld missing", wanted))
             .lineLimit(1)
+            .fixedSize()
             .font(.caption2.weight(.semibold))
             .foregroundStyle(Color.orange)
             .padding(.horizontal, 4)

@@ -113,6 +113,16 @@ struct ScreenMapView: View {
 
 // MARK: - Ekran kartı
 
+extension ScreenMapView {
+    /// Masaüstü, tam ekran ve silinmiş satırların ortak etiket sütunu
+    /// (saf): görselde önizleme genişliği; listede ekranda adlı masaüstü ya
+    /// da silinmiş satır varsa geniş, yoksa dar. Satır kendi adına göre
+    /// değişmez; pencereler bütün satırlarda aynı hizadan başlar.
+    nonisolated static func labelWidth(visual: Bool, hasNamedRows: Bool) -> CGFloat {
+        visual ? DesktopPreview.width : (hasNamedRows ? 132 : 84)
+    }
+}
+
 private struct ScreenCard: View {
 
     let screen: KnownScreen
@@ -135,8 +145,19 @@ private struct ScreenCard: View {
         return FullscreenSpace.grouped(ui.windows, screen: screen.id, rowCount: tileCount)
     }
 
+    private var labelWidth: CGFloat {
+        let named = !store.ghosts(on: screen.id, mode: mode).isEmpty
+            || (1..<(tileCount + 1)).contains {
+                store.desktopName(screen: screen.id, desktop: $0, mode: mode) != nil
+            }
+            // Ad verilirken de geniş: alan sıkışmasın, bütün satırlar birlikte genişler.
+            || ui.renamingDesktop?.hasPrefix("\(mode.rawValue)|\(screen.id)|") == true
+        return ScreenMapView.labelWidth(visual: ui.visualMap, hasNamedRows: named)
+    }
+
     var body: some View {
         let fullscreen = fullscreenSpaces
+        let labelWidth = labelWidth
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: screen.isBuiltin ? "laptopcomputer" : "display")
@@ -150,18 +171,19 @@ private struct ScreenCard: View {
             .foregroundStyle(.secondary)
             .padding(.bottom, 4)
 
-            ForEach(fullscreen[0] ?? []) { FullscreenRow(space: $0) }
+            ForEach(fullscreen[0] ?? []) { FullscreenRow(space: $0, labelWidth: labelWidth) }
             ForEach(1..<(tileCount + 1), id: \.self) { desktop in
                 DesktopRow(
                     screen: screen, desktop: desktop, mode: mode, isLive: isLive,
                     exists: realCount.map { desktop <= $0 } ?? true,
                     realCount: realCount,
-                    rowCount: tileCount, tileCounts: tileCounts, shadowed: shadowed)
-                ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0) }
+                    rowCount: tileCount, tileCounts: tileCounts, shadowed: shadowed,
+                    labelWidth: labelWidth)
+                ForEach(fullscreen[desktop] ?? []) { FullscreenRow(space: $0, labelWidth: labelWidth) }
             }
             ForEach(store.ghosts(on: screen.id, mode: mode)) { ghost in
                 DeletedDesktopRow(ghost: ghost, mode: mode,
-                                  canRestore: isLive && isConnected)
+                                  canRestore: isLive && isConnected, labelWidth: labelWidth)
             }
             GhostRow(screen: screen, desktop: tileCount + 1, mode: mode,
                      isLive: isLive, canAdd: !isLive || isConnected)
@@ -186,6 +208,7 @@ private struct DeletedDesktopRow: View {
     let ghost: GhostDesktop
     let mode: Mode
     let canRestore: Bool
+    let labelWidth: CGFloat
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var router: Router
@@ -209,7 +232,7 @@ private struct DeletedDesktopRow: View {
                     .font(.system(size: 9))
                     .foregroundStyle(.tertiary)
             }
-            .frame(width: 132, alignment: .leading)
+            .frame(width: labelWidth, alignment: .leading)
             .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 6) {
@@ -330,6 +353,9 @@ struct FullscreenSpace: Identifiable, Equatable {
 private struct FullscreenRow: View {
 
     let space: FullscreenSpace
+    let labelWidth: CGFloat
+
+    @EnvironmentObject private var ui: UIState
 
     private var isSplit: Bool { space.windows.count > 1 }
 
@@ -344,11 +370,13 @@ private struct FullscreenRow: View {
                     .font(.caption.weight(.medium))
             }
             .foregroundStyle(Color.purple)
-            .frame(width: 84, alignment: .leading)
+            .frame(width: labelWidth, alignment: .leading)
             .padding(.top, 2)
 
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(space.windows) { window in
+                    // Arama her pencereye ayrı: Split View'da biri uyabilir.
+                    let look = ui.searchLook(appName: window.appName, title: window.title)
                     HStack(spacing: 6) {
                         AppIcon(bundleID: window.bundleID, size: 16)
                         Text(window.appName)
@@ -360,6 +388,7 @@ private struct FullscreenRow: View {
                             .lineLimit(1)
                             .truncationMode(.middle)
                     }
+                    .searchLook(dimmed: look.dimmed, highlighted: look.highlighted)
                     .id(WindowAnchor(id: window.id))
                 }
             }
@@ -483,6 +512,8 @@ private struct DesktopRow: View {
     let tileCounts: [String: Int]
     /// Gölgede kalan kural → onu geçen kural; soluk çip olarak gösterilir.
     let shadowed: [String: String]
+    /// Ekran kartının ortak etiket sütunu (`ScreenCard.labelWidth`).
+    let labelWidth: CGFloat
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
@@ -540,6 +571,7 @@ private struct DesktopRow: View {
             return DesktopPreview.Item(
                 id: "w\(window.id)", bundleID: window.bundleID,
                 title: window.title.isEmpty ? window.appName : "\(window.appName) — \(window.title)",
+                label: DesktopPreview.label(appName: window.appName, title: window.title),
                 layout: layout, pinned: match != nil, isOpen: true,
                 isSelected: isShown(window, ruleID: match?.rule?.id),
                 dimmed: look.dimmed, highlighted: look.highlighted,
@@ -551,6 +583,8 @@ private struct DesktopRow: View {
             return DesktopPreview.Item(
                 id: "r\(rule.id)", bundleID: rule.bundleID,
                 title: "\(rule.appName) — \(rule.title)",
+                label: rule.isAppWide ? rule.appName
+                                      : DesktopPreview.label(appName: rule.appName, title: rule.title),
                 layout: destination.layout.isDesktopOnly ? .center : destination.layout,
                 pinned: true, isOpen: false, isSelected: ui.panel == .rule(rule.id),
                 dimmed: look.dimmed, highlighted: look.highlighted,
@@ -618,17 +652,21 @@ private struct DesktopRow: View {
                         .font(.caption)
                         .focused($nameFocused)
                         .onSubmit { commitName() }
-                        .onExitCommand { isRenaming = false }
+                        .onExitCommand { endRenaming() }
                         .onChange(of: nameFocused) { focused in
                             ui.setEditing(editorID, focused)
                             if !focused && isRenaming { commitName() }
                         }
-                        .onDisappear { ui.setEditing(editorID, false) }
+                        // Satır düzenlemedeyken kaybolursa sütun geniş kalmasın, alan da düzenleyici sayılmasın.
+                        .onDisappear {
+                            ui.setEditing(editorID, false)
+                            if isRenaming { endRenaming() }
+                        }
                 } else {
                     DesktopLabel(desktop: desktop, name: name, exists: exists)
                 }
             }
-            .frame(width: name == nil && !isRenaming ? 84 : 132, alignment: .leading)
+            .frame(width: labelWidth, alignment: .leading)
             .padding(.top, 2)
             .contentShape(Rectangle())
             .onTapGesture(count: 2) { startRenaming() }
@@ -640,19 +678,21 @@ private struct DesktopRow: View {
                 }
             }
 
+            // Sondaki boşluk yok: satırlar kartın sağ kenarına da 8 pt kalır.
             if groups.isEmpty {
                 Text(exists ? L("empty") : L("doesn't exist yet"))
                     .font(.caption)
                     .foregroundStyle(.quaternary)
                     .padding(.top, 2)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(groups) { group in
                         groupView(group)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
@@ -691,14 +731,23 @@ private struct DesktopRow: View {
         }
     }
 
+    private var renamingKey: String { "\(mode.rawValue)|\(screen.id)|\(desktop)" }
+
     private func startRenaming() {
         nameDraft = name ?? ""
         isRenaming = true
         nameFocused = true
+        ui.renamingDesktop = renamingKey
+    }
+
+    private func endRenaming() {
+        isRenaming = false
+        // Başka satırda düzenleme başladıysa onunkine dokunma.
+        if ui.renamingDesktop == renamingKey { ui.renamingDesktop = nil }
     }
 
     private func commitName() {
-        isRenaming = false
+        endRenaming()
         let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed != (name ?? "") else { return }
         if !store.setDesktopName(
@@ -717,20 +766,34 @@ private struct DesktopRow: View {
         // eski numarayla yanlış masaüstüne pin yazılmasın.
         if let draft = ui.pinDraft, draft.target.screen == screen.id { ui.panel = nil }
         let existing = desktop <= (realCount ?? 0)
+        let ui = ui, screenID = screen.id, removed = desktop
+        // Daraltılmış gruplar numarayla tutulur: silinenin anahtarları düşer,
+        // sonrakiler bir yukarı kayar. Gerçek silme Router'da bütün planlarda
+        // kayar; öbürü yalnız bu planda.
+        let remapCollapsed = { (modes: [Mode]) in
+            ui.remapCollapsed(modes: modes) { s, d in
+                guard s == screenID, d >= removed else { return (s, d) }
+                return d == removed ? nil : (s, d - 1)
+            }
+        }
         if isLive && existing {
-            let router = router, store = store, screenID = screen.id, desktop = desktop
+            let router = router, store = store, desktop = desktop
             Task {
-                if await !router.removeDesktop(on: screenID, desktop: desktop) {
+                if await router.removeDesktop(on: screenID, desktop: desktop) {
+                    remapCollapsed(Mode.allCases)
+                } else {
                     store.report(L("Could not remove desktop %ld on %@", desktop, screenID))
                 }
             }
             return
         }
+        let undoCollapsed = remapCollapsed([mode])
         store.removeDesktopLater(
             on: screen.id, desktop: desktop, mode: mode, existing: !isLive && existing,
             space: !isLive && existing
                 ? router.spaceForPendingRemoval(on: screen.id, desktop: desktop, mode: mode)
-                : nil)
+                : nil,
+            undoing: undoCollapsed)
     }
 
     /// Satırı tutup sürüklemek: bırakılan masaüstü sırasına taşınır, o
@@ -769,13 +832,23 @@ private struct DesktopRow: View {
                                                         reorderWindows: live)
                 let sessionMoved = router.moveDesktop(on: screenID, from: from, to: to, count: count,
                                                       reorderWindows: live)
+                // Belgeyle aynı planlar: etkin modda laptop masaüstleri iki planda ortak.
+                let modes = live && screenID == "builtin" ? Mode.allCases : [mode]
+                let undoCollapsed = Document.desktopMapping(from: from, to: to, count: count)
+                    .flatMap { mapping in
+                        ui.remapCollapsed(modes: modes) { s, d in
+                            s == screenID ? (s, mapping[d] ?? d) : (s, d)
+                        }
+                    }
                 store.moveDesktop(
                     on: screenID, from: from, to: to, count: count, mode: mode, sharedLaptop: live,
                     liveSpaces: liveSpaces,
-                    undoingSessionPins: sessionMoved
-                        ? { router.moveDesktop(on: screenID, from: to, to: from, count: count,
-                                               reorderWindows: live) }
-                        : nil)
+                    undoingSessionPins: UIState.chain(
+                        sessionMoved
+                            ? { router.moveDesktop(on: screenID, from: to, to: from, count: count,
+                                                   reorderWindows: live) }
+                            : nil,
+                        undoCollapsed))
             }
     }
 
@@ -790,17 +863,23 @@ private struct DesktopRow: View {
         case .rule, .pin: ui.panel = nil
         default: break
         }
-        let router = router, store = store, mode = mode, live = isLive
+        let router = router, store = store, mode = mode, live = isLive, ui = ui
         let fromScreen = screen.id, from = desktop
         let apply = {
+            let undoCollapsed = ui.remapCollapsed(modes: [mode]) { s, d in
+                Document.acrossPlacement(screen: s, desktop: d, from: fromScreen, desktop: from,
+                                         to: toScreen, at: to) ?? (s, d)
+            }
             let sessionMoved = router.moveDesktopAcross(
                 from: fromScreen, desktop: from, to: toScreen, at: to, moveWindows: live)
             store.moveDesktopAcross(
                 from: fromScreen, desktop: from, to: toScreen, at: to, toCount: toCount, mode: mode,
-                undoingSessionPins: sessionMoved
-                    ? { router.moveDesktopAcross(from: toScreen, desktop: to, to: fromScreen,
-                                                 at: from, moveWindows: live) }
-                    : nil)
+                undoingSessionPins: UIState.chain(
+                    sessionMoved
+                        ? { router.moveDesktopAcross(from: toScreen, desktop: to, to: fromScreen,
+                                                     at: from, moveWindows: live) }
+                        : nil,
+                    undoCollapsed))
         }
         let real = router.desktopCounts[toScreen] ?? 0
         let missing = live ? Document.desktopsToAddAcross(real: real, at: to) : 0
@@ -826,7 +905,8 @@ private struct DesktopRow: View {
                 RuleChip(rule: rule, mode: mode, shadowedBy: shadowed[rule.id])
             }
         } else {
-            let key = "\(screen.id)|\(desktop)|\(group.id)"
+            let key = UIState.collapseKey(mode: mode, screen: screen.id, desktop: desktop,
+                                          group: group.id)
             let collapsed = ui.collapsed.contains(key)
             VStack(alignment: .leading, spacing: 2) {
                 Button {
