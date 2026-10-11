@@ -150,6 +150,8 @@ private struct ScreenCard: View {
             || (1..<(tileCount + 1)).contains {
                 store.desktopName(screen: screen.id, desktop: $0, mode: mode) != nil
             }
+            // Ad verilirken de geniş: alan sıkışmasın, bütün satırlar birlikte genişler.
+            || ui.renamingDesktop?.hasPrefix("\(mode.rawValue)|\(screen.id)|") == true
         return ScreenMapView.labelWidth(visual: ui.visualMap, hasNamedRows: named)
     }
 
@@ -648,10 +650,12 @@ private struct DesktopRow: View {
                         .font(.caption)
                         .focused($nameFocused)
                         .onSubmit { commitName() }
-                        .onExitCommand { isRenaming = false }
+                        .onExitCommand { endRenaming() }
                         .onChange(of: nameFocused) { focused in
                             if !focused && isRenaming { commitName() }
                         }
+                        // Satır düzenlemedeyken kaybolursa sütun geniş kalmasın.
+                        .onDisappear { if isRenaming { endRenaming() } }
                 } else {
                     DesktopLabel(desktop: desktop, name: name, exists: exists)
                 }
@@ -721,14 +725,23 @@ private struct DesktopRow: View {
         }
     }
 
+    private var renamingKey: String { "\(mode.rawValue)|\(screen.id)|\(desktop)" }
+
     private func startRenaming() {
         nameDraft = name ?? ""
         isRenaming = true
         nameFocused = true
+        ui.renamingDesktop = renamingKey
+    }
+
+    private func endRenaming() {
+        isRenaming = false
+        // Başka satırda düzenleme başladıysa onunkine dokunma.
+        if ui.renamingDesktop == renamingKey { ui.renamingDesktop = nil }
     }
 
     private func commitName() {
-        isRenaming = false
+        endRenaming()
         let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed != (name ?? "") else { return }
         if !store.setDesktopName(
@@ -749,9 +762,10 @@ private struct DesktopRow: View {
         let existing = desktop <= (realCount ?? 0)
         let ui = ui, screenID = screen.id, removed = desktop
         // Daraltılmış gruplar numarayla tutulur: silinenin anahtarları düşer,
-        // sonrakiler bir yukarı kayar.
-        let remapCollapsed = {
-            ui.remapCollapsed { s, d in
+        // sonrakiler bir yukarı kayar. Gerçek silme Router'da bütün planlarda
+        // kayar; öbürü yalnız bu planda.
+        let remapCollapsed = { (modes: [Mode]) in
+            ui.remapCollapsed(modes: modes) { s, d in
                 guard s == screenID, d >= removed else { return (s, d) }
                 return d == removed ? nil : (s, d - 1)
             }
@@ -760,19 +774,20 @@ private struct DesktopRow: View {
             let router = router, store = store, desktop = desktop
             Task {
                 if await router.removeDesktop(on: screenID, desktop: desktop) {
-                    remapCollapsed()
+                    remapCollapsed(Mode.allCases)
                 } else {
                     store.report(L("Could not remove desktop %ld on %@", desktop, screenID))
                 }
             }
             return
         }
-        remapCollapsed()
+        let undoCollapsed = remapCollapsed([mode])
         store.removeDesktopLater(
             on: screen.id, desktop: desktop, mode: mode, existing: !isLive && existing,
             space: !isLive && existing
                 ? router.spaceForPendingRemoval(on: screen.id, desktop: desktop, mode: mode)
-                : nil)
+                : nil,
+            undoing: undoCollapsed)
     }
 
     /// Satırı tutup sürüklemek: bırakılan masaüstü sırasına taşınır, o
@@ -811,16 +826,23 @@ private struct DesktopRow: View {
                                                         reorderWindows: live)
                 let sessionMoved = router.moveDesktop(on: screenID, from: from, to: to, count: count,
                                                       reorderWindows: live)
-                if let mapping = Document.desktopMapping(from: from, to: to, count: count) {
-                    ui.remapCollapsed { s, d in s == screenID ? (s, mapping[d] ?? d) : (s, d) }
-                }
+                // Belgeyle aynı planlar: etkin modda laptop masaüstleri iki planda ortak.
+                let modes = live && screenID == "builtin" ? Mode.allCases : [mode]
+                let undoCollapsed = Document.desktopMapping(from: from, to: to, count: count)
+                    .flatMap { mapping in
+                        ui.remapCollapsed(modes: modes) { s, d in
+                            s == screenID ? (s, mapping[d] ?? d) : (s, d)
+                        }
+                    }
                 store.moveDesktop(
                     on: screenID, from: from, to: to, count: count, mode: mode, sharedLaptop: live,
                     liveSpaces: liveSpaces,
-                    undoingSessionPins: sessionMoved
-                        ? { router.moveDesktop(on: screenID, from: to, to: from, count: count,
-                                               reorderWindows: live) }
-                        : nil)
+                    undoingSessionPins: UIState.chain(
+                        sessionMoved
+                            ? { router.moveDesktop(on: screenID, from: to, to: from, count: count,
+                                                   reorderWindows: live) }
+                            : nil,
+                        undoCollapsed))
             }
     }
 
@@ -838,7 +860,7 @@ private struct DesktopRow: View {
         let router = router, store = store, mode = mode, live = isLive, ui = ui
         let fromScreen = screen.id, from = desktop
         let apply = {
-            ui.remapCollapsed { s, d in
+            let undoCollapsed = ui.remapCollapsed(modes: [mode]) { s, d in
                 Document.acrossPlacement(screen: s, desktop: d, from: fromScreen, desktop: from,
                                          to: toScreen, at: to) ?? (s, d)
             }
@@ -846,10 +868,12 @@ private struct DesktopRow: View {
                 from: fromScreen, desktop: from, to: toScreen, at: to, moveWindows: live)
             store.moveDesktopAcross(
                 from: fromScreen, desktop: from, to: toScreen, at: to, toCount: toCount, mode: mode,
-                undoingSessionPins: sessionMoved
-                    ? { router.moveDesktopAcross(from: toScreen, desktop: to, to: fromScreen,
-                                                 at: from, moveWindows: live) }
-                    : nil)
+                undoingSessionPins: UIState.chain(
+                    sessionMoved
+                        ? { router.moveDesktopAcross(from: toScreen, desktop: to, to: fromScreen,
+                                                     at: from, moveWindows: live) }
+                        : nil,
+                    undoCollapsed))
         }
         let real = router.desktopCounts[toScreen] ?? 0
         let missing = live ? Document.desktopsToAddAcross(real: real, at: to) : 0
@@ -875,7 +899,8 @@ private struct DesktopRow: View {
                 RuleChip(rule: rule, mode: mode, shadowedBy: shadowed[rule.id])
             }
         } else {
-            let key = "\(screen.id)|\(desktop)|\(group.id)"
+            let key = UIState.collapseKey(mode: mode, screen: screen.id, desktop: desktop,
+                                          group: group.id)
             let collapsed = ui.collapsed.contains(key)
             VStack(alignment: .leading, spacing: 2) {
                 Button {

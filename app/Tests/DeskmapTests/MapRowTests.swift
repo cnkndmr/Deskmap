@@ -78,33 +78,70 @@ struct MapRowTests {
     // MARK: Daraltılmış gruplar
 
     @Test func collapsedKeysFollowAReorderedDesktop() {
-        let keys: Set = ["s|2|com.apple.Safari", "s|4|com.apple.mail", "t|2|com.apple.Safari"]
+        let keys: Set = ["docked|s|2|com.apple.Safari", "docked|s|4|com.apple.mail",
+                         "docked|t|2|com.apple.Safari"]
         let mapping = Document.desktopMapping(from: 2, to: 4, count: 4)!
-        let next = UIState.remapCollapsed(keys) { s, d in s == "s" ? (s, mapping[d] ?? d) : (s, d) }
-        #expect(next == ["s|4|com.apple.Safari", "s|3|com.apple.mail", "t|2|com.apple.Safari"])
+        let next = UIState.remapCollapsed(keys, modes: [.docked]) { s, d in
+            s == "s" ? (s, mapping[d] ?? d) : (s, d)
+        }
+        #expect(next == ["docked|s|4|com.apple.Safari", "docked|s|3|com.apple.mail",
+                         "docked|t|2|com.apple.Safari"])
     }
 
     @Test func collapsedKeysOfARemovedDesktopAreDropped() {
-        let keys: Set = ["s|1|a", "s|2|b", "s|3|c"]
-        let next = UIState.remapCollapsed(keys) { s, d in
+        let keys: Set = ["docked|s|1|a", "docked|s|2|b", "docked|s|3|c"]
+        let next = UIState.remapCollapsed(keys, modes: [.docked]) { s, d in
             guard d >= 2 else { return (s, d) }
             return d == 2 ? nil : (s, d - 1)
         }
-        #expect(next == ["s|1|a", "s|2|c"])
+        #expect(next == ["docked|s|1|a", "docked|s|2|c"])
     }
 
     @Test func collapsedKeysMoveAcrossScreens() {
-        let keys: Set = ["s|2|a", "s|3|b", "t|1|c", "t|2|d"]
-        let next = UIState.remapCollapsed(keys) { s, d in
+        let keys: Set = ["docked|s|2|a", "docked|s|3|b", "docked|t|1|c", "docked|t|2|d"]
+        let next = UIState.remapCollapsed(keys, modes: [.docked]) { s, d in
             Document.acrossPlacement(screen: s, desktop: d, from: "s", desktop: 2,
                                      to: "t", at: 2) ?? (s, d)
         }
-        #expect(next == ["t|2|a", "s|2|b", "t|1|c", "t|3|d"])
+        #expect(next == ["docked|t|2|a", "docked|s|2|b", "docked|t|1|c", "docked|t|3|d"])
+    }
+
+    /// Öbür planın sekmesindeki silme canlı sekmenin daraltmalarını kaydırmaz.
+    @Test func collapsedKeysOfTheOtherPlanStay() {
+        let keys: Set = [UIState.collapseKey(mode: .docked, screen: "builtin", desktop: 3,
+                                             group: "com.apple.Safari"),
+                         UIState.collapseKey(mode: .undocked, screen: "builtin", desktop: 3,
+                                             group: "com.apple.Safari")]
+        let next = UIState.remapCollapsed(keys, modes: [.undocked]) { s, d in
+            guard d >= 2 else { return (s, d) }
+            return d == 2 ? nil : (s, d - 1)
+        }
+        #expect(next == ["docked|builtin|3|com.apple.Safari", "undocked|builtin|2|com.apple.Safari"])
     }
 
     @Test func malformedCollapsedKeysStay() {
-        let next = UIState.remapCollapsed(["odd", "s|x|a"]) { _, _ in nil }
-        #expect(next == ["odd", "s|x|a"])
+        let next = UIState.remapCollapsed(["odd", "s|x|a", "docked|s|x|a", "plan|s|1|a"],
+                                          modes: Mode.allCases) { _, _ in nil }
+        #expect(next == ["odd", "s|x|a", "docked|s|x|a", "plan|s|1|a"])
+    }
+
+    /// ⌘Z numaraları geri getirir; arada elle daraltılan grup korunur.
+    @Test func revertingARemapKeepsLaterToggles() {
+        let before: Set = ["docked|s|2|a", "docked|s|3|b"]
+        let after: Set = ["docked|s|2|b"]
+        let current = after.union(["docked|s|1|c"])
+        #expect(UIState.revertRemap(current, before: before, after: after)
+                == ["docked|s|2|a", "docked|s|3|b", "docked|s|1|c"])
+    }
+
+    @MainActor @Test func remapReturnsAnUndoClosure() {
+        let ui = UIState()
+        ui.collapsed = ["docked|s|2|a", "docked|s|3|b"]
+        let undo = ui.remapCollapsed(modes: [.docked]) { s, d in d == 2 ? nil : (s, d - 1) }
+        #expect(ui.collapsed == ["docked|s|2|b"])
+        undo?()
+        #expect(ui.collapsed == ["docked|s|2|a", "docked|s|3|b"])
+        #expect(ui.remapCollapsed(modes: [.undocked]) { _, _ in nil } == nil)
     }
 
     // MARK: Önizleme yazısı

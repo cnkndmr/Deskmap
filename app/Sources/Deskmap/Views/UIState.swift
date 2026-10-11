@@ -78,8 +78,12 @@ final class UIState: ObservableObject {
     /// Haritada görünür yere kaydırılacak pencere satırı; `seq` aynı
     /// pencere için isteği yeniler.
     @Published var reveal: RevealRequest?
-    /// Daraltılmış uygulama grupları ("ekran|masaüstü|bundleID").
+    /// Daraltılmış uygulama grupları ("plan|ekran|masaüstü|bundleID",
+    /// `collapseKey`). Plan anahtarda: iki plan sekmesi ayrı numaralanır.
     @Published var collapsed: Set<String> = []
+    /// Adı düzenlenen masaüstü ("plan|ekran|masaüstü"); düzenleme sürerken
+    /// o ekran kartının etiket sütunu geniştir.
+    @Published var renamingDesktop: String?
     /// Haritada gösterilen pencereler. Sürükleme sürerken yenilenmez.
     @Published var windows: [Router.WindowSnapshot] = []
     /// Bağlı ekranlardaki gerçek masaüstü sayısı (ekran id → sayı); her
@@ -162,23 +166,56 @@ final class UIState: ObservableObject {
         }
     }
 
+    nonisolated static func collapseKey(mode: Mode, screen: String, desktop: Int,
+                                        group: String) -> String {
+        "\(mode.rawValue)|\(screen)|\(desktop)|\(group)"
+    }
+
     /// Daraltılmış grup anahtarlarını masaüstü yeniden numaralanınca taşır
-    /// (saf): `map` (ekran, masaüstü) için yeni yeri verir, nil = anahtar
-    /// düşer. Biçimi bozuk anahtar olduğu gibi kalır.
+    /// (saf): yalnız `modes` planlarının anahtarları; `map` (ekran, masaüstü)
+    /// için yeni yeri verir, nil = anahtar düşer. Biçimi bozuk anahtar
+    /// olduğu gibi kalır.
     nonisolated static func remapCollapsed(
-        _ keys: Set<String>, _ map: (String, Int) -> (screen: String, desktop: Int)?
+        _ keys: Set<String>, modes: [Mode],
+        _ map: (String, Int) -> (screen: String, desktop: Int)?
     ) -> Set<String> {
         Set(keys.compactMap { key in
-            let parts = key.split(separator: "|", maxSplits: 2, omittingEmptySubsequences: false)
-            guard parts.count == 3, let desktop = Int(parts[1]) else { return key }
-            guard let next = map(String(parts[0]), desktop) else { return nil }
-            return "\(next.screen)|\(next.desktop)|\(parts[2])"
+            let parts = key.split(separator: "|", maxSplits: 3, omittingEmptySubsequences: false)
+            guard parts.count == 4, let mode = Mode(rawValue: String(parts[0])),
+                  let desktop = Int(parts[2]) else { return key }
+            guard modes.contains(mode) else { return key }
+            guard let next = map(String(parts[1]), desktop) else { return nil }
+            return "\(parts[0])|\(next.screen)|\(next.desktop)|\(parts[3])"
         })
     }
 
-    func remapCollapsed(_ map: (String, Int) -> (screen: String, desktop: Int)?) {
-        let next = Self.remapCollapsed(collapsed, map)
-        if next != collapsed { collapsed = next }
+    /// Yeniden numaralamayı geri alır (saf): eklenen anahtarlar çıkar,
+    /// düşenler döner; arada elle açılıp kapanan öbür gruplar korunur.
+    nonisolated static func revertRemap(_ current: Set<String>, before: Set<String>,
+                                        after: Set<String>) -> Set<String> {
+        current.subtracting(after.subtracting(before)).union(before.subtracting(after))
+    }
+
+    /// Anahtarları taşır; değiştiyse ⌘Z ile çalışacak geri alma kapanışını
+    /// döner (belge geri gelince numaralar da eski hâline döner).
+    @discardableResult
+    func remapCollapsed(modes: [Mode],
+                        _ map: (String, Int) -> (screen: String, desktop: Int)?) -> (() -> Void)? {
+        let before = collapsed
+        let next = Self.remapCollapsed(before, modes: modes, map)
+        guard next != before else { return nil }
+        collapsed = next
+        return { [weak self] in
+            guard let self else { return }
+            self.collapsed = Self.revertRemap(self.collapsed, before: before, after: next)
+        }
+    }
+
+    /// Birden çok geri alma kapanışını tek kapanışta birleştirir; hepsi nil ise nil.
+    nonisolated static func chain(_ closures: (() -> Void)?...) -> (() -> Void)? {
+        let all = closures.compactMap { $0 }
+        guard !all.isEmpty else { return nil }
+        return { all.forEach { $0() } }
     }
 
     /// Sürükleme sırasında canlı durum ve bilinen hedef çerçeveleri.
