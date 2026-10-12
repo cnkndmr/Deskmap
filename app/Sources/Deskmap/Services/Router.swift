@@ -1741,9 +1741,10 @@ final class Router: ObservableObject {
             writeDesktopState()
             let connected = screens.screens
             let pids = refs.mapValues(\.pid)
+            let batch = moves
             let failed = await withCheckedContinuation { continuation in
                 queue.async {
-                    continuation.resume(returning: Self.performMoves(moves, pids: pids, screens: connected))
+                    continuation.resume(returning: Self.performMoves(batch, pids: pids, screens: connected))
                 }
             }
             outcome.moved = moves.count - failed.count
