@@ -475,7 +475,7 @@ final class Router: ObservableObject {
             commitSnapshot()
         }
         if !paused, reason == NSWorkspace.didWakeNotification.rawValue {
-            wakeGuardUntil = Date().addingTimeInterval(10)
+            extendQuietWindow(seconds: 10)
         }
         guard paused != isPaused else { return }
         isPaused = paused
@@ -1011,7 +1011,7 @@ final class Router: ObservableObject {
                   Self.spaceIsEmpty(space) == true else { return }
             self.desktopOpInFlight = true
             defer { self.desktopOpInFlight = false }
-            if await self.removeDesktopNow(on: screenID, desktop: index + 1) {
+            if await self.removeDesktopNow(on: screenID, desktop: index + 1, expected: space) {
                 Log.app.notice("Emptied desktop \(index + 1) on \(screenID, privacy: .public) removed after moving its desktop to another display")
                 self.ownRemovals.insert(space)
                 self.commitSnapshot()
@@ -1149,11 +1149,12 @@ final class Router: ObservableObject {
     }
 
     /// Masaüstünü pinlere dokunmadan siler.
-    private func removeDesktopNow(on screenID: String, desktop: Int) async -> Bool {
+    private func removeDesktopNow(on screenID: String, desktop: Int,
+                                  expected: UInt64? = nil) async -> Bool {
         guard let display = displayInfo(screenID) else { return false }
         return await MissionControl.removeDesktop(
             displayID: display.id, displayUUID: display.uuid,
-            mainUUID: Self.primaryUUID(screens.screens), desktop: desktop)
+            mainUUID: Self.primaryUUID(screens.screens), desktop: desktop, expectedSpace: expected)
     }
 
     /// Etkin moddaki bağlı ekranın masaüstünü siler; başarılıysa masaüstünün
@@ -1286,8 +1287,19 @@ final class Router: ObservableObject {
     private var transitionRunning = false
     /// Deskmap'in kendi sildiği space'ler (kaydı işlendi; silme sayılmaz).
     private var ownRemovals: Set<UInt64> = []
-    /// Uyanmadan sonra bu ana dek kaybolan masaüstü silme sayılmaz (P.2).
-    private var wakeGuardUntil: Date?
+    /// Uyanmadan ya da plan kaydından sonra bu ana dek kaybolan masaüstü
+    /// silme sayılmaz, geçiş olur (P.2).
+    private var quietUntil: Date?
+    /// Onay bekleyen masaüstü değişikliği (iki taramada aynı görülmeli).
+    struct PendingChange: Equatable {
+        var displays: [DesktopStateFile.Display]
+        var since: Date
+    }
+    private var pendingChange: PendingChange?
+    nonisolated static let changeConfirmDelay: TimeInterval = 1.5
+    /// Açılıştan beri kararlı bir tarama pencere içeriğini okudu (ad geçişi
+    /// ve geçiş kanıtı bu okumaya dayanır).
+    private var sweptOnce = false
     /// Son taramanın tek masaüstündeki pencereleri.
     private var lastContents: [UInt64: [DesktopStateFile.WindowRef]] = [:]
     private var lastWindowSpaces: [CGWindowID: UInt64] = [:]
@@ -1423,17 +1435,36 @@ final class Router: ObservableObject {
 
     /// Kararlı taramanın sonu: canlı masaüstü listesini izler. Ekran kümesi
     /// değiştiyse (bildirim kaçtı, kapalıyken takıldı) geçiş; aynıysa ve
-    /// masaüstüleri değiştiyse Mission Control işlemleri (B 8–12).
+    /// masaüstüleri değiştiyse Mission Control işlemleri (B 8–12). Her
+    /// değişiklik iki taramada aynı görünmeden işlenmez: ekran bildirimi
+    /// gelmeden macOS'un yarım düzenlediği liste silme sayılmasın.
     private func followDesktops() {
         guard !isDemo, !screens.isSettling, !desktopOpInFlight, !transitionRunning,
               SkyLight.shared.canRead else { return }
-        let displays = readLiveDisplays()
+        // SkyLight ile NSScreen aynı ekranları görmüyor: ekranlar değişiyor,
+        // bildirim yolda. Hiçbir şey yapılmaz.
+        guard let displays = readLiveDisplaysIfSettled() else {
+            pendingChange = nil
+            return
+        }
         guard !displays.isEmpty else { return }
         let mode = screens.mode
         let spaces = Self.spaces(displays)
         store.setLive(LiveDesktops(mode: mode, spaces: spaces))
         if store.migrationPending {
-            completeMigration()
+            completeMigration(requireEvidence: true)
+            return
+        }
+        if let saved = desktopState,
+           !DesktopStateFile.sameBoot(saved.bootTime, DesktopStateFile.currentBootTime()) {
+            // Yeniden başlatıldı: pencere kimlikleri (belki space'ler de)
+            // yenilenmiş; kanıt yok, adlar plandaki yerlerine (R4), silme ve
+            // taşıma yok, yarım kalmış geçiş bırakılır.
+            Log.app.notice("Restart detected; desktop names bound by plan position")
+            transition = nil
+            pendingChange = nil
+            if !store.isReadOnly { store.bindByPlan(live: LiveDesktops(mode: mode, spaces: spaces)) }
+            commitSnapshot()
             return
         }
         if transition != nil {
@@ -1444,42 +1475,103 @@ final class Router: ObservableObject {
             commitSnapshot()
             return
         }
-        if !saved.sameDisplays(as: displays) || saved.mode != mode {
+        let displaysChanged = !saved.sameDisplays(as: displays) || saved.mode != mode
+        guard displaysChanged || saved.spaces != spaces else {
+            pendingChange = nil
+            let live = Set(spaces.values.joined())
+            let contents = DesktopStateFile.encodeContents(lastContents.filter { live.contains($0.key) })
+            if contents != saved.contents {
+                desktopState?.contents = contents
+                desktopState?.savedAt = Date()
+                scheduleStateWrite()
+            }
+            return
+        }
+        let check = Self.confirmChange(pending: pendingChange, observed: displays, now: Date())
+        pendingChange = check.pending
+        guard check.confirmed else {
+            scheduleFollowUp(after: UInt64(Self.changeConfirmDelay * 1000) + 100)
+            return
+        }
+        if store.isReadOnly {
+            commitSnapshot()
+            return
+        }
+        if displaysChanged {
             beginTransition(reason: "catch-up")
             Task { await runTransition() }
             return
         }
-        if !DesktopStateFile.sameBoot(saved.bootTime, DesktopStateFile.currentBootTime()) {
-            // Yeniden başlatıldı: kimlikler yenilenmiş olabilir, pencere
-            // kanıtı yok; adlar plandaki yerlerine (R4), silme sayılmaz.
-            Log.app.notice("Restart detected; desktop names bound by plan position")
-            store.bindByPlan(live: LiveDesktops(mode: mode, spaces: spaces))
-            commitSnapshot()
+        if let until = quietUntil, Date() < until {
+            // Uyanma ya da plan kaydından hemen sonra: kaybolan masaüstü
+            // silme değil, geçiş (P.2).
+            beginTransition(reason: "settle")
+            Task { await runTransition() }
             return
         }
-        if saved.spaces != spaces {
-            if let until = wakeGuardUntil, Date() < until {
-                beginTransition(reason: "wake")
-                Task { await runTransition() }
-                return
-            }
-            let deletions = store.followMissionControl(before: saved.spaces, after: spaces, mode: mode,
-                                                       ownRemovals: ownRemovals)
-            for deletion in deletions {
-                Log.app.notice("Desktop \(deletion.desktop) on \(deletion.role, privacy: .public) was removed outside Deskmap; pins kept on a deleted-desktop row")
-                shiftSessionPins(screen: deletion.role, removed: deletion.desktop)
-            }
-            ownRemovals = ownRemovals.filter { space in spaces.values.contains { $0.contains(space) } }
-            commitSnapshot()
-            return
+        let deletions = store.followMissionControl(before: saved.spaces, after: spaces, mode: mode,
+                                                   ownRemovals: ownRemovals)
+        for deletion in deletions {
+            Log.app.notice("Desktop \(deletion.desktop) on \(deletion.role, privacy: .public) was removed outside Deskmap; pins kept on a deleted-desktop row")
+            shiftSessionPins(screen: deletion.role, removed: deletion.desktop)
         }
-        let live = Set(spaces.values.joined())
-        let contents = DesktopStateFile.encodeContents(lastContents.filter { live.contains($0.key) })
-        if contents != saved.contents {
-            desktopState?.contents = contents
-            desktopState?.savedAt = Date()
-            scheduleStateWrite()
+        ownRemovals = ownRemovals.filter { space in spaces.values.contains { $0.contains(space) } }
+        commitSnapshot()
+    }
+
+    /// Masaüstü değişikliği onayı (saf): aynı liste en az `changeConfirmDelay`
+    /// arayla iki kez görülmeli; farklı liste bekleyeni yeniler.
+    nonisolated static func confirmChange(pending: PendingChange?, observed: [DesktopStateFile.Display],
+                                          now: Date) -> (confirmed: Bool, pending: PendingChange?) {
+        if let pending, pending.displays == observed {
+            if now.timeIntervalSince(pending.since) >= changeConfirmDelay { return (true, nil) }
+            return (false, pending)
         }
+        return (false, PendingChange(displays: observed, since: now))
+    }
+
+    /// SkyLight'ın ekranları NSScreen'inkilerle aynıysa canlı masaüstü sırası;
+    /// değilse (ekran değişiyor, bildirim gelmedi) nil. Uyuşmazlık 10 sn'den
+    /// uzun sürerse (ekran düzeni SkyLight'a öyle görünüyor) yine okunur.
+    private func readLiveDisplaysIfSettled() -> [DesktopStateFile.Display]? {
+        let connected = screens.screens
+        let read = SkyLight.shared.displaySpaces(mainUUID: Self.primaryUUID(connected))
+        if Self.displaysAgree(sky: read.map(\.displayUUID), connected: connected.map(\.uuid),
+                              separateSpaces: NSScreen.screensHaveSeparateSpaces) {
+            displaysDisagreeSince = nil
+        } else {
+            let now = Date()
+            let since = displaysDisagreeSince ?? now
+            displaysDisagreeSince = since
+            if now.timeIntervalSince(since) < 10 {
+                scheduleFollowUp(after: 2000)
+                return nil
+            }
+        }
+        return readLiveDisplays()
+    }
+    private var displaysDisagreeSince: Date?
+
+    /// SkyLight ile NSScreen aynı ekran kümesini görüyor mu (saf). Ayrı
+    /// Spaces kapalıyken SkyLight tek ("Main") ekran bildirir.
+    nonisolated static func displaysAgree(sky: [String], connected: [String], separateSpaces: Bool) -> Bool {
+        let skySet = Set(sky), connectedSet = Set(connected)
+        guard !skySet.isEmpty, skySet.isSubset(of: connectedSet) else { return false }
+        return separateSpaces ? skySet == connectedSet : true
+    }
+
+    /// Bu ana dek kaybolan masaüstü silme sayılmaz, geçiş olur (P.2).
+    private func extendQuietWindow(seconds: TimeInterval) {
+        let until = Date().addingTimeInterval(seconds)
+        if quietUntil.map({ $0 < until }) ?? true { quietUntil = until }
+    }
+
+    /// Plan yürütülürken ya da geçiş bekleyip yürütülmeyi beklerken (en çok
+    /// 60 sn; takılan geçiş yönlendirmeyi sonsuza dek durdurmasın).
+    private func planHoldsRouting(now: Date) -> Bool {
+        if transitionRunning { return true }
+        guard let transition else { return false }
+        return now.timeIntervalSince(transition.startedAt) < 60
     }
 
     /// Ekranlar yatıştı: geçiş planı uygular.
@@ -1489,7 +1581,10 @@ final class Router: ObservableObject {
     }
 
     /// §A.8 aşama 2: canlı kanıtla ad geçişi (pencere taşımaz).
-    private func completeMigration() {
+    private func completeMigration(requireEvidence: Bool) {
+        // Açılışta ilk tarama bitmeden (pencere listesi boş) geçiş
+        // kanıtsız kalırdı: eski bağlara düşer, yanlış ad yanlış masaüstüne.
+        guard !requireEvidence || sweptOnce else { return }
         let live = store.live
         let evidence = live.map { live in
             MigrationEvidence(live: live, windows: windows.compactMap { window in
@@ -1521,7 +1616,7 @@ final class Router: ObservableObject {
                 store.setLive(LiveDesktops(mode: screens.mode, spaces: Self.spaces(displays)))
             }
         }
-        completeMigration()
+        completeMigration(requireEvidence: false)
     }
 
     /// Kurala ya da oturum pinine uyan pencereler (etkin kurulumda).
@@ -1535,11 +1630,14 @@ final class Router: ObservableObject {
     }
 
     /// Geçişi uygular (§P.1): ardıllar (R2, bütün profiller), park, plan,
-    /// yürütme, kayıt. Ekran yeniden değişirse yarıda kalır; geçiş kaydı
-    /// durur, sonraki yatışmada aynı "önce" durumundan yeniden başlar.
+    /// yürütme, kayıt. Ekran yeniden değişirse yarıda kalır: yapılan
+    /// taşımaların bağları kaydedilir, geçiş kaydı durur, sonraki yatışmada
+    /// aynı "önce" durumundan yeniden hesaplanır.
     private func runTransition() async {
         guard let current = transition, !transitionRunning, !screens.isSettling,
-              !desktopOpInFlight else { return }
+              !desktopOpInFlight, sweptOnce else { return }
+        // Ad geçişi bekliyor: kanıtlı ilk kararlı taramada (followDesktops) yapılır.
+        guard !store.migrationPending else { return }
         transitionRunning = true
         defer { transitionRunning = false }
         let mode = screens.mode
@@ -1551,47 +1649,29 @@ final class Router: ObservableObject {
         }
         let live = LiveDesktops(mode: mode, spaces: Self.spaces(displays))
         store.setLive(live)
-        if store.migrationPending {
+        // Salt okunur (geçiş geri alındı ya da yeni sürümün dosyası): plan
+        // uygulanmaz, yalnız fiziksel durum kaydedilir.
+        guard !store.isReadOnly else {
             transition = nil
-            completeMigration()
+            commitSnapshot()
             return
         }
         let fresh = await withCheckedContinuation { continuation in
             queue.async { continuation.resume(returning: Self.readWindowSpaces()) }
         }
         guard transition?.id == current.id else { return }
+        resumeJournal(current, windowSpaces: fresh.windowSpaces)
         let fromSpaces = Self.spaces(current.from)
         let snapshot = Succession.Snapshot(spaces: fromSpaces,
                                            contents: DesktopStateFile.windowIDs(current.fromContents))
         let namedBefore = Set(store.document.names.compactMap(\.space))
         let evacuation = store.resolveSuccession(snapshot: snapshot, live: live,
                                                  windowSpaces: fresh.windowSpaces)
-        var parked = DesktopStateFile.prunedParked(desktopState?.parked ?? [],
-                                                   alive: Set(fresh.windowSpaces.keys), now: Date())
-        var arriving: [String: [[CGWindowID]]] = [:]
-        if current.fromMode == .docked, mode == .undocked {
-            let ruled = ruledWindows(mode: mode)
-            for display in current.from where display.role != "builtin" {
-                for (index, space) in display.spaces.enumerated() where !namedBefore.contains(space) {
-                    let refs = (current.fromContents[String(space)] ?? []).filter {
-                        fresh.windowSpaces[$0.id] != nil && !ruled.contains($0.id)
-                    }
-                    guard !refs.isEmpty else { continue }
-                    for ref in refs where !parked.contains(where: { $0.window == ref.id }) {
-                        parked.append(PlanApply.Parked(
-                            window: ref.id, pid: ref.pid, bundleID: ref.bundleID, role: display.role,
-                            displayUUID: display.uuid, desktop: index + 1, space: space, since: Date()))
-                    }
-                    arriving["builtin", default: []].append(refs.map(\.id))
-                }
-            }
-        }
-        var fromRole: [UInt64: String] = [:]
-        for display in current.from { for space in display.spaces { fromRole[space] = display.role } }
-        var leftovers = Set<UInt64>()
-        for display in displays {
-            for space in display.spaces where fromRole[space] != display.role { leftovers.insert(space) }
-        }
+        let extras = PlanApply.transitionExtras(
+            from: current.from, fromContents: current.fromContents, fromMode: current.fromMode,
+            mode: mode, live: displays, windowSpaces: fresh.windowSpaces, namedBefore: namedBefore,
+            ruled: ruledWindows(mode: mode), parked: desktopState?.parked ?? [], now: Date())
+        var parked = extras.parked
         let pending = Self.pendingQueue(store.document.pendingRemovals, mode: mode).all
         var otherNamed = Set<UInt64>()
         for profile in store.document.profiles where profile.id != store.document.activeProfileID {
@@ -1602,19 +1682,24 @@ final class Router: ObservableObject {
         let input = PlanApply.Input(
             mode: mode, live: live.spaces, contents: fresh.contents.mapValues { $0.map(\.id) },
             names: store.document.names, plans: store.document.plans[mode], evacuation: evacuation,
-            arriving: arriving,
+            arriving: extras.arriving,
             parked: mode == .docked ? parked.filter { live.spaces[$0.role] != nil } : [],
-            leftovers: leftovers, otherNamed: otherNamed, pending: pending,
+            leftovers: extras.leftovers, otherNamed: otherNamed, pending: pending,
             allowRemovals: true, allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
         let plan = PlanApply.compute(input)
         if !input.allowMoves {
             planStatus = PlanStatus(message: L("Plan could not be applied: moving windows is off"),
                                     failed: true, at: Date())
         }
-        let outcome = await execute(plan, refs: refs, windowSpaces: fresh.windowSpaces,
-                                    allowRemovals: true)
+        let outcome = await execute(plan, expected: live.spaces, refs: refs,
+                                    windowSpaces: fresh.windowSpaces, allowRemovals: true)
         if outcome.aborted {
-            Log.screens.notice("Desktop transition interrupted; it restarts from the saved state when displays settle")
+            // Yapılan taşımaların bağları kaydedilir (yoksa yeniden hesapta
+            // adın içeriği "adsız" sayılıp başka yere taşınırdı).
+            store.commitPlan(rebinds: outcome.rebinds, spaceMap: outcome.spaceMap)
+            clearJournal()
+            writeDesktopState()
+            Log.screens.notice("Desktop transition interrupted (\(outcome.abortReason ?? "", privacy: .public)); it restarts from the saved state when displays settle")
             return
         }
         store.commitPlan(rebinds: outcome.rebinds, spaceMap: outcome.spaceMap)
@@ -1625,6 +1710,9 @@ final class Router: ObservableObject {
         }
         transition = nil
         commitSnapshot(parked: parked)
+        // Kayıttan hemen sonra macOS'un geç gelen değişiklikleri silme
+        // sayılmaz (P.2: commit + 3 sn).
+        extendQuietWindow(seconds: 3)
         report(outcome, plan: plan, mode: mode, reason: current.reason)
         if plan.truncated, applyPasses < 2 {
             applyPasses += 1
@@ -1636,6 +1724,30 @@ final class Router: ObservableObject {
         reapplyAll()
     }
 
+    /// Çökmeden kalan günlük (C6, B 21): taşımalar yapılmışsa bağlar ve
+    /// taşıma haritası şimdi kaydedilir (yoksa adın içeriği adsız sayılıp
+    /// yeniden taşınırdı); günlük temizlenir.
+    private func resumeJournal(_ current: DesktopStateFile.Transition,
+                               windowSpaces: [CGWindowID: UInt64]) {
+        guard !current.moves.isEmpty else { return }
+        let moves = current.moves.map { PlanExecutor.ResolvedMove(window: $0.window, space: $0.space) }
+        if PlanExecutor.journalDone(moves, windowSpaces: windowSpaces) {
+            var map: [UInt64: UInt64] = [:]
+            for (key, value) in current.spaceMap ?? [:] { if let space = UInt64(key) { map[space] = value } }
+            store.commitPlan(rebinds: current.rebinds ?? [:], spaceMap: map)
+            Log.screens.notice("Desktop transition resumed: \(moves.count) journaled moves were done; bindings committed")
+        }
+        clearJournal()
+    }
+
+    private func clearJournal() {
+        guard transition != nil else { return }
+        transition?.moves = []
+        transition?.rebinds = nil
+        transition?.spaceMap = nil
+        writeDesktopState()
+    }
+
     /// Etkin profilin planını şimdi uygular, masaüstü silmeden (S1: profil
     /// değişimi, "laptop düzenini kopyala", yedek geri yükleme).
     func applyPlanNow(reason: String) {
@@ -1644,8 +1756,8 @@ final class Router: ObservableObject {
     }
 
     private func applyCurrentPlan(reason: String, allowRemovals: Bool) async {
-        guard transition == nil, !transitionRunning, !store.migrationPending, !screens.isSettling,
-              !desktopOpInFlight, SkyLight.shared.canRead else { return }
+        guard transition == nil, !transitionRunning, !store.migrationPending, !store.isReadOnly,
+              !screens.isSettling, !desktopOpInFlight, SkyLight.shared.canRead else { return }
         transitionRunning = true
         defer { transitionRunning = false }
         let mode = screens.mode
@@ -1671,108 +1783,66 @@ final class Router: ObservableObject {
             allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
         let plan = PlanApply.compute(input)
         guard !plan.isEmpty else { return }
-        let outcome = await execute(plan, refs: refs, windowSpaces: fresh.windowSpaces,
-                                    allowRemovals: allowRemovals)
-        guard !outcome.aborted else { return }
+        let outcome = await execute(plan, expected: live.spaces, refs: refs,
+                                    windowSpaces: fresh.windowSpaces, allowRemovals: allowRemovals)
         store.commitPlan(rebinds: outcome.rebinds, spaceMap: outcome.spaceMap)
         commitSnapshot()
+        extendQuietWindow(seconds: 3)
+        guard !outcome.aborted else {
+            Log.app.notice("Plan application (\(reason, privacy: .public)) interrupted: \(outcome.abortReason ?? "", privacy: .public)")
+            reapplyAll()
+            return
+        }
         report(outcome, plan: plan, mode: mode, reason: reason)
         reapplyAll()
     }
 
-    private struct ExecOutcome {
-        var created = 0
-        var failedCreates: [String] = []
-        var moved = 0
-        var failedMoves: [CGWindowID] = []
-        var rebinds: [String: UInt64] = [:]
-        var spaceMap: [UInt64: UInt64] = [:]
-        var removed = 0
-        var aborted = false
-    }
-
-    /// Planı yürütür (§P.1 adım 5): açılışlar (Mission Control, doğrulanmış),
-    /// taşımalar (SkyLight, doğrulanmış, 3 deneme), bağlar, silmeler (her biri
-    /// hemen önce boşluğu denetlenerek, sıra o anki kimlikten). Her adımdan
-    /// önce: ekran değiştiyse, duraklatıldıysa ya da 30 sn geçtiyse durur;
-    /// durduktan sonra hiçbir şey silinmez.
-    private func execute(_ plan: PlanApply.Output, refs: [CGWindowID: DesktopStateFile.WindowRef],
+    /// Planı yürütür (§P.1 adım 5) gerçek Mission Control ve SkyLight ile;
+    /// mantık `PlanExecutor.run`'da (testli). Her adımdan önce: ekran
+    /// değiştiyse, duraklatıldıysa ya da 30 sn geçtiyse durur; durduktan
+    /// sonra hiçbir şey silinmez.
+    private func execute(_ plan: PlanApply.Output, expected: [String: [UInt64]],
+                         refs: [CGWindowID: DesktopStateFile.WindowRef],
                          windowSpaces: [CGWindowID: UInt64],
-                         allowRemovals: Bool) async -> ExecOutcome {
-        var outcome = ExecOutcome()
-        guard !plan.isEmpty else { return outcome }
+                         allowRemovals: Bool) async -> PlanExecutor.Outcome {
+        guard !plan.isEmpty else { return PlanExecutor.Outcome() }
         desktopOpInFlight = true
         defer { desktopOpInFlight = false }
         let startScreens = screens.screens
         let deadline = Date().addingTimeInterval(30)
-        func shouldAbort() -> Bool {
-            screens.screens != startScreens || isPaused || !store.document.enabled
-                || Date() > deadline || !AXIsProcessTrusted()
-        }
-        for role in plan.creates.keys.sorted() {
-            for _ in 0..<(plan.creates[role] ?? 0) {
-                if shouldAbort() { outcome.aborted = true; return outcome }
-                if await addDesktopNow(on: role) {
-                    outcome.created += 1
-                } else {
-                    outcome.failedCreates.append(role)
-                    Log.app.error("Plan: could not add a desktop to \(role, privacy: .public)")
-                    break
+        let pids = refs.mapValues(\.pid)
+        let world = PlanExecutor.World(
+            liveSpaces: { [unowned self] in Self.spaces(self.readLiveDisplays()) },
+            addDesktop: { [unowned self] role in await self.addDesktopNow(on: role) },
+            move: { [unowned self] moves in
+                let connected = self.screens.screens
+                let batch = moves.map { (window: $0.window, space: $0.space) }
+                return await withCheckedContinuation { continuation in
+                    self.queue.async {
+                        continuation.resume(returning: Self.performMoves(batch, pids: pids,
+                                                                         screens: connected))
+                    }
                 }
-            }
-        }
-        if shouldAbort() { outcome.aborted = true; return outcome }
-        let live = Self.spaces(readLiveDisplays())
-        func resolve(_ slot: Slot) -> UInt64? {
-            guard let list = live[slot.screen], slot.desktop >= 1, slot.desktop <= list.count
-            else { return nil }
-            return list[slot.desktop - 1]
-        }
-        var moves: [(window: CGWindowID, space: UInt64)] = []
-        for move in plan.moves {
-            guard let target = resolve(move.to) else {
-                outcome.failedMoves.append(move.window)
-                continue
-            }
-            moves.append((move.window, target))
-        }
-        if !moves.isEmpty {
-            transition?.moves = moves.map { .init(window: $0.window, space: $0.space) }
-            writeDesktopState()
-            let connected = screens.screens
-            let pids = refs.mapValues(\.pid)
-            let batch = moves
-            let failed = await withCheckedContinuation { continuation in
-                queue.async {
-                    continuation.resume(returning: Self.performMoves(batch, pids: pids, screens: connected))
-                }
-            }
-            outcome.moved = moves.count - failed.count
-            outcome.failedMoves += failed
-        }
-        // Taşınamayan pencere olsa da ad planladığı masaüstüne bağlanır (C2).
-        for (id, slot) in plan.rebinds { if let space = resolve(slot) { outcome.rebinds[id] = space } }
-        for (space, slot) in plan.spaceMap { if let target = resolve(slot) { outcome.spaceMap[space] = target } }
-        guard allowRemovals, !plan.removals.isEmpty else { return outcome }
-        // Taşınamayan pencerenin kaynağı boş değildir, silinmez (C2).
-        let removals = PlanApply.removalsAfterFailures(plan.removals, failed: outcome.failedMoves,
-                                                       contents: windowSpaces)
-        for space in removals {
-            if shouldAbort() { outcome.aborted = true; break }
-            let current = readLiveDisplays()
-            guard let display = current.first(where: { $0.spaces.contains(space) }),
-                  display.spaces.count > 1,
-                  let index = display.spaces.firstIndex(of: space) else { continue }
-            guard Self.spaceIsEmpty(space) == true else {
-                Log.app.notice("Plan: desktop \(index + 1) on \(display.role, privacy: .public) kept (not empty)")
-                continue
-            }
-            if await removeDesktopNow(on: display.role, desktop: index + 1) {
-                outcome.removed += 1
-                ownRemovals.insert(space)
-            }
-        }
-        return outcome
+            },
+            isEmpty: { space in Self.spaceIsEmpty(space) },
+            removeDesktop: { [unowned self] role, desktop, space in
+                let removed = await self.removeDesktopNow(on: role, desktop: desktop, expected: space)
+                if removed { self.ownRemovals.insert(space) }
+                return removed
+            },
+            shouldAbort: { [unowned self] in
+                self.screens.screens != startScreens || self.screens.isSettling || self.isPaused
+                    || !self.store.document.enabled || Date() > deadline || !AXIsProcessTrusted()
+            },
+            journal: { [unowned self] moves, rebinds, spaceMap in
+                guard self.transition != nil else { return }
+                self.transition?.moves = moves.map { .init(window: $0.window, space: $0.space) }
+                self.transition?.rebinds = rebinds
+                self.transition?.spaceMap = Dictionary(uniqueKeysWithValues: spaceMap.map { (String($0.key), $0.value) })
+                self.writeDesktopState()
+            })
+        return await PlanExecutor.run(plan, expected: expected, windowSpaces: windowSpaces,
+                                      allowRemovals: allowRemovals, world: world)
     }
 
     /// Pencereleri hedef space'lerine taşır: önce hepsi, sonra 200 ms sonra
@@ -1820,7 +1890,7 @@ final class Router: ObservableObject {
     }
 
     /// Günlük satırı ve alt çubuk durumu.
-    private func report(_ outcome: ExecOutcome, plan: PlanApply.Output, mode: Mode, reason: String) {
+    private func report(_ outcome: PlanExecutor.Outcome, plan: PlanApply.Output, mode: Mode, reason: String) {
         let failed = outcome.failedMoves.count + outcome.failedCreates.count
         Log.app.notice("Plan applied (\(mode.rawValue, privacy: .public), \(reason, privacy: .public)): moved \(plan.movedNames) named desktops (\(outcome.moved) windows), created \(outcome.created), removed \(outcome.removed), failed \(failed)")
         if !outcome.failedCreates.isEmpty {
@@ -1874,7 +1944,7 @@ final class Router: ObservableObject {
                   display.spaces.count > 1, let index = display.spaces.firstIndex(of: space),
                   !store.document.namedSpacesInAnyProfile.contains(space),
                   Self.spaceIsEmpty(space) == true else { continue }
-            if await removeDesktopNow(on: display.role, desktop: index + 1) {
+            if await removeDesktopNow(on: display.role, desktop: index + 1, expected: space) {
                 removed += 1
                 ownRemovals.insert(space)
             }
@@ -1978,7 +2048,8 @@ final class Router: ObservableObject {
                         continue
                     }
                     let removedSpace = desktops[index - 1]
-                    guard await self.removeDesktopNow(on: screenID, desktop: index) else {
+                    guard await self.removeDesktopNow(on: screenID, desktop: index,
+                                                      expected: removedSpace) else {
                         guard self.screens.mode == mode, !self.screens.isSettling else {
                             outcome = .interrupted
                             return
@@ -2104,7 +2175,9 @@ final class Router: ObservableObject {
         // Ekran değişimi yatışırken de öyle: yarım düzenlenmiş ekranlara
         // göre taşıma yapılmaz; yatışınca `settled` → `reapplyAll`.
         // Özgüllük sıralamasını `Routing.select` yapar.
-        let routing = store.document.enabled && !screens.isSettling
+        // Plan uygulanırken yönlendirme durur: adların bağları kaydedilmeden
+        // kural pencerelerini eski yerlerine geri taşımasın (§P.1 adım 6).
+        let routing = store.document.enabled && !screens.isSettling && !planHoldsRouting(now: Date())
         let rules = routing ? store.document.rules : []
         let sessionPins = routing ? self.sessionPins : [:]
         // Duraklatılmışken de geçici pinli pencereler listelenir ve yaşam
@@ -2191,6 +2264,7 @@ final class Router: ObservableObject {
                    connected == self.screens.screens, !Self.screenIsLocked() {
                     self.lastContents = outcome.contents
                     self.lastWindowSpaces = outcome.windowSpaces
+                    self.sweptOnce = true
                 }
                 if outcome.snapshots != self.windows {
                     Self.logFullscreenChange(from: self.windows, to: outcome.snapshots)

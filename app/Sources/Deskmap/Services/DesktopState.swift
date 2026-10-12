@@ -30,6 +30,10 @@ struct DesktopStateFile: Codable, Equatable {
         var fromContents: [String: [WindowRef]]
         var fromMode: Mode
         var moves: [JournalMove] = []
+        /// Günlükteki taşımalarla birlikte kaydedilecek bağlar (ad → space)
+        /// ve taşıma haritası (space → space); metin anahtarlı.
+        var rebinds: [String: UInt64]?
+        var spaceMap: [String: UInt64]?
     }
 
     var version = 1
@@ -130,9 +134,10 @@ struct DesktopStateFile: Codable, Equatable {
         return Date(timeIntervalSince1970: TimeInterval(boot.tv_sec))
     }
 
-    /// İki açılış anı aynı mı (saniye altı farklar yok sayılır).
+    /// İki açılış anı aynı mı. Saat düzeltmeleri (uyanınca NTP) açılış
+    /// anını birkaç saniye kaydırabilir; bir dakikadan küçük fark aynı açılış.
     static func sameBoot(_ a: Date?, _ b: Date?) -> Bool {
         guard let a, let b else { return true }
-        return abs(a.timeIntervalSince(b)) < 2
+        return abs(a.timeIntervalSince(b)) < 60
     }
 }

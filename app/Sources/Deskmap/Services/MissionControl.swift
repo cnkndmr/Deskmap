@@ -63,13 +63,19 @@ enum MissionControl {
     /// sıra SkyLight'ın space sırasıyla aynıdır (tam ekran space'ler dahil);
     /// sayılar uyuşmazsa hiçbir şeye dokunulmaz. Son masaüstü silinmez.
     static func removeDesktop(displayID: CGDirectDisplayID, displayUUID: String,
-                              mainUUID: String?, desktop: Int) async -> Bool {
+                              mainUUID: String?, desktop: Int,
+                              expectedSpace: UInt64? = nil) async -> Bool {
         guard let display = SkyLight.shared.displaySpaces(mainUUID: mainUUID)
                 .first(where: { $0.displayUUID == displayUUID }) else { return false }
         let desktops = display.desktops
         guard desktops.count > 1, desktop >= 1, desktop <= desktops.count,
               let index = display.spaces.firstIndex(of: desktops[desktop - 1])
         else { return false }
+        // Sıra hesaplandıktan sonra masaüstüleri kaydıysa başka masaüstü silinmesin.
+        if let expectedSpace, desktops[desktop - 1].id != expectedSpace {
+            Log.app.error("Remove desktop: desktop \(desktop) is no longer the expected one; nothing removed")
+            return false
+        }
         guard openMissionControl() else { return false }
         defer { closeIfOpen() }
 
@@ -82,6 +88,15 @@ enum MissionControl {
         guard buttons.count == display.spaces.count else {
             Log.app.error("Remove desktop: Mission Control shows \(buttons.count) spaces, SkyLight \(display.spaces.count); nothing removed")
             return false
+        }
+        if let expectedSpace {
+            let now = SkyLight.shared.displaySpaces(mainUUID: mainUUID)
+                .first { $0.displayUUID == displayUUID }
+            guard let now, now.spaces.map(\.id) == display.spaces.map(\.id),
+                  now.desktops.count >= desktop, now.desktops[desktop - 1].id == expectedSpace else {
+                Log.app.error("Remove desktop: desktops changed while Mission Control opened; nothing removed")
+                return false
+            }
         }
         let result = AXUIElementPerformAction(buttons[index], "AXRemoveDesktop" as CFString)
         guard result == .success else {

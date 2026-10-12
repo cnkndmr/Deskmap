@@ -241,7 +241,14 @@ final class Store: ObservableObject {
         migrationPending = false
         migrationSource = nil
         document = result.document
-        undoBuffer.record(L("Desktop names upgraded"), before: before, after: document, companion: nil)
+        if preMigrationBackup != nil {
+            // ⌘Z = "Geçişi geri al": şema 5 dosyası geri yazılır. Geçici
+            // (kanıtsız) belgeye dönmek onu şema 6 olarak kaydederdi.
+            undoBuffer.record(L("Desktop names upgraded"), before: document, after: document,
+                              companion: { [weak self] in self?.undoUpgrade() })
+        } else {
+            undoBuffer.record(L("Desktop names upgraded"), before: before, after: document, companion: nil)
+        }
         migrationReport = result.report
         for entry in result.report.profiles {
             let bound = entry.bound.map { "\($0.name)→\($0.screen)/\($0.desktop)(\($0.space))" }

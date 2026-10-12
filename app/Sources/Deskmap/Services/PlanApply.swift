@@ -108,6 +108,55 @@ enum PlanApply {
         return removals.filter { !blocked.contains($0) }
     }
 
+    /// Geçişin plana ek girdileri (saf, §P.1 adım 3).
+    struct TransitionExtras: Equatable {
+        /// Rol → bu role yerleşecek adsız pencere grupları.
+        var arriving: [String: [[CGWindowID]]] = [:]
+        /// Güncel park kayıtları (eskiler + bu geçişte eklenenler).
+        var parked: [Parked] = []
+        /// Bu geçişte rol değiştiren ya da yeni açılan space'ler.
+        var leftovers: Set<UInt64> = []
+    }
+
+    /// `from`/`fromContents`/`fromMode`: kayıtlı "önce" durumu; `live` şimdiki
+    /// ekranlar; `windowSpaces` yaşayan pencerelerin tek space'i;
+    /// `namedBefore` etkin profilde ardıllardan önce adlı space'ler; `ruled`
+    /// kurala ya da oturum pinine uyan pencereler (yönlendirme taşır).
+    /// Monitör çıkınca (docked → undocked) adsız monitör masaüstlerinin
+    /// kuralsız pencereleri eski sırasıyla gruplanır ve park edilir (B 1).
+    static func transitionExtras(from: [DesktopStateFile.Display],
+                                 fromContents: [String: [DesktopStateFile.WindowRef]],
+                                 fromMode: Mode, mode: Mode,
+                                 live: [DesktopStateFile.Display],
+                                 windowSpaces: [CGWindowID: UInt64],
+                                 namedBefore: Set<UInt64>, ruled: Set<CGWindowID>,
+                                 parked existing: [Parked], now: Date) -> TransitionExtras {
+        var extras = TransitionExtras()
+        extras.parked = DesktopStateFile.prunedParked(existing, alive: Set(windowSpaces.keys), now: now)
+        if fromMode == .docked, mode == .undocked {
+            for display in from where display.role != "builtin" {
+                for (index, space) in display.spaces.enumerated() where !namedBefore.contains(space) {
+                    let refs = (fromContents[String(space)] ?? []).filter {
+                        windowSpaces[$0.id] != nil && !ruled.contains($0.id)
+                    }
+                    guard !refs.isEmpty else { continue }
+                    for ref in refs where !extras.parked.contains(where: { $0.window == ref.id }) {
+                        extras.parked.append(Parked(
+                            window: ref.id, pid: ref.pid, bundleID: ref.bundleID, role: display.role,
+                            displayUUID: display.uuid, desktop: index + 1, space: space, since: now))
+                    }
+                    extras.arriving["builtin", default: []].append(refs.map(\.id))
+                }
+            }
+        }
+        var fromRole: [UInt64: String] = [:]
+        for display in from { for space in display.spaces { fromRole[space] = display.role } }
+        for display in live {
+            for space in display.spaces where fromRole[space] != display.role { extras.leftovers.insert(space) }
+        }
+        return extras
+    }
+
     static func compute(_ input: Input) -> Output {
         var output = Output()
         guard input.allowMoves else { return output }
