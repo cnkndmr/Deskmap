@@ -1,3 +1,4 @@
+import Foundation
 import os
 
 /// Birleşik günlük (`os.Logger`). Konsol.app ya da terminalden izlenir:
@@ -8,7 +9,19 @@ import os
 /// (taşıma, vazgeçme, backoff, ekran/uyku geçişleri). Pencere başlıkları
 /// `.private` ile gizlenir; uygulama adı ve pencere numarası açıktır.
 enum Log {
-    private static let subsystem = "com.deskmap.app"
+    /// Testler ayrı alt sistemde: gerçek uygulamanın günlüğü
+    /// (`subsystem == "com.deskmap.app"`) test satırlarıyla karışmasın.
+    private static let subsystem = isTesting ? "com.deskmap.app.tests" : "com.deskmap.app"
+
+    /// Süreç bir test koşucusu mu (swift test / Xcode). Testler gerçek
+    /// Application Support'a hiç dokunmasın diye `Store.directoryURL` de buna bakar.
+    static let isTesting: Bool = {
+        let env = ProcessInfo.processInfo.environment
+        let name = ProcessInfo.processInfo.processName
+        return name == "swiftpm-testing-helper" || name == "xctest" || name.hasSuffix("PackageTests")
+            || env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil
+            || env["XCTestSessionIdentifier"] != nil
+    }()
 
     /// Tarama ve yönlendirme kararları (taşıma, düzen, vazgeçme, pin ömrü).
     static let routing = Logger(subsystem: subsystem, category: "routing")

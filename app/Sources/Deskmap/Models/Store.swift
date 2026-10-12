@@ -85,16 +85,22 @@ final class Store: ObservableObject {
         if let path = ProcessInfo.processInfo.environment["DESKMAP_DATA_DIR"], !path.isEmpty {
             return URL(fileURLWithPath: (path as NSString).expandingTildeInPath, isDirectory: true)
         }
+        // Testler gerçek veri klasörüne asla dokunmaz.
+        if Log.isTesting { return testDirectory.appendingPathComponent("Deskmap", isDirectory: true) }
         return FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/Deskmap", isDirectory: true)
     }()
 
     /// Eski ad (Space Router) altındaki veri klasörü; `init()` içinde bir
     /// kez buradan `directoryURL`'e kopyalanır (bkz. `DataMigration`).
-    static let legacyDirectoryURL = FileManager.default
-        .homeDirectoryForCurrentUser
-        .appendingPathComponent("Library/Application Support/SpaceRouter",
-                                isDirectory: true)
+    static let legacyDirectoryURL = Log.isTesting
+        ? testDirectory.appendingPathComponent("SpaceRouter", isDirectory: true)
+        : FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Application Support/SpaceRouter", isDirectory: true)
+
+    /// Test sürecinin geçici kökü (gerçek Application Support yerine).
+    nonisolated static let testDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DeskmapTests-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
 
     static let fileURL = directoryURL.appendingPathComponent("rules.json")
     /// Okunamayan `rules.json` üzerine yazılmadan önce buraya kopyalanır.
