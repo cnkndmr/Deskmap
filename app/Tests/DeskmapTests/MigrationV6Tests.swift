@@ -203,6 +203,31 @@ struct MigrationV6Tests {
         }
     }
 
+    /// Satır 22: şema 5 yedeği geri yüklenince geçiş canlı kanıtla tamamlanır.
+    @MainActor @Test func restoreV5Migrates() throws {
+        let store = Store(demo: Document())
+        #expect(store.restoreBackup(V6.incidentDocument()))
+        #expect(store.migrationPending)
+        #expect(store.completeMigration(evidence: V6.evidence(V6.normalProfilWindows())))
+        #expect(!store.migrationPending)
+        #expect(V6.bindings(try #require(store.document.activeProfile.map { _ in
+            Profile(name: "x", names: store.document.names) }))["Orion"] == 1681)
+        #expect(store.migrationReport?.emptyCount == 4)
+        store.undo()
+        #expect(store.document.names.first { $0.name == "Orion" }?.space != 1681)
+    }
+
+    /// v6 yedeği: masaüstü canlı olmayan adlar plana göre bağlanır (R4).
+    @MainActor @Test func restoreV6() {
+        let store = Store(demo: Document())
+        store.setLive(LiveDesktops(mode: .docked, spaces: ["external": [7, 8]]))
+        var backup = V6.document(names: [DesktopName(id: "K", name: "K", space: 999)],
+                                 plans: DesktopPlans(docked: ["external": ["", "K"]]))
+        backup.fileVersion = 6
+        #expect(store.restoreBackup(backup))
+        #expect(store.document.names.first?.space == 8)
+    }
+
     // MARK: - v<5 dosyası
 
     @Test func schemaFourSharedStateMigratesThroughLegacy() throws {

@@ -113,7 +113,7 @@ final class StatusFile {
     }
 
     /// Adların durum dosyası kaydı (saf).
-    static func names(_ document: Document, live: LiveDesktops?) -> [Name] {
+    nonisolated static func names(_ document: Document, live: LiveDesktops?) -> [Name] {
         document.names.map { record in
             let place = record.space.flatMap { live?.place(of: $0) }
             var planned: [String: String] = [:]
