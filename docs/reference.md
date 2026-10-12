@@ -294,13 +294,13 @@ their pin count.
 - Click a profile to switch to it. Windows are placed again right away.
 - Click the active profile to rename, **Duplicate**, **Export** or **Delete**
   it (the last profile cannot be deleted).
-- Desktop names, deleted-desktop rows and planned desktops belong to each
-  profile. **+** starts with none; **Duplicate** copies them; switching shows
-  the target's names at once and only creates missing planned desktops
-  (never deletes one). Export carries names and planned desktops (not the
-  Mac-specific desktop bindings or deleted-desktop rows). When a desktop is
-  moved or deleted in Mission Control, every profile's names follow it, and
-  each profile that named a deleted desktop gets its own deleted-desktop row.
+- Desktop names, their per-setup plans and deleted-desktop rows belong to each
+  profile (schema 6, see [Desktop names](#desktop-names-schema-6)). **+**
+  starts with none; **Duplicate** copies them; switching shows the target's
+  names at once, moves windows to match its plan and only creates missing
+  desktops (never deletes one). Export (version 4) carries names, plans and
+  name pins (not the Mac-specific desktop IDs or deleted-desktop rows);
+  imported names are placed by plan position at the next plan application.
 - **+** creates an empty profile. The import button reads a
   `.deskmap.json` file exported earlier; a plain `rules.json` also works.
 - Profiles can be switched from Shortcuts, Raycast and others via the
@@ -332,6 +332,40 @@ The switch at the top left pauses routing (the menu bar icon changes to a
 pause symbol). Windows are still listed, but nothing is moved. Pausing is
 saved and survives restarts.
 
+### Desktop names (schema 6)
+
+- A name is bound to one desktop (a macOS space ID) and follows it across
+  displays, reordering and plug/unplug. It has no mode, screen or number.
+- Each profile has a **plan** per setup (`docked`, `undocked`) and display
+  role: the ordered list of desktops, each a name or empty. The plan length is
+  the number of desktops that role should have.
+- **Plug/unplug** applies the new setup's plan: windows of named desktops move
+  with them; unnamed windows that were on a monitor desktop are parked on
+  laptop desktops and returned on replug (by display role, so another monitor
+  works too); missing desktops are created (at most 8 per display per pass);
+  only empty leftovers beyond the plan are removed, each re-checked empty right
+  before removal. Desktops with windows, named desktops and full-screen spaces
+  are never removed or moved. A move that fails keeps the window and its
+  desktop and shows a footer message.
+- Deleted-desktop rows come only from a real deletion outside a display
+  change, sleep or launch catch-up.
+- A rule can target a name (`nameID`) instead of a number; if the name has no
+  desktop yet the window is held, not moved. A profile switch or **Copy the
+  Laptop only plan here** moves windows to match the plan but removes nothing.
+- Removing a desktop that has windows asks for confirmation in the app.
+- **Upgrade from schema 5**: runs once at the first settled sweep. The old
+  `rules.json` and `desktop-spaces.json` are copied to
+  `Backups/pre-migration/` (never pruned; no backup, no upgrade). Names are
+  matched to desktops by where their pinned windows are. A status card lists
+  the result and offers **Remove N empty desktops** and **Undo upgrade**.
+
+`deskmap desktops` prints one line per name with its live place and its planned
+place in each setup (`external/2  Nova Ek   plan docked: external/2,
+undocked: builtin/7`; `(no desktop yet)` for a name without a desktop), then one
+line per plan (`plan docked/external: Orion | Nova Ek | · | Lumen`, `·` =
+unnamed desktop), then deleted-desktop rows. `--json` prints `desktopNames`,
+`names` and `plans`.
+
 ### Where data lives
 
 | File | Contents |
@@ -339,15 +373,19 @@ saved and survives restarts.
 | `~/Library/Application Support/Deskmap/rules.json` | Pins, profiles, known displays, the on/off switch. Written 0.4 s after a change and on quit. |
 | `~/Library/Application Support/Deskmap/rules.json.bak` | Copy of an unreadable or partly unreadable `rules.json`, made before it is overwritten. |
 | `~/Library/Application Support/Deskmap/session-pins.json` | Temporary pins (window ID + process ID). |
+| `~/Library/Application Support/Deskmap/desktop-state.json` | Desktops per display, their windows (IDs only, no titles), parked windows and the transition in progress. Replaces `desktop-spaces.json`; not backed up. |
 | `~/Library/Application Support/Deskmap/Backups/` | Automatic backups (see [Backups](#backups)). |
 | `<name>.deskmap.json` | An exported profile. |
+
+Set `DESKMAP_DATA_DIR` to use another folder instead of
+`~/Library/Application Support/Deskmap/` (to try an upgrade on a copy).
 
 See [docs/architecture.md](architecture.md#data-files) for the formats.
 
 ### Backups
 
 The app backs up `rules.json` (all profiles, pins, desktop names and
-plans), plus `hooks.json` and `desktop-spaces.json` when they exist, by
+plans), plus `hooks.json` when it exists, by
 itself: at launch, every five minutes while running, after wake and when the
 clock, time zone or day changes. No script or launch agent is involved.
 
@@ -357,6 +395,7 @@ clock, time zone or day changes. No script or launch agent is involved.
 | `Backups/daily/daily-YYYY-MM-DD.json` | local day; holds that day's latest state | last 7 days |
 | `Backups/weekly/weekly-YYYY-Www.json` | ISO week; holds that week's latest state | forever |
 | `Backups/pre-restore/pre-restore-…Z.json` | restore; the state just before it | last 10 |
+| `Backups/pre-migration/rules-v5-…Z.json` | the schema 5 → 6 upgrade (with a `desktop-spaces-…Z.json` copy) | forever |
 
 - A file is only rewritten when its content changed; each write goes to a
   temporary file that is renamed into place.
@@ -369,8 +408,9 @@ clock, time zone or day changes. No script or launch agent is involved.
   → **Restore** → **Replace current profiles**. The current state goes to `pre-restore/` first, the document
   is replaced (the on/off switch and known displays stay as they are),
   `hooks.json` returns to the backed-up version and windows are placed again.
-  The footer offers *Backup restored · Undo*. `desktop-spaces.json` is not
-  restored; its desktop IDs belong to the running session.
+  The footer offers *Backup restored · Undo*. `desktop-state.json` is not
+  restored; its desktop IDs belong to the running session. A schema 5 backup
+  is upgraded as it is restored.
 
 ## Automation (URL scheme)
 
@@ -392,6 +432,7 @@ running, macOS starts it first.
 | `deskmap://reload` | Re-read `rules.json` from disk |
 | `deskmap://status` | Write `status.json` now |
 | `deskmap://pin/<window>/<screen>/<n>[?layout=desktop-only]` | Temporary pin: keep window id *window* on desktop *n* of *screen* until it closes; `desktop-only` leaves its position and size alone |
+| `deskmap://pin/<window>?name=<desktop name>[&layout=desktop-only]` | Temporary pin to a named desktop of the active profile; it follows that desktop. Unknown names do nothing |
 | `deskmap://unpin/<window>` | Remove the temporary pin |
 | `deskmap://move/<window>/<screen>/<n>` | Move the window once |
 | `deskmap://rule-add?json=<rule>` | Add a rule (percent-encoded rule JSON, same shape as in `rules.json`) |
@@ -402,7 +443,8 @@ running, macOS starts it first.
 | `deskmap://rule-save-layout/<rule id>[?window=<id>]` | Use a matching window's current size and position as the rule's layout (live mode) |
 | `deskmap://profile-set?json=<profile>&activate=1` | Create or update a profile by name |
 | `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Make a display have *count* desktops |
-| `deskmap://desktop-name/<screen>/<n>?name=<name>` | Name a desktop (empty name removes it). Names follow the real desktop when it is reordered, moved or removed in Mission Control |
+| `deskmap://desktop-name/<screen>/<n>?name=<name>` | Name a desktop (empty name removes it). The name belongs to that desktop: it follows it when it is reordered or moved, also to the other display, and in plug/unplug. A name already used in the profile is refused |
+| `deskmap://quit` | Quit Deskmap (the way scripts and tests close it; never kill the process) |
 | `deskmap://backup-now` | Run the automatic backup now |
 | `deskmap://backup-restore/<id>` | Restore a backup by id (e.g. `daily-2026-10-12`); see [Backups](#backups) |
 
@@ -437,6 +479,8 @@ deskmap pause | resume | reload | profile Office
 deskmap profile-rename Office "Office desk"
 deskmap export ~/office.deskmap.json [--profile Office]
 deskmap desktop-move external 1 3          # desktop 1 becomes desktop 3
+deskmap desktops [--json]                  # names with their live place, the plan of each setup
+deskmap name external 2 "Nova Ek"          # name the desktop that is desktop 2 now
 deskmap backups [--json]                   # automatic backups, newest first
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12
@@ -489,7 +533,11 @@ shell command. YAML needs PyYAML; `.json` files work without it.
 
 `status.json` (next to `rules.json`) holds the live state: screens, windows
 with their placement and temporary pin, rules, active profile, whether
-routing is paused, and the last error.
+routing is paused, and the last error. Besides `desktopNames` (display role →
+number → name, the current layout) it has `names` (`id`, `name`, `space`,
+`screen`, `desktop`: where the desktop is now, `planned`: setup → `screen/n`)
+and `plans` (setup → display role → list of name ids, `""` for an unnamed
+desktop).
 
 ### Screen change hooks (`hooks.json`)
 

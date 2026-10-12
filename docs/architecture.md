@@ -117,6 +117,17 @@ displays as settling. Sweeps keep listing windows but move nothing. After
 2.5 s without further changes, or at the latest 10 s after the first change,
 the displays count as settled and every window is placed again.
 
+From the first notification until the plan has been applied, the change is a
+*transition*: a desktop that disappears in it is not a deletion. After the
+settle, `Succession` (R2) finds each vanished desktop's successor by the
+windows it held, then `PlanApply.compute` (pure) turns the profile's plan for
+the new setup into creates, moves, rebinds and removals, and the router
+executes them in that order (Mission Control for creating and removing,
+SkyLight for moving; each step verified, aborted when the display generation
+changes, 30 s cap). Only empty leftovers beyond the plan length are removed,
+re-checked right before each removal. The result and the journal are committed
+to `desktop-state.json`. Spec: [desktop-names-v2.md](desktop-names-v2.md).
+
 External display roles are assigned by position: sorted by `minX`, then
 `minY`, then UUID. The built-in display is always `builtin`.
 
@@ -137,11 +148,11 @@ The chosen path is logged once at launch (`skylight` category).
 
 All files live in `~/Library/Application Support/Deskmap/`.
 
-### rules.json (schema version 5)
+### rules.json (schema version 6)
 
 ```json
 {
-  "version": 5,
+  "version": 6,
   "enabled": true,
   "activeProfileID": "…",
   "setupNoticeDismissed": false,
@@ -155,16 +166,17 @@ All files live in `~/Library/Application Support/Deskmap/`.
       "appName": "Code",
       "bundleID": "com.microsoft.VSCode",
       "tokens": ["Deskmap"],
-      "docked":   { "screen": "external", "desktop": 2,
+      "docked":   { "nameID": "N-Nova", "screen": "external", "desktop": 2,
                     "layout": { "x": 0, "y": 0, "w": 0.5, "h": 1 } },
       "undocked": { "screen": "builtin",  "desktop": 1,
                     "layout": { "x": 0, "y": 0, "w": 1,   "h": 1 } }
     }
   ],
   "profiles": [ { "id": "…", "name": "Default", "rules": [ … ],
-                  "desktopNames": { "docked|external": { "2": "Nova" } },
-                  "desktopNameSpaces": { "docked|external": { "2": 1234 } },
-                  "plannedDesktops": { "docked|external": 4 },
+                  "names": [ { "id": "N-Nova", "name": "Nova", "space": 1234 } ],
+                  "plans": { "docked":   { "builtin": ["", "N-AI"],
+                                           "external": ["N-Nova", "", ""] },
+                             "undocked": { "builtin": ["", "N-AI", "N-Nova"] } },
                   "ghostDesktops": [ … ] } ],
   "pendingRemovals": { … }
 }
@@ -172,38 +184,53 @@ All files live in `~/Library/Application Support/Deskmap/`.
 
 - `rules` is the active profile's rule list; it is also written into that
   profile's entry in `profiles`.
-- Desktop names, their bindings (`desktopNameSpaces`), deleted-desktop rows
-  (`ghostDesktops`) and planned desktops belong to each profile (schema 5):
-  a profile only shows names it gave. `pendingRemovals` (queued real desktop
-  deletions) stays at the top level and is shared. Files before schema 5 kept
-  these at the top level; they are split by use on read (see
-  [profile-desktop-state.md](profile-desktop-state.md)).
+- `names` (id, name, bound space ID or `null` = no desktop yet), `plans`
+  (setup → display role → ordered name ids, `""` = unnamed desktop; the list
+  length is the desktop count) and `ghostDesktops` belong to each profile
+  (schema 6). A name has no mode, screen or number: it follows its space ID.
+  A rule destination with `nameID` targets that name's desktop; `screen` and
+  `desktop` beside it are only a cache of its last place. `pendingRemovals`
+  stays at the top level and is shared. Schema 5 files (per-slot
+  `desktopNames`, `desktopNameSpaces`, `plannedDesktops`) are upgraded once,
+  after a backup in `Backups/pre-migration/`; see
+  [desktop-names-v2.md](desktop-names-v2.md).
 - `tokens: []` means "all windows of the app".
 - Reading is lenient: a single broken rule is skipped (the file is copied to
   `rules.json.bak` first and the footer shows how many were skipped).
 - v1 files (`app` / `match` fields) and v2 files (no profiles) are migrated
   on read; their rules become one profile.
-- A file whose `version` is higher than 5 was written by a newer Deskmap:
+- A file whose `version` is higher than 6 was written by a newer Deskmap:
   it is read, but never overwritten.
 - The keys above are a stable format; a new UI language doesn't change them.
   Profile names are user data and are kept as typed.
 
+### desktop-state.json
+
+Physical facts shared by all profiles, not part of backups or exports
+(replaces `desktop-spaces.json`, which is read once for the upgrade):
+`displays` (role, display UUID, space IDs in order) and `contents` (window
+ID, process ID, bundle ID per space; no titles) as of the last stable sweep;
+`parked` (unnamed windows that left a monitor, with the desktop they came
+from, dropped after the window is gone or after 14 days); `bootTime`; and
+`transition`, set while a plan is being applied, so a crash can be resumed at
+the next launch. `DESKMAP_DATA_DIR` moves the whole data folder.
+
 ### session-pins.json
 
 A list of temporary pins: `windowID`, `pid`, `bundleID`, `appName`, `title`,
-`destination`. At launch only entries whose window ID still exists in the
+`destination` (which may carry a `nameID`). At launch only entries whose window ID still exists in the
 window server with the same process ID are restored.
 
 ### Profile export (`<name>.deskmap.json`)
 
 ```json
-{ "kind": "deskmap-profile", "version": 3, "name": "Office",
+{ "kind": "deskmap-profile", "version": 4, "name": "Office",
   "exportedAt": "2026-09-14T10:00:00Z", "screens": [ … ], "rules": [ … ],
-  "desktopNames": { "docked|external": { "2": "Nova" } },
-  "plannedDesktops": { "docked|external": 4 } }
+  "names": [ { "id": "N-Nova", "name": "Nova" } ],
+  "plans": { "docked": { "external": ["N-Nova", "", ""] } } }
 ```
 
-On import, rule IDs are regenerated, the name is made unique (`Office (2)`),
+Version 3 files (`desktopNames`, `plannedDesktops`) still import. Names are exported without their desktop. On import, rule IDs are regenerated, names start without a desktop (placed by plan position at the next plan application), the name is made unique (`Office (2)`),
 and unknown display roles from `screens` are added to the map. A plain
 `rules.json`-style file with a `rules` array is accepted too.
 

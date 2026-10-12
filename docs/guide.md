@@ -115,6 +115,8 @@ here*; the last card, **+ Add desktop**, adds one to the map.
   lets *you* create desktops: open Mission Control and add them, then the
   card becomes solid.
 - Right-click a card to **Rename Desktop…**, **Remove Name** or **Remove Desktop**.
+  Removing a desktop that still has windows asks first and lists the apps
+  (macOS then moves those windows to another desktop).
 - Pinned windows that are closed right now wait as chips under the card's
   mini screen.
 - An orange **Desktop 5 missing** badge means the pin wants desktop 5 but the
@@ -178,6 +180,7 @@ switches between them instantly.
   A new or duplicated profile does not switch on by itself: press **Use**.
 - Desktop names belong to the profile that gave them: a new profile starts
   with no names, and renaming a desktop in one profile never changes another.
+  See [Desktop names and your monitor](#9-desktop-names-and-your-monitor).
 - Export writes a `.deskmap.json` file — that's how you carry your setup
   to another Mac, or share it.
 - **Settings › Backups**: Deskmap backs up all profiles, pins and desktop
@@ -186,14 +189,16 @@ switches between them instantly.
   current profiles**; your current state is backed up first, and the map's
   footer offers *Undo* (⌘Z). **Back up now** takes a copy right away.
 - **⋯ › Copy the Laptop only plan here** (Monitor connected plan) copies the
-  laptop pins *and* the laptop desktop names of the active profile; a name
-  that was elsewhere in the Monitor connected plan moves with it.
+  laptop pins *and* the order of the laptop desktops (with their names) into
+  the Monitor connected plan; a name that was elsewhere in that plan moves
+  with it. Windows are moved to match, but no desktop is removed.
 
 ## 8. When you change your mind
 
 - **Undo**: after unpinning, dragging a pin, or reordering desktops, the
   footer shows *"Pin deleted · Undo"* for ten seconds. Click it or press
-  **⌘Z**. There are no confirmation dialogs anywhere in the app; this is why.
+  **⌘Z**. Almost nothing asks for confirmation; Undo is why. The one exception is
+  removing a desktop that still has windows.
 - **Recent moves** (toolbar): which pinned window Deskmap sent where, and
   when — the answer to "why did my window jump?".
 - **Pause**: the **Deskmap on** switch at the top left, or right-click the
@@ -207,7 +212,54 @@ Right-clicking the menu bar icon also offers **Pin it where it is** for the
 front window, the free-move times for a pinned one, the profiles, Settings
 and Quit. A left click opens the map.
 
-## 9. One-key setups (optional)
+## 9. Desktop names and your monitor
+
+A name belongs to one physical desktop, not to "desktop 2 on the monitor".
+Move the desktop, reorder it in Mission Control, or carry it to the laptop
+screen: the name goes with it, and so do the pins that point at the name.
+
+Each setup — **Monitor connected** and **Laptop only** — has its own *plan*:
+which names live on which display, in which order, and how many desktops each
+display should have. You don't write the plan; it follows what you do: naming
+a desktop, dragging a card, reordering or adding desktops in Deskmap or in
+Mission Control updates the plan of the setup you are in.
+
+When you plug or unplug the monitor, Deskmap applies the plan of the new setup:
+
+- **Named desktops keep their windows.** Each one is put at its planned place
+  and everything on it moves along, pinned or not.
+- **Unnamed windows come back.** Windows on an unnamed monitor desktop wait on
+  their own laptop desktop (one per former desktop), and return to the monitor
+  when you plug it back in.
+- **Only empty leftovers are removed.** Desktops that this switch emptied or
+  that macOS created on the way are removed if nothing is on them and they are
+  beyond the plan. Desktops with windows, named desktops and your own empty
+  desktops stay.
+- **Missing desktops are created**, up to the plan.
+- **No deleted-desktop rows.** A desktop that vanishes because the display
+  changed is not a deletion; a row appears only when *you* delete a desktop
+  in Mission Control or in Deskmap.
+
+If a window can't be moved, it stays where it is, its desktop is kept and the
+footer says so.
+
+**Pin to a name.** The pin panel and the **Send to** menu list names first. A
+window pinned to a name follows that desktop wherever it is; if the name has
+no desktop yet, the window waits (the map says *waiting for …*) and nothing
+is moved. A pin to a name is made for both setups unless the other one already
+has a place for the window.
+
+**First launch after the upgrade.** Deskmap first saves your old file (in
+`Backups/pre-migration/`, never deleted). Then it matches each name to the
+desktop where its pinned windows actually are, and shows a card
+**Desktop names upgraded** with what it did: names placed, names without a
+desktop yet, wrong deleted-desktop rows removed and their pins restored.
+Deskmap does not move a window or remove a desktop in this step. If it found
+empty desktops beyond your plan, the card offers **Remove N empty desktops**
+(each is checked empty again just before it goes). **Undo upgrade** puts the
+old file back (nothing is saved until Deskmap restarts); an older Deskmap can only open the new file read-only.
+
+## 10. One-key setups (optional)
 
 The app answers `deskmap://` links, so anything that can open a URL can
 drive it:
@@ -222,7 +274,7 @@ Put one in a Shortcut and give it a keyboard shortcut, or trigger it from a
 macOS Focus automation: "when Work Focus turns on, switch to the Desk
 profile".
 
-## 10. If something doesn't happen
+## 11. If something doesn't happen
 
 | What you see | What it means |
 |---|---|

@@ -116,7 +116,8 @@ yazar; son kart **+ Masaüstü ekle** haritaya bir tane ekler.
   yalnızca **sen** izinlisin: Mission Control'ü aç, ekle; kart düz çizgiye
   döner.
 - Karta sağ tıkla: **Masaüstünü yeniden adlandır…**, **Adı kaldır** ya da
-  **Masaüstünü sil**.
+  **Masaüstünü sil**. Hâlâ penceresi olan bir masaüstünü silmek önce sorar ve
+  uygulamaları sıralar (macOS o pencereleri başka bir masaüstüne taşır).
 - Şu an kapalı olan sabit pencereler, kartın minik ekranının altında çip
   olarak bekler.
 - Turuncu **Masaüstü 5 yok** rozeti, sabitleme 5. masaüstünü istiyor ama
@@ -184,6 +185,7 @@ anında geçiş yapar.
   **Kullan**'a bas.
 - Masaüstü adları onları veren profile aittir: yeni profil adsız başlar, bir
   profilde masaüstünü yeniden adlandırmak öbürünü hiç değiştirmez.
+  Bkz. [Masaüstü adları ve monitörün](#9-masaüstü-adları-ve-monitörün).
 - Dışa aktarma `.deskmap.json` dosyası yazar — düzenini başka Mac'e
   taşımanın ya da paylaşmanın yolu.
 - **Ayarlar › Yedekler**: Deskmap tüm profilleri, sabitlemeleri ve masaüstü
@@ -193,15 +195,16 @@ anında geçiş yapar.
   haritanın alt çubuğunda *Geri al* çıkar (⌘Z). **Şimdi yedekle** hemen bir
   kopya alır.
 - **⋯ › Sadece laptop planını buraya kopyala** (Monitör bağlı planı) etkin
-  profilin laptop sabitlemelerini *ve* laptop masaüstü adlarını kopyalar;
-  Monitör bağlı planında başka yerde duran aynı ad onunla birlikte taşınır.
+  profilin laptop sabitlemelerini *ve* laptop masaüstlerinin sırasını (adlarıyla)
+  Monitör bağlı planına kopyalar; o planda başka yerde duran aynı ad onunla
+  birlikte taşınır. Pencereler buna uydurulur, ama hiçbir masaüstü silinmez.
 
 ## 8. Fikrini değiştirdiğinde
 
 - **Geri al**: sabitlemeyi kaldırdıktan, sürükledikten ya da masaüstü
   sırasını değiştirdikten sonra alt çubukta on saniye *"Sabitleme silindi ·
-  Geri al"* durur. Tıkla ya da **⌘Z**. Uygulamada hiçbir yerde onay diyaloğu
-  yok; sebebi bu.
+  Geri al"* durur. Tıkla ya da **⌘Z**. Neredeyse hiçbir şey onay istemez; sebebi
+  bu. Tek istisna, hâlâ penceresi olan bir masaüstünü silmek.
 - **Son hareketler** (araç çubuğu): Deskmap hangi sabit pencereyi ne zaman
   nereye gönderdi — "pencerem neden zıpladı?" sorusunun cevabı.
 - **Duraklat**: sol üstteki **Deskmap açık** anahtarı ya da menü çubuğu
@@ -216,7 +219,55 @@ Menü çubuğu simgesine sağ tık öndeki pencere için **Olduğu yere sabitle*
 sabit bir pencere için serbest bırakma sürelerini, profilleri, Ayarlar'ı ve
 çıkışı da sunar. Sol tık haritayı açar.
 
-## 9. Tek tuşla kurulum (isteğe bağlı)
+## 9. Masaüstü adları ve monitörün
+
+Bir ad, "monitörde 2. masaüstü"ne değil, tek bir gerçek masaüstüne aittir.
+Masaüstünü taşı, Mission Control'de sırasını değiştir ya da laptop ekranına
+götür: ad onunla gider, ada bağlı sabitlemeler de.
+
+Her kurulumun — **Monitör bağlı** ve **Sadece laptop** — kendi *planı* var:
+hangi ad hangi ekranda, hangi sırada ve her ekranda kaç masaüstü olmalı. Planı
+sen yazmazsın; yaptıklarını izler: bir masaüstüne ad vermek, kartı sürüklemek,
+Deskmap'te ya da Mission Control'de masaüstü sıralamak ya da eklemek içinde
+bulunduğun kurulumun planını günceller.
+
+Monitörü takınca ya da çıkarınca Deskmap yeni kurulumun planını uygular:
+
+- **Adlı masaüstleri pencerelerini korur.** Her biri planlı yerine konur ve
+  üzerindeki her şey, sabit olsun olmasın, onunla taşınır.
+- **Adsız pencereler geri döner.** Monitördeki adsız bir masaüstünde duran
+  pencereler laptopta kendi masaüstünde (eski masaüstü başına bir tane) bekler,
+  monitörü yeniden takınca monitöre döner.
+- **Yalnız boş artıklar silinir.** Bu geçişin boşalttığı ya da macOS'un yolda
+  oluşturduğu masaüstleri, üzerinde hiçbir şey yoksa ve planın ötesindeyse
+  silinir. Penceresi olan masaüstleri, adlı masaüstleri ve senin kendi boş
+  masaüstlerin kalır.
+- **Eksik masaüstleri oluşturulur**, plana kadar.
+- **Silinmiş masaüstü satırı çıkmaz.** Ekran değişikliği yüzünden kaybolan
+  masaüstü silme sayılmaz; satır yalnız *sen* Mission Control'de ya da
+  Deskmap'te bir masaüstünü silince çıkar.
+
+Bir pencere taşınamazsa olduğu yerde kalır, masaüstü korunur ve alt çubuk
+bunu söyler.
+
+**Ada sabitle.** Sabitleme paneli ve **Gönder** menüsü adları önce listeler.
+Ada sabitlenen pencere o masaüstünü nereye giderse oraya kadar izler; adın
+henüz masaüstü yoksa pencere bekler (harita *… bekleniyor* der) ve hiçbir şey
+taşınmaz. Öbür kurulumda pencere için zaten bir yer yoksa, ada sabitleme iki
+kurulum için de yapılır.
+
+**Yükseltmeden sonraki ilk açılış.** Deskmap önce eski dosyanı yedekler
+(`Backups/pre-migration/` içinde, asla silinmez). Sonra her adı, sabit
+pencerelerinin gerçekten durduğu masaüstüyle eşleştirir ve ne yaptığını
+anlatan bir **Masaüstü adları yükseltildi** kartı gösterir: yerleşen adlar,
+henüz masaüstü bulamayan adlar, yanlışlıkla çıkmış silinmiş-masaüstü
+satırlarının kaldırılması ve pinlerinin geri gelmesi. Bu adımda Deskmap hiçbir
+pencere taşımaz, hiçbir masaüstü silmez. Planının ötesinde boş masaüstü
+bulduysa kart **N boş masaüstünü kaldır** düğmesini sunar (her biri
+silinmeden hemen önce yeniden boş mu diye bakılır). **Yükseltmeyi geri al** eski
+dosyayı geri koyar (Deskmap yeniden açılana dek değişiklikler kaydedilmez); eski bir Deskmap yeni dosyayı yalnız okuma modunda açar.
+
+## 10. Tek tuşla kurulum (isteğe bağlı)
 
 Uygulama `deskmap://` bağlantılarını yanıtlar; URL açabilen her şey onu
 sürebilir:
@@ -230,7 +281,7 @@ open "deskmap://toggle"         # duraklat / sürdür
 Birini bir Shortcut'a koy, klavye kısayolu bağla; ya da macOS Focus
 otomasyonuna: "Çalışma odağı açılınca Masa profiline geç".
 
-## 10. Bir şey olmuyorsa
+## 11. Bir şey olmuyorsa
 
 | Gördüğün | Anlamı |
 |---|---|

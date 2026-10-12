@@ -8,6 +8,35 @@ number comes from the `VERSION` file.
 
 ### Changed
 
+- **Desktop names v2 (`rules.json` schema 6)**: a name now belongs to one
+  physical desktop and follows it across displays, reordering and
+  plug/unplug; it no longer has a mode, screen or number. Each profile has a
+  plan per setup (which names live where, how many desktops per display).
+  Plugging or unplugging the monitor applies the plan of the new setup: named
+  desktops move with all their windows, unnamed windows from a monitor
+  desktop are parked on laptop desktops and return on replug (also with
+  another monitor), missing desktops are created, and only empty leftover
+  desktops beyond the plan are removed (each re-checked empty right before).
+  A desktop that vanishes because of a display change is no longer a
+  deleted-desktop row; rows come only from real deletions. A profile switch
+  and **Copy the Laptop only plan here** move windows to match the plan but
+  never remove a desktop. Removing a desktop that has windows now asks first.
+- **Pins can target a name**: the pin panel and **Send to** list names first;
+  a pin follows the named desktop and waits (nothing moves) while the name has
+  no desktop. `deskmap://pin/<window>?name=<name>` does the same.
+- **Upgrade from schema 5** on first launch: the old files are saved to
+  `Backups/pre-migration/` (never pruned), names are matched to desktops by
+  where their pinned windows are, wrongly created deleted-desktop rows are
+  removed and their pins restored. A card reports the result and offers
+  **Remove N empty desktops** and **Undo upgrade**. Nothing is moved or
+  removed during the upgrade; an older Deskmap opens the new file read-only.
+- `deskmap desktops` lists names with their live place and planned place per
+  setup, and the plans; `status.json` gains `names` and `plans`. Profile
+  export is version 4 (names and plans without desktop IDs); version 3 files
+  still import. Runtime desktop facts move to `desktop-state.json`.
+- `deskmap://quit` quits the app and `DESKMAP_DATA_DIR` points it at another
+  data folder, for scripts and tests.
+
 - **Desktop names belong to a profile**: names, their desktop bindings,
   deleted-desktop rows and planned desktops are now kept per profile. A new
   profile starts without names, renaming in one profile never changes
