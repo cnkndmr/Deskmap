@@ -83,6 +83,8 @@ final class AppModel {
     let screens: ScreenService
     let router: Router
     let status: StatusFile
+    /// Otomatik yedek (`Backups/`); Shots modunda hiç yaratılmaz.
+    let backups: BackupService?
 
     private init() {
         store = Store()
@@ -90,6 +92,8 @@ final class AppModel {
         router = Router(store: store, screens: screens)
         status = StatusFile(url: Store.directoryURL.appendingPathComponent("status.json"),
                             store: store, router: router, screens: screens)
+        backups = BackupService(archive: BackupArchive(sourceDirectory: Store.directoryURL))
+        BackupService.current = backups
     }
 }
 
@@ -103,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         StatusItemMenu.shared.install()
         WelcomeWindow.shared.showIfNeeded()
+        AppModel.shared.backups?.start()
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {

@@ -143,7 +143,7 @@ struct ProfilePanel: View {
             .fixedSize()
     }
 
-    /// Kopyala, dışa aktar, sil; etiketler hiç kısaltılmaz.
+    /// Kopyala, dışa aktar, yedekler, sil; etiketler hiç kısaltılmaz.
     @ViewBuilder private func actions(_ profile: Profile) -> some View {
         Button {
             store.addProfile(named: L("%@ copy", profile.name), copyingCurrent: true)
@@ -159,6 +159,15 @@ struct ProfilePanel: View {
             Label(L("Export"), systemImage: "square.and.arrow.up")
         }
         .help(L("Save as %@.deskmap.json", profile.name))
+
+        if BackupService.current != nil {
+            Button {
+                SettingsWindow.shared.show(tab: .backups, store: store)
+            } label: {
+                Label(L("Backups…"), systemImage: "clock.arrow.circlepath")
+            }
+            .help(L("Automatic backups of all profiles: restore an earlier state"))
+        }
 
         Button(role: .destructive) {
             store.deleteProfile(profile.id)

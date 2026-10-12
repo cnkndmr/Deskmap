@@ -4,7 +4,7 @@ import SwiftUI
 
 // MARK: - Pencere
 
-/// Ayarlar penceresi (⌘,): Genel, macOS ayarları, Profiller, Kısayollar.
+/// Ayarlar penceresi (⌘,): Genel, macOS ayarları, Profiller, Yedekler, Kısayollar.
 ///
 /// SwiftUI `Settings` sahnesi menü çubuğu uygulamasında (LSUIElement) macOS
 /// 14+'te yalnızca `SettingsLink`/`openSettings` ile açılıyor ve harita
@@ -52,7 +52,12 @@ enum MapWindow {
 }
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, macOS, profiles, shortcuts
+    case general, macOS, profiles, backups, shortcuts
+
+    /// Görünen sekmeler: yedek servisi yoksa (Shots/demo) Yedekler gizli.
+    @MainActor static var visible: [SettingsTab] {
+        allCases.filter { $0 != .backups || BackupService.current != nil }
+    }
 
     var id: String { rawValue }
 
@@ -61,6 +66,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general:   return L("General")
         case .macOS:     return L("macOS Settings")
         case .profiles:  return L("Profiles")
+        case .backups:   return L("Backups")
         case .shortcuts: return L("Shortcuts")
         }
     }
@@ -70,6 +76,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .general:   return "gearshape"
         case .macOS:     return "macwindow"
         case .profiles:  return "square.stack.3d.up"
+        case .backups:   return "clock.arrow.circlepath"
         case .shortcuts: return "keyboard"
         }
     }
@@ -92,7 +99,7 @@ struct SettingsView: View {
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 2) {
-                ForEach(SettingsTab.allCases) { tab in
+                ForEach(SettingsTab.visible) { tab in
                     Button {
                         state.tab = tab
                     } label: {
@@ -126,6 +133,10 @@ struct SettingsView: View {
                     case .general:   GeneralSettings()
                     case .macOS:     MacOSSettings()
                     case .profiles:  ProfileSettings()
+                    case .backups:
+                        if let service = BackupService.current {
+                            BackupSettings(service: service)
+                        }
                     case .shortcuts: ShortcutSettings()
                     }
                 }
