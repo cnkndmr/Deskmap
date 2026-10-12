@@ -44,7 +44,7 @@ struct DocumentCodableTests {
         doc.removeDesktopLater(on: "builtin", desktop: 2, mode: .undocked, existing: true, space: 5)
         #expect(doc.rules[0].undocked?.desktop == 3)
         #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin")
-                == [PendingRemoval(desktop: 2, space: 5)])
+                == [PendingRemoval(desktop: 2, space: 5, profileID: doc.activeProfileID)])
         // Gerçekte olmayan satır: yalnız numaralar kayar, sıraya girmez.
         doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .undocked, existing: false, space: nil)
         #expect(doc.rules[0].undocked?.desktop == 2)
@@ -77,7 +77,7 @@ struct DocumentCodableTests {
         doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .undocked, existing: true, space: 9)
         doc.dropFirstPendingRemoval(mode: .undocked, screen: "builtin")
         #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin")
-                == [PendingRemoval(desktop: 3, space: 9)])
+                == [PendingRemoval(desktop: 3, space: 9, profileID: doc.activeProfileID)])
         doc.dropFirstPendingRemoval(mode: .undocked, screen: "builtin")
         #expect(doc.pendingRemovals.isEmpty)
     }
@@ -257,18 +257,19 @@ struct DocumentCodableTests {
 
     @Test func newerFileVersionIsDetected() throws {
         let doc = try decode("""
-        { "version": 5, "enabled": true, "futureField": { "x": 1 },
+        { "version": 6, "enabled": true, "futureField": { "x": 1 },
           "rules": [ { "id": "r1", "appName": "A", "bundleID": "", "tokens": [] } ] }
         """)
-        #expect(doc.fileVersion == 5)
+        #expect(doc.fileVersion == 6)
         #expect(doc.isFromNewerVersion)
         // Kurallar yine okunur; yalnızca yazma kapanır.
         #expect(doc.rules.count == 1)
         #expect(!Document().isFromNewerVersion)
         #expect(!(try decode("{ \"version\": 3 }")).isFromNewerVersion)
         #expect(!(try decode("{ \"version\": 4 }")).isFromNewerVersion)
-        // 4'ten önceki sürüm (3) sabit boyutu bilmez; bu sürümün dosyası ona yenidir.
-        #expect(Document.currentVersion == 4)
+        #expect(!(try decode("{ \"version\": 5 }")).isFromNewerVersion)
+        // 5'ten önceki sürüm (4) profil başına adları bilmez; bu sürümün dosyası ona yenidir.
+        #expect(Document.currentVersion == 5)
         // Sayı olmayan sürüm eski dosya sayılır, belgeyi düşürmez.
         #expect(try decode("{ \"version\": \"3\" }").fileVersion == 1)
     }

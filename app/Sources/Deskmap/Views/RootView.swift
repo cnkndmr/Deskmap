@@ -770,7 +770,7 @@ struct RootView: View {
                 Button(L("Copy the Laptop only plan here")) {
                     store.copyLayout(from: .undocked, to: .docked)
                 }
-                .disabled(!store.document.rules.contains { $0.undocked != nil })
+                .disabled(!store.document.hasLayout(in: .undocked))
                 .help(L("Copy the Laptop only plan here; the current Monitor connected plan is replaced (⌘Z undoes)"))
             }
             Divider()

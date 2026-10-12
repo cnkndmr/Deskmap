@@ -77,10 +77,11 @@ struct NameLossIncidentTests {
         let result = d.reconcileNames(spaces: logical, seen: seen, mode: mode,
                                       previous: ["builtin": previous.filter { !queue.active.contains($0) }],
                                       live: raw)
-        for drop in result.dropped.sorted(by: { $0.place.desktop > $1.place.desktop }) {
-            d.ghostDesktop(on: drop.place.screen, desktop: drop.place.desktop, modes: Mode.allCases,
-                           name: drop.name, droppedSpace: drop.place.space,
-                           droppedMode: drop.place.mode, live: raw)
+        for group in result.ghostGroups {
+            d.ghostDesktop(on: group.screen, desktop: group.desktop, modes: Mode.allCases,
+                           name: group.active?.name, droppedSpace: group.space,
+                           droppedMode: group.active?.place.mode, otherDropped: group.others,
+                           live: raw)
         }
         return result
     }
@@ -274,5 +275,49 @@ struct NameLossIncidentTests {
         #expect(queue.all == [1031, 6])
         #expect(queue.active == [6])
         #expect(queue.unresolved == ["builtin"])
+    }
+
+    // MARK: Profil başına adlar (şema 5)
+
+    /// Olay 1 ve 2'nin korumaları her profilde geçerli: etkin olmayan bir
+    /// profil aynı adları taşıyorsa öbür kurulumun kuyruğu onun adlarını da
+    /// düşürmez, hayalet açmaz.
+    @Test func otherSetupQueueKeepsNamesInEveryProfile() throws {
+        var d = goodState()
+        d.syncActiveProfile()
+        let duplicated = d.duplicateProfile(d.activeProfileID, named: "Copy")
+        let copy = try #require(duplicated)
+        for _ in 0..<3 {
+            let space = spaceForPendingRemoval(d, live: liveBefore, desktop: 7, mode: D)
+            d.removeDesktopLater(on: "builtin", desktop: 7, mode: D, existing: true, space: space)
+        }
+        let result = followNames(&d, live: liveBefore, previous: liveBefore,
+                                 seen: Set(liveBefore), mode: U)
+        #expect(result.ghostGroups.isEmpty)
+        #expect(d.desktopNames["undocked|builtin"] == goodState().desktopNames["undocked|builtin"])
+        let other = try #require(d.profiles.first { $0.id == copy.id })
+        #expect(other.desktopNames == goodState().desktopNames)
+        #expect(other.desktopNameSpaces == goodState().desktopNameSpaces)
+        #expect(other.ghostDesktops.isEmpty)
+    }
+
+    /// Gerçekten silinen adlı masaüstü (Mission Control) her profilde kendi
+    /// hayaletini açar; pinler profil başına bir kez kayar.
+    @Test func realDeletionGhostsInEveryProfileOnce() throws {
+        var d = goodState()
+        d.syncActiveProfile()
+        let duplicated = d.duplicateProfile(d.activeProfileID, named: "Copy")
+        let copy = try #require(duplicated)
+        let without = liveAfter.filter { $0 != 1357 }
+        followNames(&d, live: liveAfter, previous: liveAfter, seen: [], mode: U)
+        let result = followNames(&d, live: without, previous: liveAfter,
+                                 seen: Set(liveAfter), mode: U)
+        #expect(result.ghostGroups.count == 1)
+        #expect(d.ghostDesktops.map(\.name) == ["Orion Projesi"])
+        let other = try #require(d.profiles.first { $0.id == copy.id })
+        #expect(other.ghostDesktops.map(\.name) == ["Orion Projesi"])
+        #expect(other.ghostDesktops.first?.pins.allSatisfy { $0.profileID == copy.id } == true)
+        #expect(other.rules.first { $0.appName == "Orion" }?.undocked == nil)
+        #expect(other.rules.first { $0.appName == "LUMEN" }?.undocked?.desktop == 8)
     }
 }

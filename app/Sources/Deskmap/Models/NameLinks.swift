@@ -4,7 +4,8 @@ import Foundation
 // harf duyarsız) ile `desktopNameSpaces`'taki space kimliğidir; her kurulumun
 // `desktopNames` tablosu onun o kurulumdaki yeridir. Aşağıdaki saf yardımcılar
 // ad ↔ yer eşlemesini, öbür kurulumdaki karşılığı ve pinlerin ada bağlı
-// kalmasını sağlar. Şema değişmez (rules.json sürümü aynı).
+// kalmasını sağlar. Hepsi aktif profilin çalışma kopyası üzerinde çalışır;
+// her profilin adları kendine özeldir (şema 5).
 
 /// Ekranda bir masaüstü yeri.
 struct Slot: Hashable {
@@ -34,6 +35,10 @@ struct NameMove: Equatable {
 struct DroppedName: Equatable {
     var place: NamePlace
     var name: String
+    /// true: masaüstü gerçekten silindi (kimlik görülmüştü, artık yok).
+    /// false: masaüstü duruyor, ad yalnız boş numara bulamadı (`unplaced`);
+    /// pinler kaymaz, yalnız o profilde adlı, pinsiz hayalet açılır.
+    var deleted = true
 }
 
 /// `reconcileNames` sonucu.
@@ -41,9 +46,58 @@ struct ReconcileResult: Equatable {
     var changed = false
     var moves: [NameMove] = []
     var dropped: [DroppedName] = []
-    /// Masaüstü yerinde ama ad yerleşemedi (numarası dolu); hayalet açılmaz.
+    /// Masaüstü yerinde ama ad yerleşemedi (numarası dolu): silme değil,
+    /// pinler kaymaz; ad o profilde adlı, pinsiz hayalete geçer. Bütün
+    /// profillerinki (aktif önce).
     var unplaced: [DroppedName] = []
     var adopted: [NamePlace] = []
+    /// Öbür profillerin düşen adları (profil kimliği → adlar).
+    var otherDropped: [String: [DroppedName]] = [:]
+
+    /// Hayalete çevrilecek silinmiş masaüstüleri: aynı gerçek masaüstünde
+    /// (aynı ekran ve space kimliği) düşen adlar tek grupta toplanır ki
+    /// pinler bir kez kaysın. Her grupta aktif profilin adı (varsa) ve öbür
+    /// profillerinki. Büyük numaradan küçüğe sıralı.
+    var ghostGroups: [GhostGroup] {
+        var groups: [GhostGroup] = []
+        func index(for drop: DroppedName) -> Int? {
+            guard let space = drop.place.space else {
+                return groups.firstIndex {
+                    $0.space == nil && $0.screen == drop.place.screen
+                        && $0.desktop == drop.place.desktop
+                }
+            }
+            return groups.firstIndex { $0.screen == drop.place.screen && $0.space == space }
+        }
+        for drop in dropped where drop.deleted {
+            if let i = index(for: drop), groups[i].active == nil {
+                groups[i].active = drop
+            } else {
+                groups.append(GhostGroup(screen: drop.place.screen, desktop: drop.place.desktop,
+                                         space: drop.place.space, active: drop))
+            }
+        }
+        for (profileID, list) in otherDropped.sorted(by: { $0.key < $1.key }) {
+            for drop in list where drop.deleted {
+                if let i = index(for: drop), groups[i].others[profileID] == nil {
+                    groups[i].others[profileID] = drop
+                } else {
+                    groups.append(GhostGroup(screen: drop.place.screen, desktop: drop.place.desktop,
+                                             space: drop.place.space, others: [profileID: drop]))
+                }
+            }
+        }
+        return groups.sorted { ($0.desktop, $0.screen) > ($1.desktop, $1.screen) }
+    }
+}
+
+/// Bir gerçek masaüstünün silinmesiyle düşen adlar (bkz. `ghostGroups`).
+struct GhostGroup: Equatable {
+    var screen: String
+    var desktop: Int
+    var space: UInt64?
+    var active: DroppedName?
+    var others: [String: DroppedName] = [:]
 }
 
 extension Document {

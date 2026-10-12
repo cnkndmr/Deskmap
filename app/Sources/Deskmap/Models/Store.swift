@@ -29,12 +29,64 @@ struct KnownScreen: Codable, Equatable, Identifiable, Hashable {
     var isBuiltin: Bool { id == "builtin" }
 }
 
-/// Adlandırılmış bir pin kümesi. Aktif profilin kuralları `Document.rules`
-/// olarak yaşar ve her değişiklikte profile geri yazılır.
+/// Adlandırılmış bir pin kümesi ve o profilin masaüstü durumu. Aktif
+/// profilin kuralları ve masaüstü durumu `Document`'in üst düzey alanlarında
+/// (çalışma kopyası) yaşar, `syncActiveProfile` ile buraya geri yazılır.
+/// Masaüstü adları, bağları, hayaletler ve plan profile özeldir: bir profil
+/// yalnız kendi verdiği adları görür (bkz. docs/profile-desktop-state.md).
 struct Profile: Codable, Equatable, Identifiable, Hashable {
     var id: String = UUID().uuidString
     var name: String
     var rules: [Rule] = []
+    /// Bu profilin masaüstü adları (anahtar `Document.planKey`).
+    var desktopNames: [String: [String: String]] = [:]
+    /// Adların bağlı olduğu gerçek masaüstü kimlikleri (aynı biçim).
+    var desktopNameSpaces: [String: [String: UInt64]] = [:]
+    /// Bu profilin hayalet masaüstüleri.
+    var ghostDesktops: [GhostDesktop] = []
+    /// Bu profilin istediği en az masaüstü sayısı (anahtar `planKey`).
+    var plannedDesktops: [String: Int] = [:]
+
+    init(id: String = UUID().uuidString, name: String, rules: [Rule] = [],
+         desktopNames: [String: [String: String]] = [:],
+         desktopNameSpaces: [String: [String: UInt64]] = [:],
+         ghostDesktops: [GhostDesktop] = [], plannedDesktops: [String: Int] = [:]) {
+        self.id = id
+        self.name = name
+        self.rules = rules
+        self.desktopNames = desktopNames
+        self.desktopNameSpaces = desktopNameSpaces
+        self.ghostDesktops = ghostDesktops
+        self.plannedDesktops = plannedDesktops
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, rules, desktopNames, desktopNameSpaces, ghostDesktops, plannedDesktops
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        rules = try c.decodeIfPresent([Rule].self, forKey: .rules) ?? []
+        desktopNames = (try? c.decodeIfPresent([String: [String: String]].self, forKey: .desktopNames)) ?? [:]
+        desktopNameSpaces = (try? c.decodeIfPresent(
+            [String: [String: UInt64]].self, forKey: .desktopNameSpaces)) ?? [:]
+        ghostDesktops = (try? c.decodeIfPresent([GhostDesktop].self, forKey: .ghostDesktops)) ?? []
+        plannedDesktops = (try? c.decodeIfPresent([String: Int].self, forKey: .plannedDesktops)) ?? [:]
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(name, forKey: .name)
+        try c.encode(rules, forKey: .rules)
+        // Boş alanlar yazılmaz (eski kayıtlarla aynı biçim).
+        if !desktopNames.isEmpty { try c.encode(desktopNames, forKey: .desktopNames) }
+        if !desktopNameSpaces.isEmpty { try c.encode(desktopNameSpaces, forKey: .desktopNameSpaces) }
+        if !ghostDesktops.isEmpty { try c.encode(ghostDesktops, forKey: .ghostDesktops) }
+        if !plannedDesktops.isEmpty { try c.encode(plannedDesktops, forKey: .plannedDesktops) }
+    }
 }
 
 /// `rules.json` içeriği. Kural ve profil işlemleri saf değer işlemleridir;
@@ -47,6 +99,8 @@ struct Profile: Codable, Equatable, Identifiable, Hashable {
 struct PendingRemoval: Codable, Equatable, Hashable {
     var desktop: Int
     var space: UInt64?
+    /// Silmeyi sıraya koyan profil (eski kayıtlarda nil).
+    var profileID: String? = nil
 }
 
 /// Deskmap dışında (Mission Control) silinmiş, adı ya da pini olan
@@ -82,26 +136,29 @@ struct Document: Codable, Equatable {
     /// Kurulum hatırlatması (Dock "Assign To" vb.) kullanıcı tarafından
     /// kapatıldı mı? Canlı denetlenen ayarlar bozuksa kart yine görünür.
     var setupNoticeDismissed: Bool = false
-    /// Mod ve ekran başına istenen en az masaüstü sayısı (anahtar
-    /// `planKey`). Etkin olmayan modda "+ Masaüstü" ile eklenen masaüstü
-    /// burada durur; mod etkinleşince Router eksikleri Mission Control ile
-    /// yaratır. Profilden bağımsız (masaüstüleri ekranın, kuralların değil).
+    /// Aktif profilin mod ve ekran başına istediği en az masaüstü sayısı
+    /// (anahtar `planKey`; çalışma kopyası, bkz. `Profile`). Etkin olmayan
+    /// modda "+ Masaüstü" ile eklenen masaüstü burada durur; mod etkinleşince
+    /// Router eksikleri Mission Control ile yaratır. Profil değişince yalnız
+    /// eksikler açılır, fazla masaüstü silinmez.
     var plannedDesktops: [String: Int] = [:]
     /// Etkin olmayan modda silinen masaüstüleri (anahtar `planKey`), silme
     /// sırasıyla. Pinler silme anında kayar; gerçek masaüstünü Router mod
     /// etkinleşince Mission Control ile siler. Laptop ekranının masaüstüleri
     /// iki modda ortak olduğu için hemen silmek öbür kurulumu da bozardı.
+    /// Bütün profillerde ortak (gerçek masaüstüne yapılacak iş).
     var pendingRemovals: [String: [PendingRemoval]] = [:]
-    /// Masaüstü adları: ekran kimliği → masaüstü numarası (metin) → ad.
-    /// Profilden ve moddan bağımsız (masaüstüleri ekranın; laptop
-    /// masaüstüleri iki kurulumda aynı, harici ekranlar yalnız monitörlü
-    /// kurulumda var). Masaüstü taşınınca ya da silinince adlar da kayar.
+    /// Aktif profilin masaüstü adları (çalışma kopyası): `planKey` →
+    /// masaüstü numarası (metin) → ad. Her profilin adları kendine özeldir;
+    /// bir profilde yeniden adlandırma öbürüne dokunmaz. Masaüstü taşınınca
+    /// ya da silinince adlar da kayar.
     var desktopNames: [String: [String: String]] = [:]
     /// Adın bağlı olduğu gerçek masaüstü (SkyLight space kimliği), aynı
     /// biçimde. macOS'ta masaüstü Mission Control'den taşınır ya da silinirse
     /// ad numarayla değil kimlikle izlenir (`reconcileDesktopNames`).
     var desktopNameSpaces: [String: [String: UInt64]] = [:]
-    /// Deskmap dışında silinmiş masaüstüleri (bkz. `GhostDesktop`).
+    /// Aktif profilin Deskmap dışında silinmiş masaüstüleri (bkz.
+    /// `GhostDesktop`; çalışma kopyası).
     var ghostDesktops: [GhostDesktop] = []
 
     /// Okunan dosyanın `version` alanı (yazılmaz). Bu sürümden yeniyse
@@ -110,10 +167,10 @@ struct Document: Codable, Equatable {
     /// Okunurken atlanan bozuk kural sayısı (yazılmaz).
     var droppedRuleCount = 0
 
-    /// Bu sürümün yazdığı şema. 4: düzenlerde `fixed` (sabit boyut); eski
-    /// sürüm bu alanı bilmez, dosyayı salt okunur açar (üstüne yazıp sabit
-    /// boyutları silmesin).
-    static let currentVersion = 4
+    /// Bu sürümün yazdığı şema. 4: düzenlerde `fixed` (sabit boyut). 5:
+    /// masaüstü adları, bağlar, hayaletler ve plan profil başına. Eski sürüm
+    /// bu alanları bilmez, dosyayı salt okunur açar (üstüne yazıp silmesin).
+    static let currentVersion = 5
 
     var isFromNewerVersion: Bool { fileVersion > Self.currentVersion }
 
@@ -141,6 +198,10 @@ struct Document: Codable, Equatable {
         var id: String
         var name: String
         var rules: LossyArray<Rule>
+        var desktopNames: [String: [String: String]]?
+        var desktopNameSpaces: [String: [String: UInt64]]?
+        var ghostDesktops: [GhostDesktop]?
+        var plannedDesktops: [String: Int]?
     }
 
     init(from decoder: Decoder) throws {
@@ -163,7 +224,12 @@ struct Document: Codable, Equatable {
 
         // v3 profiller; yoksa (v1/v2) mevcut kurallar "Varsayılan" profil olur.
         let records = (try? c.decode([ProfileRecord].self, forKey: .profiles)) ?? []
-        profiles = records.map { Profile(id: $0.id, name: $0.name, rules: $0.rules.elements) }
+        profiles = records.map {
+            Profile(id: $0.id, name: $0.name, rules: $0.rules.elements,
+                    desktopNames: $0.desktopNames ?? [:],
+                    desktopNameSpaces: $0.desktopNameSpaces ?? [:],
+                    ghostDesktops: $0.ghostDesktops ?? [], plannedDesktops: $0.plannedDesktops ?? [:])
+        }
         droppedRuleCount += records.reduce(0) { $0 + $1.rules.droppedCount }
         activeProfileID = try c.decodeIfPresent(String.self, forKey: .activeProfileID) ?? ""
         setupNoticeDismissed = try c.decodeIfPresent(Bool.self, forKey: .setupNoticeDismissed) ?? false
@@ -193,11 +259,84 @@ struct Document: Codable, Equatable {
         if fileVersion < 4 {
             rules = Self.backfillingFixed(rules, screens: screens)
             profiles = profiles.map {
-                Profile(id: $0.id, name: $0.name, rules: Self.backfillingFixed($0.rules, screens: screens))
+                var profile = $0
+                profile.rules = Self.backfillingFixed($0.rules, screens: screens)
+                return profile
             }
         }
+        if fileVersion < 5 {
+            // Şema 5'ten önce adlar, bağlar, hayaletler ve plan bütün
+            // profillerde ortaktı: kullanıma göre profillere dağıtılır.
+            profiles = Self.splittingSharedState(
+                profiles: profiles, activeID: activeProfileID, activeRules: rules,
+                names: desktopNames, spaces: desktopNameSpaces,
+                ghosts: ghostDesktops, plans: plannedDesktops)
+        }
+        // Çalışma kopyası aktif profilin durumu (şema 5'te üst düzey yazılmaz);
+        // kurallar üst düzeyden kalır (yarım kalan yazımda daha güncel).
+        if let active = profiles.first(where: { $0.id == activeProfileID }) {
+            let current = rules
+            loadProfileState(active)
+            rules = current
+        }
         // Ad bağları: yinelenen ad, eski/ikili hayalet toparlanır (idempotent).
-        if !isFromNewerVersion { normalizeNameLinks() }
+        if !isFromNewerVersion {
+            for profile in profiles {
+                inProfileScope(profile.id) { _ = $0.normalizeNameLinks() }
+            }
+        }
+    }
+
+    /// Eski (şema < 5) ortak durumu profillere kullanıma göre dağıtır (saf;
+    /// profil kimliğine göre özel durum yok):
+    /// - ad (ve bağı) yalnız o kurulum, ekran ve N numaralı masaüstünü hedef
+    ///   alan kuralı olan profillere;
+    /// - hayalet pinlerinde adı geçen ya da kuralları pinlerdeki kurala bakan
+    ///   profillere (yalnız o profilin pinleriyle);
+    /// - plan o kurulum ve ekranda herhangi bir masaüstünü kullanan
+    ///   profillere. Hiçbirini kullanmayan profil boş kalır.
+    static func splittingSharedState(profiles: [Profile], activeID: String, activeRules: [Rule],
+                                     names: [String: [String: String]],
+                                     spaces: [String: [String: UInt64]],
+                                     ghosts: [GhostDesktop],
+                                     plans: [String: Int]) -> [Profile] {
+        profiles.map { original in
+            var profile = original
+            var usedSlots = Set<String>()
+            var usedKeys = Set<String>()
+            // Aktif profilin güncel kuralları üst düzeydekiler.
+            let rules = profile.id == activeID ? activeRules : profile.rules
+            for rule in rules {
+                for mode in Mode.allCases {
+                    guard let destination = rule[mode] else { continue }
+                    let key = planKey(mode: mode, screen: destination.screen)
+                    usedKeys.insert(key)
+                    usedSlots.insert("\(key)#\(destination.desktop)")
+                }
+            }
+            var ownNames: [String: [String: String]] = [:]
+            var ownSpaces: [String: [String: UInt64]] = [:]
+            for (key, list) in names {
+                for (slot, name) in list where usedSlots.contains("\(key)#\(slot)") {
+                    ownNames[key, default: [:]][slot] = name
+                    if let space = spaces[key]?[slot] { ownSpaces[key, default: [:]][slot] = space }
+                }
+            }
+            let ruleIDs = Set(rules.map(\.id))
+            var ownGhosts: [GhostDesktop] = []
+            for ghost in ghosts {
+                let pins = ghost.pins.filter { $0.profileID == profile.id || ruleIDs.contains($0.rule.id) }
+                guard !pins.isEmpty else { continue }
+                var copy = ghost
+                copy.pins = pins.map { var pin = $0; pin.profileID = profile.id; return pin }
+                ownGhosts.append(copy)
+            }
+            profile.desktopNames = ownNames
+            profile.desktopNameSpaces = ownSpaces
+            profile.ghostDesktops = ownGhosts
+            profile.plannedDesktops = plans.filter { usedKeys.contains($0.key) }
+            return profile
+        }
     }
 
     /// Sabit boyutlu hedeflere oran karşılığı yazar (saf); ekran boyutu
@@ -224,23 +363,15 @@ struct Document: Codable, Equatable {
         try c.encode(enabled, forKey: .enabled)
         try c.encode(screens, forKey: .screens)
         try c.encode(rules, forKey: .rules)
-        try c.encode(profiles, forKey: .profiles)
         try c.encode(activeProfileID, forKey: .activeProfileID)
         try c.encode(setupNoticeDismissed, forKey: .setupNoticeDismissed)
-        if !plannedDesktops.isEmpty {
-            try c.encode(plannedDesktops, forKey: .plannedDesktops)
-        }
+        // Adlar, bağlar, hayaletler ve plan profil kayıtlarında (şema 5);
+        // yazarken aktif profilin çalışma kopyası kayda işlenir.
+        var written = self
+        written.syncActiveProfile()
+        try c.encode(written.profiles, forKey: .profiles)
         if !pendingRemovals.isEmpty {
             try c.encode(pendingRemovals, forKey: .pendingRemovals)
-        }
-        if !desktopNames.isEmpty {
-            try c.encode(desktopNames, forKey: .desktopNames)
-        }
-        if !desktopNameSpaces.isEmpty {
-            try c.encode(desktopNameSpaces, forKey: .desktopNameSpaces)
-        }
-        if !ghostDesktops.isEmpty {
-            try c.encode(ghostDesktops, forKey: .ghostDesktops)
         }
     }
 
@@ -416,11 +547,44 @@ struct Document: Codable, Equatable {
     /// - `live`: şu an gerçekten var olan bütün kimlikler (`spaces` mantıksal
     ///   liste olup kuyruktaki silmeleri düşmüş olabilir; nil = `spaces`).
     ///   Canlı kimliğe bağlı ad asla silinmiş sayılmaz; yeri bulunamayan ad
-    ///   (numarası dolu, sonrası yok) hayalete değil `unplaced`'a girer: pinleri
-    ///   başka bir canlı masaüstünden alınmaz.
+    ///   (numarası dolu, sonrası yok) `unplaced`'a girer ve o profilde adlı,
+    ///   pinsiz hayalet olur: pinleri başka bir canlı masaüstünden alınmaz.
+    /// Gerçek masaüstüleri bütün profillerde ortak olduğundan bu işlem her
+    /// profile kendi adları ve bağlarıyla ayrı ayrı uygulanır (öbür profilin
+    /// pinleri kendi adlarını izler). Sonuçta `moves`/`adopted`/`dropped`
+    /// aktif profilindir; öbür profillerin düşen adları `otherDropped`'da.
     mutating func reconcileNames(spaces: [String: [UInt64]], seen: Set<UInt64>, mode: Mode,
                                  previous: [String: [UInt64]] = [:],
                                  live: Set<UInt64>? = nil) -> ReconcileResult {
+        let original = self
+        if !profiles.contains(where: { $0.id == activeProfileID }) { syncActiveProfile() }
+        var result = ReconcileResult()
+        for profile in profiles where profile.id != activeProfileID {
+            let own = inProfileScope(profile.id) {
+                $0.reconcileOwnNames(spaces: spaces, seen: seen, mode: mode, previous: previous,
+                                     live: live)
+            }
+            if let own, !own.dropped.isEmpty { result.otherDropped[profile.id] = own.dropped }
+            if let own { result.unplaced += own.unplaced }
+        }
+        if let own = inProfileScope(activeProfileID, {
+            $0.reconcileOwnNames(spaces: spaces, seen: seen, mode: mode, previous: previous,
+                                     live: live)
+        }) {
+            result.moves = own.moves
+            result.dropped = own.dropped
+            result.unplaced = own.unplaced + result.unplaced
+            result.adopted = own.adopted
+        }
+        result.changed = self != original
+        return result
+    }
+
+    /// `reconcileNames`'in tek profil çekirdeği (`inProfileScope` içinde).
+    private mutating func reconcileOwnNames(spaces: [String: [UInt64]], seen: Set<UInt64>,
+                                            mode: Mode,
+                                            previous: [String: [UInt64]],
+                                            live: Set<UInt64>?) -> ReconcileResult {
         let original = self
         var result = ReconcileResult()
         var location: [UInt64: (screen: String, desktop: Int)] = [:]
@@ -500,13 +664,14 @@ struct Document: Codable, Equatable {
                 var n = item.desktop + 1
                 while names[Self.planKey(mode: mode, screen: item.screen)]?[String(n)] != nil { n += 1 }
                 // Var olmayan masaüstüne ad yazılmaz (hayalet ad olmasın).
-                // Masaüstü silinmiş değil: hayalet açılmaz (o numaradaki pinler
-                // başka bir canlı masaüstünün), yalnız ad yerleşemedi.
+                // Masaüstü silinmiş değil: pinler kaymaz (o numaradaki pinler
+                // başka bir canlı masaüstünün); ad yalnız bu profilde adlı,
+                // pinsiz hayalete geçer (`unplaced`, geri getirilebilir).
                 guard n <= list.count else {
                     result.unplaced.append(DroppedName(
                         place: NamePlace(mode: mode, screen: item.screen, desktop: item.desktop,
                                          space: item.space),
-                        name: item.name))
+                        name: item.name, deleted: false))
                     continue
                 }
                 if put(item.name, item.screen, n, list[n - 1]) {
@@ -576,6 +741,16 @@ struct Document: Codable, Equatable {
             desktopNameSpaces = bindings
         }
         applyPinMoves(result.moves)
+        // Boş numara bulamayan ad (masaüstü silinmedi): yalnız bu profilde
+        // adlı hayalet; pin ve plan kaymaz, öbür profillere dokunulmaz.
+        for drop in result.unplaced {
+            let key = Self.normalizedName(drop.name)
+            guard !ghostDesktops.contains(where: { $0.name.map(Self.normalizedName) == key })
+            else { continue }
+            ghostDesktops.append(GhostDesktop(screen: drop.place.screen, name: drop.name,
+                                              desktop: drop.place.desktop, deletedAt: Date(),
+                                              pins: []))
+        }
         for name in adoptedNames {
             absorbGhosts(named: name)
             mirrorPins(forName: name, adoptedIn: mode)
@@ -618,6 +793,7 @@ struct Document: Codable, Equatable {
 
     /// `reconcileNames`'in eski imzası: yalnız değişti mi bilgisi. Silinmiş
     /// adlar burada hayalete çevrilmez (Router `reconcileNames` kullanır).
+    /// Bütün profillerin adları yerleşir.
     @discardableResult
     mutating func reconcileDesktopNames(spaces: [String: [UInt64]], seen: Set<UInt64>,
                                         mode: Mode) -> Bool {
@@ -696,15 +872,56 @@ struct Document: Codable, Equatable {
     /// (reconcile) adı verir; `shiftNames: false` adları kaydırmaz.
     /// `live`: şu an canlı masaüstü kimlikleri (biliniyorsa); başka canlı
     /// masaüstüne bağlı karşılık silinmiş sayılmaz (yalnız adı tutuyor).
+    ///
+    /// Gerçek masaüstü bütün profillerde ortak: işlem her profile ayrı
+    /// uygulanır; o masaüstünde adı ya da pini olan her profilde (kendi
+    /// adıyla, kendi pinleriyle) hayalet açılır. `name`/`droppedMode` aktif
+    /// profilin tablodan düşmüş adıdır; öbür profillerinki `otherDropped`'da
+    /// (profil kimliği → düşen ad). Düşen ad verilmiş (reconcile) bir
+    /// çağrıda düşen adı olmayan profilin adlarına dokunulmaz (kendi
+    /// reconcile'ı onları zaten yerleştirdi), yalnız pinleri ve planı kayar.
+    /// Aktif profilin hayaleti döner.
     @discardableResult
     mutating func ghostDesktop(on screen: String, desktop: Int, modes: [Mode],
                                now: Date = Date(), name droppedName: String? = nil,
                                droppedSpace: UInt64? = nil, droppedMode: Mode? = nil,
+                               otherDropped: [String: DroppedName] = [:],
                                shiftNames: Bool = true, live: Set<UInt64>? = nil)
         -> GhostDesktop? {
-        let resolved = removalTargets(screen: screen, desktop: desktop, modes: modes,
-                                      name: droppedName, droppedSpace: droppedSpace,
-                                      droppedMode: droppedMode, live: live)
+        if !profiles.contains(where: { $0.id == activeProfileID }) { syncActiveProfile() }
+        let fromReconcile = droppedName != nil || !otherDropped.isEmpty
+        var activeGhost: GhostDesktop?
+        for profile in profiles {
+            let isActive = profile.id == activeProfileID
+            let drop = otherDropped[profile.id]
+            let name = isActive ? (droppedName ?? drop?.name) : drop?.name
+            let mode = isActive ? (droppedMode ?? drop?.place.mode) : drop?.place.mode
+            let lookUp = !fromReconcile || name != nil
+            let ghost = inProfileScope(profile.id) {
+                $0.ghostOwnDesktop(on: screen, desktop: drop?.place.desktop ?? desktop, modes: modes,
+                                   now: now, name: name,
+                                   droppedSpace: drop?.place.space ?? droppedSpace,
+                                   droppedMode: mode, shiftNames: shiftNames && lookUp,
+                                   lookUpNames: lookUp, live: live)
+            } ?? nil
+            if isActive { activeGhost = ghost }
+        }
+        return activeGhost
+    }
+
+    /// `ghostDesktop`'un tek profil çekirdeği (`inProfileScope` içinde).
+    /// `lookUpNames: false`: ad aranmaz, yalnız pinler ve plan kayar.
+    private mutating func ghostOwnDesktop(on screen: String, desktop: Int, modes: [Mode],
+                                          now: Date, name droppedName: String?,
+                                          droppedSpace: UInt64?, droppedMode: Mode?,
+                                          shiftNames: Bool, lookUpNames: Bool,
+                                          live: Set<UInt64>?)
+        -> GhostDesktop? {
+        let resolved = lookUpNames
+            ? removalTargets(screen: screen, desktop: desktop, modes: modes,
+                             name: droppedName, droppedSpace: droppedSpace,
+                             droppedMode: droppedMode, live: live)
+            : (targets: modes.map { Target(mode: $0, screen: screen, desktop: desktop) }, name: nil)
         let targets = resolved.targets
         let name = resolved.name
         var pins: [GhostDesktop.Pin] = []
@@ -831,7 +1048,7 @@ struct Document: Codable, Equatable {
         removeDesktop(on: screen, desktop: desktop, modes: [mode], expandCounterparts: existing == false)
         guard existing else { return }
         pendingRemovals[Self.planKey(mode: mode, screen: screen), default: []]
-            .append(PendingRemoval(desktop: desktop, space: space))
+            .append(PendingRemoval(desktop: desktop, space: space, profileID: activeProfileID))
     }
 
     /// Etkin olmayan kurulumun planından silinecek gerçek masaüstü (`space`)
@@ -921,16 +1138,82 @@ struct Document: Codable, Equatable {
         return used.filter { $0 > keeping && $0 <= max(total, used.max() ?? 0) }.max()
     }
 
-    /// Aktif profilin kayıtlı kurallarını üst düzey `rules` ile eşitler.
+    /// Aktif profilin kayıtlı kurallarını ve masaüstü durumunu (adlar,
+    /// bağlar, hayaletler, plan) üst düzey çalışma kopyasıyla eşitler.
     mutating func syncActiveProfile() {
         guard let i = profiles.firstIndex(where: { $0.id == activeProfileID }) else {
             let profile = Profile(
-                name: Self.uniqueName(Self.defaultProfileName, in: profiles), rules: rules)
+                name: Self.uniqueName(Self.defaultProfileName, in: profiles), rules: rules,
+                desktopNames: desktopNames, desktopNameSpaces: desktopNameSpaces,
+                ghostDesktops: ghostDesktops, plannedDesktops: plannedDesktops)
             profiles.append(profile)
             activeProfileID = profile.id
             return
         }
         if profiles[i].rules != rules { profiles[i].rules = rules }
+        if profiles[i].desktopNames != desktopNames { profiles[i].desktopNames = desktopNames }
+        if profiles[i].desktopNameSpaces != desktopNameSpaces {
+            profiles[i].desktopNameSpaces = desktopNameSpaces
+        }
+        if profiles[i].ghostDesktops != ghostDesktops { profiles[i].ghostDesktops = ghostDesktops }
+        if profiles[i].plannedDesktops != plannedDesktops { profiles[i].plannedDesktops = plannedDesktops }
+    }
+
+    /// Profilin kurallarını ve masaüstü durumunu çalışma kopyasına yükler
+    /// (`pendingRemovals` ortaktır, dokunulmaz).
+    private mutating func loadProfileState(_ profile: Profile) {
+        rules = profile.rules
+        desktopNames = profile.desktopNames
+        desktopNameSpaces = profile.desktopNameSpaces
+        ghostDesktops = profile.ghostDesktops
+        plannedDesktops = profile.plannedDesktops
+    }
+
+    /// Bütün profillerde ad var mı (Router taramayı buna göre yapar).
+    var hasAnyDesktopNames: Bool {
+        !desktopNames.isEmpty
+            || profiles.contains { $0.id != activeProfileID && !$0.desktopNames.isEmpty }
+    }
+
+    /// `body`'yi tek profile daraltılmış belgede çalıştırır: o profilin
+    /// kuralları ve masaüstü durumu çalışma kopyasıdır, öbür profiller
+    /// görünmez (`mapAllRules` yalnız onu görür). Sonuç profile (aktifse
+    /// çalışma kopyasına da) ve ortak `pendingRemovals`'a geri yazılır.
+    /// Fiziksel masaüstü değişikliklerini (Mission Control) her profile
+    /// kendi adlarıyla uygulamak için.
+    @discardableResult
+    mutating func inProfileScope<R>(_ id: String, _ body: (inout Document) -> R) -> R? {
+        guard let i = profiles.firstIndex(where: { $0.id == id }) else { return nil }
+        var profile = profiles[i]
+        if id == activeProfileID {
+            profile.rules = rules
+            profile.desktopNames = desktopNames
+            profile.desktopNameSpaces = desktopNameSpaces
+            profile.ghostDesktops = ghostDesktops
+            profile.plannedDesktops = plannedDesktops
+        }
+        var scope = self
+        scope.profiles = [profile]
+        scope.activeProfileID = id
+        scope.loadProfileState(profile)
+        let untouched = scope
+        let result = body(&scope)
+        // Değişmediyse geri yazılmaz (aktif profilin kaydı kendi zamanında eşitlenir).
+        guard scope != untouched else { return result }
+        scope.syncActiveProfile()
+        if scope.pendingRemovals != pendingRemovals { pendingRemovals = scope.pendingRemovals }
+        guard let updated = scope.profiles.first(where: { $0.id == id }) else { return result }
+        if updated != profiles[i] { profiles[i] = updated }
+        if id == activeProfileID {
+            if rules != updated.rules { rules = updated.rules }
+            if desktopNames != updated.desktopNames { desktopNames = updated.desktopNames }
+            if desktopNameSpaces != updated.desktopNameSpaces {
+                desktopNameSpaces = updated.desktopNameSpaces
+            }
+            if ghostDesktops != updated.ghostDesktops { ghostDesktops = updated.ghostDesktops }
+            if plannedDesktops != updated.plannedDesktops { plannedDesktops = updated.plannedDesktops }
+        }
+        return result
     }
 
     // MARK: - Kurallar
@@ -1006,8 +1289,87 @@ struct Document: Codable, Equatable {
         var copied = rules
         for i in copied.indices { copied[i][target] = copied[i][source] }
         copied.removeAll { $0.docked == nil && $0.undocked == nil }
-        guard copied != rules else { return false }
+        let namesChanged = copyDesktopNames(from: source, to: target)
+        guard copied != rules else { return namesChanged }
         rules = copied
+        return true
+    }
+
+    /// Kopyalanacak bir düzen var mı: bu kurulumda kural hedefi, masaüstü
+    /// adı ya da planı (yalnız adları olan düzen de kopyalanabilsin).
+    func hasLayout(in mode: Mode) -> Bool {
+        rules.contains { $0[mode] != nil }
+            || desktopNames.keys.contains { Self.splitNameKey($0)?.mode == mode }
+            || plannedDesktops.keys.contains { Self.splitNameKey($0)?.mode == mode }
+    }
+
+    /// Düzen kopyalanınca aktif profilin kaynak kurulumdaki masaüstü adları
+    /// ve planı da gelir: kurallar `builtin/7`'yi hedefliyorsa o masaüstünün
+    /// adı da hedef kurulumda olmalı. Yalnız aktif profil (öbür profillerin
+    /// adları ayrı). Kurallar:
+    /// - Kaynakta adı olan her ekranın adları hedefte aynen yazılır; aynı ad
+    ///   hedefin başka ekranındaysa oradan kalkar (bir kurulumda ad tektir).
+    /// - Bağ: laptop ekranının masaüstüleri iki kurulumda aynı gerçek
+    ///   masaüstü olduğundan kaynaktaki bağ gelir. Öbür ekranlarda bağ yalnız
+    ///   hedefte aynı yuvada aynı ad zaten bağlıysa kalır; ad yuvası
+    ///   değiştiyse bağ düşer (eski bağ başka masaüstünü gösterir, taşınsa ad
+    ///   bir sonraki taramada eski yerine dönerdi), sonraki taramada bağlanır.
+    /// - Plan: kaynakta planı ya da adı olan her ekranda hedef plan en az
+    ///   kaynaktaki kadar olur (küçülmez).
+    private mutating func copyDesktopNames(from source: Mode, to target: Mode) -> Bool {
+        var names = desktopNames, spaces = desktopNameSpaces, plans = plannedDesktops
+        var pending = pendingRemovals
+        var copiedScreens: [String: [String: String]] = [:]
+        for (key, list) in desktopNames {
+            guard let parts = Self.splitNameKey(key), parts.mode == source else { continue }
+            copiedScreens[parts.screen] = list
+        }
+        let incoming = Set(copiedScreens.values.flatMap { $0.values.map(Self.normalizedName) })
+        for (key, list) in desktopNames {
+            guard let parts = Self.splitNameKey(key), parts.mode == target,
+                  copiedScreens[parts.screen] == nil else { continue }
+            let kept = list.filter { !incoming.contains(Self.normalizedName($0.value)) }
+            names[key] = kept.isEmpty ? nil : kept
+            let bound = (spaces[key] ?? [:]).filter { kept[$0.key] != nil }
+            spaces[key] = bound.isEmpty ? nil : bound
+        }
+        for (screen, list) in copiedScreens {
+            let key = Self.planKey(mode: target, screen: screen)
+            let sourceKey = Self.planKey(mode: source, screen: screen)
+            let old = desktopNames[key] ?? [:], oldSpaces = desktopNameSpaces[key] ?? [:]
+            names[key] = list
+            var bound = oldSpaces.filter { old[$0.key] != nil && old[$0.key] == list[$0.key] }
+            if screen == "builtin" {
+                for (slot, space) in desktopNameSpaces[sourceKey] ?? [:] where list[slot] != nil {
+                    bound[slot] = space
+                }
+            }
+            spaces[key] = bound.isEmpty ? nil : bound
+            // Hedefte sıradaki silmeler eski düzene göreydi: kopyalanan
+            // adları ve pinleri sonradan kaydırmasınlar diye kalkar.
+            // Yalnız bu profilin (ya da sahibi bilinmeyen eski) silmeleri:
+            // pendingRemovals ortak, öbür profillerin silmeleri kalır.
+            let others = (pending[key] ?? []).filter {
+                $0.profileID != nil && $0.profileID != activeProfileID
+            }
+            pending[key] = others.isEmpty ? nil : others
+        }
+        var planScreens = Set(copiedScreens.keys)
+        for key in plannedDesktops.keys {
+            if let parts = Self.splitNameKey(key), parts.mode == source { planScreens.insert(parts.screen) }
+        }
+        for screen in planScreens {
+            let need = copiedScreens[screen]?.keys.compactMap(Int.init).max() ?? 0
+            let plan = max(plannedDesktops(mode: source, screen: screen), need)
+            if plan > plannedDesktops(mode: target, screen: screen) {
+                plans[Self.planKey(mode: target, screen: screen)] = plan
+            }
+        }
+        guard names != desktopNames || spaces != desktopNameSpaces || plans != plannedDesktops
+                || pending != pendingRemovals
+        else { return false }
+        desktopNames = names; desktopNameSpaces = spaces; plannedDesktops = plans
+        pendingRemovals = pending
         return true
     }
 
@@ -1226,6 +1588,26 @@ struct Document: Codable, Equatable {
     /// 7–9 adlarını düşürmüştü, pinler yerinde kalmıştı).
     mutating func removeDesktop(on screen: String, desktop: Int, modes: [Mode],
                                 shiftNames: Bool = true, expandCounterparts: Bool = true) {
+        // Her profil kendi adlarıyla: karşılıklar o profilin adlarından
+        // bulunur (bir profilin adı başka profilin pinlerini kaydırmaz).
+        if !profiles.contains(where: { $0.id == activeProfileID }) { syncActiveProfile() }
+        // Ad ve plan yalnız aktif profilde değişir (uygulama içi silme);
+        // öbür profillerde yalnız pinler kayar.
+        for profile in profiles {
+            let isActive = profile.id == activeProfileID
+            inProfileScope(profile.id) {
+                $0.removeOwnDesktop(on: screen, desktop: desktop, modes: modes,
+                                    shiftNames: shiftNames,
+                                    expandCounterparts: expandCounterparts,
+                                    pinsOnly: !isActive)
+            }
+        }
+    }
+
+    /// `removeDesktop`'un tek profil çekirdeği (`inProfileScope` içinde).
+    private mutating func removeOwnDesktop(on screen: String, desktop: Int, modes: [Mode],
+                                           shiftNames: Bool, expandCounterparts: Bool,
+                                           pinsOnly: Bool) {
         var targets = modes.map { Target(mode: $0, screen: screen, desktop: desktop) }
         if shiftNames && expandCounterparts {
             targets = removalTargets(screen: screen, desktop: desktop, modes: modes, name: nil).targets
@@ -1241,6 +1623,7 @@ struct Document: Codable, Equatable {
                 }
             }
         }
+        guard !pinsOnly else { return }
         for target in targets {
             let planned = plannedDesktops(mode: target.mode, screen: target.screen)
             if planned >= target.desktop {
@@ -1288,42 +1671,76 @@ struct Document: Codable, Equatable {
         profiles.first { $0.id == activeProfileID }
     }
 
-    /// Başka bir profile geçer: mevcut kurallar aktif profile yazılır,
-    /// hedef profilin kuralları yüklenir.
+    /// Başka bir profile geçer: mevcut kurallar ve masaüstü durumu aktif
+    /// profile yazılır, hedef profilinkiler yüklenir. Gerçek masaüstü silmesi
+    /// sıraya girmez (`pendingRemovals` ortak, dokunulmaz); hedefin planında
+    /// eksik masaüstüsü varsa Router açar, fazlası kalır.
     mutating func switchProfile(to id: String) {
         guard id != activeProfileID,
               let target = profiles.first(where: { $0.id == id }) else { return }
         syncActiveProfile()
         activeProfileID = target.id
-        rules = target.rules
+        loadProfileState(target)
     }
 
-    /// Yeni profil ekler; `activate` ise ona geçer. `copyingCurrent`: mevcut
-    /// pinlerle başla (kural kimlikleri yenilenir).
+    /// Yeni profil ekler; `activate` ise ona geçer. Boş başlar (kural, ad,
+    /// hayalet, plan yok). `copyingCurrent`: mevcut profilin her şeyinin
+    /// kopyasıyla başla (kural kimlikleri yenilenir, hayalet pinleri yeni
+    /// kurallara bakar).
     @discardableResult
     mutating func addProfile(named name: String? = nil, copyingCurrent: Bool = false,
                              activate: Bool = true) -> Profile {
         syncActiveProfile()
-        let profile = Profile(
-            name: Self.uniqueName(name ?? L("Profile %ld", profiles.count + 1), in: profiles),
-            rules: copyingCurrent ? Self.regeneratingIDs(rules) : [])
+        var profile = Profile(
+            name: Self.uniqueName(name ?? L("Profile %ld", profiles.count + 1), in: profiles))
+        if copyingCurrent, let source = profiles.first(where: { $0.id == activeProfileID }) {
+            Self.copyState(of: source, into: &profile)
+        }
         profiles.append(profile)
         if activate {
             activeProfileID = profile.id
-            rules = profile.rules
+            loadProfileState(profile)
         }
         return profile
     }
 
-    /// Verilen profilin kopyasını ekler (kural kimlikleri yenilenir); etkin
-    /// profil değişmez, pencereler yerinde kalır. Etkin profil kopyalanıyorsa
-    /// kurallar canlı `rules`'tan alınır.
+    /// `source`'un kurallarını ve masaüstü durumunu yeni profile kopyalar:
+    /// kural kimlikleri yenilenir, hayalet pinleri yeni profile ve yeni
+    /// kurallara bakar.
+    static func copyState(of source: Profile, into profile: inout Profile) {
+        var idMap: [String: String] = [:]
+        profile.rules = source.rules.map { rule in
+            var copy = rule
+            copy.id = UUID().uuidString
+            idMap[rule.id] = copy.id
+            return copy
+        }
+        profile.desktopNames = source.desktopNames
+        profile.desktopNameSpaces = source.desktopNameSpaces
+        profile.plannedDesktops = source.plannedDesktops
+        let newID = profile.id
+        profile.ghostDesktops = source.ghostDesktops.map { ghost in
+            var copy = ghost
+            copy.id = UUID().uuidString
+            copy.pins = ghost.pins.map { pin in
+                var pin = pin
+                pin.profileID = newID
+                pin.rule.id = idMap[pin.rule.id] ?? pin.rule.id
+                return pin
+            }
+            return copy
+        }
+    }
+
+    /// Verilen profilin kopyasını ekler (kurallar, adlar, bağlar, hayaletler,
+    /// plan; kural kimlikleri yenilenir); etkin profil değişmez, pencereler
+    /// yerinde kalır. Etkin profil kopyalanıyorsa çalışma kopyası alınır.
     @discardableResult
     mutating func duplicateProfile(_ id: String, named name: String) -> Profile? {
         syncActiveProfile()
         guard let source = profiles.first(where: { $0.id == id }) else { return nil }
-        let profile = Profile(name: Self.uniqueName(name, in: profiles),
-                              rules: Self.regeneratingIDs(source.rules))
+        var profile = Profile(name: Self.uniqueName(name, in: profiles))
+        Self.copyState(of: source, into: &profile)
         profiles.append(profile)
         return profile
     }
@@ -1340,9 +1757,11 @@ struct Document: Codable, Equatable {
         guard profiles.count > 1,
               let i = profiles.firstIndex(where: { $0.id == id }) else { return }
         profiles.remove(at: i)
+        // Profilin adları, hayaletleri ve planı onunla gider; gerçek
+        // masaüstüsü silinmez.
         if activeProfileID == id, let next = profiles.first {
             activeProfileID = next.id
-            rules = next.rules
+            loadProfileState(next)
         }
     }
 
@@ -1355,8 +1774,12 @@ struct Document: Codable, Equatable {
             throw NSError(domain: "Deskmap", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: L("Profile not found")])
         }
-        let payload = ProfileExport(name: profile.name, screens: doc.screens,
+        // Adlar ve plan dosyaya girer; bağlar (bu Mac'in space kimlikleri)
+        // ve hayaletler girmez.
+        var payload = ProfileExport(name: profile.name, screens: doc.screens,
                                     rules: profile.rules)
+        payload.desktopNames = profile.desktopNames
+        payload.plannedDesktops = profile.plannedDesktops
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601
@@ -1376,11 +1799,17 @@ struct Document: Codable, Equatable {
                           userInfo: [NSLocalizedDescriptionKey: L("This is not a Deskmap profile")])
         }
         syncActiveProfile()
-        let profile = Profile(name: Self.uniqueName(payload.name, in: profiles),
-                              rules: Self.regeneratingIDs(payload.rules))
+        var profile = Profile(name: Self.uniqueName(payload.name, in: profiles),
+                              rules: Self.regeneratingIDs(payload.rules),
+                              desktopNames: Self.migratedNames(payload.desktopNames),
+                              plannedDesktops: payload.plannedDesktops.filter { $0.value > 0 })
         profiles.append(profile)
         activeProfileID = profile.id
-        rules = profile.rules
+        loadProfileState(profile)
+        // Dosyadan gelen adlar toparlanır (yinelenen ad atılır).
+        normalizeNameLinks()
+        syncActiveProfile()
+        profile = profiles.first { $0.id == activeProfileID } ?? profile
         // Dosyadaki ekran adları bilinmeyen rolleri tanıtır (harita için).
         for screen in payload.screens where !screens.contains(where: { $0.id == screen.id }) {
             screens.append(screen)
@@ -1399,12 +1828,18 @@ struct Document: Codable, Equatable {
 struct ProfileExport: Codable {
     var kind: String = ProfileExport.kind
     /// 2: düzenlerde `fixed` olabilir (eski sürüm oranlı karşılığı okur).
-    var version: Int = 2
+    /// 3: masaüstü adları ve plan (eski sürüm yok sayar, kurallar gelir).
+    var version: Int = 3
     var name: String
     var exportedAt: Date = Date()
     /// Kuralların hangi ekran rollerine yazıldığını anlamak için.
     var screens: [KnownScreen] = []
     var rules: [Rule]
+    /// Profilin masaüstü adları (anahtar `Document.planKey`). Bağlar (space
+    /// kimlikleri) ve hayaletler dışa aktarılmaz. Eski dosyalarda yok.
+    var desktopNames: [String: [String: String]] = [:]
+    /// Profilin masaüstü planı (anahtar `Document.planKey`). Eski dosyalarda yok.
+    var plannedDesktops: [String: Int] = [:]
     /// Okunurken atlanan bozuk kural sayısı (yazılmaz).
     var droppedRuleCount = 0
 
@@ -1415,7 +1850,7 @@ struct ProfileExport: Codable {
 
     /// Yalnızca kurallar listesi içeren düz bir `rules.json` de kabul edilir.
     private enum CodingKeys: String, CodingKey {
-        case kind, version, name, exportedAt, screens, rules
+        case kind, version, name, exportedAt, screens, rules, desktopNames, plannedDesktops
     }
 
     init(name: String, screens: [KnownScreen], rules: [Rule]) {
@@ -1434,6 +1869,21 @@ struct ProfileExport: Codable {
         let lossyRules = try c.decodeIfPresent(LossyArray<Rule>.self, forKey: .rules)
         rules = lossyRules?.elements ?? []
         droppedRuleCount = lossyRules?.droppedCount ?? 0
+        desktopNames = (try? c.decodeIfPresent([String: [String: String]].self,
+                                               forKey: .desktopNames)) ?? [:]
+        plannedDesktops = (try? c.decodeIfPresent([String: Int].self, forKey: .plannedDesktops)) ?? [:]
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(kind, forKey: .kind)
+        try c.encode(version, forKey: .version)
+        try c.encode(name, forKey: .name)
+        try c.encode(exportedAt, forKey: .exportedAt)
+        try c.encode(screens, forKey: .screens)
+        try c.encode(rules, forKey: .rules)
+        if !desktopNames.isEmpty { try c.encode(desktopNames, forKey: .desktopNames) }
+        if !plannedDesktops.isEmpty { try c.encode(plannedDesktops, forKey: .plannedDesktops) }
     }
 }
 
@@ -1514,7 +1964,7 @@ final class Store: ObservableObject {
         terminateObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.flush() }
+            MainActor.assumeIsolated { _ = self?.flush() }
         }
     }
 
@@ -1530,12 +1980,17 @@ final class Store: ObservableObject {
     /// değişmez.
     init(demo document: Document) {
         self.document = document
+        persists = false
     }
 
+    /// Demo/test örneği diske hiç yazmaz (`save` sessizce döner).
+    private var persists = true
+
     /// Bekleyen değişiklikleri hemen diske yazar.
-    func flush() {
+    @discardableResult
+    func flush() -> Bool {
         document.syncActiveProfile()
-        save()
+        return save()
     }
 
     func load() {
@@ -1579,23 +2034,54 @@ final class Store: ObservableObject {
         return (try? fm.copyItem(at: Self.fileURL, to: Self.backupURL)) != nil
     }
 
-    func save() {
+    /// Başarıyı döndürür (diske yazmayan demo örneğinde true).
+    @discardableResult
+    func save() -> Bool {
+        guard persists else { return true }
         // Yeni sürümün dosyası: dokunma, uyarı alt çubukta kalsın.
         guard !isReadOnly else {
             lastError = Self.newerVersionMessage
-            return
+            return false
         }
         do {
             try FileManager.default.createDirectory(
                 at: Self.directoryURL, withIntermediateDirectories: true)
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys,
-                                        .withoutEscapingSlashes]
-            try encoder.encode(document).write(to: Self.fileURL, options: .atomic)
+            try Self.encode(document).write(to: Self.fileURL, options: .atomic)
             lastError = nil
+            return true
         } catch {
             lastError = L("Could not write rules.json: %@", error.localizedDescription)
+            return false
         }
+    }
+
+    /// `rules.json` biçimi (kayıt ve geri yükleme öncesi yedek aynı baytlar).
+    nonisolated static func encode(_ document: Document) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(document)
+    }
+
+    /// Yedekten gelen belgeyi yükler (bkz. `BackupService.restore`). Olağan
+    /// değişiklik yolu: alt çubukta "Geri al" çıkar, hemen diske yazılır.
+    /// Açık/kapalı anahtarı ve tanınan ekranlar geri almadaki gibi şu anki
+    /// değerleriyle kalır (yedekle ilgisizler).
+    /// Belge diske yazıldıysa true.
+    @discardableResult
+    func restoreBackup(_ backup: Document) -> Bool {
+        guard !isReadOnly, !backup.isFromNewerVersion else {
+            lastError = Self.newerVersionMessage
+            return false
+        }
+        var restored = backup
+        restored.fileVersion = Document.currentVersion
+        restored.droppedRuleCount = 0
+        restored.version = Document.currentVersion
+        restored.enabled = document.enabled
+        restored.screens = document.screens
+        restored.syncActiveProfile()
+        recording(L("Backup restored")) { document = restored }
+        return flush()
     }
 
     // MARK: - Geri alma
@@ -1857,10 +2343,11 @@ final class Store: ObservableObject {
     /// olmuş bir değişikliği izler). `name`: ad tablodan zaten düştüyse.
     func ghostDesktop(on screen: String, desktop: Int, modes: [Mode],
                       name: String? = nil, space: UInt64? = nil, droppedMode: Mode? = nil,
-                      shiftNames: Bool = true, live: Set<UInt64>? = nil) {
+                      otherDropped: [String: DroppedName] = [:], shiftNames: Bool = true,
+                      live: Set<UInt64>? = nil) {
         document.ghostDesktop(on: screen, desktop: desktop, modes: modes, name: name,
-                              droppedSpace: space, droppedMode: droppedMode, shiftNames: shiftNames,
-                              live: live)
+                              droppedSpace: space, droppedMode: droppedMode,
+                              otherDropped: otherDropped, shiftNames: shiftNames, live: live)
     }
 
     /// Hayaleti yeni açılan masaüstüne geri getirir (geri alınabilir).

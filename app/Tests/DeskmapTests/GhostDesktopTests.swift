@@ -45,8 +45,12 @@ struct GhostDesktopTests {
         d.addProfile(named: "İkinci", copyingCurrent: true)
         let made = d.ghostDesktop(on: "external", desktop: 2, modes: Mode.allCases)
         let ghost = try #require(made)
-        #expect(ghost.pins.count == 2)
+        // Hayaletler profil başına: her profilin hayaleti yalnız kendi pinini tutar.
+        #expect(ghost.pins.count == 1)
+        #expect(ghost.pins.allSatisfy { $0.profileID == d.activeProfileID })
         let other = try #require(d.profiles.first { $0.id == first })
+        #expect(other.ghostDesktops.count == 1)
+        #expect(other.ghostDesktops.first?.pins.map(\.profileID) == [first])
         #expect(other.rules.map(\.appName) == ["B"])
         #expect(other.rules.first?.docked?.desktop == 2)
     }

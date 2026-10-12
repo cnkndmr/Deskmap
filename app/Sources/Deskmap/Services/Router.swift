@@ -1425,23 +1425,27 @@ final class Router: ObservableObject {
         setDesktopBaseline(baseline)
         // Adlar etkin kurulumun mantıksal numaralarına göre: yalnız onun
         // kuyruğundaki silmeler düşülür. Canlı kimlik (`live`) hiçbir zaman
-        // silinmiş sayılmaz.
+        // silinmiş sayılmaz. Her profilin adları ayrı yerleşir.
         let logical = comparable.mapValues { $0.filter { !activePending.contains($0) } }
-        if !store.document.desktopNames.isEmpty, !logical.isEmpty {
+        if store.document.hasAnyDesktopNames, !logical.isEmpty {
             let result = store.reconcileDesktopNames(
                 spaces: logical, seen: seenDesktopSpaces, mode: screens.mode,
                 previous: before.mapValues { $0.filter { !activePending.contains($0) } },
                 live: live)
             applySessionMoves(result.moves)
-            for drop in result.dropped.sorted(by: { $0.place.desktop > $1.place.desktop }) {
-                Log.app.notice("Named desktop \(drop.name, privacy: .private) lost its desktop; kept on a deleted-desktop row")
-                store.ghostDesktop(on: drop.place.screen, desktop: drop.place.desktop,
-                                   modes: Mode.allCases, name: drop.name, space: drop.place.space,
-                                   droppedMode: drop.place.mode, live: live)
-                shiftSessionPins(screen: drop.place.screen, removed: drop.place.desktop)
+            // Aynı gerçek masaüstünde düşen adlar (her profilin kendi adı)
+            // tek hayalet işlemi: pinler bir kez kayar, her profilde kendi
+            // hayaleti açılır.
+            for group in result.ghostGroups {
+                Log.app.notice("Named desktop \(group.desktop) on \(group.screen, privacy: .public) lost its desktop; kept on a deleted-desktop row")
+                store.ghostDesktop(on: group.screen, desktop: group.desktop,
+                                   modes: Mode.allCases, name: group.active?.name,
+                                   space: group.space, droppedMode: group.active?.place.mode,
+                                   otherDropped: group.others, live: live)
+                shiftSessionPins(screen: group.screen, removed: group.desktop)
             }
             for item in result.unplaced {
-                Log.app.notice("Named desktop \(item.name, privacy: .private) could not be placed on \(item.place.screen, privacy: .public); name dropped, pins left in place")
+                Log.app.notice("Named desktop \(item.name, privacy: .private) could not be placed on \(item.place.screen, privacy: .public); kept as a name-only deleted-desktop row, pins left in place")
             }
         }
         seenDesktopSpaces.formUnion(spaces.values.joined())
