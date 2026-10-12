@@ -35,6 +35,10 @@ struct NameMove: Equatable {
 struct DroppedName: Equatable {
     var place: NamePlace
     var name: String
+    /// true: masaüstü gerçekten silindi (kimlik görülmüştü, artık yok).
+    /// false: masaüstü duruyor, ad yalnız boş numara bulamadı; pinler
+    /// kaymaz, yalnız o profilde adlı hayalet açılır.
+    var deleted = true
 }
 
 /// `reconcileNames` sonucu.
@@ -53,10 +57,15 @@ struct ReconcileResult: Equatable {
     var ghostGroups: [GhostGroup] {
         var groups: [GhostGroup] = []
         func index(for drop: DroppedName) -> Int? {
-            guard let space = drop.place.space else { return nil }
+            guard let space = drop.place.space else {
+                return groups.firstIndex {
+                    $0.space == nil && $0.screen == drop.place.screen
+                        && $0.desktop == drop.place.desktop
+                }
+            }
             return groups.firstIndex { $0.screen == drop.place.screen && $0.space == space }
         }
-        for drop in dropped {
+        for drop in dropped where drop.deleted {
             if let i = index(for: drop), groups[i].active == nil {
                 groups[i].active = drop
             } else {
@@ -65,7 +74,7 @@ struct ReconcileResult: Equatable {
             }
         }
         for (profileID, list) in otherDropped.sorted(by: { $0.key < $1.key }) {
-            for drop in list {
+            for drop in list where drop.deleted {
                 if let i = index(for: drop), groups[i].others[profileID] == nil {
                     groups[i].others[profileID] = drop
                 } else {

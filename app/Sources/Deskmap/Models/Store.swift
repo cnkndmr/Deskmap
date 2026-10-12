@@ -99,6 +99,8 @@ struct Profile: Codable, Equatable, Identifiable, Hashable {
 struct PendingRemoval: Codable, Equatable, Hashable {
     var desktop: Int
     var space: UInt64?
+    /// Silmeyi sıraya koyan profil (eski kayıtlarda nil).
+    var profileID: String? = nil
 }
 
 /// Deskmap dışında (Mission Control) silinmiş, adı ya da pini olan
@@ -629,11 +631,12 @@ struct Document: Codable, Equatable {
                 rest.append((parts.screen, desktop, name, space))
             }
         }
-        func drop(_ item: (screen: String, desktop: Int, name: String, space: UInt64?)) {
+        func drop(_ item: (screen: String, desktop: Int, name: String, space: UInt64?),
+                  deleted: Bool = true) {
             result.dropped.append(DroppedName(
                 place: NamePlace(mode: mode, screen: item.screen, desktop: item.desktop,
                                  space: item.space),
-                name: item.name))
+                name: item.name, deleted: deleted))
         }
         for item in rest {
             if let space = item.space, seen.contains(space), location[space] == nil,
@@ -648,7 +651,7 @@ struct Document: Codable, Equatable {
                 var n = item.desktop + 1
                 while names[Self.planKey(mode: mode, screen: item.screen)]?[String(n)] != nil { n += 1 }
                 // Var olmayan masaüstüne ad yazılmaz (hayalet ad olmasın).
-                guard n <= list.count else { drop(item); continue }
+                guard n <= list.count else { drop(item, deleted: false); continue }
                 if put(item.name, item.screen, n, list[n - 1]) {
                     result.moves.append(NameMove(
                         mode: mode, name: item.name,
@@ -716,6 +719,16 @@ struct Document: Codable, Equatable {
             desktopNameSpaces = bindings
         }
         applyPinMoves(result.moves)
+        // Boş numara bulamayan ad (masaüstü silinmedi): yalnız bu profilde
+        // adlı hayalet; pin ve plan kaymaz, öbür profillere dokunulmaz.
+        for drop in result.dropped where !drop.deleted {
+            let key = Self.normalizedName(drop.name)
+            guard !ghostDesktops.contains(where: { $0.name.map(Self.normalizedName) == key })
+            else { continue }
+            ghostDesktops.append(GhostDesktop(screen: drop.place.screen, name: drop.name,
+                                              desktop: drop.place.desktop, deletedAt: Date(),
+                                              pins: []))
+        }
         for name in adoptedNames {
             absorbGhosts(named: name)
             mirrorPins(forName: name, adoptedIn: mode)
@@ -1005,7 +1018,7 @@ struct Document: Codable, Equatable {
         removeDesktop(on: screen, desktop: desktop, modes: [mode], expandCounterparts: existing == false)
         guard existing else { return }
         pendingRemovals[Self.planKey(mode: mode, screen: screen), default: []]
-            .append(PendingRemoval(desktop: desktop, space: space))
+            .append(PendingRemoval(desktop: desktop, space: space, profileID: activeProfileID))
     }
 
     mutating func clearPendingRemovals(mode: Mode, screen: String) {
@@ -1283,7 +1296,12 @@ struct Document: Codable, Equatable {
             spaces[key] = bound.isEmpty ? nil : bound
             // Hedefte sıradaki silmeler eski düzene göreydi: kopyalanan
             // adları ve pinleri sonradan kaydırmasınlar diye kalkar.
-            pending[key] = nil
+            // Yalnız bu profilin (ya da sahibi bilinmeyen eski) silmeleri:
+            // pendingRemovals ortak, öbür profillerin silmeleri kalır.
+            let others = (pending[key] ?? []).filter {
+                $0.profileID != nil && $0.profileID != activeProfileID
+            }
+            pending[key] = others.isEmpty ? nil : others
         }
         var planScreens = Set(copiedScreens.keys)
         for key in plannedDesktops.keys {
@@ -1515,6 +1533,26 @@ struct Document: Codable, Equatable {
     /// karşılığının pinleri ve planı kaydırılmaz.
     mutating func removeDesktop(on screen: String, desktop: Int, modes: [Mode],
                                 shiftNames: Bool = true, expandCounterparts: Bool = true) {
+        // Her profil kendi adlarıyla: karşılıklar o profilin adlarından
+        // bulunur (bir profilin adı başka profilin pinlerini kaydırmaz).
+        if !profiles.contains(where: { $0.id == activeProfileID }) { syncActiveProfile() }
+        // Ad ve plan yalnız aktif profilde değişir (uygulama içi silme);
+        // öbür profillerde yalnız pinler kayar.
+        for profile in profiles {
+            let isActive = profile.id == activeProfileID
+            inProfileScope(profile.id) {
+                $0.removeOwnDesktop(on: screen, desktop: desktop, modes: modes,
+                                    shiftNames: shiftNames,
+                                    expandCounterparts: expandCounterparts,
+                                    pinsOnly: !isActive)
+            }
+        }
+    }
+
+    /// `removeDesktop`'un tek profil çekirdeği (`inProfileScope` içinde).
+    private mutating func removeOwnDesktop(on screen: String, desktop: Int, modes: [Mode],
+                                           shiftNames: Bool, expandCounterparts: Bool,
+                                           pinsOnly: Bool) {
         var targets = modes.map { Target(mode: $0, screen: screen, desktop: desktop) }
         if shiftNames && expandCounterparts {
             targets = removalTargets(screen: screen, desktop: desktop, modes: modes, name: nil).targets
@@ -1530,6 +1568,7 @@ struct Document: Codable, Equatable {
                 }
             }
         }
+        guard !pinsOnly else { return }
         for target in targets {
             let planned = plannedDesktops(mode: target.mode, screen: target.screen)
             if planned >= target.desktop {

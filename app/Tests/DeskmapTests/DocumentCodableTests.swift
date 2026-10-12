@@ -44,7 +44,7 @@ struct DocumentCodableTests {
         doc.removeDesktopLater(on: "builtin", desktop: 2, mode: .undocked, existing: true, space: 5)
         #expect(doc.rules[0].undocked?.desktop == 3)
         #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin")
-                == [PendingRemoval(desktop: 2, space: 5)])
+                == [PendingRemoval(desktop: 2, space: 5, profileID: doc.activeProfileID)])
         // Gerçekte olmayan satır: yalnız numaralar kayar, sıraya girmez.
         doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .undocked, existing: false, space: nil)
         #expect(doc.rules[0].undocked?.desktop == 2)
@@ -77,7 +77,7 @@ struct DocumentCodableTests {
         doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .undocked, existing: true, space: 9)
         doc.dropFirstPendingRemoval(mode: .undocked, screen: "builtin")
         #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin")
-                == [PendingRemoval(desktop: 3, space: 9)])
+                == [PendingRemoval(desktop: 3, space: 9, profileID: doc.activeProfileID)])
         doc.dropFirstPendingRemoval(mode: .undocked, screen: "builtin")
         #expect(doc.pendingRemovals.isEmpty)
     }
