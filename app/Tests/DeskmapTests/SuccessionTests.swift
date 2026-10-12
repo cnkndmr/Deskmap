@@ -181,7 +181,7 @@ struct SuccessionTests {
                             plans: DesktopPlans(docked: ["external": ["", "EXPO"]], undocked: ["builtin": ["", "EXPO"]]))
         let deletions = d.followMissionControl(before: ["external": [1681, 1674], "builtin": [5]],
                                                after: ["external": [1681], "builtin": [5]], mode: .docked)
-        #expect(deletions == [DesktopDeletion(role: "external", desktop: 2, space: 1674)])
+        #expect(deletions == [DesktopDeletion(role: "external", desktop: 2, space: 1674, ghost: true)])
         #expect(d.names.isEmpty)
         #expect(d.ghostDesktops.map(\.name) == ["Nova Ek"])
         #expect(d.ghostDesktops.first?.nameID == "EXPO")

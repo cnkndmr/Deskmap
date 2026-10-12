@@ -39,6 +39,15 @@ enum PlanApply {
         var parked: [Parked] = []
         /// Bu geçişte macOS'un açtığı ya da ekranlar arası taşıdığı space'ler.
         var leftovers: Set<UInt64> = []
+        /// Geçişin "önce" durumunda hiç olmayan (macOS'un bu geçişte açtığı)
+        /// space'ler. Planlı adın yerinde böyle bir space pencereli duruyorsa
+        /// içeriği yerinden edilmez, ad onu sahiplenir (macOS monitörü geri
+        /// verince adın eski pencerelerini yeni masaüstü 1'e koyar).
+        var newSpaces: Set<UInt64> = []
+        /// Geçişte planın ötesindeki adsız pencereli masaüstünün içeriği
+        /// planın içindeki ilk boş "" yere taşınır (sayı plana yakınsar);
+        /// boş yer yoksa yerinde kalır, bunun için masaüstü açılmaz.
+        var compactBeyondPlan = false
         /// Öbür profillerde ada bağlı space'ler (taşıma haritası sonrası denetlenir).
         var otherNamed: Set<UInt64> = []
         /// Kuyruktaki silmeler: asla otomatik silinmez.
@@ -70,6 +79,9 @@ enum PlanApply {
         var truncated = false
         /// Taşınacak adlı masaüstü sayısı (günlük için).
         var movedNames = 0
+        /// Günlük için kararlar: neden masaüstü açılıyor, ad hangi yeni
+        /// masaüstünü sahipleniyor, planın ötesindeki masaüstü neden kalıyor.
+        var decisions: [String] = []
 
         var isEmpty: Bool {
             creates.values.allSatisfy { $0 == 0 } && moves.isEmpty && rebinds.isEmpty && removals.isEmpty
@@ -83,6 +95,8 @@ enum PlanApply {
         var role: String
         var target: Slot?
         var origin: Int
+        /// Planın ötesinden plan içindeki boş "" yere toplanan içerik.
+        var withinPlan = false
     }
 
     /// Space boş mu (C1, saf): `windowSpaces` pencere sunucusundaki katman 0
@@ -108,31 +122,68 @@ enum PlanApply {
         return removals.filter { !blocked.contains($0) }
     }
 
-    /// Biten geçişten sonra artık temizliği (saf, P1): geçişin artıkları
-    /// (`candidates`) arasından planın ötesinde, boş, hiçbir profilde adlı
-    /// olmayan, kuyrukta olmayan masaüstüleri; rol başına sondan, en az bir
-    /// masaüstü kalır. Taşıma yok: yönlendirmenin boşalttığı (geçişte açılıp
-    /// kurallı pencereleri yerine dönen) masaüstü de buradan silinir.
-    static func cleanupRemovals(live: [String: [UInt64]], contents: [UInt64: [CGWindowID]],
-                                plans: [String: [String]], named: Set<UInt64>,
-                                pending: Set<UInt64>, candidates: Set<UInt64>,
-                                maxRemovals: Int = 8) -> [UInt64] {
-        var removals: [UInt64] = []
+    /// Temizlik kararı (günlük için): silinecek ya da neden kaldığı.
+    struct CleanupDecision: Equatable {
+        var role: String
+        var desktop: Int
+        var space: UInt64
+        /// nil: silinecek.
+        var kept: String?
+
+        var text: String {
+            "desktop \(desktop) on \(role) (space \(space)): " + (kept.map { "kept, \($0)" } ?? "remove")
+        }
+    }
+
+    /// Artık temizliği (saf, P1; geçişten sonra ve kararlı durumda): planın
+    /// ötesinde, boş, hiçbir profilde adlı olmayan, kuyrukta olmayan, numara
+    /// pininin hedefi olmayan masaüstüleri; rol başına sondan, en az bir
+    /// masaüstü kalır. `candidates` nil ise planın ötesindeki her masaüstü
+    /// aday (açılıştan önce kalan ya da önceki geçişlerin artıkları da).
+    /// `pinned`: rol → numara pinlerinin en büyük masaüstü sırası (o sıraya
+    /// dek silinmez; silmek pinleri kaydırırdı).
+    static func cleanupPlan(live: [String: [UInt64]], contents: [UInt64: [CGWindowID]],
+                            plans: [String: [String]], named: Set<UInt64>,
+                            pending: Set<UInt64>, candidates: Set<UInt64>? = nil,
+                            pinned: [String: Int] = [:],
+                            maxRemovals: Int = 8) -> [CleanupDecision] {
+        var decisions: [CleanupDecision] = []
+        var removals = 0
         for role in live.keys.sorted() {
             let list = live[role] ?? []
             let planned = (plans[role] ?? []).count
             var remaining = list.count
             for index in list.indices.reversed() {
                 let space = list[index]
-                guard index + 1 > max(1, planned), remaining > 1, candidates.contains(space),
-                      (contents[space] ?? []).isEmpty, !named.contains(space), !pending.contains(space)
-                else { continue }
-                guard removals.count < maxRemovals else { return removals }
-                removals.append(space)
-                remaining -= 1
+                guard index + 1 > max(1, planned) else { continue }
+                let windows = (contents[space] ?? []).count
+                let kept: String? =
+                    remaining <= 1 ? "last desktop"
+                    : candidates.map({ !$0.contains(space) }) == true ? "not a leftover"
+                    : named.contains(space) ? "named"
+                    : pending.contains(space) ? "queued removal"
+                    : index + 1 <= (pinned[role] ?? 0) ? "a pin targets desktop \(pinned[role] ?? 0)"
+                    : windows > 0 ? "not empty (\(windows) windows)"
+                    : removals >= maxRemovals ? "removal limit reached"
+                    : nil
+                decisions.append(CleanupDecision(role: role, desktop: index + 1, space: space, kept: kept))
+                if kept == nil {
+                    removals += 1
+                    remaining -= 1
+                }
             }
         }
-        return removals
+        return decisions
+    }
+
+    static func cleanupRemovals(live: [String: [UInt64]], contents: [UInt64: [CGWindowID]],
+                                plans: [String: [String]], named: Set<UInt64>,
+                                pending: Set<UInt64>, candidates: Set<UInt64>? = nil,
+                                pinned: [String: Int] = [:],
+                                maxRemovals: Int = 8) -> [UInt64] {
+        cleanupPlan(live: live, contents: contents, plans: plans, named: named, pending: pending,
+                    candidates: candidates, pinned: pinned, maxRemovals: maxRemovals)
+            .filter { $0.kept == nil }.map(\.space)
     }
 
     /// Geçişin plana ek girdileri (saf, §P.1 adım 3).
@@ -143,6 +194,8 @@ enum PlanApply {
         var parked: [Parked] = []
         /// Bu geçişte rol değiştiren ya da yeni açılan space'ler.
         var leftovers: Set<UInt64> = []
+        /// "Önce" durumunda hiç olmayan space'ler (macOS bu geçişte açtı).
+        var newSpaces: Set<UInt64> = []
     }
 
     /// `from`/`fromContents`/`fromMode`: kayıtlı "önce" durumu; `live` şimdiki
@@ -179,7 +232,10 @@ enum PlanApply {
         var fromRole: [UInt64: String] = [:]
         for display in from { for space in display.spaces { fromRole[space] = display.role } }
         for display in live {
-            for space in display.spaces where fromRole[space] != display.role { extras.leftovers.insert(space) }
+            for space in display.spaces where fromRole[space] != display.role {
+                extras.leftovers.insert(space)
+                if fromRole[space] == nil { extras.newSpaces.insert(space) }
+            }
         }
         return extras
     }
@@ -229,11 +285,20 @@ enum PlanApply {
         var arrivals: [Slot: Int] = [:]
         var groups: [Group] = []
         var origin = 0
+        // macOS'un bu geçişte açıp pencere koyduğu adsız space adın yerinde:
+        // ad onu sahiplenir, içeriği yerinden edilmez (yoksa her takışta
+        // içerik için planın ötesine bir masaüstü açılırdı).
+        var adopted = Set<UInt64>()
         for (target, id) in claimed.sorted(by: { ($0.key.screen, $0.key.desktop) < ($1.key.screen, $1.key.desktop) }) {
             guard let name = byID[id] else { continue }
             if let bound = name.space, bound == space(target), input.evacuation[id] == nil {
                 staying.insert(target)
                 continue
+            }
+            if let occupant = space(target), occupant != name.space, input.newSpaces.contains(occupant),
+               nameOfSpace[occupant] == nil, !input.otherNamed.contains(occupant), !content(occupant).isEmpty {
+                adopted.insert(occupant)
+                output.decisions.append("name \(id) takes new desktop \(target.desktop) on \(target.screen) (space \(occupant), \(content(occupant).count) windows macOS put there)")
             }
             var windows: [CGWindowID] = []
             var source: UInt64?
@@ -260,10 +325,18 @@ enum PlanApply {
                 let here = Slot(screen: role, desktop: index + 1)
                 if let owner = nameOfSpace[space], plannedIDs.contains(owner.id) { continue }
                 if arrivingSources.contains(space) { continue }
+                if adopted.contains(space) { continue }
                 let windows = content(space)
                 let unplanned = nameOfSpace[space]
                 guard let owner = claimed[here], byID[owner]?.space != space else {
-                    if !windows.isEmpty || unplanned != nil { staying.insert(here) }
+                    if input.compactBeyondPlan, unplanned == nil, !windows.isEmpty,
+                       index + 1 > (input.plans[role] ?? []).count {
+                        groups.append(Group(windows: windows, source: space, name: nil, role: role,
+                                            target: nil, origin: origin, withinPlan: true))
+                        origin += 1
+                    } else if !windows.isEmpty || unplanned != nil {
+                        staying.insert(here)
+                    }
                     continue
                 }
                 guard !windows.isEmpty || unplanned != nil else { continue }
@@ -311,7 +384,8 @@ enum PlanApply {
                 origin += 1
             }
         }
-        let leaving = Set(groups.compactMap(\.source))
+        // Planın ötesinden toplanan kaynak başka gruba yer olmaz (silinecek).
+        let leaving = Set(groups.filter { !$0.withinPlan }.compactMap(\.source))
         func isFree(_ here: Slot) -> Bool {
             let plan = input.plans[here.screen] ?? []
             if here.desktop <= plan.count, !plan[here.desktop - 1].isEmpty,
@@ -322,6 +396,25 @@ enum PlanApply {
             return true
         }
         for i in groups.indices where groups[i].target == nil {
+            if groups[i].withinPlan {
+                let planned = (input.plans[groups[i].role] ?? []).count
+                guard let desktop = (1...max(1, planned)).first(where: {
+                    $0 <= planned && isFree(Slot(screen: groups[i].role, desktop: $0))
+                }) else {
+                    if let source = groups[i].source, let here = slot(of: source) {
+                        staying.insert(here)
+                        output.decisions.append("desktop \(here.desktop) on \(here.screen) kept beyond the plan: \(groups[i].windows.count) windows, no free unnamed desktop within the plan")
+                    }
+                    continue
+                }
+                let target = Slot(screen: groups[i].role, desktop: desktop)
+                groups[i].target = target
+                arrivals[target, default: 0] += 1
+                if let source = groups[i].source, let here = slot(of: source) {
+                    output.decisions.append("desktop \(here.desktop) on \(here.screen) beyond the plan: \(groups[i].windows.count) windows go to free desktop \(desktop)")
+                }
+                continue
+            }
             var desktop = 1
             while !isFree(Slot(screen: groups[i].role, desktop: desktop)) { desktop += 1 }
             let target = Slot(screen: groups[i].role, desktop: desktop)
@@ -337,7 +430,21 @@ enum PlanApply {
             for group in groups where group.target?.screen == role { needed = max(needed, group.target!.desktop) }
             for move in parkedMoves where move.to.screen == role { needed = max(needed, move.to.desktop) }
             let create = min(max(0, needed - count), input.maxCreatesPerRole)
-            if create > 0 { output.creates[role] = create }
+            if create > 0 {
+                output.creates[role] = create
+                let planned = (input.plans[role] ?? []).count
+                var why = ["\(role): add \(create) (live \(count), plan \(planned))"]
+                for group in groups where group.target?.screen == role && group.target!.desktop > count {
+                    let what = group.name.map { "name \($0)" }
+                        ?? "unnamed content of space \(group.source.map(String.init) ?? "?")"
+                    let owner = group.source.flatMap(slot(of:)).flatMap { claimed[$0] }
+                    why.append("\(what) (\(group.windows.count) windows\(owner.map { ", its place is planned for \($0)" } ?? "")) needs desktop \(group.target!.desktop)")
+                }
+                for move in parkedMoves where move.to.screen == role && move.to.desktop > count {
+                    why.append("parked window \(move.window) needs desktop \(move.to.desktop)")
+                }
+                output.decisions.append(why.joined(separator: "; "))
+            }
             limit[role] = count + create
         }
         func reachable(_ here: Slot) -> Bool { here.desktop <= (limit[here.screen] ?? 0) }
@@ -392,7 +499,11 @@ enum PlanApply {
 
         // 7. Artık masaüstülerini silme: yalnız planın ötesinde, boş kalacak,
         // hiçbir profilde adlı olmayan, kuyrukta olmayan, bu geçişin artığı.
-        guard input.allowRemovals, !output.truncated else { return output }
+        guard input.allowRemovals, !output.truncated else {
+            if !input.allowRemovals { output.decisions.append("removals off for this application") }
+            if output.truncated { output.decisions.append("a limit was reached: removals wait for the next pass") }
+            return output
+        }
         let vacated = Set(output.spaceMap.keys)
         let reboundSpaces = Set(output.rebinds.values.compactMap(space))
         var keptNamed = Set<UInt64>()
@@ -409,14 +520,21 @@ enum PlanApply {
             for index in list.indices.reversed() {
                 let space = list[index]
                 let here = Slot(screen: role, desktop: index + 1)
-                guard index + 1 > max(1, planned), remaining > 1,
-                      input.leftovers.contains(space) || vacated.contains(space),
-                      arrivals[here, default: 0] == 0, !staying.contains(here),
-                      !keptNamed.contains(space), !reboundSpaces.contains(space),
-                      !otherStill.contains(space), !input.pending.contains(space)
-                else { continue }
+                guard index + 1 > max(1, planned) else { continue }
                 let stays = (input.contents[space] ?? []).filter { !movedWindows.contains($0) }
-                guard stays.isEmpty else { continue }
+                let kept: String? =
+                    remaining <= 1 ? "last desktop"
+                    : arrivals[here, default: 0] > 0 ? "receives windows"
+                    : keptNamed.contains(space) || reboundSpaces.contains(space) ? "named"
+                    : otherStill.contains(space) ? "named in another profile"
+                    : input.pending.contains(space) ? "queued removal"
+                    : !stays.isEmpty || staying.contains(here) ? "not empty (\(stays.count) windows)"
+                    : !(input.leftovers.contains(space) || vacated.contains(space)) ? "not a leftover of this transition (cleanup decides)"
+                    : nil
+                if let kept {
+                    output.decisions.append("desktop \(index + 1) on \(role) (space \(space)) beyond the plan kept: \(kept)")
+                    continue
+                }
                 guard removals.count < input.maxRemovals else { output.truncated = true; break }
                 removals.append(space)
                 remaining -= 1

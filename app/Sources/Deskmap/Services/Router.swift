@@ -1170,8 +1170,8 @@ final class Router: ObservableObject {
         if removed {
             // Mission Control'de silmeyle aynı (B 14 → 8/9): adı ve pinleri
             // hayalete geçer (satırdan geri getirilebilir), sonrakiler kayar.
-            Log.app.notice("Desktop \(desktop) on \(screenID, privacy: .public) removed in Deskmap; pins kept on a deleted-desktop row")
-            store.recordDeletion(space: space, role: screenID, desktop: desktop, mode: screens.mode)
+            let ghost = store.recordDeletion(space: space, role: screenID, desktop: desktop, mode: screens.mode)
+            Log.app.notice("Desktop \(desktop) on \(screenID, privacy: .public) removed in Deskmap\(ghost == nil ? "" : "; name or pins kept on a deleted-desktop row", privacy: .public)")
             shiftSessionPins(screen: screenID, removed: desktop)
             if let space { ownRemovals.insert(space) }
             if transition == nil { commitSnapshot() }
@@ -1307,8 +1307,11 @@ final class Router: ObservableObject {
     private let launchedAt = Date()
     /// Aynı geçişte en çok bu kadar uygulama turu (sınır aşılınca yeni tur).
     private var applyPasses = 0
-    /// Biten geçişin artıkları; kısa süre sonra boş olanlar silinir (P1).
-    private var cleanupCandidates: Set<UInt64> = []
+    /// Bekleyen artık temizliği (P1) ve son temizlik denemesi.
+    private var cleanupTask: Task<Void, Never>?
+    private var lastCleanupAt: Date?
+    /// Kararlı taramada iki temizlik denemesi arasında en az bu kadar.
+    nonisolated static let cleanupThrottle: TimeInterval = 20
     @Published private(set) var planStatus: PlanStatus?
 
     /// Geçiş başlangıcından bu kadar sonra ad geçişi kanıtsız da tamamlanır.
@@ -1431,11 +1434,6 @@ final class Router: ObservableObject {
             id: UUID().uuidString, startedAt: Date(), reason: reason, from: base.displays,
             fromContents: base.contents, fromMode: base.mode)
         applyPasses = 0
-        // Temizliği bekleyen artıklar yeni geçişe geçer (P1).
-        if !cleanupCandidates.isEmpty {
-            transition?.leftovers = cleanupCandidates.sorted()
-            cleanupCandidates = []
-        }
         Log.screens.notice("Desktop transition started (\(reason, privacy: .public)); before: \(base.displays.map { "\($0.role)=\($0.spaces.count)" }.joined(separator: " "), privacy: .public)")
         writeDesktopState()
     }
@@ -1492,6 +1490,7 @@ final class Router: ObservableObject {
                 desktopState?.savedAt = Date()
                 scheduleStateWrite()
             }
+            cleanupIfNeeded(spaces: spaces, mode: mode)
             return
         }
         let check = Self.confirmChange(pending: pendingChange, observed: displays, now: Date())
@@ -1519,7 +1518,11 @@ final class Router: ObservableObject {
         let deletions = store.followMissionControl(before: saved.spaces, after: spaces, mode: mode,
                                                    ownRemovals: ownRemovals)
         for deletion in deletions {
-            Log.app.notice("Desktop \(deletion.desktop) on \(deletion.role, privacy: .public) was removed outside Deskmap; pins kept on a deleted-desktop row")
+            if deletion.ghost {
+                Log.app.notice("Desktop \(deletion.desktop) on \(deletion.role, privacy: .public) (space \(deletion.space)) was removed outside Deskmap; its name or pins kept on a deleted-desktop row")
+            } else {
+                Log.app.notice("Desktop \(deletion.desktop) on \(deletion.role, privacy: .public) (space \(deletion.space)) was removed outside Deskmap; unnamed and without pins, later numbers shifted (no deleted-desktop row)")
+            }
             shiftSessionPins(screen: deletion.role, removed: deletion.desktop)
         }
         ownRemovals = ownRemovals.filter { space in spaces.values.contains { $0.contains(space) } }
@@ -1691,10 +1694,12 @@ final class Router: ObservableObject {
             names: store.document.names, plans: store.document.plans[mode], evacuation: evacuation,
             arriving: extras.arriving,
             parked: mode == .docked ? parked.filter { live.spaces[$0.role] != nil } : [],
-            leftovers: extras.leftovers.union(current.leftovers ?? []), otherNamed: otherNamed,
+            leftovers: extras.leftovers.union(current.leftovers ?? []),
+            newSpaces: extras.newSpaces, compactBeyondPlan: true, otherNamed: otherNamed,
             pending: pending,
             allowRemovals: true, allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
         let plan = PlanApply.compute(input)
+        logPlan(plan, live: live.spaces, mode: mode, reason: current.reason)
         if !input.allowMoves {
             planStatus = PlanStatus(message: L("Plan could not be applied: moving windows is off"),
                                     failed: true, at: Date())
@@ -1726,7 +1731,7 @@ final class Router: ObservableObject {
         // sayılmaz (P.2: commit + 3 sn).
         extendQuietWindow(seconds: 3)
         report(outcome, plan: plan, mode: mode, reason: current.reason)
-        scheduleLeftoverCleanup(leftovers)
+        scheduleCleanup(reason: "after transition", delay: 5)
         if plan.truncated, applyPasses < 2 {
             applyPasses += 1
             Task { [weak self] in
@@ -1737,33 +1742,85 @@ final class Router: ObservableObject {
         reapplyAll()
     }
 
-    /// Biten geçişin artıkları: yönlendirme bitince (5 sn) boş kalanlar
-    /// silinir (P1). Geçişte açılıp kurallı pencereleri yerine dönen ya da
-    /// yarıda kalan turun boşalttığı masaüstüleri planın ötesinde birikmez.
-    private func scheduleLeftoverCleanup(_ spaces: Set<UInt64>) {
-        cleanupCandidates = spaces
-        guard !spaces.isEmpty else { return }
-        Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
-            await self?.removeLeftovers(attempt: 0)
+    /// Plan kararlarını ve özetini günlüğe yazar (gerçek denemede neden
+    /// masaüstü açıldığı/kaldığı görülebilsin).
+    private func logPlan(_ plan: PlanApply.Output, live: [String: [UInt64]], mode: Mode, reason: String) {
+        let lists = live.keys.sorted().map { "\($0)=[\(live[$0]!.map(String.init).joined(separator: ","))]" }
+            .joined(separator: " ")
+        let creates = plan.creates.keys.sorted().map { "\($0)+\(plan.creates[$0]!)" }.joined(separator: " ")
+        Log.app.notice("Plan (\(mode.rawValue, privacy: .public), \(reason, privacy: .public)): live \(lists, privacy: .public); create \(creates.isEmpty ? "none" : creates, privacy: .public); \(plan.moves.count) moves; remove \(plan.removals.map(String.init).joined(separator: ","), privacy: .public)")
+        for decision in plan.decisions {
+            Log.app.notice("Plan decision: \(decision, privacy: .public)")
         }
     }
 
-    private func removeLeftovers(attempt: Int) async {
-        guard !cleanupCandidates.isEmpty, transition == nil else { return }
-        guard !isDemo, !store.migrationPending, !store.isReadOnly else {
-            cleanupCandidates = []
+    /// Artık temizliği (P1) `delay` sn sonra: planın ötesindeki boş, adsız,
+    /// pinsiz masaüstüleri silinir. Geçişten sonra (yönlendirme pencereleri
+    /// yerine aldıktan sonra) ve kararlı taramada (açılıştan önce kalan ya da
+    /// yönlendirmeyle sonradan boşalan artıklar için) çağrılır.
+    private func scheduleCleanup(reason: String, delay: TimeInterval) {
+        guard !isDemo else { return }
+        cleanupTask?.cancel()
+        cleanupTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await self?.runCleanup(reason: reason, attempt: 0)
+        }
+    }
+
+    /// Kararlı taramanın sonu: planın ötesinde boş görünen adsız masaüstü
+    /// varsa (son taramaya göre) temizlik planlanır. Silmeden önce yeniden
+    /// ve canlı denetlenir (C1).
+    private func cleanupIfNeeded(spaces: [String: [UInt64]], mode: Mode) {
+        guard cleanupTask == nil, transition == nil, !transitionRunning, !store.migrationPending,
+              !store.isReadOnly, store.document.enabled, !isPaused else { return }
+        if let last = lastCleanupAt, Date().timeIntervalSince(last) < Self.cleanupThrottle { return }
+        let contents = lastContents.mapValues { $0.map(\.id) }
+        let removable = PlanApply.cleanupRemovals(
+            live: spaces, contents: contents, plans: store.document.plans[mode], named: allNamedSpaces(),
+            pending: Self.pendingQueue(store.document.pendingRemovals, mode: mode).all,
+            pinned: pinnedDesktops(mode: mode))
+        guard !removable.isEmpty else { return }
+        lastCleanupAt = Date()
+        scheduleCleanup(reason: "stable", delay: 0)
+    }
+
+    /// Hiçbir profilde adlı olan space'ler.
+    private func allNamedSpaces() -> Set<UInt64> {
+        var named = Set<UInt64>()
+        for profile in store.document.profiles { named.formUnion(profile.names.compactMap(\.space)) }
+        named.formUnion(store.document.names.compactMap(\.space))
+        return named
+    }
+
+    /// Etkin kurulumun numara pinleri (kural ve oturum pini): rol → en büyük
+    /// masaüstü sırası. O sıraya dek masaüstü silinmez.
+    private func pinnedDesktops(mode: Mode) -> [String: Int] {
+        var result: [String: Int] = [:]
+        let destinations = store.document.rules.compactMap { $0[mode] } + Array(sessionPins.values)
+        for destination in destinations where destination.nameID == nil {
+            result[destination.screen] = max(result[destination.screen] ?? 0, destination.desktop)
+        }
+        return result
+    }
+
+    private func runCleanup(reason: String, attempt: Int) async {
+        cleanupTask = nil
+        lastCleanupAt = Date()
+        guard !isDemo, !store.migrationPending, !store.isReadOnly, store.document.enabled else {
+            Log.app.notice("Leftover cleanup (\(reason, privacy: .public)) skipped: upgrade pending, read-only or disabled")
             return
         }
-        if transitionRunning || screens.isSettling || desktopOpInFlight || isPaused
+        if transition != nil || transitionRunning || screens.isSettling || desktopOpInFlight || isPaused
             || !SkyLight.shared.canRead {
-            guard attempt < 3 else {
-                cleanupCandidates = []
+            guard attempt < 5 else {
+                Log.app.notice("Leftover cleanup (\(reason, privacy: .public)) gave up: busy (transition, settling, desktop operation or paused)")
                 return
             }
-            Task { [weak self] in
+            cleanupTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: 3_000_000_000)
-                await self?.removeLeftovers(attempt: attempt + 1)
+                guard !Task.isCancelled else { return }
+                await self?.runCleanup(reason: reason, attempt: attempt + 1)
             }
             return
         }
@@ -1776,25 +1833,32 @@ final class Router: ObservableObject {
         let fresh = await withCheckedContinuation { continuation in
             queue.async { continuation.resume(returning: Self.readWindowSpaces()) }
         }
-        let candidates = cleanupCandidates
-        cleanupCandidates = []
-        guard transition == nil, !screens.isSettling, Self.spaces(readLiveDisplays()) == live.spaces
-        else { return }
-        var named = Set<UInt64>()
-        for profile in store.document.profiles { named.formUnion(profile.names.compactMap(\.space)) }
-        named.formUnion(store.document.names.compactMap(\.space))
-        var plan = PlanApply.Output()
-        plan.removals = PlanApply.cleanupRemovals(
+        guard transition == nil, !screens.isSettling, Self.spaces(readLiveDisplays()) == live.spaces else {
+            Log.app.notice("Leftover cleanup (\(reason, privacy: .public)) skipped: desktops changed while reading")
+            return
+        }
+        let decisions = PlanApply.cleanupPlan(
             live: live.spaces, contents: fresh.contents.mapValues { $0.map(\.id) },
-            plans: store.document.plans[mode], named: named,
+            plans: store.document.plans[mode], named: allNamedSpaces(),
             pending: Self.pendingQueue(store.document.pendingRemovals, mode: mode).all,
-            candidates: candidates)
-        guard !plan.removals.isEmpty else { return }
+            pinned: pinnedDesktops(mode: mode))
+        let plans = store.document.plans[mode]
+        let counts = live.spaces.keys.sorted().map { "\($0) \(live.spaces[$0]!.count)/\(plans[$0]?.count ?? 0)" }
+            .joined(separator: ", ")
+        for decision in decisions {
+            Log.app.notice("Leftover cleanup (\(reason, privacy: .public)): \(decision.text, privacy: .public)")
+        }
+        var plan = PlanApply.Output()
+        plan.removals = decisions.filter { $0.kept == nil }.map(\.space)
+        guard !plan.removals.isEmpty else {
+            Log.app.notice("Leftover cleanup (\(mode.rawValue, privacy: .public), \(reason, privacy: .public)): nothing to remove; desktops/plan: \(counts, privacy: .public)")
+            return
+        }
         let outcome = await execute(plan, expected: live.spaces, refs: [:],
                                     windowSpaces: fresh.windowSpaces, allowRemovals: true)
         commitSnapshot()
         extendQuietWindow(seconds: 3)
-        Log.app.notice("Leftover cleanup (\(mode.rawValue, privacy: .public)): removed \(outcome.removed) of \(plan.removals.count) empty desktop(s) beyond the plan")
+        Log.app.notice("Leftover cleanup (\(mode.rawValue, privacy: .public), \(reason, privacy: .public)): removed \(outcome.removed) of \(plan.removals.count) empty desktop(s) beyond the plan; before: \(counts, privacy: .public)")
     }
 
     /// Çökmeden kalan günlük (C6, B 21): taşımalar yapılmışsa bağlar ve
@@ -1856,6 +1920,7 @@ final class Router: ObservableObject {
             allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
         let plan = PlanApply.compute(input)
         guard !plan.isEmpty else { return }
+        logPlan(plan, live: live.spaces, mode: mode, reason: reason)
         let outcome = await execute(plan, expected: live.spaces, refs: refs,
                                     windowSpaces: fresh.windowSpaces, allowRemovals: allowRemovals)
         store.commitPlan(rebinds: outcome.rebinds, spaceMap: outcome.spaceMap)

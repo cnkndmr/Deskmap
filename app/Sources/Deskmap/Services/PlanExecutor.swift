@@ -104,6 +104,7 @@ enum PlanExecutor {
             if result.created > 0 { result.createdSpaces = newSpaces() }
             result.aborted = true
             result.abortReason = reason
+            Log.app.notice("Plan: stopped (\(reason, privacy: .public)) after \(result.created) created, \(result.moved) moved, \(result.removed) removed")
             return result
         }
         if world.shouldAbort() { return stop("interrupted") }
@@ -111,10 +112,14 @@ enum PlanExecutor {
         for role in plan.creates.keys.sorted() {
             for _ in 0..<(plan.creates[role] ?? 0) {
                 if world.shouldAbort() { return stop("interrupted") }
+                let before = Set(world.liveSpaces()[role] ?? [])
                 if await world.addDesktop(role) {
                     outcome.created += 1
+                    let added = (world.liveSpaces()[role] ?? []).filter { !before.contains($0) }
+                    Log.app.notice("Plan: created a desktop on \(role, privacy: .public) (space \(added.map(String.init).joined(separator: ","), privacy: .public); now \(before.count + 1))")
                 } else {
                     outcome.failedCreates.append(role)
+                    Log.app.error("Plan: could not create a desktop on \(role, privacy: .public) (Mission Control did not add one; \(before.count) desktops)")
                     break
                 }
             }
@@ -134,6 +139,7 @@ enum PlanExecutor {
         for move in plan.moves {
             guard let target = resolve(move.to) else {
                 outcome.failedMoves.append(move.window)
+                Log.app.error("Plan: window \(move.window) not moved: desktop \(move.to.desktop) on \(move.to.screen, privacy: .public) does not exist")
                 continue
             }
             moves.append(ResolvedMove(window: move.window, space: target))
@@ -150,6 +156,10 @@ enum PlanExecutor {
             let failed = await world.move(moves)
             outcome.moved = moves.count - failed.count
             outcome.failedMoves += failed
+            let targets = Dictionary(moves.map { ($0.window, $0.space) }, uniquingKeysWith: { a, _ in a })
+            for window in failed {
+                Log.app.error("Plan: window \(window) could not be moved from space \(windowSpaces[window].map(String.init) ?? "?", privacy: .public) to space \(targets[window].map(String.init) ?? "?", privacy: .public)")
+            }
         }
         outcome.rebinds = rebinds
         outcome.spaceMap = spaceMap
@@ -157,6 +167,9 @@ enum PlanExecutor {
         // Taşınamayan pencerenin kaynağı boş değildir, silinmez (C2).
         let removals = PlanApply.removalsAfterFailures(plan.removals, failed: outcome.failedMoves,
                                                        contents: windowSpaces)
+        for space in plan.removals where !removals.contains(space) {
+            Log.app.notice("Plan: space \(space) kept (a window failed to leave it)")
+        }
         for space in removals {
             if world.shouldAbort() {
                 outcome.aborted = true
@@ -166,14 +179,21 @@ enum PlanExecutor {
             let current = world.liveSpaces()
             guard let role = current.keys.sorted().first(where: { current[$0]?.contains(space) == true }),
                   let list = current[role], list.count > 1,
-                  let index = list.firstIndex(of: space) else { continue }
-            guard world.isEmpty(space) == true else {
-                Log.app.notice("Plan: desktop \(index + 1) on \(role, privacy: .public) kept (not empty)")
+                  let index = list.firstIndex(of: space) else {
+                Log.app.notice("Plan: space \(space) kept (gone or the last desktop of its display)")
+                continue
+            }
+            let empty = world.isEmpty(space)
+            guard empty == true else {
+                Log.app.notice("Plan: desktop \(index + 1) on \(role, privacy: .public) (space \(space)) kept (\(empty == nil ? "emptiness unknown" : "not empty", privacy: .public))")
                 continue
             }
             if await world.removeDesktop(role, index + 1, space) {
                 outcome.removed += 1
                 outcome.removedSpaces.append(space)
+                Log.app.notice("Plan: removed empty desktop \(index + 1) on \(role, privacy: .public) (space \(space))")
+            } else {
+                Log.app.error("Plan: could not remove desktop \(index + 1) on \(role, privacy: .public) (space \(space); Mission Control refused or the order changed)")
             }
         }
         return outcome

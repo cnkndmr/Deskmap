@@ -10,6 +10,9 @@ struct DesktopDeletion: Equatable {
     /// Silindiği andaki sırası (aynı turdaki önceki silmeler düşülmüş).
     var desktop: Int
     var space: UInt64
+    /// Bir profilde hayalet satırı açıldı ya da büyüdü (ad ya da pin vardı).
+    /// Adsız, pinsiz masaüstünde false: yalnız sonraki numaralar kayar.
+    var ghost = false
 }
 
 extension Document {
@@ -121,9 +124,11 @@ extension Document {
             remaining[role] = counted.filter { afterAll.contains($0) }
         }
         deletions.sort { ($0.role, -$0.desktop) < ($1.role, -$1.desktop) }
-        for deletion in deletions {
-            recordDeletion(space: deletion.space, role: deletion.role, desktop: deletion.desktop,
-                           mode: mode, now: now)
+        for i in deletions.indices {
+            let before = profiles.map(\.ghostDesktops)
+            let active = recordDeletion(space: deletions[i].space, role: deletions[i].role,
+                                        desktop: deletions[i].desktop, mode: mode, now: now)
+            deletions[i].ghost = active != nil || profiles.map(\.ghostDesktops) != before
         }
         if !profiles.contains(where: { $0.id == activeProfileID }) { syncActiveProfile() }
         for profile in profiles {
