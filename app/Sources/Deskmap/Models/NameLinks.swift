@@ -4,7 +4,8 @@ import Foundation
 // harf duyarsız) ile `desktopNameSpaces`'taki space kimliğidir; her kurulumun
 // `desktopNames` tablosu onun o kurulumdaki yeridir. Aşağıdaki saf yardımcılar
 // ad ↔ yer eşlemesini, öbür kurulumdaki karşılığı ve pinlerin ada bağlı
-// kalmasını sağlar. Şema değişmez (rules.json sürümü aynı).
+// kalmasını sağlar. Hepsi aktif profilin çalışma kopyası üzerinde çalışır;
+// her profilin adları kendine özeldir (şema 5).
 
 /// Ekranda bir masaüstü yeri.
 struct Slot: Hashable {
@@ -42,6 +43,48 @@ struct ReconcileResult: Equatable {
     var moves: [NameMove] = []
     var dropped: [DroppedName] = []
     var adopted: [NamePlace] = []
+    /// Öbür profillerin düşen adları (profil kimliği → adlar).
+    var otherDropped: [String: [DroppedName]] = [:]
+
+    /// Hayalete çevrilecek silinmiş masaüstüleri: aynı gerçek masaüstünde
+    /// (aynı ekran ve space kimliği) düşen adlar tek grupta toplanır ki
+    /// pinler bir kez kaysın. Her grupta aktif profilin adı (varsa) ve öbür
+    /// profillerinki. Büyük numaradan küçüğe sıralı.
+    var ghostGroups: [GhostGroup] {
+        var groups: [GhostGroup] = []
+        func index(for drop: DroppedName) -> Int? {
+            guard let space = drop.place.space else { return nil }
+            return groups.firstIndex { $0.screen == drop.place.screen && $0.space == space }
+        }
+        for drop in dropped {
+            if let i = index(for: drop), groups[i].active == nil {
+                groups[i].active = drop
+            } else {
+                groups.append(GhostGroup(screen: drop.place.screen, desktop: drop.place.desktop,
+                                         space: drop.place.space, active: drop))
+            }
+        }
+        for (profileID, list) in otherDropped.sorted(by: { $0.key < $1.key }) {
+            for drop in list {
+                if let i = index(for: drop), groups[i].others[profileID] == nil {
+                    groups[i].others[profileID] = drop
+                } else {
+                    groups.append(GhostGroup(screen: drop.place.screen, desktop: drop.place.desktop,
+                                             space: drop.place.space, others: [profileID: drop]))
+                }
+            }
+        }
+        return groups.sorted { ($0.desktop, $0.screen) > ($1.desktop, $1.screen) }
+    }
+}
+
+/// Bir gerçek masaüstünün silinmesiyle düşen adlar (bkz. `ghostGroups`).
+struct GhostGroup: Equatable {
+    var screen: String
+    var desktop: Int
+    var space: UInt64?
+    var active: DroppedName?
+    var others: [String: DroppedName] = [:]
 }
 
 extension Document {

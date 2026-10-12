@@ -257,18 +257,19 @@ struct DocumentCodableTests {
 
     @Test func newerFileVersionIsDetected() throws {
         let doc = try decode("""
-        { "version": 5, "enabled": true, "futureField": { "x": 1 },
+        { "version": 6, "enabled": true, "futureField": { "x": 1 },
           "rules": [ { "id": "r1", "appName": "A", "bundleID": "", "tokens": [] } ] }
         """)
-        #expect(doc.fileVersion == 5)
+        #expect(doc.fileVersion == 6)
         #expect(doc.isFromNewerVersion)
         // Kurallar yine okunur; yalnızca yazma kapanır.
         #expect(doc.rules.count == 1)
         #expect(!Document().isFromNewerVersion)
         #expect(!(try decode("{ \"version\": 3 }")).isFromNewerVersion)
         #expect(!(try decode("{ \"version\": 4 }")).isFromNewerVersion)
-        // 4'ten önceki sürüm (3) sabit boyutu bilmez; bu sürümün dosyası ona yenidir.
-        #expect(Document.currentVersion == 4)
+        #expect(!(try decode("{ \"version\": 5 }")).isFromNewerVersion)
+        // 5'ten önceki sürüm (4) profil başına adları bilmez; bu sürümün dosyası ona yenidir.
+        #expect(Document.currentVersion == 5)
         // Sayı olmayan sürüm eski dosya sayılır, belgeyi düşürmez.
         #expect(try decode("{ \"version\": \"3\" }").fileVersion == 1)
     }

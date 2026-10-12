@@ -84,7 +84,18 @@ struct DesktopNameTests {
         let plain = String(decoding: try JSONEncoder().encode(Document()), as: UTF8.self)
         #expect(!plain.contains("desktopNames"))
         // Eski biçim: anahtar yalnız ekran.
-        var raw = try JSONSerialization.jsonObject(with: JSONEncoder().encode(Document())) as! [String: Any]
+        // Eski dosyada adlar ortaktı; şema 5'e geçişte yalnız o masaüstünü
+        // kullanan profile gider (burada kurallar builtin/2 ve external/1).
+        var old4 = Document()
+        var laptop = Rule(appName: "L", bundleID: "b.L", tokens: [])
+        laptop.docked = Destination(screen: "builtin", desktop: 2)
+        laptop.undocked = Destination(screen: "builtin", desktop: 2)
+        var dell = Rule(appName: "D", bundleID: "b.D", tokens: [])
+        dell.docked = Destination(screen: "external", desktop: 1)
+        old4.rules = [laptop, dell]
+        old4.syncActiveProfile()
+        var raw = try JSONSerialization.jsonObject(with: JSONEncoder().encode(old4)) as! [String: Any]
+        raw["version"] = 4
         raw["desktopNames"] = ["builtin": ["2": "Laptop"], "external": ["1": "Dell"]]
         let old = try JSONDecoder().decode(Document.self, from: JSONSerialization.data(withJSONObject: raw))
         #expect(old.desktopName(screen: "builtin", desktop: 2, mode: U) == "Laptop")

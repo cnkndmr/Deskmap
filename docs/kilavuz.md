@@ -129,6 +129,8 @@ geçiş yapar.
 
 - **+** boş profil açar; etkin profile tıklayınca adını değiştir, çoğalt, dışa
   aktar ya da sil.
+- Masaüstü adları onları veren profile aittir: yeni profil adsız başlar, bir
+  profilde masaüstünü yeniden adlandırmak öbürünü hiç değiştirmez.
 - Dışa aktarma `.deskmap.json` dosyası yazar — kurulumunu başka Mac'e
   taşımanın ya da paylaşmanın yolu.
 - **Yedekler** (aynı panelde): Deskmap tüm profilleri, pinleri ve masaüstü

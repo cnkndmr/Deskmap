@@ -548,7 +548,7 @@ struct RootView: View {
                     Image(systemName: "laptopcomputer.and.arrow.down")
                 }
                 .buttonStyle(.borderless)
-                .disabled(!store.document.rules.contains { $0.undocked != nil })
+                .disabled(!store.document.hasLayout(in: .undocked))
                 .help(L("Copy the Laptop only layout here; the current Monitor connected setup is replaced (⌘Z undoes)"))
                 .accessibilityLabel(L("Copy the Laptop only layout here"))
             }

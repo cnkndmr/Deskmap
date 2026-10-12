@@ -6,6 +6,22 @@ number comes from the `VERSION` file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Desktop names belong to a profile**: names, their desktop bindings,
+  deleted-desktop rows and planned desktops are now kept per profile. A new
+  profile starts without names, renaming in one profile never changes
+  another, switching shows the target profile's names immediately and only
+  creates missing planned desktops. Duplicate copies them; export/import
+  carries names and planned desktops. Mission Control moves and deletions
+  update every profile, and each profile that named a deleted desktop gets its
+  own deleted-desktop row. `rules.json` schema 5: older files are split by use
+  (a name goes only to profiles with a pin on that desktop); an older Deskmap
+  opens the new file read-only.
+- **Copy laptop layout** also works when the laptop setup has only desktop
+  names or planned desktops, extends the plan for screens without names, and
+  keeps laptop desktop bindings.
+
 ### Added
 
 - **Automatic backups**: the app backs up all profiles, pins and desktop

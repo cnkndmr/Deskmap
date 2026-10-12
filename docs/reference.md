@@ -294,6 +294,13 @@ their pin count.
 - Click a profile to switch to it. Windows are placed again right away.
 - Click the active profile to rename, **Duplicate**, **Export** or **Delete**
   it (the last profile cannot be deleted).
+- Desktop names, deleted-desktop rows and planned desktops belong to each
+  profile. **+** starts with none; **Duplicate** copies them; switching shows
+  the target's names at once and only creates missing planned desktops
+  (never deletes one). Export carries names and planned desktops (not the
+  Mac-specific desktop bindings or deleted-desktop rows). When a desktop is
+  moved or deleted in Mission Control, every profile's names follow it, and
+  each profile that named a deleted desktop gets its own deleted-desktop row.
 - **+** creates an empty profile. The import button reads a
   `.deskmap.json` file exported earlier; a plain `rules.json` also works.
 - Profiles can be switched from Shortcuts, Raycast and others via the

@@ -137,11 +137,11 @@ The chosen path is logged once at launch (`skylight` category).
 
 All files live in `~/Library/Application Support/Deskmap/`.
 
-### rules.json (schema version 3)
+### rules.json (schema version 5)
 
 ```json
 {
-  "version": 3,
+  "version": 5,
   "enabled": true,
   "activeProfileID": "…",
   "setupNoticeDismissed": false,
@@ -161,18 +161,29 @@ All files live in `~/Library/Application Support/Deskmap/`.
                     "layout": { "x": 0, "y": 0, "w": 1,   "h": 1 } }
     }
   ],
-  "profiles": [ { "id": "…", "name": "Default", "rules": [ … ] } ]
+  "profiles": [ { "id": "…", "name": "Default", "rules": [ … ],
+                  "desktopNames": { "docked|external": { "2": "Nova" } },
+                  "desktopNameSpaces": { "docked|external": { "2": 1234 } },
+                  "plannedDesktops": { "docked|external": 4 },
+                  "ghostDesktops": [ … ] } ],
+  "pendingRemovals": { … }
 }
 ```
 
 - `rules` is the active profile's rule list; it is also written into that
   profile's entry in `profiles`.
+- Desktop names, their bindings (`desktopNameSpaces`), deleted-desktop rows
+  (`ghostDesktops`) and planned desktops belong to each profile (schema 5):
+  a profile only shows names it gave. `pendingRemovals` (queued real desktop
+  deletions) stays at the top level and is shared. Files before schema 5 kept
+  these at the top level; they are split by use on read (see
+  [profile-desktop-state.md](profile-desktop-state.md)).
 - `tokens: []` means "all windows of the app".
 - Reading is lenient: a single broken rule is skipped (the file is copied to
   `rules.json.bak` first and the footer shows how many were skipped).
 - v1 files (`app` / `match` fields) and v2 files (no profiles) are migrated
   on read; their rules become one profile.
-- A file whose `version` is higher than 3 was written by a newer Deskmap:
+- A file whose `version` is higher than 5 was written by a newer Deskmap:
   it is read, but never overwritten.
 - The keys above are a stable format; a new UI language doesn't change them.
   Profile names are user data and are kept as typed.
@@ -186,8 +197,10 @@ window server with the same process ID are restored.
 ### Profile export (`<name>.deskmap.json`)
 
 ```json
-{ "kind": "deskmap-profile", "version": 1, "name": "Office",
-  "exportedAt": "2026-09-14T10:00:00Z", "screens": [ … ], "rules": [ … ] }
+{ "kind": "deskmap-profile", "version": 3, "name": "Office",
+  "exportedAt": "2026-09-14T10:00:00Z", "screens": [ … ], "rules": [ … ],
+  "desktopNames": { "docked|external": { "2": "Nova" } },
+  "plannedDesktops": { "docked|external": 4 } }
 ```
 
 On import, rule IDs are regenerated, the name is made unique (`Office (2)`),

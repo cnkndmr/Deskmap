@@ -130,6 +130,8 @@ switch between them instantly.
 
 - **+** makes an empty profile; click the active one to rename, duplicate,
   export or delete it.
+- Desktop names belong to the profile that gave them: a new profile starts
+  with no names, and renaming a desktop in one profile never changes another.
 - Export writes a `.deskmap.json` file — that's how you carry your setup
   to another Mac, or share it.
 - **Backups** (in the same panel): Deskmap backs up all profiles, pins and
