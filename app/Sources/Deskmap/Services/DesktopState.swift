@@ -34,6 +34,9 @@ struct DesktopStateFile: Codable, Equatable {
         /// ve taşıma haritası (space → space); metin anahtarlı.
         var rebinds: [String: UInt64]?
         var spaceMap: [String: UInt64]?
+        /// Yarıda kalan turların artıkları (açılan, boşaltılan, silinemeyen):
+        /// yeniden başlayan geçiş bunları da artık sayar.
+        var leftovers: [UInt64]?
     }
 
     var version = 1

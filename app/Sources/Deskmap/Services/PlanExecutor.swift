@@ -34,6 +34,8 @@ enum PlanExecutor {
 
     struct Outcome: Equatable {
         var created = 0
+        /// Bu uygulamanın açtığı space'ler (yarıda kalsa da).
+        var createdSpaces: [UInt64] = []
         var failedCreates: [String] = []
         var moved = 0
         var failedMoves: [CGWindowID] = []
@@ -55,6 +57,19 @@ enum PlanExecutor {
         guard !alive.isEmpty else { return false }
         let done = alive.filter { windowSpaces[$0.window] == $0.space }.count
         return done * 2 > alive.count
+    }
+
+    /// Bu uygulamanın artıkları (saf): girdinin artıkları, boşalttığı
+    /// (taşıma haritasının kaynakları), açtığı ve silmeyi planlayıp
+    /// silmediği space'ler. Yarıda kalan geçiş bunları kaydeder, yeniden
+    /// başlayınca artık sayar (ilk turun boşalttığı masaüstü artık
+    /// "boşaltılan" görünmez); biten geçişten sonra temizlik bunlara bakar.
+    static func leftovers(of plan: PlanApply.Output, input: PlanApply.Input,
+                          outcome: Outcome) -> Set<UInt64> {
+        var result = input.leftovers.union(plan.spaceMap.keys).union(plan.removals)
+            .union(outcome.createdSpaces)
+        result.subtract(outcome.removedSpaces)
+        return result
     }
 
     /// Açılışlardan sonra canlı sıra hesaplanan sırayla uyumlu mu (saf):
@@ -79,8 +94,14 @@ enum PlanExecutor {
                     world: World) async -> Outcome {
         var outcome = Outcome()
         guard !plan.isEmpty else { return outcome }
+        let known = Set(expected.values.joined())
+        func newSpaces() -> [UInt64] {
+            let live = world.liveSpaces()
+            return live.keys.sorted().flatMap { live[$0]!.filter { !known.contains($0) } }
+        }
         func stop(_ reason: String) -> Outcome {
             var result = outcome
+            if result.created > 0 { result.createdSpaces = newSpaces() }
             result.aborted = true
             result.abortReason = reason
             return result
@@ -100,6 +121,7 @@ enum PlanExecutor {
         }
         if world.shouldAbort() { return stop("interrupted") }
         let live = world.liveSpaces()
+        if outcome.created > 0 { outcome.createdSpaces = newSpaces() }
         // Açılan masaüstü sona gelmediyse ya da sıra kaydıysa sıra numaraları
         // yanlış masaüstünü gösterir: taşıma yapılmaz.
         guard consistent(live, with: expected) else { return stop("desktops changed while adding") }

@@ -134,6 +134,20 @@ struct PlanApplyTests {
         #expect(out.removals == [3])
     }
 
+    /// P1 temizliği: yalnız artık, planın ötesinde, boş, hiçbir profilde adsız, kuyrukta değil.
+    @Test func cleanupRemovesOnlyEmptyUnnamedLeftoversBeyondPlan() {
+        let removals = PlanApply.cleanupRemovals(
+            live: ["external": [1, 2, 3, 4, 5, 6, 7], "builtin": [8, 9]],
+            contents: [1: [10], 4: [40]],
+            plans: ["external": ["A", "", ""], "builtin": [""]],
+            named: [5], pending: [6], candidates: [2, 3, 4, 5, 6, 7, 9])
+        // 2: planın içinde; 4: dolu; 5: başka profilde adlı; 6: kuyrukta.
+        #expect(removals == [9, 7])
+        // Rolün tek masaüstü silinmez.
+        #expect(PlanApply.cleanupRemovals(live: ["builtin": [8]], contents: [:], plans: [:],
+                                          named: [], pending: [], candidates: [8]).isEmpty)
+    }
+
     // MARK: - Satır 5, 7
 
     /// Yarıda kesme ya da sınır: silme yok (kalan iş sonraki tura).

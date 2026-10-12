@@ -253,4 +253,135 @@ struct PlanExecutorTests {
             mode: .docked, live: fake.spaces, contents: fake.contents, names: names, plans: plans[.docked]))
         #expect(again.isEmpty)
     }
+
+    /// 12.10 gerçek Mac: tak, silerken ekran yeniden değişti ("interrupted
+    /// while removing"), geçiş yeniden başladı. Yeniden başlayan geçiş ilk
+    /// turun boşalttığı, planın ötesindeki boş masaüstünü de siler.
+    @Test func interruptWhileRemovingRestartStillRemovesLeftovers() async {
+        func n(_ id: String, _ space: UInt64?) -> DesktopName { DesktopName(id: id, name: id, space: space) }
+        var names = [n("AI", 3), n("HUB", 4), n("VEGA", 5)]
+        var plans = DesktopPlans()
+        plans.set(["", "", "AI"], .docked, "builtin")
+        plans.set(["HUB", "VEGA"], .docked, "external")
+        plans.set(["", "", "AI", "HUB", "VEGA"], .undocked, "builtin")
+        let fake = FakeDesktops(spaces: ["builtin": [1, 2, 3, 4, 5]],
+                                location: [10: 1, 11: 2, 12: 3, 13: 4, 14: 4, 15: 5])
+        let from = [DesktopStateFile.Display(role: "builtin", uuid: "builtin", spaces: [1, 2, 3, 4, 5])]
+        var fromContents: [String: [DesktopStateFile.WindowRef]] = [:]
+        for (space, list) in fake.contents { fromContents[String(space)] = list.map { .init(id: $0, pid: 1, bundleID: "") } }
+        // Tak: macOS monitöre yeni iki masaüstü verir, laptopta beşi kalır.
+        fake.spaces["external"] = [100, 101]
+        var persisted = Set<UInt64>()
+        func pass(abortAfterRemovals: Int?) async -> PlanExecutor.Outcome {
+            let displays = fake.spaces.keys.sorted().map { DesktopStateFile.Display(role: $0, uuid: $0, spaces: fake.spaces[$0]!) }
+            let extras = PlanApply.transitionExtras(
+                from: from, fromContents: fromContents, fromMode: .undocked, mode: .docked, live: displays,
+                windowSpaces: fake.location, namedBefore: Set(names.compactMap(\.space)), ruled: [],
+                parked: [], now: Date())
+            let input = PlanApply.Input(
+                mode: .docked, live: fake.spaces, contents: fake.contents, names: names, plans: plans[.docked],
+                leftovers: extras.leftovers.union(persisted))
+            let plan = PlanApply.compute(input)
+            let start = fake.removed.count
+            fake.abortWhen = { fake in abortAfterRemovals.map { fake.removed.count - start >= $0 } ?? false }
+            let out = await PlanExecutor.run(plan, expected: fake.spaces, windowSpaces: fake.location,
+                                             allowRemovals: true, world: fake.world)
+            for i in names.indices {
+                if let space = out.rebinds[names[i].id] { names[i].space = space }
+                else if let space = names[i].space, let next = out.spaceMap[space] { names[i].space = next }
+            }
+            if out.aborted { persisted.formUnion(PlanExecutor.leftovers(of: plan, input: input, outcome: out)) }
+            return out
+        }
+        let first = await pass(abortAfterRemovals: 1)
+        #expect(first.aborted && first.abortReason == "interrupted while removing")
+        #expect(fake.removed == [5])
+        let second = await pass(abortAfterRemovals: nil)
+        #expect(!second.aborted)
+        #expect(fake.removed == [5, 4])
+        #expect(fake.spaces["builtin"] == [1, 2, 3] && fake.spaces["external"] == [100, 101])
+        #expect(!fake.removedNonEmpty)
+    }
+
+    /// 12.10 gerçek Mac ("Profile 4"): her takışta monitöre bir masaüstü
+    /// açılıyor, yönlendirme kurallı pencereyi laptopa geri alınca boş
+    /// kalıyordu; döngüler fazlalık biriktiriyordu. Temizlikle sayı her
+    /// döngüde plana yakınsar, dolu ya da adlı masaüstü silinmez.
+    @Test func repeatedCyclesConvergeToPlanLength() async {
+        func n(_ id: String, _ space: UInt64?) -> DesktopName { DesktopName(id: id, name: id, space: space) }
+        var names = [n("AI", 4), n("HUB", 21), n("VEGA", 22), n("EXPO", 23), n("LUMEN", 24), n("ORION", 25)]
+        var plans = DesktopPlans()
+        plans.set(["", "", "", "AI", ""], .docked, "builtin")
+        plans.set(["HUB", "VEGA", "EXPO", "LUMEN", "ORION"], .docked, "external")
+        plans.set(["", "", "", "AI", "HUB", "VEGA", "EXPO", "LUMEN", "ORION", ""], .undocked, "builtin")
+        // 50: kurallı pencere (laptop 5); yönlendirme her uygulamadan sonra onu yerine alır.
+        let fake = FakeDesktops(
+            spaces: ["builtin": [1, 2, 3, 4, 5], "external": [21, 22, 23, 24, 25]],
+            location: [10: 1, 11: 2, 12: 3, 13: 4, 50: 5, 31: 21, 32: 22, 33: 23, 34: 24, 35: 25])
+        func displays() -> [DesktopStateFile.Display] {
+            fake.spaces.keys.sorted().map { .init(role: $0, uuid: $0, spaces: fake.spaces[$0]!) }
+        }
+        func refs() -> [String: [DesktopStateFile.WindowRef]] {
+            var out: [String: [DesktopStateFile.WindowRef]] = [:]
+            for (space, list) in fake.contents { out[String(space)] = list.map { .init(id: $0, pid: 1, bundleID: "") } }
+            return out
+        }
+        func cycle(to mode: Mode, change: () -> Void) async {
+            let from = displays(), fromContents = refs(), fromMode: Mode = mode == .docked ? .undocked : .docked
+            change()
+            let live = LiveDesktops(mode: mode, spaces: fake.spaces)
+            let snapshot = Succession.Snapshot(spaces: Dictionary(uniqueKeysWithValues: from.map { ($0.role, $0.spaces) }),
+                                               contents: DesktopStateFile.windowIDs(fromContents))
+            let namedBefore = Set(names.compactMap(\.space))
+            let succession = Succession.resolve(names: names, snapshot: snapshot, live: live,
+                                                windowSpaces: fake.location, plans: plans)
+            names = succession.names
+            let extras = PlanApply.transitionExtras(
+                from: from, fromContents: fromContents, fromMode: fromMode, mode: mode, live: displays(),
+                windowSpaces: fake.location, namedBefore: namedBefore, ruled: [50], parked: [], now: Date())
+            let input = PlanApply.Input(
+                mode: mode, live: fake.spaces, contents: fake.contents, names: names, plans: plans[mode],
+                evacuation: succession.evacuation, arriving: extras.arriving, leftovers: extras.leftovers)
+            let plan = PlanApply.compute(input)
+            let out = await PlanExecutor.run(plan, expected: fake.spaces, windowSpaces: fake.location,
+                                             allowRemovals: true, world: fake.world)
+            #expect(!out.aborted)
+            for i in names.indices {
+                if let space = out.rebinds[names[i].id] { names[i].space = space }
+                else if let space = names[i].space, let next = out.spaceMap[space] { names[i].space = next }
+            }
+            // Yönlendirme: kurallı pencere laptopun 5. masaüstüne.
+            if mode == .docked, let target = fake.spaces["builtin"]?[4] { fake.location[50] = target }
+            // Temizlik (P1): geçişin artıklarından boş kalanlar.
+            var cleanup = PlanApply.Output()
+            cleanup.removals = PlanApply.cleanupRemovals(
+                live: fake.spaces, contents: fake.contents, plans: plans[mode],
+                named: Set(names.compactMap(\.space)), pending: [],
+                candidates: PlanExecutor.leftovers(of: plan, input: input, outcome: out))
+            _ = await PlanExecutor.run(cleanup, expected: fake.spaces, windowSpaces: fake.location,
+                                       allowRemovals: true, world: fake.world)
+        }
+        var external: [UInt64] = []
+        for _ in 0..<3 {
+            // Çıkar: monitör masaüstüleri laptopun sonuna.
+            await cycle(to: .undocked) {
+                external = fake.spaces["external"]!
+                fake.spaces["builtin"]! += external
+                fake.spaces["external"] = nil
+            }
+            #expect(fake.spaces["builtin"]!.count == 10)
+            // Tak: macOS monitörün space'lerini kimlikleriyle geri verir.
+            await cycle(to: .docked) {
+                let back = fake.spaces["builtin"]!.filter { external.contains($0) }
+                fake.spaces["builtin"]!.removeAll { external.contains($0) }
+                fake.spaces["external"] = back
+            }
+            #expect(fake.spaces["builtin"]!.count == 5 && fake.spaces["external"]!.count == 5)
+            #expect(fake.location[50] == fake.spaces["builtin"]![4])
+        }
+        #expect(!fake.removedNonEmpty)
+        let place = LiveDesktops(mode: .docked, spaces: fake.spaces)
+        #expect(names.first { $0.id == "HUB" }?.space.flatMap { place.place(of: $0) } == s("external", 1))
+        #expect(names.first { $0.id == "AI" }?.space.flatMap { place.place(of: $0) } == s("builtin", 4))
+    }
 }

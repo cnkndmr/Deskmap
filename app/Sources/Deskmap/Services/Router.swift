@@ -1307,6 +1307,8 @@ final class Router: ObservableObject {
     private let launchedAt = Date()
     /// Aynı geçişte en çok bu kadar uygulama turu (sınır aşılınca yeni tur).
     private var applyPasses = 0
+    /// Biten geçişin artıkları; kısa süre sonra boş olanlar silinir (P1).
+    private var cleanupCandidates: Set<UInt64> = []
     @Published private(set) var planStatus: PlanStatus?
 
     /// Geçiş başlangıcından bu kadar sonra ad geçişi kanıtsız da tamamlanır.
@@ -1429,6 +1431,11 @@ final class Router: ObservableObject {
             id: UUID().uuidString, startedAt: Date(), reason: reason, from: base.displays,
             fromContents: base.contents, fromMode: base.mode)
         applyPasses = 0
+        // Temizliği bekleyen artıklar yeni geçişe geçer (P1).
+        if !cleanupCandidates.isEmpty {
+            transition?.leftovers = cleanupCandidates.sorted()
+            cleanupCandidates = []
+        }
         Log.screens.notice("Desktop transition started (\(reason, privacy: .public)); before: \(base.displays.map { "\($0.role)=\($0.spaces.count)" }.joined(separator: " "), privacy: .public)")
         writeDesktopState()
     }
@@ -1684,7 +1691,8 @@ final class Router: ObservableObject {
             names: store.document.names, plans: store.document.plans[mode], evacuation: evacuation,
             arriving: extras.arriving,
             parked: mode == .docked ? parked.filter { live.spaces[$0.role] != nil } : [],
-            leftovers: extras.leftovers, otherNamed: otherNamed, pending: pending,
+            leftovers: extras.leftovers.union(current.leftovers ?? []), otherNamed: otherNamed,
+            pending: pending,
             allowRemovals: true, allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
         let plan = PlanApply.compute(input)
         if !input.allowMoves {
@@ -1693,10 +1701,14 @@ final class Router: ObservableObject {
         }
         let outcome = await execute(plan, expected: live.spaces, refs: refs,
                                     windowSpaces: fresh.windowSpaces, allowRemovals: true)
+        let leftovers = PlanExecutor.leftovers(of: plan, input: input, outcome: outcome)
         if outcome.aborted {
             // Yapılan taşımaların bağları kaydedilir (yoksa yeniden hesapta
-            // adın içeriği "adsız" sayılıp başka yere taşınırdı).
+            // adın içeriği "adsız" sayılıp başka yere taşınırdı). Bu turun
+            // artıkları kaydedilir: yeniden başlayan geçiş onları da siler
+            // (ilk turun boşalttığı masaüstü artık "boşaltılan" görünmez).
             store.commitPlan(rebinds: outcome.rebinds, spaceMap: outcome.spaceMap)
+            transition?.leftovers = leftovers.sorted()
             clearJournal()
             writeDesktopState()
             Log.screens.notice("Desktop transition interrupted (\(outcome.abortReason ?? "", privacy: .public)); it restarts from the saved state when displays settle")
@@ -1714,6 +1726,7 @@ final class Router: ObservableObject {
         // sayılmaz (P.2: commit + 3 sn).
         extendQuietWindow(seconds: 3)
         report(outcome, plan: plan, mode: mode, reason: current.reason)
+        scheduleLeftoverCleanup(leftovers)
         if plan.truncated, applyPasses < 2 {
             applyPasses += 1
             Task { [weak self] in
@@ -1722,6 +1735,66 @@ final class Router: ObservableObject {
             }
         }
         reapplyAll()
+    }
+
+    /// Biten geçişin artıkları: yönlendirme bitince (5 sn) boş kalanlar
+    /// silinir (P1). Geçişte açılıp kurallı pencereleri yerine dönen ya da
+    /// yarıda kalan turun boşalttığı masaüstüleri planın ötesinde birikmez.
+    private func scheduleLeftoverCleanup(_ spaces: Set<UInt64>) {
+        cleanupCandidates = spaces
+        guard !spaces.isEmpty else { return }
+        Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            await self?.removeLeftovers(attempt: 0)
+        }
+    }
+
+    private func removeLeftovers(attempt: Int) async {
+        guard !cleanupCandidates.isEmpty, transition == nil else { return }
+        guard !isDemo, !store.migrationPending, !store.isReadOnly else {
+            cleanupCandidates = []
+            return
+        }
+        if transitionRunning || screens.isSettling || desktopOpInFlight || isPaused
+            || !SkyLight.shared.canRead {
+            guard attempt < 3 else {
+                cleanupCandidates = []
+                return
+            }
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 3_000_000_000)
+                await self?.removeLeftovers(attempt: attempt + 1)
+            }
+            return
+        }
+        transitionRunning = true
+        defer { transitionRunning = false }
+        let mode = screens.mode
+        let displays = readLiveDisplays()
+        guard !displays.isEmpty else { return }
+        let live = LiveDesktops(mode: mode, spaces: Self.spaces(displays))
+        let fresh = await withCheckedContinuation { continuation in
+            queue.async { continuation.resume(returning: Self.readWindowSpaces()) }
+        }
+        let candidates = cleanupCandidates
+        cleanupCandidates = []
+        guard transition == nil, !screens.isSettling, Self.spaces(readLiveDisplays()) == live.spaces
+        else { return }
+        var named = Set<UInt64>()
+        for profile in store.document.profiles { named.formUnion(profile.names.compactMap(\.space)) }
+        named.formUnion(store.document.names.compactMap(\.space))
+        var plan = PlanApply.Output()
+        plan.removals = PlanApply.cleanupRemovals(
+            live: live.spaces, contents: fresh.contents.mapValues { $0.map(\.id) },
+            plans: store.document.plans[mode], named: named,
+            pending: Self.pendingQueue(store.document.pendingRemovals, mode: mode).all,
+            candidates: candidates)
+        guard !plan.removals.isEmpty else { return }
+        let outcome = await execute(plan, expected: live.spaces, refs: [:],
+                                    windowSpaces: fresh.windowSpaces, allowRemovals: true)
+        commitSnapshot()
+        extendQuietWindow(seconds: 3)
+        Log.app.notice("Leftover cleanup (\(mode.rawValue, privacy: .public)): removed \(outcome.removed) of \(plan.removals.count) empty desktop(s) beyond the plan")
     }
 
     /// Çökmeden kalan günlük (C6, B 21): taşımalar yapılmışsa bağlar ve

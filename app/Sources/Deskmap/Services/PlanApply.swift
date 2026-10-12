@@ -108,6 +108,33 @@ enum PlanApply {
         return removals.filter { !blocked.contains($0) }
     }
 
+    /// Biten geçişten sonra artık temizliği (saf, P1): geçişin artıkları
+    /// (`candidates`) arasından planın ötesinde, boş, hiçbir profilde adlı
+    /// olmayan, kuyrukta olmayan masaüstüleri; rol başına sondan, en az bir
+    /// masaüstü kalır. Taşıma yok: yönlendirmenin boşalttığı (geçişte açılıp
+    /// kurallı pencereleri yerine dönen) masaüstü de buradan silinir.
+    static func cleanupRemovals(live: [String: [UInt64]], contents: [UInt64: [CGWindowID]],
+                                plans: [String: [String]], named: Set<UInt64>,
+                                pending: Set<UInt64>, candidates: Set<UInt64>,
+                                maxRemovals: Int = 8) -> [UInt64] {
+        var removals: [UInt64] = []
+        for role in live.keys.sorted() {
+            let list = live[role] ?? []
+            let planned = (plans[role] ?? []).count
+            var remaining = list.count
+            for index in list.indices.reversed() {
+                let space = list[index]
+                guard index + 1 > max(1, planned), remaining > 1, candidates.contains(space),
+                      (contents[space] ?? []).isEmpty, !named.contains(space), !pending.contains(space)
+                else { continue }
+                guard removals.count < maxRemovals else { return removals }
+                removals.append(space)
+                remaining -= 1
+            }
+        }
+        return removals
+    }
+
     /// Geçişin plana ek girdileri (saf, §P.1 adım 3).
     struct TransitionExtras: Equatable {
         /// Rol → bu role yerleşecek adsız pencere grupları.
