@@ -55,10 +55,10 @@ COMMANDS:
   move W DESKTOP-NAME | pin W DESKTOP-NAME [--desktop-only] target by desktop name
                                    (--desktop-only: follow the desktop, keep position/size)
   desktops | name SCREEN N [NAME] [--mode M]  list desktop names | name a desktop (no NAME:
-                                   remove). Names belong to a setup like pins: a laptop desktop's
-                                   name is in both setups; moving a named desktop to the monitor
-                                   moves the monitor setup's name only, and on unplug/plug its
-                                   windows follow to the same-named desktop of the new setup.
+                                   remove). A name belongs to one desktop and follows it on any
+                                   display; each setup has a plan (desktop order per display) that
+                                   Deskmap applies on plug/unplug. Pins to a named desktop follow
+                                   the name (`desktops` lists names, live places and plans).
   rule add --app A [--title T ...] --screen S [--desktop N] [--layout L|desktop-only]
            [--undocked-screen S --undocked-desktop N] | rule rm ID
   save-layout RULE [--window W]    use the window's current frame as the rule's layout
@@ -208,12 +208,26 @@ def show_desktops(args):
     s = fresh_status()
     names = desktop_names(s)
     if args.json:
-        print(json.dumps(s.get("desktopNames") or {}, indent=2, ensure_ascii=False)); return
+        print(json.dumps({"desktopNames": s.get("desktopNames") or {}, "names": s.get("names") or [],
+                          "plans": s.get("plans") or {}}, indent=2, ensure_ascii=False)); return
     ghosts = s.get("deletedDesktops") or []
-    if not names and not ghosts:
+    records = s.get("names")
+    if not names and not ghosts and not records:
         print("(no desktop names; name one: deskmap name SCREEN N NAME)"); return
-    for sc, n, name in names:
-        print(f"{sc + '/' + str(n):<14} {name}")
+    if records is not None:
+        # Şema 6: ad bir masaüstüne bağlı; yer canlı, plan kurulum başına.
+        for r in sorted(records, key=lambda r: (r.get("screen") or "~", r.get("desktop") or 99, r["name"])):
+            here = f"{r['screen']}/{r['desktop']}" if r.get("screen") else "(no desktop yet)"
+            planned = ", ".join(f"{m}: {p}" for m, p in sorted((r.get("planned") or {}).items()))
+            print(f"{here:<16} {r['name']}" + (f"   plan {planned}" if planned else ""))
+        for mode, screens in sorted((s.get("plans") or {}).items()):
+            ids = {r["id"]: r["name"] for r in records}
+            for screen, entries in sorted(screens.items()):
+                row = " | ".join(ids.get(e, "·") if e else "·" for e in entries)
+                print(f"plan {mode}/{screen}: {row}")
+    else:
+        for sc, n, name in names:
+            print(f"{sc + '/' + str(n):<14} {name}")
     for g in ghosts:
         apps = ", ".join(sorted({p["rule"]["appName"] for p in g.get("pins", [])}))
         print(f"{g['screen'] + ' deleted':<14} {g.get('name') or '(no name)'}"
