@@ -294,6 +294,13 @@ their pin count.
 - Click a profile to switch to it. Windows are placed again right away.
 - Click the active profile to rename, **Duplicate**, **Export** or **Delete**
   it (the last profile cannot be deleted).
+- Desktop names, deleted-desktop rows and planned desktops belong to each
+  profile. **+** starts with none; **Duplicate** copies them; switching shows
+  the target's names at once and only creates missing planned desktops
+  (never deletes one). Export carries names and planned desktops (not the
+  Mac-specific desktop bindings or deleted-desktop rows). When a desktop is
+  moved or deleted in Mission Control, every profile's names follow it, and
+  each profile that named a deleted desktop gets its own deleted-desktop row.
 - **+** creates an empty profile. The import button reads a
   `.deskmap.json` file exported earlier; a plain `rules.json` also works.
 - Profiles can be switched from Shortcuts, Raycast and others via the
@@ -309,7 +316,8 @@ There are no confirmation dialogs. After these actions the footer shows
 - unpinning (**Pin removed**), dragging a pin to another desktop (**Pin
   moved**), re-pinning over an existing target (**Pin updated**), saving the
   window's current size as the layout (**Layout saved**), editing title
-  parts, reordering desktops, deleting a profile, dragging a temporary pin.
+  parts, reordering desktops, deleting a profile, dragging a temporary pin,
+  restoring a backup (**Backup restored**).
 
 Undo is one level deep and restores only that action. Any other change in
 between (a new pin, a layout step, a profile switch, a URL command) cancels
@@ -331,9 +339,38 @@ saved and survives restarts.
 | `~/Library/Application Support/Deskmap/rules.json` | Pins, profiles, known displays, the on/off switch. Written 0.4 s after a change and on quit. |
 | `~/Library/Application Support/Deskmap/rules.json.bak` | Copy of an unreadable or partly unreadable `rules.json`, made before it is overwritten. |
 | `~/Library/Application Support/Deskmap/session-pins.json` | Temporary pins (window ID + process ID). |
+| `~/Library/Application Support/Deskmap/Backups/` | Automatic backups (see [Backups](#backups)). |
 | `<name>.deskmap.json` | An exported profile. |
 
 See [docs/architecture.md](architecture.md#data-files) for the formats.
+
+### Backups
+
+The app backs up `rules.json` (all profiles, pins, desktop names and
+plans), plus `hooks.json` and `desktop-spaces.json` when they exist, by
+itself: at launch, every five minutes while running, after wake and when the
+clock, time zone or day changes. No script or launch agent is involved.
+
+| Folder | One file per | Kept |
+|---|---|---|
+| `Backups/hourly/hourly-YYYYMMDDTHHZ.json` | hour (UTC, so daylight-saving changes don't collide) | last 24 hours |
+| `Backups/daily/daily-YYYY-MM-DD.json` | local day; holds that day's latest state | last 7 days |
+| `Backups/weekly/weekly-YYYY-Www.json` | ISO week; holds that week's latest state | forever |
+| `Backups/pre-restore/pre-restore-…Z.json` | restore; the state just before it | last 10 |
+
+- A file is only rewritten when its content changed; each write goes to a
+  temporary file that is renamed into place.
+- A `rules.json` that can't be read, has skipped rules or belongs to a newer
+  Deskmap is never backed up; an empty document (no pins at all) never
+  replaces a backup that has pins.
+- Pruning only removes files whose names it recognizes, keeps the newest file
+  of every tier, and never touches `weekly/`.
+- **Restore**: **Settings › Backups** (or **Backups…** in the profile panel)
+  → **Restore** → **Replace current profiles**. The current state goes to `pre-restore/` first, the document
+  is replaced (the on/off switch and known displays stay as they are),
+  `hooks.json` returns to the backed-up version and windows are placed again.
+  The footer offers *Backup restored · Undo*. `desktop-spaces.json` is not
+  restored; its desktop IDs belong to the running session.
 
 ## Automation (URL scheme)
 
@@ -366,6 +403,8 @@ running, macOS starts it first.
 | `deskmap://profile-set?json=<profile>&activate=1` | Create or update a profile by name |
 | `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Make a display have *count* desktops |
 | `deskmap://desktop-name/<screen>/<n>?name=<name>` | Name a desktop (empty name removes it). Names follow the real desktop when it is reordered, moved or removed in Mission Control |
+| `deskmap://backup-now` | Run the automatic backup now |
+| `deskmap://backup-restore/<id>` | Restore a backup by id (e.g. `daily-2026-10-12`); see [Backups](#backups) |
 
 Any command accepts `?req=<id>`: after handling it Deskmap writes
 `status.json` with `"request": "<id>"`, so a script can wait for the command
@@ -398,6 +437,9 @@ deskmap pause | resume | reload | profile Office
 deskmap profile-rename Office "Office desk"
 deskmap export ~/office.deskmap.json [--profile Office]
 deskmap desktop-move external 1 3          # desktop 1 becomes desktop 3
+deskmap backups [--json]                   # automatic backups, newest first
+deskmap backup-now
+deskmap backup-restore daily-2026-10-12
 deskmap save-layout Safari [--window 12345] # keep the size you just dragged
 ```
 

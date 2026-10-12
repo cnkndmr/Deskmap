@@ -176,8 +176,18 @@ switches between them instantly.
 - **Settings › Profiles** lists them: **Use** switches, **⋯** renames,
   duplicates, exports or deletes; **New empty profile** and **Import…** below.
   A new or duplicated profile does not switch on by itself: press **Use**.
+- Desktop names belong to the profile that gave them: a new profile starts
+  with no names, and renaming a desktop in one profile never changes another.
 - Export writes a `.deskmap.json` file — that's how you carry your setup
   to another Mac, or share it.
+- **Settings › Backups**: Deskmap backs up all profiles, pins and desktop
+  names by itself — one copy per hour for the last day, one per day for the
+  last week, one per week forever. Click **Restore** on one, then **Replace
+  current profiles**; your current state is backed up first, and the map's
+  footer offers *Undo* (⌘Z). **Back up now** takes a copy right away.
+- **⋯ › Copy the Laptop only plan here** (Monitor connected plan) copies the
+  laptop pins *and* the laptop desktop names of the active profile; a name
+  that was elsewhere in the Monitor connected plan moves with it.
 
 ## 8. When you change your mind
 

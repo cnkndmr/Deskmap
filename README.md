@@ -71,6 +71,9 @@ in or unplug a monitor.
 - **Free move.** Let a pinned window roam for 1 to 60 minutes; then it goes
   home. Also from a right-click on the menu bar icon.
 - **Profiles.** *Office*, *Home*, *Café*: switch with a click.
+- **Automatic backups.** Every profile, pin and desktop name is backed up
+  hourly (kept a day), daily (kept a week) and weekly (kept forever), inside
+  the app. Restore any of them from Settings › Backups; undoable.
 - **Undo instead of dialogs.** ⌘Z for ten seconds after every destructive
   action.
 - **Automation.** `deskmap://` URLs for Shortcuts, Raycast or a terminal.

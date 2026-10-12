@@ -6,6 +6,28 @@ number comes from the `VERSION` file.
 
 ## [Unreleased]
 
+### Changed
+
+- **Desktop names belong to a profile**: names, their desktop bindings,
+  deleted-desktop rows and planned desktops are now kept per profile. A new
+  profile starts without names, renaming in one profile never changes
+  another, switching shows the target profile's names immediately and only
+  creates missing planned desktops. Duplicate copies them; export/import
+  carries names and planned desktops. Mission Control moves and deletions
+  update every profile, and each profile that named a deleted desktop gets its
+  own deleted-desktop row. `rules.json` schema 5: older files are split by use
+  (a name goes only to profiles with a pin on that desktop); an older Deskmap
+  opens the new file read-only.
+- **Copy the Laptop only plan here** (⋯ menu) also copies the laptop desktop
+  names into the Monitor connected plan (the same name elsewhere in that plan
+  is removed), keeps laptop desktop bindings, grows the plan, and works when
+  the laptop setup has only desktop names or planned desktops. Queued desktop
+  removals of the active profile on the copied screens are cleared; other
+  profiles' queued removals stay.
+- A name that cannot find a free desktop number (its desktop still exists)
+  now stays on a name-only deleted-desktop row in its own profile instead of
+  disappearing; no pins move.
+
 ### Fixed
 
 - **Desktop names no longer get lost through the other setup's plan.** Removing
@@ -18,6 +40,15 @@ number comes from the `VERSION` file.
   look deleted (which turned them into deleted-desktop rows and took their pins
   and their other-setup counterparts along), and a name whose desktop still
   exists is never treated as deleted.
+
+### Added
+
+- **Automatic backups**: the app backs up all profiles, pins and desktop
+  names hourly (kept 24 hours), daily (kept 7 days) and weekly (kept
+  forever) under `Application Support/Deskmap/Backups/`. Restore from
+  **Settings › Backups** (also **Backups…** in the profile panel) or with `deskmap backups` /
+  `deskmap backup-restore <id>`; the current state is backed up first and the
+  restore can be undone. Replaces the external `profile-backup.sh` script.
 
 ## [0.5.0] — 2026-09-30
 

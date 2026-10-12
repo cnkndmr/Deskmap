@@ -182,8 +182,19 @@ anında geçiş yapar.
   adlandırır, çoğaltır, dışa aktarır ya da siler; altta **Yeni boş profil** ve
   **İçe aktar…**. Yeni ya da çoğaltılan profil kendiliğinden geçerli olmaz:
   **Kullan**'a bas.
+- Masaüstü adları onları veren profile aittir: yeni profil adsız başlar, bir
+  profilde masaüstünü yeniden adlandırmak öbürünü hiç değiştirmez.
 - Dışa aktarma `.deskmap.json` dosyası yazar — düzenini başka Mac'e
   taşımanın ya da paylaşmanın yolu.
+- **Ayarlar › Yedekler**: Deskmap tüm profilleri, sabitlemeleri ve masaüstü
+  adlarını kendiliğinden yedekler — son bir gün için saatte bir, son bir hafta
+  için günde bir, haftada bir de süresiz. Birinde **Geri getir**'e, sonra
+  **Şimdiki profillerin yerine koy**'a tıkla; şimdiki hâlin önce yedeklenir,
+  haritanın alt çubuğunda *Geri al* çıkar (⌘Z). **Şimdi yedekle** hemen bir
+  kopya alır.
+- **⋯ › Sadece laptop planını buraya kopyala** (Monitör bağlı planı) etkin
+  profilin laptop sabitlemelerini *ve* laptop masaüstü adlarını kopyalar;
+  Monitör bağlı planında başka yerde duran aynı ad onunla birlikte taşınır.
 
 ## 8. Fikrini değiştirdiğinde
 
