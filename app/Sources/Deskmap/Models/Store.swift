@@ -1505,7 +1505,11 @@ final class Store: ObservableObject {
     /// değişmez.
     init(demo document: Document) {
         self.document = document
+        persists = false
     }
+
+    /// Demo/test örneği diske hiç yazmaz (`save` sessizce döner).
+    private var persists = true
 
     /// Bekleyen değişiklikleri hemen diske yazar.
     func flush() {
@@ -1555,6 +1559,7 @@ final class Store: ObservableObject {
     }
 
     func save() {
+        guard persists else { return }
         // Yeni sürümün dosyası: dokunma, uyarı alt çubukta kalsın.
         guard !isReadOnly else {
             lastError = Self.newerVersionMessage
@@ -1563,14 +1568,38 @@ final class Store: ObservableObject {
         do {
             try FileManager.default.createDirectory(
                 at: Self.directoryURL, withIntermediateDirectories: true)
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys,
-                                        .withoutEscapingSlashes]
-            try encoder.encode(document).write(to: Self.fileURL, options: .atomic)
+            try Self.encode(document).write(to: Self.fileURL, options: .atomic)
             lastError = nil
         } catch {
             lastError = L("Could not write rules.json: %@", error.localizedDescription)
         }
+    }
+
+    /// `rules.json` biçimi (kayıt ve geri yükleme öncesi yedek aynı baytlar).
+    nonisolated static func encode(_ document: Document) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(document)
+    }
+
+    /// Yedekten gelen belgeyi yükler (bkz. `BackupService.restore`). Olağan
+    /// değişiklik yolu: alt çubukta "Geri al" çıkar, hemen diske yazılır.
+    /// Açık/kapalı anahtarı ve tanınan ekranlar geri almadaki gibi şu anki
+    /// değerleriyle kalır (yedekle ilgisizler).
+    func restoreBackup(_ backup: Document) {
+        guard !isReadOnly, !backup.isFromNewerVersion else {
+            lastError = Self.newerVersionMessage
+            return
+        }
+        var restored = backup
+        restored.fileVersion = Document.currentVersion
+        restored.droppedRuleCount = 0
+        restored.version = Document.currentVersion
+        restored.enabled = document.enabled
+        restored.screens = document.screens
+        restored.syncActiveProfile()
+        recording(L("Backup restored")) { document = restored }
+        flush()
     }
 
     // MARK: - Geri alma

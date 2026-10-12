@@ -65,6 +65,10 @@ COMMANDS:
   pause | resume | toggle | reapply | reload | next-profile | profile NAME
   profile-rename OLD NEW | export FILE [--profile P]
   desktop-move SCREEN N M [--mode M]   reorder desktops (rules/pins/windows follow)
+  backups [--json] | backup-now | backup-restore ID
+                                   automatic backups of all profiles (hourly for 24 h,
+                                   daily for 7 days, weekly forever); restore first backs
+                                   up the current state and can be undone in the app
   W: window id or a unique app/title fragment. SCREEN: builtin, external,
   external-2… or part of the display name. DESKTOP-NAME: a name given to a
   desktop (in the app: double-click "Desktop N" on the map, or `deskmap name`);
@@ -73,7 +77,8 @@ COMMANDS:
 
 FILES: ~/Library/Application Support/Deskmap/: rules.json (rules, profiles),
 status.json (live state), hooks.json (commands run when a window changes screen,
-see docs/reference.md), apply-history/ (undo records), layouts/ (layout files).
+see docs/reference.md), apply-history/ (undo records), layouts/ (layout files),
+Backups/ (automatic backups: hourly/, daily/, weekly/, pre-restore/).
 """
 import argparse
 import json
@@ -88,6 +93,8 @@ from pathlib import Path
 DIR = Path.home() / "Library/Application Support/Deskmap"
 STATUS = DIR / "status.json"
 HOOKS = DIR / "hooks.json"
+BACKUPS = DIR / "Backups"
+BACKUP_TIERS = ("hourly", "daily", "weekly", "pre-restore")
 TIMEOUT = 5.0
 
 
@@ -321,6 +328,54 @@ def show_hooks(args):
     if not HOOKS.exists():
         print("(no hooks.json)"); return
     print(HOOKS.read_text().rstrip())
+
+
+def backup_entries():
+    """Uygulamanın yazdığı yedekler (en yeni önce); okunamayanlar atlanır."""
+    entries = []
+    for tier in BACKUP_TIERS:
+        folder = BACKUPS / tier
+        if not folder.is_dir():
+            continue
+        for path in folder.glob(f"{tier}-*.json"):
+            try:
+                bundle = json.loads(path.read_text())
+                doc = json.loads(bundle["files"]["rules.json"])
+            except (OSError, ValueError, KeyError, TypeError):
+                continue
+            if bundle.get("kind") != "deskmap-backup":
+                continue
+            active = doc.get("activeProfileID")
+            profiles = [{"name": pr.get("name", ""), "rules": len(pr.get("rules", [])),
+                         "active": pr.get("id") == active} for pr in doc.get("profiles", [])]
+            entries.append({"id": path.stem, "tier": tier, "created": bundle.get("created", ""),
+                            "profiles": profiles})
+    entries.sort(key=lambda e: (e["created"], e["id"]), reverse=True)
+    return entries
+
+
+def show_backups(args):
+    entries = backup_entries()
+    if args.json:
+        print(json.dumps(entries, indent=2, ensure_ascii=False)); return
+    if not entries:
+        print("(no backups yet)"); return
+    for tier in BACKUP_TIERS:
+        rows = [e for e in entries if e["tier"] == tier]
+        if not rows:
+            continue
+        print(f"{tier}:")
+        for e in rows:
+            profiles = ", ".join(f"{'*' if p['active'] else ''}{p['name']} ({p['rules']})"
+                                 for p in e["profiles"])
+            print(f"  {e['id']:<34} {e['created']:<21} {profiles}")
+
+
+def backup_restore(args):
+    if args.id not in {e["id"] for e in backup_entries()}:
+        die(f"backup not found: {args.id} (see `deskmap backups`)")
+    send(f"backup-restore/{urllib.parse.quote(args.id, safe='')}")
+    print(f"restored {args.id} (the previous state is in pre-restore/; Undo in the app)")
 
 
 def layout(text):
@@ -994,6 +1049,10 @@ def main():
     sp.set_defaults(fn=export_profile)
     sp = sub.add_parser("desktop-move"); sp.add_argument("screen"); sp.add_argument("src", type=int)
     sp.add_argument("dst", type=int); sp.add_argument("--mode", choices=MODES); sp.set_defaults(fn=desktop_move)
+    sp = sub.add_parser("backups"); sp.add_argument("--json", action="store_true")
+    sp.set_defaults(fn=show_backups)
+    sub.add_parser("backup-now").set_defaults(fn=lambda a: (send("backup-now"), print("backed up")))
+    sp = sub.add_parser("backup-restore"); sp.add_argument("id"); sp.set_defaults(fn=backup_restore)
     sp = sub.add_parser("save-layout"); sp.add_argument("rule"); sp.add_argument("--window")
     sp.set_defaults(fn=save_layout)
     sp = sub.add_parser("apply"); sp.add_argument("file", nargs="?")

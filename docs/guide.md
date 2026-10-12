@@ -132,6 +132,11 @@ switch between them instantly.
   export or delete it.
 - Export writes a `.deskmap.json` file — that's how you carry your setup
   to another Mac, or share it.
+- **Backups** (in the same panel): Deskmap backs up all profiles, pins and
+  desktop names by itself — one copy per hour for the last day, one per day
+  for the last week, one per week forever. Pick one and click **Restore**
+  twice; your current state is backed up first, and the footer offers
+  *Undo*.
 
 ## 8. When you change your mind
 

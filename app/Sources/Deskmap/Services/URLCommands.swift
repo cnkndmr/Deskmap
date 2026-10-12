@@ -31,6 +31,9 @@ import Foundation
 ///     deskmap://profile-set?json=<profil>&activate=1  profili ada göre ekle/güncelle
 ///     deskmap://plan-desktops/<ekran>/<n>?mode=docked|undocked  ekranda n masaüstü olsun
 ///     deskmap://desktop-name/<ekran>/<n>?name=<ad>[&mode=]  masaüstüne ad ver (boş ad siler)
+///     deskmap://backup-now           otomatik yedeği şimdi çalıştır
+///     deskmap://backup-restore/<kimlik>  yedeği geri yükle (önce şimdiki hâli
+///                                    pre-restore katmanına yedekler; geri alınabilir)
 ///
 /// Her komut `?req=<n>` alabilir: işlendikten sonra status.json `request: n`
 /// ile yazılır (`deskmap` komut satırı aracı bununla bekler).
@@ -61,6 +64,8 @@ enum URLCommand: Equatable {
     case moveDesktop(screen: String, from: Int, to: Int, mode: Mode?)
     case saveLayout(rule: String, window: CGWindowID?)
     case nameDesktop(screen: String, desktop: Int, name: String, mode: Mode? = nil)
+    case backupNow
+    case restoreBackup(id: String)
 
     static let scheme = "deskmap"
     /// Eski uygulama adı; süresiz kabul edilir (bkz. tip belgesi).
@@ -104,6 +109,10 @@ enum URLCommand: Equatable {
         switch command {
         case "reload":       return .reload
         case "status":       return .status
+        case "backup-now":   return parts.isEmpty ? .backupNow : nil
+        case "backup-restore":
+            guard parts.count == 1, !parts[0].isEmpty else { return nil }
+            return .restoreBackup(id: parts[0])
         case "pin":
             let desktopOnly = query.first { $0.name == "layout" }?.value == "desktop-only"
             return windowTarget().map {
@@ -268,6 +277,13 @@ enum URLCommands {
             store.load()
         case .status:
             break
+        case .backupNow:
+            guard let backups = AppModel.shared.backups else { return }
+            if let error = backups.runNow().skipped {
+                store.report(L("No backup taken: %@", error.localizedDescription))
+            }
+        case .restoreBackup(let id):
+            AppModel.shared.backups?.restore(id, store: store, router: router)
         case .pin(let window, let screen, let desktop, let desktopOnly):
             guard router.windows.contains(where: { $0.id == window }) else {
                 store.report(L("Window not found: %@", String(window)))

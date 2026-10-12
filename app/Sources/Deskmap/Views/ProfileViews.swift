@@ -136,6 +136,15 @@ struct ProfilePanel: View {
                     }
                     .help(L("Save as %@.deskmap.json", profile.name))
 
+                    if BackupService.current != nil {
+                        Button {
+                            ui.panel = .backups
+                        } label: {
+                            Label(L("Backups"), systemImage: "clock.arrow.circlepath")
+                        }
+                        .help(L("Automatic backups of all profiles: restore an earlier state"))
+                    }
+
                     Button(role: .destructive) {
                         store.deleteProfile(profile.id)
                         name = store.activeProfile?.name ?? ""

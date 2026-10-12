@@ -6,6 +6,15 @@ number comes from the `VERSION` file.
 
 ## [Unreleased]
 
+### Added
+
+- **Automatic backups**: the app backs up all profiles, pins and desktop
+  names hourly (kept 24 hours), daily (kept 7 days) and weekly (kept
+  forever) under `Application Support/Deskmap/Backups/`. Restore from the
+  profile panel (**Backups**) or with `deskmap backups` /
+  `deskmap backup-restore <id>`; the current state is backed up first and the
+  restore can be undone. Replaces the external `profile-backup.sh` script.
+
 ## [0.5.0] — 2026-09-30
 
 The first release with a download: a universal `Deskmap.app` on the

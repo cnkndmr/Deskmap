@@ -351,3 +351,23 @@
 "Send group to" = "Grubu gönder";
 "Desktop %ld (%@)" = "Masaüstü %ld (%@)";
 "Drag to move the whole group to another desktop; click to collapse" = "Bütün grubu başka masaüstüne taşımak için sürükleyin; daraltmak için tıklayın";
+
+/* Otomatik yedek */
+"Backups" = "Yedekler";
+"Automatic backups of all profiles: restore an earlier state" = "Tüm profillerin otomatik yedekleri: önceki bir hâli geri yükle";
+"Hourly (last 24 hours)" = "Saatlik (son 24 saat)";
+"Daily (last 7 days)" = "Günlük (son 7 gün)";
+"Weekly (kept forever)" = "Haftalık (hiç silinmez)";
+"Before restore" = "Geri yüklemeden önce";
+"Back up now" = "Şimdi yedekle";
+"Deskmap keeps all profiles, pins and desktop names: one copy per hour for a day, one per day for a week, one per week forever." = "Deskmap tüm profilleri, pinleri ve masaüstü adlarını saklar: bir gün boyunca saatte bir, bir hafta boyunca günde bir, haftada bir kopya (süresiz).";
+"No backups yet" = "Henüz yedek yok";
+"Replace current profiles" = "Şimdiki profillerin yerine koy";
+"Restore this backup; the current state is backed up first and can be undone" = "Bu yedeği geri yükle; şimdiki hâl önce yedeklenir ve geri alınabilir";
+"Backup restored" = "Yedek geri yüklendi";
+"Could not restore backup: %@" = "Yedek geri yüklenemedi: %@";
+"No backup taken: %@" = "Yedek alınmadı: %@";
+"There is no rules.json to back up" = "Yedeklenecek rules.json yok";
+"The backup cannot be read" = "Yedek okunamıyor";
+"The backup belongs to a newer version of Deskmap" = "Yedek Deskmap'in daha yeni bir sürümüne ait";
+"Backup not found" = "Yedek bulunamadı";

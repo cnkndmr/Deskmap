@@ -131,6 +131,10 @@ geçiş yapar.
   aktar ya da sil.
 - Dışa aktarma `.deskmap.json` dosyası yazar — kurulumunu başka Mac'e
   taşımanın ya da paylaşmanın yolu.
+- **Yedekler** (aynı panelde): Deskmap tüm profilleri, pinleri ve masaüstü
+  adlarını kendiliğinden yedekler — son bir gün için saatte bir, son bir hafta
+  için günde bir, haftada bir de süresiz. Birini seçip **Geri yükle**'ye iki
+  kez tıkla; şimdiki hâlin önce yedeklenir, alt çubukta *Geri al* çıkar.
 
 ## 8. Fikrini değiştirdiğinde
 

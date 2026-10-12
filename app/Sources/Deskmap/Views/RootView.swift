@@ -475,6 +475,11 @@ struct RootView: View {
         case .profile:
             ProfilePanel()
                 .bottomPanelChrome()
+        case .backups:
+            if let service = BackupService.current {
+                BackupPanel(service: service)
+                    .bottomPanelChrome()
+            }
         default:
             EmptyView()
         }

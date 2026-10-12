@@ -59,6 +59,8 @@ enum BottomPanel: Equatable {
     case session(CGWindowID)
     /// Aktif profil paneli (ad, kopya, dışa aktar, sil).
     case profile
+    /// Otomatik yedekler (profil panelinden açılır).
+    case backups
 }
 
 /// Pencere içi görünüm durumu. Menü çubuğu penceresi popover, sheet veya

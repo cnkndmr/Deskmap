@@ -28,8 +28,9 @@ What it writes stays on the Mac, in your own Application Support folder:
 |---|---|
 | `~/Library/Application Support/Deskmap/rules.json` | your pins, profiles and known displays |
 | `~/Library/Application Support/Deskmap/session-pins.json` | temporary pins (window and process IDs) |
+| `~/Library/Application Support/Deskmap/Backups/` | automatic backups of `rules.json` (hourly for a day, daily for a week, weekly forever) |
 
-Both are plain JSON you can read, edit or delete. Deleting them resets the
+All are plain JSON you can read, edit or delete. Deleting them resets the
 app; deleting the app leaves nothing else behind.
 
 ## Logs
@@ -57,6 +58,6 @@ Uygulama hiçbir veri toplamaz, hiçbir şey göndermez; içinde ağ kodu yoktur
 Erişilebilirlik izniyle yalnızca açık pencerelerin uygulaması, başlığı,
 konumu ve bulunduğu ekran/masaüstü bilgisini okur; pencere içeriğine,
 belgelerine, tuş vuruşlarına bakmaz. Yazdığı tek şey kendi
-`~/Library/Application Support/Deskmap/` klasöründeki iki JSON
-dosyasıdır. macOS sistem günlüğüne seyrek satır yazar; **pencere başlıkları
+`~/Library/Application Support/Deskmap/` klasöründeki JSON dosyaları
+ve aynı klasördeki `Backups/` altında bunların otomatik yedekleridir. macOS sistem günlüğüne seyrek satır yazar; **pencere başlıkları
 günlüğe yazılmaz**. Tek istediği izin Erişilebilirlik'tir.
