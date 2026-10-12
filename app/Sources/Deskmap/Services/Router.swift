@@ -1594,7 +1594,7 @@ final class Router: ObservableObject {
                     // yok: bu kurulum zaten kaydı).
                     self.store.removeDesktop(on: screenID, desktop: index,
                                              modes: Mode.allCases.filter { $0 != mode },
-                                             expandCounterparts: false)
+                                             expandCounterparts: false, physical: true)
                     self.shiftSessionPins(screen: screenID, removed: index)
                     self.updateBaseline(removed: [removedSpace])
                 }

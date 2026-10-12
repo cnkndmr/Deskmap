@@ -300,7 +300,24 @@ struct Document: Codable, Equatable {
                                      spaces: [String: [String: UInt64]],
                                      ghosts: [GhostDesktop],
                                      plans: [String: Int]) -> [Profile] {
-        profiles.map { original in
+        // Adlı, pinsiz hayalet (ad bağlı masaüstü Mission Control'de silindi):
+        // pini kimseyi göstermez; o ekranı kullanan profillere gider, hiçbiri
+        // kullanmıyorsa aktif profile (ad kaybolmasın).
+        func usesScreen(_ profile: Profile, _ screen: String) -> Bool {
+            let rules = profile.id == activeID ? activeRules : profile.rules
+            return rules.contains { rule in
+                Mode.allCases.contains { rule[$0]?.screen == screen }
+            }
+        }
+        var pinlessOwners: [String: Set<String>] = [:]
+        for ghost in ghosts where ghost.pins.isEmpty && ghost.name != nil {
+            var owners = Set(profiles.filter { usesScreen($0, ghost.screen) }.map(\.id))
+            if owners.isEmpty {
+                owners = [profiles.contains { $0.id == activeID } ? activeID : profiles.first?.id ?? ""]
+            }
+            pinlessOwners[ghost.id] = owners
+        }
+        return profiles.map { original in
             var profile = original
             var usedSlots = Set<String>()
             var usedKeys = Set<String>()
@@ -325,6 +342,10 @@ struct Document: Codable, Equatable {
             let ruleIDs = Set(rules.map(\.id))
             var ownGhosts: [GhostDesktop] = []
             for ghost in ghosts {
+                if let owners = pinlessOwners[ghost.id] {
+                    if owners.contains(profile.id) { ownGhosts.append(ghost) }
+                    continue
+                }
                 let pins = ghost.pins.filter { $0.profileID == profile.id || ruleIDs.contains($0.rule.id) }
                 guard !pins.isEmpty else { continue }
                 var copy = ghost
@@ -1045,7 +1066,8 @@ struct Document: Codable, Equatable {
                                      existing: Bool, space: UInt64?) {
         // Gerçek silme sonra yapılacaksa öbür kurulumdaki karşılığa şimdi
         // dokunulmaz (mod etkinleşince silme yürürken kayar, iki kez değil).
-        removeDesktop(on: screen, desktop: desktop, modes: [mode], expandCounterparts: existing == false)
+        removeDesktop(on: screen, desktop: desktop, modes: [mode], expandCounterparts: existing == false,
+                      physical: existing)
         guard existing else { return }
         pendingRemovals[Self.planKey(mode: mode, screen: screen), default: []]
             .append(PendingRemoval(desktop: desktop, space: space, profileID: activeProfileID))
@@ -1586,8 +1608,15 @@ struct Document: Codable, Equatable {
     /// kurulumun adları ve pinleri gerçek silme yürüyünce birlikte kayar
     /// (11.10: kurulum dışı plandan silinen laptop satırları canlı kurulumun
     /// 7–9 adlarını düşürmüştü, pinler yerinde kalmıştı).
+    /// `physical`: gerçek masaüstü silinecek/silindi (kuyruğa giren ya da
+    /// kuyruktan yürüyen silme). Masaüstü bütün profillerde ortak olduğundan
+    /// öbür profillerin adları da pinleriyle aynı adımda kayar; silinen
+    /// numaradaki adı o profilde adlı, pinsiz hayalete geçer (pinler zaten
+    /// kaydı). Yoksa sonraki tarama o adı silinmiş sayıp pinleri ikinci kez
+    /// kaydırır, pencere hayalete düşer (12.10 inceleme).
     mutating func removeDesktop(on screen: String, desktop: Int, modes: [Mode],
-                                shiftNames: Bool = true, expandCounterparts: Bool = true) {
+                                shiftNames: Bool = true, expandCounterparts: Bool = true,
+                                physical: Bool = false) {
         // Her profil kendi adlarıyla: karşılıklar o profilin adlarından
         // bulunur (bir profilin adı başka profilin pinlerini kaydırmaz).
         if !profiles.contains(where: { $0.id == activeProfileID }) { syncActiveProfile() }
@@ -1599,7 +1628,7 @@ struct Document: Codable, Equatable {
                 $0.removeOwnDesktop(on: screen, desktop: desktop, modes: modes,
                                     shiftNames: shiftNames,
                                     expandCounterparts: expandCounterparts,
-                                    pinsOnly: !isActive)
+                                    pinsOnly: !isActive, namesFollow: physical)
             }
         }
     }
@@ -1607,7 +1636,7 @@ struct Document: Codable, Equatable {
     /// `removeDesktop`'un tek profil çekirdeği (`inProfileScope` içinde).
     private mutating func removeOwnDesktop(on screen: String, desktop: Int, modes: [Mode],
                                            shiftNames: Bool, expandCounterparts: Bool,
-                                           pinsOnly: Bool) {
+                                           pinsOnly: Bool, namesFollow: Bool = false) {
         var targets = modes.map { Target(mode: $0, screen: screen, desktop: desktop) }
         if shiftNames && expandCounterparts {
             targets = removalTargets(screen: screen, desktop: desktop, modes: modes, name: nil).targets
@@ -1623,7 +1652,11 @@ struct Document: Codable, Equatable {
                 }
             }
         }
-        guard !pinsOnly else { return }
+        guard !pinsOnly else {
+            guard namesFollow, shiftNames else { return }
+            followPhysicalRemoval(targets)
+            return
+        }
         for target in targets {
             let planned = plannedDesktops(mode: target.mode, screen: target.screen)
             if planned >= target.desktop {
@@ -1638,6 +1671,32 @@ struct Document: Codable, Equatable {
             guard let target = nameTargets.first(where: { $0.mode == mode && $0.screen == name }),
                   number >= target.desktop else { return nil }
             return (name, number == target.desktop ? 0 : number - 1)
+        }
+    }
+
+    /// Öbür profilde gerçek silme: adlar pinlerle birlikte kayar; silinen
+    /// numaradaki ad adlı, pinsiz hayalete geçer (plan ve pinlere dokunmaz).
+    private mutating func followPhysicalRemoval(_ targets: [Target]) {
+        var lost: [(screen: String, desktop: Int, name: String)] = []
+        for target in targets {
+            let key = Self.planKey(mode: target.mode, screen: target.screen)
+            if let name = desktopNames[key]?[String(target.desktop)] {
+                lost.append((target.screen, target.desktop, name))
+            }
+        }
+        remapNames { mode, name, number in
+            guard let target = targets.first(where: { $0.mode == mode && $0.screen == name }),
+                  number >= target.desktop else { return nil }
+            return (name, number == target.desktop ? 0 : number - 1)
+        }
+        for item in lost {
+            let key = Self.normalizedName(item.name)
+            // Ad başka bir yerde yaşıyorsa (öbür kurulum) hayalet gerekmez.
+            guard places(ofName: item.name).isEmpty,
+                  !ghostDesktops.contains(where: { $0.name.map(Self.normalizedName) == key })
+            else { continue }
+            ghostDesktops.append(GhostDesktop(screen: item.screen, name: item.name,
+                                              desktop: item.desktop, deletedAt: Date(), pins: []))
         }
     }
 
@@ -2310,9 +2369,9 @@ final class Store: ObservableObject {
     /// alma kaydı yok: ⌘Z masaüstünü geri getiremez, yalnız numaraları
     /// bozardı.
     func removeDesktop(on screen: String, desktop: Int, modes: [Mode], shiftNames: Bool = true,
-                       expandCounterparts: Bool = true) {
+                       expandCounterparts: Bool = true, physical: Bool = false) {
         document.removeDesktop(on: screen, desktop: desktop, modes: modes, shiftNames: shiftNames,
-                               expandCounterparts: expandCounterparts)
+                               expandCounterparts: expandCounterparts, physical: physical)
     }
 
     func desktopName(screen: String, desktop: Int, mode: Mode) -> String? {

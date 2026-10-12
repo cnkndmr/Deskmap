@@ -593,6 +593,44 @@ struct ProfileDesktopStateTests {
         #expect(try profile(d, c).ghostDesktops.isEmpty)
     }
 
+    /// A name-only ghost (named desktop deleted in Mission Control, no pins)
+    /// is not lost: a single-profile schema-4 file keeps it.
+    @Test func migrationKeepsPinlessGhostWithSingleProfile() throws {
+        let json = """
+        {"version":4,"activeProfileID":"p","rules":[{"id":"r","appName":"A","bundleID":"b.A","tokens":[],
+          "docked":{"screen":"external","desktop":2}}],
+         "profiles":[{"id":"p","name":"P","rules":[{"id":"r","appName":"A","bundleID":"b.A","tokens":[],
+          "docked":{"screen":"external","desktop":2}}]}],
+         "ghostDesktops":[{"id":"G","screen":"external","name":"Lab","desktop":3,"deletedAt":0,"pins":[]}]}
+        """
+        let d = try load(Data(json.utf8))
+        #expect(d.ghostDesktops.map(\.name) == ["Lab"])
+        #expect(try profile(d, "p").ghostDesktops.map(\.name) == ["Lab"])
+    }
+
+    /// A pinless ghost goes to profiles that use its screen; when none does,
+    /// to the active profile.
+    @Test func migrationGivesPinlessGhostsToProfilesUsingThatScreen() throws {
+        var d = Document()
+        let a = d.activeProfileID
+        d.rules = [rule("A", 2)]
+        let b = d.addProfile(named: "B").id
+        d.rules = [rule("M", 1, screen: "builtin", mode: U)]
+        let c = d.addProfile(named: "C").id
+        d.switchProfile(to: a)
+        var shared = d
+        let epoch = Date(timeIntervalSince1970: 0)
+        shared.ghostDesktops = [
+            GhostDesktop(id: "L", screen: "builtin", name: "Lab", desktop: 3, deletedAt: epoch),
+            GhostDesktop(id: "X", screen: "other", name: "Nowhere", desktop: 1, deletedAt: epoch),
+        ]
+        for i in shared.profiles.indices { shared.profiles[i].ghostDesktops = [] }
+        let loaded = try load(try oldFile(shared))
+        #expect(try profile(loaded, b).ghostDesktops.map(\.id) == ["L"])
+        #expect(try profile(loaded, a).ghostDesktops.map(\.id) == ["X"])
+        #expect(try profile(loaded, c).ghostDesktops.isEmpty)
+    }
+
     @Test func migrationGivesPlansToProfilesUsingThatScreen() throws {
         let (data, a, b, c) = try legacy()
         let d = try load(data)

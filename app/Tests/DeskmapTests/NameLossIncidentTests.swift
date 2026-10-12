@@ -320,4 +320,48 @@ struct NameLossIncidentTests {
         #expect(other.rules.first { $0.appName == "Orion" }?.undocked == nil)
         #expect(other.rules.first { $0.appName == "LUMEN" }?.undocked?.desktop == 8)
     }
+
+    /// 12.10 inceleme: A'nın öbür kurulum (laptop) kuyruğu B'nin pinlerini
+    /// hemen kaydırır; B'nin adları da birlikte kaymalı. Yoksa gerçek silme
+    /// yürüyünce B'nin adı silinmiş sayılır, pinleri ikinci kez kayar ve
+    /// B'nin penceresi hayalete düşer.
+    @Test(arguments: [false, true])
+    func queuedRemovalMovesOtherProfilesPinsAndNamesOnce(scanFirst: Bool) throws {
+        let live: [UInt64] = [101, 102, 103, 104, 105, 106]
+        var d = Document()
+        let a = d.activeProfileID
+        d.rules = [pin("Ext", docked: ("external", 1), undocked: nil)]
+        let b = d.addProfile(named: "B").id
+        d.rules = [pin("W", docked: nil, undocked: ("builtin", 6)),
+                   pin("Early", docked: nil, undocked: ("builtin", 2))]
+        d.desktopNames = ["undocked|builtin": ["5": "Mail", "6": "Six"]]
+        d.desktopNameSpaces = ["undocked|builtin": ["5": 105, "6": 106]]
+        d.switchProfile(to: a)
+        // A, monitörlü kurulumdayken laptop planından 5'i siler.
+        d.removeDesktopLater(on: "builtin", desktop: 5, mode: U, existing: true, space: 105)
+        func pb() throws -> Profile { try #require(d.profiles.first { $0.id == b }) }
+        #expect(try pb().rules.first { $0.appName == "W" }?.undocked?.desktop == 5)
+        #expect(try pb().desktopNames["undocked|builtin"] == ["5": "Six"])
+        #expect(try pb().ghostDesktops.map(\.name) == ["Mail"])
+        #expect(try pb().ghostDesktops.first?.pins.isEmpty == true)
+
+        // Laptop kurulumu etkinleşir: tarama (kuyruk düşülmüş), gerçek
+        // silme, öbür kurulumun kayması, sonra iki kurulumda tarama.
+        if scanFirst { followNames(&d, live: live, previous: live, seen: [], mode: U) }
+        d.dropFirstPendingRemoval(mode: U, screen: "builtin")
+        d.removeDesktop(on: "builtin", desktop: 5, modes: [D], expandCounterparts: false,
+                        physical: true)
+        let after = live.filter { $0 != 105 }
+        let r1 = followNames(&d, live: after, previous: live, seen: Set(live), mode: U)
+        let r2 = followNames(&d, live: after, previous: after, seen: Set(live), mode: D)
+        #expect(r1.ghostGroups.isEmpty && r2.ghostGroups.isEmpty)
+        let other = try pb()
+        #expect(other.rules.first { $0.appName == "W" }?.undocked?.desktop == 5)
+        #expect(other.rules.first { $0.appName == "Early" }?.undocked?.desktop == 2)
+        #expect(other.desktopNames["undocked|builtin"] == ["5": "Six"])
+        #expect(other.desktopNameSpaces["undocked|builtin"] == ["5": 106])
+        #expect(other.ghostDesktops.map(\.name) == ["Mail"])
+        #expect(other.ghostDesktops.allSatisfy { $0.pins.isEmpty })
+        #expect(d.pendingRemovals.isEmpty)
+    }
 }
