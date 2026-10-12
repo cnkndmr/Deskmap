@@ -961,8 +961,47 @@ struct Document: Codable, Equatable {
         var copied = rules
         for i in copied.indices { copied[i][target] = copied[i][source] }
         copied.removeAll { $0.docked == nil && $0.undocked == nil }
-        guard copied != rules else { return false }
+        let namesChanged = copyDesktopNames(from: source, to: target)
+        guard copied != rules else { return namesChanged }
         rules = copied
+        return true
+    }
+
+    /// Düzen kopyalanınca kaynak kurulumun masaüstü adları ve planı da
+    /// gelir: kurallar `builtin/7`'yi hedefliyorsa o masaüstünün adı da
+    /// hedef kurulumda olmalı. Kaynakta olan her ekranın adları hedefte
+    /// aynen yazılır; aynı ad hedefin başka ekranındaysa oradan kalkar (bir
+    /// kurulumda ad tektir). Bağ, hedefte aynı yuvada aynı ad zaten bağlıysa
+    /// korunur, yoksa sonraki taramada bağlanır.
+    private mutating func copyDesktopNames(from source: Mode, to target: Mode) -> Bool {
+        var names = desktopNames, spaces = desktopNameSpaces, plans = plannedDesktops
+        var copiedScreens: [String: [String: String]] = [:]
+        for (key, list) in desktopNames {
+            guard let parts = Self.splitNameKey(key), parts.mode == source else { continue }
+            copiedScreens[parts.screen] = list
+        }
+        let incoming = Set(copiedScreens.values.flatMap { $0.values.map { $0.lowercased() } })
+        for (key, list) in desktopNames {
+            guard let parts = Self.splitNameKey(key), parts.mode == target,
+                  copiedScreens[parts.screen] == nil else { continue }
+            let kept = list.filter { !incoming.contains($0.value.lowercased()) }
+            names[key] = kept.isEmpty ? nil : kept
+            let bound = (spaces[key] ?? [:]).filter { kept[$0.key] != nil }
+            spaces[key] = bound.isEmpty ? nil : bound
+        }
+        for (screen, list) in copiedScreens {
+            let key = Self.planKey(mode: target, screen: screen)
+            let old = desktopNames[key] ?? [:], oldSpaces = desktopNameSpaces[key] ?? [:]
+            names[key] = list
+            let bound = oldSpaces.filter { old[$0.key] != nil && old[$0.key] == list[$0.key] }
+            spaces[key] = bound.isEmpty ? nil : bound
+            let need = list.keys.compactMap(Int.init).max() ?? 0
+            let plan = max(plannedDesktops(mode: source, screen: screen), need)
+            if plan > plannedDesktops(mode: target, screen: screen) { plans[key] = plan }
+        }
+        guard names != desktopNames || spaces != desktopNameSpaces || plans != plannedDesktops
+        else { return false }
+        desktopNames = names; desktopNameSpaces = spaces; plannedDesktops = plans
         return true
     }
 

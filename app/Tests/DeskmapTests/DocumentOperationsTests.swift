@@ -37,6 +37,32 @@ struct DocumentOperationsTests {
         #expect(!again)
     }
 
+    /// Laptop düzeni kopyalanınca masaüstü adları da gelir: laptop adları
+    /// monitörlü kurulumun laptop ekranına yazılır, aynı ad monitörde
+    /// kalmaz, aynı yuvadaki aynı adın bağı korunur, plan genişler.
+    @Test func copyLayoutCopiesDesktopNames() {
+        var doc = Document()
+        doc.rules = [rule("a", tokens: ["A"], undocked: Destination(screen: "builtin", desktop: 3))]
+        doc.desktopNames = [
+            "undocked|builtin": ["2": "AI", "3": "Orion"],
+            "docked|builtin": ["2": "AI"],
+            "docked|external": ["1": "Orion", "2": "Mail"],
+        ]
+        doc.desktopNameSpaces = [
+            "docked|builtin": ["2": 8],
+            "docked|external": ["1": 1357, "2": 1030],
+        ]
+        let changed = doc.copyLayout(from: .undocked, to: .docked)
+        #expect(changed)
+        #expect(doc.desktopNames["docked|builtin"] == ["2": "AI", "3": "Orion"])
+        #expect(doc.desktopNames["docked|external"] == ["2": "Mail"])
+        #expect(doc.desktopNameSpaces["docked|builtin"] == ["2": 8])
+        #expect(doc.desktopNameSpaces["docked|external"] == ["2": 1030])
+        #expect(doc.plannedDesktops(mode: .docked, screen: "builtin") == 3)
+        let again = doc.copyLayout(from: .undocked, to: .docked)
+        #expect(!again)
+    }
+
     // MARK: Düzen kaydetme
 
     /// "Şu anki boyutu kullan": yalnızca düzen değişir, ekran ve masaüstü
