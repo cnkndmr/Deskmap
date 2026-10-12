@@ -329,6 +329,34 @@ struct BackupTests {
         }
     }
 
+    /// Saat geri alınmışken: ileri tarihli 10 kopya varken yeni kopya
+    /// hemen silinmez; toplam sınır korunur.
+    @Test func preRestoreKeepsNewCopyWhenClockWentBack() throws {
+        try withArchive { archive, dir in
+            try writeDocument(document(rules: 1), in: dir)
+            let data = try Store.encode(document(rules: 2))
+            for i in 0..<BackupSchedule.preRestoreLimit {
+                try archive.writePreRestore(document: data, now: at(2026, 10, 20, 12, i))
+            }
+            let stem = try archive.writePreRestore(document: data, now: at(2026, 10, 12))
+            let stems = archive.stems(in: .preRestore)
+            #expect(stems.contains(stem))
+            #expect(stems.count == BackupSchedule.preRestoreLimit)
+        }
+    }
+
+    /// Yeni sürümden gelen yedek geri yüklenmez, başarı bildirilmez.
+    @MainActor @Test func restoreBackupReportsFailure() {
+        let store = Store(demo: document(rules: 1))
+        var newer = document(rules: 2)
+        newer.fileVersion = Document.currentVersion + 1
+        #expect(newer.isFromNewerVersion)
+        let rejected = store.restoreBackup(newer)
+        #expect(!rejected)
+        let accepted = store.restoreBackup(document(rules: 3))
+        #expect(accepted)
+    }
+
     @Test func urlCommandsParse() {
         #expect(URLCommand.parse(URL(string: "deskmap://backup-now")!) == .backupNow)
         #expect(URLCommand.parse(URL(string: "deskmap://backup-restore/daily-2026-10-12")!)

@@ -975,6 +975,7 @@ struct Document: Codable, Equatable {
     /// korunur, yoksa sonraki taramada bağlanır.
     private mutating func copyDesktopNames(from source: Mode, to target: Mode) -> Bool {
         var names = desktopNames, spaces = desktopNameSpaces, plans = plannedDesktops
+        var pending = pendingRemovals
         var copiedScreens: [String: [String: String]] = [:]
         for (key, list) in desktopNames {
             guard let parts = Self.splitNameKey(key), parts.mode == source else { continue }
@@ -998,10 +999,15 @@ struct Document: Codable, Equatable {
             let need = list.keys.compactMap(Int.init).max() ?? 0
             let plan = max(plannedDesktops(mode: source, screen: screen), need)
             if plan > plannedDesktops(mode: target, screen: screen) { plans[key] = plan }
+            // Hedefte sıradaki silmeler eski düzene göreydi: kopyalanan
+            // adları ve pinleri sonradan kaydırmasınlar diye kalkar.
+            pending[key] = nil
         }
         guard names != desktopNames || spaces != desktopNameSpaces || plans != plannedDesktops
+                || pending != pendingRemovals
         else { return false }
         desktopNames = names; desktopNameSpaces = spaces; plannedDesktops = plans
+        pendingRemovals = pending
         return true
     }
 
@@ -1489,7 +1495,7 @@ final class Store: ObservableObject {
         terminateObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.flush() }
+            MainActor.assumeIsolated { _ = self?.flush() }
         }
     }
 
@@ -1512,9 +1518,10 @@ final class Store: ObservableObject {
     private var persists = true
 
     /// Bekleyen değişiklikleri hemen diske yazar.
-    func flush() {
+    @discardableResult
+    func flush() -> Bool {
         document.syncActiveProfile()
-        save()
+        return save()
     }
 
     func load() {
@@ -1558,20 +1565,24 @@ final class Store: ObservableObject {
         return (try? fm.copyItem(at: Self.fileURL, to: Self.backupURL)) != nil
     }
 
-    func save() {
-        guard persists else { return }
+    /// Başarıyı döndürür (diske yazmayan demo örneğinde true).
+    @discardableResult
+    func save() -> Bool {
+        guard persists else { return true }
         // Yeni sürümün dosyası: dokunma, uyarı alt çubukta kalsın.
         guard !isReadOnly else {
             lastError = Self.newerVersionMessage
-            return
+            return false
         }
         do {
             try FileManager.default.createDirectory(
                 at: Self.directoryURL, withIntermediateDirectories: true)
             try Self.encode(document).write(to: Self.fileURL, options: .atomic)
             lastError = nil
+            return true
         } catch {
             lastError = L("Could not write rules.json: %@", error.localizedDescription)
+            return false
         }
     }
 
@@ -1586,10 +1597,12 @@ final class Store: ObservableObject {
     /// değişiklik yolu: alt çubukta "Geri al" çıkar, hemen diske yazılır.
     /// Açık/kapalı anahtarı ve tanınan ekranlar geri almadaki gibi şu anki
     /// değerleriyle kalır (yedekle ilgisizler).
-    func restoreBackup(_ backup: Document) {
+    /// Belge diske yazıldıysa true.
+    @discardableResult
+    func restoreBackup(_ backup: Document) -> Bool {
         guard !isReadOnly, !backup.isFromNewerVersion else {
             lastError = Self.newerVersionMessage
-            return
+            return false
         }
         var restored = backup
         restored.fileVersion = Document.currentVersion
@@ -1599,7 +1612,7 @@ final class Store: ObservableObject {
         restored.screens = document.screens
         restored.syncActiveProfile()
         recording(L("Backup restored")) { document = restored }
-        flush()
+        return flush()
     }
 
     // MARK: - Geri alma

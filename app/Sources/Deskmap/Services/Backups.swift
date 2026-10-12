@@ -154,7 +154,8 @@ struct BackupSchedule: Sendable {
     ///   ileri/geri atlasa da elde en az bir kopya kalır;
     /// - "şimdi"den ileri tarihli kovalar (saat geri alındı) silinmez;
     ///   zamanı gelince sıradan kova gibi budanır.
-    func expired(_ stems: [String], tier: BackupTier, now: Date) -> [String] {
+    /// `keep`: `pre-restore` katmanında kalacak sayı (varsayılan sınır).
+    func expired(_ stems: [String], tier: BackupTier, now: Date, keep: Int? = nil) -> [String] {
         guard tier != .weekly else { return [] }
         let parsed = stems.compactMap { stem -> (String, Date)? in
             guard let p = parse(stem), p.tier == tier else { return nil }
@@ -175,7 +176,7 @@ struct BackupSchedule: Sendable {
                 if days >= Self.dailyDays { drop.append(stem) }
             }
         case .preRestore:
-            drop = parsed.dropFirst(Self.preRestoreLimit).map(\.0)
+            drop = parsed.dropFirst(max(0, keep ?? Self.preRestoreLimit)).map(\.0)
         case .weekly:
             break
         }
@@ -426,8 +427,10 @@ struct BackupArchive: Sendable {
             stem = schedule.stem(.preRestore, at: now.addingTimeInterval(offset))
         }
         try write(BackupBundle(created: now, files: files), to: url(.preRestore, stem: stem))
-        let stems = stems(in: .preRestore)
-        for old in schedule.expired(stems, tier: .preRestore, now: now) {
+        // Yeni yazılan kopya hiç silinmez (saat geri alınmış olsa da);
+        // diğerlerinden en yeni `limit - 1` tanesi kalır.
+        let others = stems(in: .preRestore).filter { $0 != stem }
+        for old in schedule.expired(others, tier: .preRestore, now: now, keep: BackupSchedule.preRestoreLimit - 1) {
             try? FileManager.default.removeItem(at: url(.preRestore, stem: old))
         }
         return stem
@@ -665,11 +668,25 @@ final class BackupService: ObservableObject {
             store.report(L("Could not restore backup: %@", error.localizedDescription))
             return false
         }
-        store.restoreBackup(document)
+        // rules.json yazılamadıysa hooks.json'a dokunma: iki dosya ayrışmasın.
+        guard store.restoreBackup(document) else {
+            if let message = store.lastError {
+                store.report(L("Could not restore backup: %@", message))
+            }
+            reload()
+            return false
+        }
         if let hooks = bundle.files[BackupBundle.hooksFile] {
             let target = archive.sourceDirectory.appendingPathComponent(BackupBundle.hooksFile)
             if (try? String(contentsOf: target, encoding: .utf8)) != hooks {
-                try? BackupArchive.atomicWrite(Data(hooks.utf8), to: target)
+                do {
+                    try BackupArchive.atomicWrite(Data(hooks.utf8), to: target)
+                } catch {
+                    store.report(L("Could not restore hooks.json: %@", error.localizedDescription))
+                    router?.reapplyAll()
+                    reload()
+                    return false
+                }
             }
         }
         router?.reapplyAll()

@@ -28,7 +28,9 @@ struct BackupPanel: View {
                 Text(L("Backups")).font(.headline)
                 Spacer()
                 Button(L("Back up now")) {
-                    _ = service.runNow()
+                    if let e = service.runNow().skipped {
+                        store.report(L("No backup taken: %@", e.localizedDescription))
+                    }
                     service.reload()
                 }
                 .controlSize(.small)

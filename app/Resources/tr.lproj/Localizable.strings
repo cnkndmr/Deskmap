@@ -366,6 +366,7 @@
 "Restore this backup; the current state is backed up first and can be undone" = "Bu yedeği geri yükle; şimdiki hâl önce yedeklenir ve geri alınabilir";
 "Backup restored" = "Yedek geri yüklendi";
 "Could not restore backup: %@" = "Yedek geri yüklenemedi: %@";
+"Could not restore hooks.json: %@" = "hooks.json geri yüklenemedi: %@";
 "No backup taken: %@" = "Yedek alınmadı: %@";
 "There is no rules.json to back up" = "Yedeklenecek rules.json yok";
 "The backup cannot be read" = "Yedek okunamıyor";

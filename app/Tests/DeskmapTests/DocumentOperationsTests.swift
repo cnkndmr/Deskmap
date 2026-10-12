@@ -63,6 +63,19 @@ struct DocumentOperationsTests {
         #expect(!again)
     }
 
+    /// Hedef kurulumda sıradaki masaüstü silmesi kopyalanan düzeni
+    /// sonradan kaydırmasın: kopyalayınca kuyruk temizlenir.
+    @Test func copyLayoutClearsTargetPendingRemovals() {
+        var doc = Document()
+        doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .docked, existing: true, space: 42)
+        doc.desktopNames = ["undocked|builtin": ["3": "Orion"]]
+        #expect(!doc.pendingRemovals(mode: .docked, screen: "builtin").isEmpty)
+        let changed = doc.copyLayout(from: .undocked, to: .docked)
+        #expect(changed)
+        #expect(doc.pendingRemovals(mode: .docked, screen: "builtin").isEmpty)
+        #expect(doc.desktopNames["docked|builtin"] == ["3": "Orion"])
+    }
+
     // MARK: Düzen kaydetme
 
     /// "Şu anki boyutu kullan": yalnızca düzen değişir, ekran ve masaüstü
