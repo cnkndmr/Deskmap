@@ -57,6 +57,26 @@ struct ProfileDesktopStateTests {
         #expect(d.pendingRemovals(mode: D, screen: "external").count == 1)
     }
 
+    // MARK: - Delete profile
+
+    /// Profil silinince adları, bağları, hayaletleri ve planı da gider;
+    /// kalan profilin durumu değişmez, gerçek masaüstü silme sıraya girmez.
+    @Test func deleteProfileDropsItsStateAndQueuesNoRemoval() {
+        var (d, first) = richDocument()
+        let firstNames = d.desktopNames, firstPlan = d.plannedDesktops
+        let copy = d.addProfile(named: "Copy", copyingCurrent: true)
+        d.setDesktopName("Only in copy", screen: "builtin", desktop: 2, mode: D)
+        let removalsBefore = d.pendingRemovals
+        d.deleteProfile(copy.id)
+        #expect(!d.profiles.contains { $0.id == copy.id })
+        #expect(d.activeProfileID == first)
+        #expect(d.desktopNames == firstNames)
+        #expect(d.plannedDesktops == firstPlan)
+        #expect(d.desktopName(screen: "builtin", desktop: 2, mode: D) != "Only in copy")
+        #expect(d.pendingRemovals == removalsBefore)
+        #expect(!d.profiles.contains { $0.desktopNames.values.contains { $0.values.contains("Only in copy") } })
+    }
+
     // MARK: - Duplicate profile
 
     @Test func duplicateCopiesEverything() throws {
