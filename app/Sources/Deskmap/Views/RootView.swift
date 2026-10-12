@@ -212,6 +212,28 @@ struct RootView: View {
                         && (!SkyLight.shared.canMove || router.moveHealth.state == .degraded) {
                         ReducedModeCard(canMove: SkyLight.shared.canMove) { router.retryMoves() }
                     }
+                    if let report = store.migrationReport {
+                        MigrationReportCard(
+                            report: report,
+                            removeEmpty: {
+                                let spaces = report.emptyBeyondPlan.keys.sorted()
+                                    .flatMap { report.emptyBeyondPlan[$0] ?? [] }
+                                Task {
+                                    let removed = await router.removeEmptyDesktops(spaces)
+                                    if removed < spaces.count {
+                                        store.report(L("%ld of %ld empty desktops removed; the others are no longer empty",
+                                                       removed, spaces.count))
+                                    }
+                                    store.dismissMigrationReport()
+                                }
+                            },
+                            undoUpgrade: { store.undoUpgrade() },
+                            dismiss: { store.dismissMigrationReport() })
+                    }
+                    if let status = router.planStatus {
+                        PlanStatusCard(status: status, retry: { router.retryPlan() },
+                                       dismiss: { router.dismissPlanStatus() })
+                    }
                     if !MacSettings.allRequiredOK(settingChecks) || !store.document.setupNoticeDismissed {
                         SetupCard(checks: settingChecks)
                     }
@@ -768,7 +790,10 @@ struct RootView: View {
             // işlemler gibi alt çubuktaki "Geri al" ile korunur.
             if mode == .docked {
                 Button(L("Copy the Laptop only plan here")) {
-                    store.copyLayout(from: .undocked, to: .docked)
+                    // S1: etkin kurulumsa plan şimdi uygulanır (masaüstü silinmez).
+                    if store.copyLayout(from: .undocked, to: .docked), screens.mode == .docked {
+                        router.applyPlanNow(reason: "copy layout")
+                    }
                 }
                 .disabled(!store.document.hasLayout(in: .undocked))
                 .help(L("Copy the Laptop only plan here; the current Monitor connected plan is replaced (⌘Z undoes)"))

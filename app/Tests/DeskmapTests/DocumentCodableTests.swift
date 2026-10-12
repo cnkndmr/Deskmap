@@ -9,50 +9,53 @@ struct DocumentCodableTests {
         try JSONDecoder().decode(Document.self, from: Data(json.utf8))
     }
 
-    @Test func plannedDesktopsRoundTripAndDefaultToEmpty() throws {
+    /// Şema 6: plan (kurulum → ekran → girdiler) gidip gelir; boşsa yazılmaz.
+    /// (Eski `plannedDesktops` sayısının yerini plan uzunluğu aldı.)
+    @Test func plansRoundTripAndDefaultToEmpty() throws {
         var doc = try decode("{}")
-        #expect(doc.plannedDesktops.isEmpty)
+        #expect(doc.plans.isEmpty)
         #expect(doc.plannedDesktops(mode: .undocked, screen: "builtin") == 0)
-        doc.setPlannedDesktops(10, mode: .undocked, screen: "builtin")
+        doc.planDesktop(on: "builtin", mode: .undocked, count: 10)
         let data = try JSONEncoder().encode(doc)
         let back = try JSONDecoder().decode(Document.self, from: data)
         #expect(back.plannedDesktops(mode: .undocked, screen: "builtin") == 10)
         #expect(back.plannedDesktops(mode: .docked, screen: "builtin") == 0)
-        doc.setPlannedDesktops(0, mode: .undocked, screen: "builtin")
-        #expect(doc.plannedDesktops.isEmpty)
+        #expect(!String(decoding: data, as: UTF8.self).contains("plannedDesktops"))
         // Bozuk alan belgeyi düşürmez.
-        #expect(try decode(#"{"plannedDesktops": "x"}"#).plannedDesktops.isEmpty)
+        #expect(try decode(#"{"profiles": [{"id": "p", "name": "P", "plans": "x"}]}"#).plans.isEmpty)
     }
 
+    /// Gerçek silme (B 9): sonraki numara pinleri bir yukarı, etkin
+    /// kurulumun planından o sıradaki "" düşer; öbür ekran etkilenmez.
     @Test func removingADesktopShiftsPinsAndPlan() {
         #expect(Document.removalMapping(desktop: 2, removed: 3) == 2)
         #expect(Document.removalMapping(desktop: 3, removed: 3) == 2)
         #expect(Document.removalMapping(desktop: 4, removed: 3) == 3)
         #expect(Document.removalMapping(desktop: 1, removed: 1) == 1)
         var doc = Document()
-        doc.setPlannedDesktops(5, mode: .docked, screen: "external")
-        doc.removeDesktop(on: "external", desktop: 2, mode: .docked)
+        doc.planDesktop(on: "external", mode: .docked, count: 5)
+        doc.recordDeletion(space: 22, role: "external", desktop: 2, mode: .docked)
         #expect(doc.plannedDesktops(mode: .docked, screen: "external") == 4)
-        doc.removeDesktop(on: "builtin", desktop: 2, mode: .docked)
+        doc.recordDeletion(space: 2, role: "builtin", desktop: 2, mode: .docked)
         #expect(doc.plannedDesktops(mode: .docked, screen: "external") == 4)
     }
 
-    @Test func inactiveRemovalShiftsPinsNowAndQueuesRealRemoval() throws {
+    /// Etkin olmayan kurulumda silme (B 14): yalnız plan ve o kurulumun
+    /// numara pinleri; gerçek masaüstü kuyruğa girmez (şema 6 yeni kuyruk
+    /// yazmaz; eskiden "existing" satır sıraya alınırdı).
+    @Test func inactiveRemovalShiftsPinsNowAndQueuesNothing() throws {
         var doc = Document()
         doc.rules = [Rule(appName: "Safari", bundleID: "com.apple.Safari", tokens: [],
                           undocked: Destination(screen: "builtin", desktop: 4))]
-        doc.removeDesktopLater(on: "builtin", desktop: 2, mode: .undocked, existing: true, space: 5)
+        doc.planDesktop(on: "builtin", mode: .undocked, count: 5)
+        doc.removePlanEntry(screen: "builtin", desktop: 2, mode: .undocked)
         #expect(doc.rules[0].undocked?.desktop == 3)
-        #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin")
-                == [PendingRemoval(desktop: 2, space: 5, profileID: doc.activeProfileID)])
-        // Gerçekte olmayan satır: yalnız numaralar kayar, sıraya girmez.
-        doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .undocked, existing: false, space: nil)
-        #expect(doc.rules[0].undocked?.desktop == 2)
-        #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin").count == 1)
-        let back = try JSONDecoder().decode(Document.self, from: JSONEncoder().encode(doc))
-        #expect(back.pendingRemovals == doc.pendingRemovals)
-        doc.clearPendingRemovals(mode: .undocked, screen: "builtin")
+        #expect(doc.plannedDesktops(mode: .undocked, screen: "builtin") == 4)
         #expect(doc.pendingRemovals.isEmpty)
+        doc.removePlanEntry(screen: "builtin", desktop: 3, mode: .undocked)
+        #expect(doc.rules.isEmpty)
+        #expect(doc.ghostDesktops.count == 1)
+        #expect(doc.ghostDesktops[0].pins.map(\.rule.appName) == ["Safari"])
     }
 
     @Test func realRemovalShiftsEveryModeAndProfile() {
@@ -63,7 +66,7 @@ struct DocumentCodableTests {
         doc.rules = [pin]
         doc.syncActiveProfile()
         doc.addProfile(named: "B", copyingCurrent: true)   // B etkin, A arkada
-        doc.removeDesktop(on: "builtin", desktop: 2, modes: Mode.allCases)
+        doc.recordDeletion(space: 2, role: "builtin", desktop: 2, mode: .docked)
         #expect(doc.rules[0].docked?.desktop == 3)
         #expect(doc.rules[0].undocked?.desktop == 4)
         let other = doc.profiles.first { $0.id != doc.activeProfileID }!
@@ -73,11 +76,11 @@ struct DocumentCodableTests {
 
     @Test func pendingQueueDropsOnlyTheFirstEntry() {
         var doc = Document()
-        doc.removeDesktopLater(on: "builtin", desktop: 2, mode: .undocked, existing: true, space: 5)
-        doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .undocked, existing: true, space: 9)
+        let key = Document.planKey(mode: .undocked, screen: "builtin")
+        doc.pendingRemovals[key] = [PendingRemoval(desktop: 2, space: 5), PendingRemoval(desktop: 3, space: 9)]
         doc.dropFirstPendingRemoval(mode: .undocked, screen: "builtin")
         #expect(doc.pendingRemovals(mode: .undocked, screen: "builtin")
-                == [PendingRemoval(desktop: 3, space: 9, profileID: doc.activeProfileID)])
+                == [PendingRemoval(desktop: 3, space: 9)])
         doc.dropFirstPendingRemoval(mode: .undocked, screen: "builtin")
         #expect(doc.pendingRemovals.isEmpty)
     }
@@ -257,10 +260,10 @@ struct DocumentCodableTests {
 
     @Test func newerFileVersionIsDetected() throws {
         let doc = try decode("""
-        { "version": 6, "enabled": true, "futureField": { "x": 1 },
+        { "version": 7, "enabled": true, "futureField": { "x": 1 },
           "rules": [ { "id": "r1", "appName": "A", "bundleID": "", "tokens": [] } ] }
         """)
-        #expect(doc.fileVersion == 6)
+        #expect(doc.fileVersion == 7)
         #expect(doc.isFromNewerVersion)
         // Kurallar yine okunur; yalnızca yazma kapanır.
         #expect(doc.rules.count == 1)
@@ -268,8 +271,12 @@ struct DocumentCodableTests {
         #expect(!(try decode("{ \"version\": 3 }")).isFromNewerVersion)
         #expect(!(try decode("{ \"version\": 4 }")).isFromNewerVersion)
         #expect(!(try decode("{ \"version\": 5 }")).isFromNewerVersion)
-        // 5'ten önceki sürüm (4) profil başına adları bilmez; bu sürümün dosyası ona yenidir.
-        #expect(Document.currentVersion == 5)
+        #expect(!(try decode("{ \"version\": 6 }")).isFromNewerVersion)
+        // Şema 6: ad masaüstüne bağlı, kurulum planları. Şema 5 sürümü bu
+        // dosyayı yeni sayar ve salt okunur açar (adları ve planları silmez).
+        #expect(Document.currentVersion == 6)
+        #expect((try decode("{ \"version\": 5 }")).needsNameMigration)
+        #expect(!(try decode("{ \"version\": 6 }")).needsNameMigration)
         // Sayı olmayan sürüm eski dosya sayılır, belgeyi düşürmez.
         #expect(try decode("{ \"version\": \"3\" }").fileVersion == 1)
     }

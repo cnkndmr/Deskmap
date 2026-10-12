@@ -59,6 +59,19 @@ final class StatusFile {
         let desktopNames: [String: [String: String]]
         /// Mission Control'de silinmiş, pinleri saklanan masaüstüleri.
         let deletedDesktops: [GhostDesktop]
+        /// Şema 6 adları: kimlik, ad, bağlı space, canlı yeri ve kurulum
+        /// başına plandaki yeri ("external/2").
+        let names: [Name]
+        /// Kurulum → ekran → girdiler (ad kimliği ya da "").
+        let plans: DesktopPlans
+    }
+    struct Name: Codable {
+        let id: String
+        let name: String
+        let space: UInt64?
+        let screen: String?
+        let desktop: Int?
+        let planned: [String: String]
     }
 
     private let url: URL
@@ -99,6 +112,21 @@ final class StatusFile {
                                desktops: router.desktopCounts[screen.id], planned: planned)
     }
 
+    /// Adların durum dosyası kaydı (saf).
+    static func names(_ document: Document, live: LiveDesktops?) -> [Name] {
+        document.names.map { record in
+            let place = record.space.flatMap { live?.place(of: $0) }
+            var planned: [String: String] = [:]
+            for mode in Mode.allCases {
+                if let slot = document.plans.place(of: record.id, mode: mode) {
+                    planned[mode.rawValue] = "\(slot.screen)/\(slot.desktop)"
+                }
+            }
+            return Name(id: record.id, name: record.name, space: record.space,
+                                 screen: place?.screen, desktop: place?.desktop, planned: planned)
+        }
+    }
+
     func write(request: String?) {
         let pins = router.sessionPins
         let primary: ScreenInfo? = screens.screens.first { $0.frame.origin == CGPoint.zero }
@@ -132,8 +160,10 @@ final class StatusFile {
                       document: window.document, key: key)
             },
             rules: store.document.rules,
-            desktopNames: store.document.desktopNames(for: screens.mode),
-            deletedDesktops: store.document.ghostDesktops)
+            desktopNames: store.document.desktopNames(for: screens.mode, live: store.live),
+            deletedDesktops: store.document.ghostDesktops,
+            names: Self.names(store.document, live: store.live),
+            plans: store.document.plans)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

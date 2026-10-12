@@ -37,43 +37,41 @@ struct DocumentOperationsTests {
         #expect(!again)
     }
 
-    /// Laptop düzeni kopyalanınca masaüstü adları da gelir: laptop adları
-    /// monitörlü kurulumun laptop ekranına yazılır, aynı ad monitörde
-    /// kalmaz, aynı yuvadaki aynı adın bağı korunur, plan genişler.
-    @Test func copyLayoutCopiesDesktopNames() {
-        var doc = Document()
-        doc.rules = [rule("a", tokens: ["A"], undocked: Destination(screen: "builtin", desktop: 3))]
-        doc.desktopNames = [
-            "undocked|builtin": ["2": "AI", "3": "Orion"],
-            "docked|builtin": ["2": "AI"],
-            "docked|external": ["1": "Orion", "2": "Mail"],
-        ]
-        doc.desktopNameSpaces = [
-            "docked|builtin": ["2": 8],
-            "docked|external": ["1": 1357, "2": 1030],
-        ]
+    /// Laptop düzeni kopyalanınca laptop planı da gelir (B 20): monitörlü
+    /// kurulumun laptop planı laptop planının aynısı olur, o adlar monitör
+    /// planından "" olarak düşer; adlar kopyalanmaz (kuruluma bağlı değil),
+    /// ad hedefleri ad hedefi kalır. (Şema 5'te ad tabloları ve bağları
+    /// kopyalanıyordu.)
+    @Test func copyLayoutCopiesLaptopPlan() {
+        let ai = DesktopName(id: "AI", name: "AI", space: 8)
+        let orion = DesktopName(id: "ORION", name: "Orion", space: 1357)
+        let mail = DesktopName(id: "MAIL", name: "Mail", space: 1030)
+        var doc = V6.document(
+            rules: [rule("a", tokens: ["A"], undocked: Destination(screen: "builtin", desktop: 3, nameID: "ORION"))],
+            names: [ai, orion, mail],
+            plans: DesktopPlans(docked: ["builtin": ["", "AI"], "external": ["ORION", "MAIL"]],
+                                undocked: ["builtin": ["", "AI", "ORION"]]))
         let changed = doc.copyLayout(from: .undocked, to: .docked)
         #expect(changed)
-        #expect(doc.desktopNames["docked|builtin"] == ["2": "AI", "3": "Orion"])
-        #expect(doc.desktopNames["docked|external"] == ["2": "Mail"])
-        #expect(doc.desktopNameSpaces["docked|builtin"] == ["2": 8])
-        #expect(doc.desktopNameSpaces["docked|external"] == ["2": 1030])
-        #expect(doc.plannedDesktops(mode: .docked, screen: "builtin") == 3)
+        #expect(doc.plans.entries(.docked, "builtin") == ["", "AI", "ORION"])
+        #expect(doc.plans.entries(.docked, "external") == ["", "MAIL"])
+        #expect(doc.names == [ai, orion, mail])
+        #expect(doc.rule("a")?.docked?.nameID == "ORION")
+        #expect(doc.rule("a")?.docked?.desktop == 3)
         let again = doc.copyLayout(from: .undocked, to: .docked)
         #expect(!again)
     }
 
-    /// Hedef kurulumda sıradaki masaüstü silmesi kopyalanan düzeni
-    /// sonradan kaydırmasın: kopyalayınca kuyruk temizlenir.
-    @Test func copyLayoutClearsTargetPendingRemovals() {
-        var doc = Document()
-        doc.removeDesktopLater(on: "builtin", desktop: 3, mode: .docked, existing: true, space: 42)
-        doc.desktopNames = ["undocked|builtin": ["3": "Orion"]]
-        #expect(!doc.pendingRemovals(mode: .docked, screen: "builtin").isEmpty)
+    /// Ortak masaüstü kuyruğuna (eski sürümlerin silmeleri) dokunulmaz:
+    /// şema 6 kopyalarken masaüstü silmez (S1). (Şema 5 kuyruğu temizliyordu.)
+    @Test func copyLayoutLeavesSharedQueueAlone() {
+        var doc = V6.document(names: [DesktopName(id: "K", name: "Orion", space: 4)],
+                              plans: DesktopPlans(undocked: ["builtin": ["", "", "K"]]))
+        doc.pendingRemovals[Document.planKey(mode: .docked, screen: "builtin")] = [PendingRemoval(desktop: 3, space: 42)]
         let changed = doc.copyLayout(from: .undocked, to: .docked)
         #expect(changed)
-        #expect(doc.pendingRemovals(mode: .docked, screen: "builtin").isEmpty)
-        #expect(doc.desktopNames["docked|builtin"] == ["3": "Orion"])
+        #expect(doc.pendingRemovals(mode: .docked, screen: "builtin").count == 1)
+        #expect(doc.plans.entries(.docked, "builtin") == ["", "", "K"])
     }
 
     // MARK: Düzen kaydetme
@@ -199,7 +197,7 @@ struct DocumentOperationsTests {
             rule("c", tokens: ["C"], docked: Destination(screen: "external", desktop: 1)),
             rule("d", tokens: ["D"], docked: Destination(screen: "builtin", desktop: 1)),
         ]
-        doc.setPlannedDesktops(3, mode: .docked, screen: "builtin")
+        doc.planDesktop(on: "builtin", mode: .docked, count: 3)
         let before = doc
         doc.moveDesktopAcross(from: "builtin", desktop: 2, to: "external", at: 1,
                               toCount: 2, mode: .docked)
@@ -221,8 +219,16 @@ struct DocumentOperationsTests {
         var other = Profile(name: "Diğer")
         other.rules = [rule("x", docked: Destination(screen: "builtin", desktop: 1))]
         doc.profiles.append(other)
+        // Şema 6: öbür profillerin numara pinleri yalnız içerik gerçekten
+        // taşındıysa (etkin kurulum, `spaceMap`) kayar; yalnız plan
+        // düzenlemesinde dokunulmaz.
+        var planOnly = doc
+        planOnly.moveDesktopAcross(from: "builtin", desktop: 1, to: "external", at: 3,
+                                   toCount: 2, mode: .docked)
+        #expect(planOnly.profiles.first { $0.id == other.id }?.rules.first?.docked
+                == Destination(screen: "builtin", desktop: 1))
         doc.moveDesktopAcross(from: "builtin", desktop: 1, to: "external", at: 3,
-                              toCount: 2, mode: .docked)
+                              toCount: 2, mode: .docked, spaceMap: [:])
         let moved = doc.profiles.first { $0.id == other.id }?.rules.first?.docked
         #expect(moved == Destination(screen: "external", desktop: 3))
     }

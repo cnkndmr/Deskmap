@@ -690,6 +690,9 @@ final class BackupService: ObservableObject {
             }
         }
         router?.reapplyAll()
+        // Satır 22: geri yüklenen planın masaüstüleri açılır, adlı
+        // masaüstüleri yerine taşınır; hiçbir masaüstü silinmez.
+        router?.applyPlanNow(reason: "restore")
         reload()
         return true
     }

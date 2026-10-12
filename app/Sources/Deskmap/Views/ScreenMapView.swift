@@ -341,7 +341,6 @@ private struct DeletedDesktopRow: View {
                 store.restoreGhost(ghost.id, desktop: count,
                                    space: router.currentSpace(on: ghost.screen, desktop: count),
                                    mode: mode)
-                router.updateBaseline(addingNewIds: true)
                 router.sweep()
             } else {
                 store.report(L("Could not add a desktop to %@", ghost.screen))

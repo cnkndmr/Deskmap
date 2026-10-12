@@ -315,6 +315,19 @@ struct WindowInteractions: ViewModifier {
 
     @ViewBuilder private func targetButtons(_ targets: [WindowRow.SendTargetScreen],
                                             _ actions: WindowActions) -> some View {
+        // Önce adlar (B 17): ada gönderilen pin o adı izler.
+        let named = store.namedPlaces(mode: mode)
+        if !named.isEmpty {
+            ForEach(named, id: \.id) { item in
+                let current = actions.pinnedDestination?.nameID == item.id
+                MenuCheck(item.name, checked: current) {
+                    actions.send(to: Router.Placement(screen: item.place.screen,
+                                                      desktop: item.place.desktop))
+                }
+                .disabled(current)
+            }
+            Divider()
+        }
         ForEach(targets, id: \.screen) { target in
             Menu(target.name) {
                 ForEach(target.desktops, id: \.desktop) { item in

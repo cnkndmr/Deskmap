@@ -240,7 +240,6 @@
 "Remove Desktop %ld" = "Masaüstünü sil (%ld)";
 "Could not remove desktop %ld on %@" = "%2$@ ekranında masaüstü %1$ld silinemedi";
 "Desktop removed" = "Masaüstü silindi";
-"Desktop %ld is the desktop named “%@” elsewhere; remove it where it has that name" = "Masaüstü %1$ld başka bir yerde “%2$@” adlı masaüstü; onu bu adı taşıdığı yerde silin";
 "Desktop renamed" = "Masaüstü adı değişti";
 "Name Desktop…" = "Masaüstüne ad ver…";
 "Rename Desktop…" = "Masaüstünü yeniden adlandır…";
@@ -522,3 +521,34 @@
 "The backup cannot be read" = "Yedek okunamıyor";
 "The backup belongs to a newer version of Deskmap" = "Yedek Deskmap'in daha yeni bir sürümüne ait";
 "Backup not found" = "Yedek bulunamadı";
+
+/* Masaüstü adları v2 */
+"Desktop names upgrade undone; changes are not saved until Deskmap restarts" = "Masaüstü adı yükseltmesi geri alındı; Deskmap yeniden açılana dek değişiklikler kaydedilmez";
+"Desktop names upgrade stopped: could not write the backup (%@)" = "Masaüstü adı yükseltmesi durdu: yedek yazılamadı (%@)";
+"Desktop names upgraded" = "Masaüstü adları yükseltildi";
+"The pre-upgrade backup could not be read" = "Yükseltme öncesi yedek okunamadı";
+"Plan could not be applied: moving windows is off" = "Plan uygulanamadı: pencere taşıma kapalı";
+"%ld windows could not be moved: %@" = "%1$ld pencere taşınamadı: %2$@";
+"Monitor removed: %ld named desktops placed, %ld added, %ld empty removed" = "Monitör çıkarıldı: %1$ld adlı masaüstü yerleşti, %2$ld eklendi, %3$ld boş silindi";
+"Monitor connected: %ld named desktops placed, %ld added, %ld empty removed" = "Monitör takıldı: %1$ld adlı masaüstü yerleşti, %2$ld eklendi, %3$ld boş silindi";
+"Plan applied: %ld named desktops placed, %ld desktops added" = "Plan uygulandı: %1$ld adlı masaüstü yerleşti, %2$ld masaüstü eklendi";
+"Desktop name not found: %@" = "Masaüstü adı bulunamadı: %@";
+"Remove the desktop “%@”?" = "“%@” masaüstü silinsin mi?";
+"Remove Desktop %ld?" = "Masaüstü %ld silinsin mi?";
+"It has windows of %@; macOS moves them to another desktop." = "İçinde %@ pencereleri var; macOS onları başka bir masaüstüne taşır.";
+"Remove Desktop" = "Masaüstünü Sil";
+"%ld of %ld empty desktops removed; the others are no longer empty" = "%2$ld boş masaüstünden %1$ld tanesi silindi; ötekiler artık boş değil";
+"Waiting for “%@”: that desktop does not exist yet" = "“%@” bekleniyor: o masaüstü henüz yok";
+"Follows the desktop “%@” wherever it is" = "“%@” masaüstünü nerede olursa izler";
+"Each name now belongs to one desktop and follows it; plug and unplug arrange desktops by plan." = "Her ad artık tek bir masaüstüne ait ve onu izler; monitör takılıp çıkınca masaüstüleri plana göre dizilir.";
+"Remove 1 empty desktop" = "1 boş masaüstünü kaldır";
+"Remove %ld empty desktops" = "%ld boş masaüstünü kaldır";
+"Desktops beyond the plan that have no windows; each is checked again right before removal." = "Planın ötesindeki penceresiz masaüstüleri; her biri silinmeden hemen önce yeniden denetlenir.";
+"Undo upgrade" = "Yükseltmeyi geri al";
+"Put back the previous rules.json; changes are not saved until Deskmap restarts." = "Önceki rules.json geri konur; Deskmap yeniden açılana dek değişiklikler kaydedilmez.";
+"%@ → %@ %ld" = "%1$@ → %2$@ %3$ld";
+"no desktop yet: %@" = "henüz masaüstü yok: %@";
+"%ld deleted-desktop rows cleared" = "%ld silinmiş masaüstü satırı temizlendi";
+"%ld pins restored" = "%ld pin geri geldi";
+"no desktop names" = "masaüstü adı yok";
+"Retry" = "Yeniden dene";

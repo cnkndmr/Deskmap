@@ -77,6 +77,7 @@ final class StatusItemMenu: NSObject {
         let model = AppModel.shared
         let store = model.store, router = model.router
         let front = AX.frontWindowID()
+        windowID = 0
 
         let menu = NSMenu()
         menu.autoenablesItems = false
@@ -118,6 +119,25 @@ final class StatusItemMenu: NSObject {
             windowID = window.id
             menu.addItem(disabled(Self.header(for: window)))
             menu.addItem(item(L("Pin it where it is"), #selector(pinFront(_:))))
+            menu.addItem(.separator())
+        }
+
+        // Öne çıkan pencereyi adlı masaüstüne gönder (B 17: pin o adı izler).
+        let named = store.namedPlaces(mode: model.screens.mode)
+        if windowID != 0, !named.isEmpty,
+           router.windows.contains(where: { $0.id == windowID && $0.fullscreen == nil }) {
+            let targets = NSMenu()
+            targets.autoenablesItems = false
+            for target in named {
+                let entry = NSMenuItem(title: target.name, action: #selector(sendToName(_:)),
+                                       keyEquivalent: "")
+                entry.target = self
+                entry.representedObject = target.id
+                targets.addItem(entry)
+            }
+            let send = NSMenuItem(title: L("Send to"), action: nil, keyEquivalent: "")
+            send.submenu = targets
+            menu.addItem(send)
             menu.addItem(.separator())
         }
 
@@ -174,6 +194,37 @@ final class StatusItemMenu: NSObject {
         let model = AppModel.shared
         MultiPinBar.pinWhereTheyAre([windowID], store: model.store, router: model.router,
                                     screens: model.screens)
+    }
+
+    /// Öndeki pencereyi adlı masaüstüne pinler: kuralı ya da oturum pini
+    /// varsa onun hedefi, yoksa yeni pin; pencere hemen taşınır.
+    @objc private func sendToName(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        let model = AppModel.shared
+        let store = model.store, router = model.router, mode = model.screens.mode
+        guard let target = store.namedPlaces(mode: mode).first(where: { $0.id == id }),
+              let window = router.windows.first(where: { $0.id == windowID }) else { return }
+        let placement = Router.Placement(screen: target.place.screen, desktop: target.place.desktop)
+        let current = window.currentLayout(screens: model.screens.screens) ?? .full
+        func destination(_ layout: WindowLayout) -> Destination {
+            Destination(screen: placement.screen, desktop: placement.desktop, layout: layout, nameID: id)
+        }
+        if let session = router.sessionPins[window.id] {
+            router.pinSession(window.id, destination: destination(session.layout))
+        } else if let match = Routing.select(
+                    rules: store.document.rules, sessionPins: [:], mode: mode, windowID: window.id,
+                    bundleID: window.bundleID, appName: window.appName, title: window.title,
+                    document: window.document), let rule = match.rule {
+            store.moveRule(rule.id, to: destination(match.destination.layout), mode: mode)
+        } else {
+            let plan = MultiPinBar.plan(selected: [window.id], windows: router.windows,
+                                        history: router.identity) { _ in current }
+            store.pinMany(plan.rules.map { ($0.rule, destination($0.destination.layout)) }, mode: mode)
+            for session in plan.sessions {
+                router.pinSession(session.window, destination: destination(session.destination.layout))
+            }
+        }
+        router.moveWindow(window.id, to: placement)
     }
 
     @objc private func pause(_ sender: NSMenuItem) {

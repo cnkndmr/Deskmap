@@ -209,3 +209,107 @@ struct FirstStepsCard: View {
         }
     }
 }
+
+// MARK: - Ad geçişi raporu (şema 6)
+
+/// Şema 5 → 6 geçişinin raporu: profil başına bağlanan adlar, yerleşmeyen
+/// adlar, kaldırılan hayaletler, geri gelen pinler; planın ötesindeki boş
+/// masaüstüleri için "Kaldır" (M1), "Geçişi geri al".
+struct MigrationReportCard: View {
+
+    let report: MigrationReport
+    let removeEmpty: () -> Void
+    let undoUpgrade: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "rectangle.stack.badge.person.crop")
+                .font(.title2)
+                .foregroundStyle(Color.accentColor)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(L("Desktop names upgraded"))
+                    .font(.callout.weight(.semibold))
+                Text(L("Each name now belongs to one desktop and follows it; plug and unplug arrange desktops by plan."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                ForEach(report.profiles, id: \.profileID) { entry in
+                    Text(Self.line(entry))
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                HStack(spacing: 8) {
+                    if report.emptyCount > 0 {
+                        Button(report.emptyCount == 1 ? L("Remove 1 empty desktop")
+                                                      : L("Remove %ld empty desktops", report.emptyCount),
+                               action: removeEmpty)
+                            .help(L("Desktops beyond the plan that have no windows; each is checked again right before removal."))
+                    }
+                    Button(L("Undo upgrade"), action: undoUpgrade)
+                        .help(L("Put back the previous rules.json; changes are not saved until Deskmap restarts."))
+                }
+                .controlSize(.small)
+                .padding(.top, 2)
+            }
+            Spacer()
+            Button(action: dismiss) { Image(systemName: "xmark") }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(L("Close"))
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 10).fill(Color.accentColor.opacity(0.10)))
+    }
+
+    /// Profilin özet satırı (saf).
+    static func line(_ entry: MigrationReport.ProfileReport) -> String {
+        var parts: [String] = []
+        if !entry.bound.isEmpty {
+            parts.append(entry.bound.map { L("%@ → %@ %ld", $0.name, $0.screen, $0.desktop) }
+                .joined(separator: ", "))
+        }
+        if !entry.unplaced.isEmpty {
+            parts.append(L("no desktop yet: %@", entry.unplaced.joined(separator: ", ")))
+        }
+        if entry.ghostsRemoved > 0 {
+            parts.append(L("%ld deleted-desktop rows cleared", entry.ghostsRemoved))
+        }
+        if entry.pinsRestored > 0 {
+            parts.append(L("%ld pins restored", entry.pinsRestored))
+        }
+        let body = parts.isEmpty ? L("no desktop names") : parts.joined(separator: " · ")
+        return "\(entry.profileName): \(body)"
+    }
+}
+
+// MARK: - Plan uygulaması durumu
+
+/// Monitör takılıp çıkınca planın uygulanma sonucu; başarısızlıkta "Yeniden dene".
+struct PlanStatusCard: View {
+
+    let status: Router.PlanStatus
+    let retry: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: status.failed ? "exclamationmark.triangle.fill" : "rectangle.3.group")
+                .foregroundStyle(status.failed ? Color.orange : Color.accentColor)
+            Text(status.message)
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            if status.failed {
+                Button(L("Retry"), action: retry).controlSize(.small)
+            }
+            Button(action: dismiss) { Image(systemName: "xmark") }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(L("Close"))
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10)
+            .fill((status.failed ? Color.orange : Color.accentColor).opacity(0.10)))
+    }
+}

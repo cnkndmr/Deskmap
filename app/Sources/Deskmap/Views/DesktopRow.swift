@@ -330,17 +330,16 @@ struct DesktopRow: View {
         endRenaming()
         let trimmed = nameDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed != (name ?? "") else { return }
-        if !store.setDesktopName(
-            trimmed, screen: screen.id, desktop: desktop, mode: mode,
-            space: isLive ? router.currentSpace(on: screen.id, desktop: desktop) : nil) {
+        if !store.setDesktopName(trimmed, screen: screen.id, desktop: desktop, mode: mode) {
             store.report(L("A desktop named %@ already exists", trimmed))
         }
     }
 
-    /// Satırı siler; kısıt yok. Etkin modda gerçekte var olan masaüstü
-    /// Mission Control ile hemen silinir (pinler kayar); etkin olmayan modda
-    /// silme o mod etkinleşince yapılır. Gerçekte olmayan (plan/pin) satırda
-    /// yalnız numaralar kayar. Bu ikisi ⌘Z ile geri alınır.
+    /// Satırı siler. Etkin modda gerçekte var olan masaüstü Mission Control
+    /// ile hemen silinir (B 14 → 8/9: adı ve pinleri hayalete); içinde
+    /// pencere varsa önce uygulamalar sayılarak sorulur (D1). Etkin olmayan
+    /// kurulumda ya da gerçekte olmayan (plan) satırda yalnız plan kısalır
+    /// (⌘Z geri alır); masaüstü olmayan adın satırı adı siler.
     private func remove() {
         // Bu ekrana açık pin taslağı varsa masaüstü numaraları kayacak:
         // eski numarayla yanlış masaüstüne pin yazılmasın.
@@ -357,6 +356,8 @@ struct DesktopRow: View {
             }
         }
         if isLive && existing {
+            let apps = Array(Set(windows.map(\.appName))).sorted()
+            if !apps.isEmpty, !Self.confirmRemoval(desktop: desktop, name: name, apps: apps) { return }
             let router = router, store = store, desktop = desktop
             Task {
                 if await router.removeDesktop(on: screenID, desktop: desktop) {
@@ -367,17 +368,21 @@ struct DesktopRow: View {
             }
             return
         }
-        let queued = !isLive && existing
-        let space = queued
-            ? router.spaceForPendingRemoval(on: screen.id, desktop: desktop, mode: mode) : nil
-        // Başka yerde adlı gerçek masaüstü sıraya alınmaz (Store bildirir);
-        // reddedilirse daraltılmış gruplar da kaymaz.
-        guard !store.refusesPendingRemoval(on: screen.id, desktop: desktop, mode: mode,
-                                           existing: queued, space: space) else { return }
         let undoCollapsed = remapCollapsed([mode])
-        store.removeDesktopLater(
-            on: screen.id, desktop: desktop, mode: mode, existing: queued, space: space,
-            undoing: undoCollapsed)
+        store.removePlanEntry(on: screen.id, desktop: desktop, mode: mode, undoing: undoCollapsed)
+    }
+
+    /// D1: penceresi olan masaüstünü silmeden önce sorar (uygulamaları sayar).
+    static func confirmRemoval(desktop: Int, name: String?, apps: [String]) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = name.map { L("Remove the desktop “%@”?", $0) }
+            ?? L("Remove Desktop %ld?", desktop)
+        alert.informativeText = L("It has windows of %@; macOS moves them to another desktop.",
+                                  apps.joined(separator: ", "))
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L("Remove Desktop"))
+        alert.addButton(withTitle: L("Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
     }
 
     /// Satırı tutup sürüklemek: bırakılan masaüstü sırasına taşınır, o
@@ -439,7 +444,8 @@ struct DesktopRow: View {
     /// Masaüstünü başka ekranın `at` sırasına taşır (bkz.
     /// `Document.moveDesktopAcross`). Etkin modda hedefte bir gerçek
     /// masaüstü eksikse önce Mission Control ile eklenir; eklenemezse hiçbir
-    /// şey değişmez. Kaynakta kalan boş gerçek masaüstü silinmez.
+    /// şey değişmez. İçerik taşınınca bütün profillerin adları içerikle gider
+    /// (R5); kaynakta boş kalan masaüstü silinir (D2).
     private func moveAcross(to toScreen: String, at dropped: Int) {
         guard let toCount = tileCounts[toScreen] else { return }
         let to = min(max(dropped, 1), toCount + 1)
@@ -454,10 +460,13 @@ struct DesktopRow: View {
                 Document.acrossPlacement(screen: s, desktop: d, from: fromScreen, desktop: from,
                                          to: toScreen, at: to) ?? (s, d)
             }
+            let spaceMap = live ? router.acrossSpaceMap(from: fromScreen, desktop: from,
+                                                        to: toScreen, at: to) : nil
             let sessionMoved = router.moveDesktopAcross(
                 from: fromScreen, desktop: from, to: toScreen, at: to, moveWindows: live)
             store.moveDesktopAcross(
                 from: fromScreen, desktop: from, to: toScreen, at: to, toCount: toCount, mode: mode,
+                spaceMap: spaceMap,
                 undoingSessionPins: UIState.chain(
                     sessionMoved
                         ? { router.moveDesktopAcross(from: toScreen, desktop: to, to: fromScreen,

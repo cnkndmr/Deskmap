@@ -296,11 +296,17 @@ struct Destination: Codable, Equatable, Hashable {
     /// O ekrandaki normal masaüstü sırası (1 tabanlı).
     var desktop: Int
     var layout: WindowLayout
+    /// Ad hedefi (şema 6): pencere bu adın bağlı olduğu masaüstüne gider,
+    /// o masaüstü nerede olursa. `screen`/`desktop` o zaman yalnız son
+    /// çözülen yerin önbelleğidir (eski sürümler ve haritanın "bekliyor"
+    /// çipi için). nil: numara hedefi.
+    var nameID: String?
 
-    init(screen: String, desktop: Int = 1, layout: WindowLayout = .full) {
+    init(screen: String, desktop: Int = 1, layout: WindowLayout = .full, nameID: String? = nil) {
         self.screen = screen
         self.desktop = max(1, desktop)
         self.layout = layout
+        self.nameID = nameID
     }
 
     init(from decoder: Decoder) throws {
@@ -308,6 +314,7 @@ struct Destination: Codable, Equatable, Hashable {
         screen = try c.decodeIfPresent(String.self, forKey: .screen) ?? "builtin"
         desktop = max(1, try c.decodeIfPresent(Int.self, forKey: .desktop) ?? 1)
         layout = try c.decodeIfPresent(WindowLayout.self, forKey: .layout) ?? .full
+        nameID = try c.decodeIfPresent(String.self, forKey: .nameID)
     }
 }
 

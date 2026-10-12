@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 
@@ -19,6 +20,9 @@ import Foundation
 ///     deskmap://status               status.json'u hemen yaz
 ///     deskmap://pin/<pencere>/<ekran>/<n>    pencereyi kapanana dek orada tut
 ///         [?layout=desktop-only]            yalnız masaüstü (konum/boyut serbest)
+///     deskmap://pin/<pencere>?name=<ad>      pencereyi adlı masaüstüne bağla (ad
+///                                    nereye giderse pencere de gider)
+///     deskmap://quit                 Deskmap'i kapat (kanca testleri)
 ///     deskmap://unpin/<pencere>      oturum pinini kaldır
 ///     deskmap://move/<pencere>/<ekran>/<n>   pencereyi bir kez taşı
 ///     deskmap://rule-add?json=<kural>        kural ekle (Rule JSON'u)
@@ -53,6 +57,8 @@ enum URLCommand: Equatable {
     case reload
     case status
     case pin(window: CGWindowID, screen: String, desktop: Int, desktopOnly: Bool = false)
+    case pinToName(window: CGWindowID, name: String, desktopOnly: Bool = false)
+    case quit
     case unpin(window: CGWindowID)
     case move(window: CGWindowID, screen: String, desktop: Int)
     case addRule(Rule)
@@ -113,8 +119,14 @@ enum URLCommand: Equatable {
         case "backup-restore":
             guard parts.count == 1, !parts[0].isEmpty else { return nil }
             return .restoreBackup(id: parts[0])
+        case "quit":         return parts.isEmpty ? .quit : nil
         case "pin":
             let desktopOnly = query.first { $0.name == "layout" }?.value == "desktop-only"
+            if parts.count == 1, let window = CGWindowID(parts[0]),
+               let name = query.first(where: { $0.name == "name" })?.value?
+                .trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                return .pinToName(window: window, name: name, desktopOnly: desktopOnly)
+            }
             return windowTarget().map {
                 .pin(window: $0.0, screen: $0.1, desktop: $0.2, desktopOnly: desktopOnly)
             }
@@ -291,6 +303,24 @@ enum URLCommands {
             }
             router.pinSession(window, destination: Destination(
                 screen: screen, desktop: desktop, layout: desktopOnly ? .anyFrame : .full))
+        case .pinToName(let window, let name, let desktopOnly):
+            guard router.windows.contains(where: { $0.id == window }) else {
+                store.report(L("Window not found: %@", String(window)))
+                return
+            }
+            guard let record = store.document.nameRecord(named: name) else {
+                store.report(L("Desktop name not found: %@", name))
+                return
+            }
+            let mode = AppModel.shared.screens.mode
+            let place = record.space.flatMap { store.live?.place(of: $0) }
+                ?? store.document.plans.place(of: record.id, mode: mode)
+            router.pinSession(window, destination: Destination(
+                screen: place?.screen ?? "builtin", desktop: place?.desktop ?? 1,
+                layout: desktopOnly ? .anyFrame : .full, nameID: record.id))
+        case .quit:
+            store.flush()
+            NSApplication.shared.terminate(nil)
         case .unpin(let window):
             router.unpinSession(window)
         case .move(let window, let screen, let desktop):
@@ -312,11 +342,8 @@ enum URLCommands {
         case .planDesktops(let screen, let count, let mode):
             planDesktops(screen: screen, count: count, mode: mode, store: store, router: router)
         case .nameDesktop(let screen, let desktop, let name, let mode):
-            let live = AppModel.shared.screens.mode
-            let target = mode ?? live
-            if !store.setDesktopName(name, screen: screen, desktop: desktop, mode: target,
-                                     space: target == live
-                                        ? router.currentSpace(on: screen, desktop: desktop) : nil) {
+            let target = mode ?? AppModel.shared.screens.mode
+            if !store.setDesktopName(name, screen: screen, desktop: desktop, mode: target) {
                 store.report(L("A desktop named %@ already exists", name))
             }
         case .renameProfile(let from, let to):
@@ -432,11 +459,8 @@ enum URLCommands {
         let mode = mode ?? screens.mode
         let isLive = mode == screens.mode
         let real = router.desktopCounts[screen]
-        let pending = store.document.pendingRemovals(mode: mode, screen: screen)
-            .filter { $0.space != nil }.count
-        let shown = real.map { isLive ? $0 : max($0 - pending, 0) }
-        let planned = isLive ? 0 : store.document.plannedDesktops(mode: mode, screen: screen)
-        let have = max(shown ?? 0, planned)
+        let planned = store.document.plannedDesktops(mode: mode, screen: screen)
+        let have = isLive ? (real ?? 0) : planned
         if isLive && real == nil {
             store.report(L("Could not add a desktop to %@", screen))
             return
@@ -473,14 +497,9 @@ enum URLCommands {
                 }
             }
         } else {
+            // Etkin olmayan kurulum: yalnız plan kısalır (gerçek masaüstü silinmez).
             for desktop in stride(from: have, to: count, by: -1) {
-                let existing = desktop <= (shown ?? 0)
-                // Başka yerde adlı gerçek masaüstü sıraya alınmaz: dur (bildirildi).
-                guard store.removeDesktopLater(
-                    on: screen, desktop: desktop, mode: mode, existing: existing,
-                    space: existing
-                        ? router.spaceForPendingRemoval(on: screen, desktop: desktop, mode: mode)
-                        : nil) else { return }
+                store.removePlanEntry(on: screen, desktop: desktop, mode: mode)
             }
         }
     }

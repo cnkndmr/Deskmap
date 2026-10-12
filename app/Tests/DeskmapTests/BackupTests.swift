@@ -293,7 +293,8 @@ struct BackupTests {
             var original = document(rules: 3, profile: "Office")
             original.addProfile(named: "Home")
             original.switchProfile(to: original.profiles[0].id)
-            original.desktopNames = ["builtin": ["1": "Mail"]]
+            original.names = [DesktopName(id: "MAIL", name: "Mail", space: 5)]
+            original.plans.put("MAIL", at: 1, .docked, "builtin")
             try writeDocument(original, in: dir)
             _ = archive.run(now: at(2026, 10, 12))
 
@@ -308,7 +309,8 @@ struct BackupTests {
             store.restoreBackup(backup)
             #expect(store.document.profiles.map(\.name) == ["Office", "Home"])
             #expect(store.document.rules.count == 3)
-            #expect(store.document.desktopNames == backup.desktopNames && !backup.desktopNames.isEmpty)
+            #expect(store.document.names == backup.names && !backup.names.isEmpty)
+            #expect(store.document.plans == backup.plans)
             #expect(store.document.enabled == false) // anahtar korunur
             #expect(!store.undoBuffer.isEmpty)
             store.undo()

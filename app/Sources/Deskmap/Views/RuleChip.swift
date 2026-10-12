@@ -43,6 +43,17 @@ struct RuleChip: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(Color.accentColor)
             }
+            if let target = store.nameTarget(rule[mode], mode: mode) {
+                // Ad hedefi: "→ Nova Ek"; adın masaüstü yoksa "bekliyor".
+                HStack(spacing: 2) {
+                    Image(systemName: target.waiting ? "hourglass" : "arrow.right")
+                        .font(.system(size: 8, weight: .semibold))
+                    Text(target.name)
+                        .lineLimit(1)
+                }
+                .font(.caption2)
+                .foregroundStyle(target.waiting ? Color.orange : Color.secondary)
+            }
             if let destination = rule[mode] {
                 if let real = MissingDesktopBadge.clamped(for: destination,
                                                           desktopCounts: ui.desktopCounts,
@@ -84,8 +95,11 @@ struct RuleChip: View {
     }
 
     private var helpText: String {
+        let target = store.nameTarget(rule[mode], mode: mode)
         let base = "\(rule.appName): \(rule.title)"
             + (reopenLabel.map { "\n" + L("Double-click opens %@", $0) } ?? "")
+            + (target.map { $0.waiting ? "\n" + L("Waiting for “%@”: that desktop does not exist yet", $0.name)
+                                       : "\n" + L("Follows the desktop “%@” wherever it is", $0.name) } ?? "")
         if inTray {
             return base + "\n" + L("Drag onto a desktop to give it a place in this plan.")
         }
