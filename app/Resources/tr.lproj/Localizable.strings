@@ -252,6 +252,11 @@
 "End free movement; the window goes back to its pin" = "Serbestliği bitir; pencere sabit yerine döner";
 "1 minute" = "1 dakika";
 "%ld minutes" = "%ld dakika";
+"%ld hours" = "%ld saat";
+"Free move needs a pinned window: %@" = "Serbest hareket yalnız pinli pencereye verilir: %@";
+"(some until the screen locks)" = "(bazıları ekran kilitlenene kadar)";
+"Until the screen locks" = "Ekran kilitlenene kadar";
+"Free to move · until the screen locks" = "Serbest · ekran kilitlenene kadar";
 "%ld of %ld windows" = "%ld/%ld pencere";
 "Placed in one plan only" = "Yalnız bir planda yeri olanlar";
 "Pinned only in the %@ plan" = "Yalnız şu planda sabit: %@";

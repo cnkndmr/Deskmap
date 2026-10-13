@@ -25,6 +25,8 @@ import Foundation
 ///     deskmap://quit                 Deskmap'i kapat (kanca testleri)
 ///     deskmap://unpin/<pencere>      oturum pinini kaldır
 ///     deskmap://move/<pencere>/<ekran>/<n>   pencereyi bir kez taşı
+///     deskmap://free/<pencere>/<dakika|lock>  pinli pencereye serbest hareket izni
+///     deskmap://free-end/<pencere>   serbest hareketi bitir (pin geri uygulanır)
 ///     deskmap://rule-add?json=<kural>        kural ekle (Rule JSON'u)
 ///     deskmap://rule-remove/<kimlik> kuralı sil
 ///     deskmap://profile-rename/<ad>?name=<yeni>   profilin adını değiştir
@@ -60,6 +62,9 @@ enum URLCommand: Equatable {
     case pinToName(window: CGWindowID, name: String, desktopOnly: Bool = false)
     case quit
     case unpin(window: CGWindowID)
+    /// `duration` sn; `Router.freeMoveUntilLock` = ekran kilitlenene kadar.
+    case freeMove(window: CGWindowID, duration: TimeInterval)
+    case endFreeMove(window: CGWindowID)
     case move(window: CGWindowID, screen: String, desktop: Int)
     case addRule(Rule)
     case removeRule(id: String)
@@ -135,6 +140,16 @@ enum URLCommand: Equatable {
         case "unpin":
             guard parts.count == 1, let window = CGWindowID(parts[0]) else { return nil }
             return .unpin(window: window)
+        case "free":
+            guard parts.count == 2, let window = CGWindowID(parts[0]) else { return nil }
+            if parts[1].lowercased() == "lock" {
+                return .freeMove(window: window, duration: Router.freeMoveUntilLock)
+            }
+            guard let minutes = Int(parts[1]), minutes > 0 else { return nil }
+            return .freeMove(window: window, duration: TimeInterval(minutes * 60))
+        case "free-end":
+            guard parts.count == 1, let window = CGWindowID(parts[0]) else { return nil }
+            return .endFreeMove(window: window)
         case "rule-add":
             guard let json = query.first(where: { $0.name == "json" })?.value,
                   let rule = try? JSONDecoder().decode(Rule.self, from: Data(json.utf8))
@@ -323,6 +338,13 @@ enum URLCommands {
             NSApplication.shared.terminate(nil)
         case .unpin(let window):
             router.unpinSession(window)
+        case .freeMove(let window, let duration):
+            router.allowFreeMove([window], for: duration)
+            if router.freeMoves[window] == nil {
+                store.report(L("Free move needs a pinned window: %@", String(window)))
+            }
+        case .endFreeMove(let window):
+            router.endFreeMove([window])
         case .move(let window, let screen, let desktop):
             guard router.windows.contains(where: { $0.id == window }) else {
                 store.report(L("Window not found: %@", String(window)))

@@ -93,8 +93,11 @@ final class StatusItemMenu: NSObject {
             windowID = window.id
             menu.addItem(disabled(Self.header(for: window)))
 
-            let remaining = router.freeMoves[window.id].map { $0.timeIntervalSinceNow } ?? 0
-            if remaining > 0 {
+            let until = router.freeMoves[window.id]
+            let remaining = until.map { $0.timeIntervalSinceNow } ?? 0
+            if let until, Router.isUntilLock(until) {
+                menu.addItem(disabled(L("Free to move · until the screen locks")))
+            } else if remaining > 0 {
                 menu.addItem(disabled(L("Free to move · %@ left", Router.freeMoveRemaining(remaining))))
             }
             let durations = NSMenu()

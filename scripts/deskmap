@@ -83,6 +83,7 @@ Backups/ (automatic backups: hourly/, daily/, weekly/, pre-restore/).
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -456,6 +457,35 @@ def rule_rm(args):
     after = send(f"rule-remove/{args.id}")
     if any(r["id"] == args.id for r in after["rules"]):
         die("rule is still there")
+
+
+def free_move(args):
+    s = fresh_status()
+    window = resolve_window(s, args.window)
+    d = args.duration.strip().lower()
+    if d == "end":
+        send(f"free-end/{window}")
+    elif d == "lock":
+        send(f"free/{window}/lock")
+    else:
+        m = re.fullmatch(r"(\d+)\s*(m|min|h)?", d)
+        if not m or int(m.group(1)) <= 0:
+            die("duration: e.g. 15m, 2h, lock or end")
+        minutes = int(m.group(1)) * (60 if m.group(2) == "h" else 1)
+        send(f"free/{window}/{minutes}")
+    w = next((w for w in fresh_status()["windows"] if w["id"] == window), None)
+    free = w and w.get("free")
+    if d == "end":
+        print(f"{window}: free move ended" if not free else die("free move is still active"))
+    elif not free:
+        die(f"{window}: no free move (is the window pinned?)")
+    else:
+        if free == "lock":
+            print(f"{window}: free until the screen locks")
+        else:
+            from datetime import datetime
+            local = datetime.fromisoformat(free.replace("Z", "+00:00")).astimezone()
+            print(f"{window}: free until {local:%H:%M:%S}")
 
 
 def window_command(name):
@@ -1044,6 +1074,8 @@ def main():
             sp.add_argument("--desktop-only", action="store_true",
                             help="follow the desktop only; keep the window's position and size")
     sp = sub.add_parser("unpin"); sp.add_argument("window"); sp.set_defaults(fn=window_command("unpin"))
+    sp = sub.add_parser("free", help="let a pinned window move freely: 15m, 2h, lock (until the screen locks) or end")
+    sp.add_argument("window"); sp.add_argument("duration"); sp.set_defaults(fn=free_move)
     sp = sub.add_parser("desktops"); sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=show_desktops)
     sp = sub.add_parser("name"); sp.add_argument("screen"); sp.add_argument("desktop", type=int)

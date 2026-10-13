@@ -461,8 +461,8 @@ struct FreeMoveRow: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let free = windowIDs.filter { (router.freeMoves[$0] ?? .distantPast) > context.date }
-            if let until = free.compactMap({ router.freeMoves[$0] }).max() {
-                active(remaining: until.timeIntervalSince(context.date), free: free)
+            if !free.isEmpty {
+                active(now: context.date, free: free)
             } else {
                 idle
             }
@@ -501,14 +501,16 @@ struct FreeMoveRow: View {
 
     /// `free`: şu an serbest olan hedefler. Bir kısmı serbestse sayı
     /// gösterilir ve kalanlar için süre menüsü açık kalır.
-    private func active(remaining: TimeInterval, free: [CGWindowID]) -> some View {
+    private func active(now: Date, free: [CGWindowID]) -> some View {
         let rest = windowIDs.filter { !free.contains($0) }
+        let text = Router.freeMoveStatus(free.compactMap { router.freeMoves[$0] }, now: now)
+        let untilLock = text.timedRemaining == nil
         // İki satır: geri sayım ve açıklama üstte (sarmadan), düğmeler altta.
         return VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: "timer")
                     .foregroundStyle(Color.teal)
-                Text(L("Free to move · %@ left", Router.freeMoveRemaining(remaining)))
+                Text(text.label)
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(Color.teal)
                     .fixedSize()
@@ -523,10 +525,12 @@ struct FreeMoveRow: View {
                 if !rest.isEmpty {
                     durationMenu(for: rest)
                 }
-                Button(L("+5 min")) {
-                    router.extendFreeMove(free, by: 5 * 60)
+                if !untilLock {
+                    Button(L("+5 min")) {
+                        router.extendFreeMove(free, by: 5 * 60)
+                    }
+                    .controlSize(.small)
                 }
-                .controlSize(.small)
                 Button(L("End now")) {
                     router.endFreeMove(free)
                 }
@@ -537,6 +541,8 @@ struct FreeMoveRow: View {
     }
 
     static func label(_ duration: TimeInterval) -> String {
+        if duration.isInfinite { return L("Until the screen locks") }
+        if duration > 3600 { return L("%ld hours", Int(duration / 3600)) }
         let minutes = Int(duration / 60)
         return minutes == 1 ? L("1 minute") : L("%ld minutes", minutes)
     }
@@ -550,7 +556,12 @@ struct FreeMoveBadge: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let left = until.timeIntervalSince(context.date)
-            if left > 0 {
+            if Router.isUntilLock(until) {
+                Image(systemName: "lock.open")
+                    .font(.system(size: 9))
+                    .foregroundStyle(Color.teal)
+                    .help(L("Free to move · until the screen locks"))
+            } else if left > 0 {
                 HStack(spacing: 2) {
                     Image(systemName: "timer")
                     Text(Router.freeMoveRemaining(left))
