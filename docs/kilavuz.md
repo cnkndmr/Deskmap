@@ -201,11 +201,16 @@ anında geçiş yapar.
 
 ## 8. Fikrini değiştirdiğinde
 
-- **Geri al**: sabitlemeyi kaldırdıktan, sürükledikten ya da masaüstü
-  sırasını değiştirdikten sonra alt çubukta on saniye *"Sabitleme silindi ·
-  Geri al"* durur. Tıkla ya da **⌘Z**. Neredeyse hiçbir şey onay istemez; sebebi
+- **Geri al / Yinele**: her ayar değişikliği bir adımdır. **⌘Z** geri alır,
+  **⇧⌘Z** yineler; alt çubukta ↶ ↷ düğmeleri de var. **Son hareketler ›
+  Değişiklikler** bu oturumun adımlarını listeler; bir satırdaki **Buraya dön**
+  ayarları o adımdan hemen sonraki hâline getirir (geri ya da ileri). Geri
+  aldıktan sonra yeni değişiklik yapınca geri alınan adımlar silinir; alt
+  çubuktaki uyarıdan *Geri al* onları geri getirir. Geçici pin değişiklikleri
+  geri alınır ama yinelenemez. Geçmiş en fazla 50 adım tutar ve Deskmap
+  kapanınca silinir. Neredeyse hiçbir şey onay istemez; sebebi
   bu. Tek istisna, hâlâ penceresi olan bir masaüstünü silmek.
-- **Son hareketler** (araç çubuğu): Deskmap hangi sabit pencereyi ne zaman
+- **Son hareketler › Pencere hareketleri** (araç çubuğu): Deskmap hangi sabit pencereyi ne zaman
   nereye gönderdi — "pencerem neden zıpladı?" sorusunun cevabı.
 - **Duraklat**: sol üstteki **Deskmap açık** anahtarı ya da menü çubuğu
   simgesine sağ tık › **15 dakika duraklat**. Kapalıyken hiçbir pencere

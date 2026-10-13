@@ -6,6 +6,18 @@ number comes from the `VERSION` file.
 
 ## [Unreleased]
 
+### Added
+
+- **Multi-step undo / redo and change history.** Every settings change this
+  session is a step (up to 50, not saved): ⌘Z / ⇧⌘Z and permanent ↶ ↷ footer
+  buttons replace the 10-second "· Undo" link. Recent moves gets two tabs,
+  **Changes** (new: newest first, ● NOW, faded redoable rows, **Return here**)
+  and **Window moves** (the old list). Changes from URL commands, the CLI,
+  profile switches or Mission Control become steps instead of cancelling undo.
+  A new change after undo drops the redo branch with a footer notice whose
+  Undo brings it back. Temporary-pin steps are undo-only
+  (`Models/ChangeHistory.swift`).
+
 ### Changed
 
 - **Desktop names v2 (`rules.json` schema 6)**: a name now belongs to one

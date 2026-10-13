@@ -308,23 +308,34 @@ their pin count.
 
 <br clear="right">
 
-### Undo
+### Undo, redo and change history
 
-There are no confirmation dialogs. After these actions the footer shows
-"*action* · Undo" for 10 seconds; click it or press ⌘Z:
+There are no confirmation dialogs. Every settings change this session is a
+step in a history: pins added, moved or removed, layouts, title parts,
+desktop order, profiles (switch, add, rename, import, delete), backups, and
+changes that arrive from elsewhere (a URL command, the CLI, Mission Control;
+these show as **Settings changed** or a more specific label). The pause
+switch and newly seen displays are not steps.
 
-- unpinning (**Pin removed**), dragging a pin to another desktop (**Pin
-  moved**), re-pinning over an existing target (**Pin updated**), saving the
-  window's current size as the layout (**Layout saved**), editing title
-  parts, reordering desktops, deleting a profile, dragging a temporary pin,
-  restoring a backup (**Backup restored**).
+- **⌘Z** undoes one step, **⇧⌘Z** redoes one. The footer keeps two small
+  ↶ ↷ buttons; hover shows the step they would undo or redo, and they fade
+  when there is nothing to do.
+- **Recent moves › Changes** lists the steps, newest first, from
+  **Deskmap opened**. The current state has ● and **NOW**; faded rows above
+  it were undone and can be redone. Hover a row and click **Return here** to
+  put the settings back exactly as they were right after that step (the first
+  row is the state at launch). Returning moves back or forward several steps
+  at once and adds no step of its own.
+- Making a new change after undoing drops the undone steps; the footer shows
+  "*N* redoable steps discarded · Undo" for a few seconds, and Undo brings
+  them back.
+- Temporary (session) pin changes can be undone but not redone (marked
+  "cannot be redone").
+- The history keeps the last 50 steps and is not saved: it starts empty each
+  time Deskmap opens. The pause switch and known displays keep their current
+  value when you undo.
 
-Undo is one level deep and restores only that action. Any other change in
-between (a new pin, a layout step, a profile switch, a URL command) cancels
-the pending undo so it can't wipe that change. Not undoable: adding a pin,
-layout edits, adding, renaming, importing or switching profiles, and adding or
-removing temporary pins. While the cursor is in a text field, ⌘Z undoes the
-text edit.
+While the cursor is in a text field, ⌘Z / ⇧⌘Z act on the text.
 
 ### Pausing
 

@@ -438,7 +438,8 @@ private struct ShortcutSettings: View {
             row(L("Show the Laptop only plan"), "⌘2")
             row(L("Place pinned windows now"), "⌘R")
             row(L("Search windows"), "⌘F")
-            row(L("Undo the last action (for 10 seconds)"), "⌘Z")
+            row(L("Undo the last change"), "⌘Z")
+            row(L("Redo the undone change"), "⇧⌘Z")
             row(L("Settings"), "⌘,")
             row(L("Select several windows"), L("⌘-click"))
         }

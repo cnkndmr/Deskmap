@@ -126,15 +126,15 @@ struct CurrentLayoutTests {
         #expect(store.saveLayout(layout, for: "r", mode: .docked))
         #expect(store.rule("r")?.docked == Destination(screen: "external", desktop: 2, layout: layout))
         #expect(store.rule("r")?.undocked == nil)
-        #expect(store.undoBuffer.entry?.label == "Layout saved")
+        #expect(store.history.undoEntry?.label == "Layout saved")
 
         store.undo()
         #expect(store.rule("r")?.docked == external2)
-        #expect(store.undoBuffer.isEmpty)
+        #expect(!store.history.canUndo)
 
         // Aynı düzeni yeniden kaydetmek etkisizdir: kayıt yok.
         #expect(!store.saveLayout(.leftHalf, for: "r", mode: .docked))
-        #expect(store.undoBuffer.isEmpty)
+        #expect(store.history.entries.count == 1)
         // Bu modda hedefi olmayan kural: dokunulmaz.
         #expect(!store.saveLayout(layout, for: "r", mode: .undocked))
         #expect(store.rule("r")?.undocked == nil)

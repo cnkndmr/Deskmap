@@ -312,7 +312,7 @@ struct BackupTests {
             #expect(store.document.names == backup.names && !backup.names.isEmpty)
             #expect(store.document.plans == backup.plans)
             #expect(store.document.enabled == false) // anahtar korunur
-            #expect(!store.undoBuffer.isEmpty)
+            #expect(store.history.canUndo)
             store.undo()
             #expect(store.document.profiles.map(\.name) == ["Other"])
         }

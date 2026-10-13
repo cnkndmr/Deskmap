@@ -74,8 +74,8 @@ in or unplug a monitor.
 - **Automatic backups.** Every profile, pin and desktop name is backed up
   hourly (kept a day), daily (kept a week) and weekly (kept forever), inside
   the app. Restore any of them from Settings › Backups; undoable.
-- **Undo instead of dialogs.** ⌘Z for ten seconds after every destructive
-  action.
+- **Undo instead of dialogs.** Multi-step ⌘Z / ⇧⌘Z and a session history of
+  settings changes (Recent moves › Changes) you can jump back or forward in.
 - **Automation.** `deskmap://` URLs for Shortcuts, Raycast or a terminal.
 - **One small app.** No scripts, no config file, no dependencies; System
   Integrity Protection stays on. Nothing is collected or sent.

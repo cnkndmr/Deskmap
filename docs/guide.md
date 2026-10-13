@@ -195,11 +195,12 @@ switches between them instantly.
 
 ## 8. When you change your mind
 
-- **Undo**: after unpinning, dragging a pin, or reordering desktops, the
-  footer shows *"Pin deleted · Undo"* for ten seconds. Click it or press
-  **⌘Z**. Almost nothing asks for confirmation; Undo is why. The one exception is
+- **Undo / Redo**: every settings change is a step. Press **⌘Z** to undo
+  and **⇧⌘Z** to redo, or use the ↶ ↷ buttons in the footer. **Recent moves
+  › Changes** lists this session's steps; **Return here** on any row jumps
+  back (or forward) to it. Almost nothing asks for confirmation; Undo is why. The one exception is
   removing a desktop that still has windows.
-- **Recent moves** (toolbar): which pinned window Deskmap sent where, and
+- **Recent moves › Window moves** (toolbar): which pinned window Deskmap sent where, and
   when — the answer to "why did my window jump?".
 - **Pause**: the **Deskmap on** switch at the top left, or right-click the
   menu bar icon › **Pause for 15 minutes**. Nothing is moved while it is off,

@@ -88,8 +88,6 @@
 "The app did not answer Accessibility requests (frozen or stopped in a debugger). It is listed again automatically once it responds." = "Uygulama Erişilebilirlik isteklerine yanıt vermedi (donmuş ya da hata ayıklayıcıda). Yanıt verince otomatik olarak yeniden listelenir.";
 "Pin a window, or drag it to another desktop." = "Bir pencereyi sabitle ya da başka masaüstüne sürükle.";
 "Pinned windows are kept in place; others are left alone." = "Sabit pencereler yerinde tutulur; diğerlerine dokunulmaz.";
-"%@ · Undo" = "%@ · Geri al";
-"Undo the last action (⌘Z)" = "Son işlemi geri al (⌘Z)";
 "Launch at login" = "Girişte başlat";
 "Approval needed" = "Onay gerekli";
 "Turn on Deskmap in System Settings › General › Login Items" = "Sistem Ayarları › Genel › Giriş Öğeleri (Login Items) bölümünde Deskmap'i aç";
@@ -388,7 +386,8 @@
 "These work while the map is open." = "Bunlar harita açıkken çalışır.";
 "Show the Monitor connected plan" = "Monitör bağlı planını göster";
 "Show the Laptop only plan" = "Sadece laptop planını göster";
-"Undo the last action (for 10 seconds)" = "Son işlemi geri al (10 saniye içinde)";
+"Undo the last change" = "Son değişikliği geri al";
+"Redo the undone change" = "Geri alınan değişikliği yinele";
 "Select several windows" = "Birden çok pencere seç";
 "⌘-click" = "⌘-tık";
 "What the map shows" = "Harita ne gösteriyor";
@@ -552,3 +551,37 @@
 "%ld pins restored" = "%ld pin geri geldi";
 "no desktop names" = "masaüstü adı yok";
 "Retry" = "Yeniden dene";
+
+/* Ayar geçmişi (çok adımlı geri al / yinele) */
+"Settings changed" = "Ayarlar değişti";
+"Desktop plan updated" = "Masaüstü planı güncellendi";
+"Desktop deleted" = "Masaüstü silindi";
+"Desktops changed in Mission Control" = "Mission Control'de masaüstleri değişti";
+"Desktop names updated" = "Masaüstü adları güncellendi";
+"Profile switched: %@" = "Profile geçildi: %@";
+"Profile updated: %@" = "Profil güncellendi: %@";
+"Profile added" = "Profil eklendi";
+"Profile duplicated: %@" = "Profil kopyalandı: %@";
+"Profile renamed: %@" = "Profil yeniden adlandırıldı: %@";
+"Profile imported: %@" = "Profil içe aktarıldı: %@";
+"1 redoable step discarded · Undo" = "Yinelenebilir 1 adım silindi · Geri al";
+"%ld redoable steps discarded · Undo" = "Yinelenebilir %ld adım silindi · Geri al";
+"A new change replaced the steps you had undone. Undo brings them back." = "Yeni bir değişiklik geri aldığın adımların yerini aldı. Geri al onları geri getirir.";
+"Undo: %@ (⌘Z)" = "Geri al: %@ (⌘Z)";
+"Nothing to undo" = "Geri alınacak bir şey yok";
+"Redo: %@ (⇧⌘Z)" = "Yinele: %@ (⇧⌘Z)";
+"%@ cannot be redone" = "%@ yinelenemez";
+"Nothing to redo" = "Yinelenecek bir şey yok";
+"Undo" = "Geri al";
+"Redo" = "Yinele";
+"Changes" = "Değişiklikler";
+"Window moves" = "Pencere hareketleri";
+"Earliest kept state" = "Saklanan en eski durum";
+"Deskmap opened" = "Deskmap açıldı";
+"Settings changes this session, newest first. Return to any row to put the settings back the way they were right after it; faded rows can be redone. Not kept after Deskmap quits." = "Bu oturumdaki ayar değişiklikleri, en yenisi başta. Bir satıra dönünce ayarlar o işlemden hemen sonraki hâline gelir; soluk satırlar yinelenebilir. Deskmap kapanınca saklanmaz.";
+"Undo (⌘Z)" = "Geri al (⌘Z)";
+"Redo (⇧⌘Z)" = "Yinele (⇧⌘Z)";
+"cannot be redone" = "yinelenemez";
+"Session-only changes (temporary pins) can be undone but not redone." = "Yalnız bu oturumluk değişiklikler (geçici pinler) geri alınabilir ama yinelenemez.";
+"NOW" = "ŞİMDİ";
+"Return here" = "Buraya dön";
