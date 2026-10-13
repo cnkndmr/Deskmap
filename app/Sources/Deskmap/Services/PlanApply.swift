@@ -52,6 +52,9 @@ enum PlanApply {
         var otherNamed: Set<UInt64> = []
         /// Kuyruktaki silmeler: asla otomatik silinmez.
         var pending: Set<UInt64> = []
+        /// Numara pinleri: rol → en büyük hedef masaüstü sırası. O sıraya dek
+        /// masaüstü silinmez (temizlikle aynı koruma; silmek pinleri kaydırır).
+        var pinned: [String: Int] = [:]
         var allowRemovals = true
         var allowMoves = true
         var maxCreatesPerRole = 8
@@ -528,6 +531,7 @@ enum PlanApply {
                     : keptNamed.contains(space) || reboundSpaces.contains(space) ? "named"
                     : otherStill.contains(space) ? "named in another profile"
                     : input.pending.contains(space) ? "queued removal"
+                    : index + 1 <= (input.pinned[role] ?? 0) ? "a pin targets desktop \(input.pinned[role] ?? 0)"
                     : !stays.isEmpty || staying.contains(here) ? "not empty (\(stays.count) windows)"
                     : !(input.leftovers.contains(space) || vacated.contains(space)) ? "not a leftover of this transition (cleanup decides)"
                     : nil

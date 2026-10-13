@@ -1696,7 +1696,7 @@ final class Router: ObservableObject {
             parked: mode == .docked ? parked.filter { live.spaces[$0.role] != nil } : [],
             leftovers: extras.leftovers.union(current.leftovers ?? []),
             newSpaces: extras.newSpaces, compactBeyondPlan: true, otherNamed: otherNamed,
-            pending: pending,
+            pending: pending, pinned: pinnedDesktops(mode: mode),
             allowRemovals: true, allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
         let plan = PlanApply.compute(input)
         logPlan(plan, live: live.spaces, mode: mode, reason: current.reason)
@@ -1923,6 +1923,7 @@ final class Router: ObservableObject {
             names: store.document.names, plans: store.document.plans[mode],
             otherNamed: otherNamed,
             pending: Self.pendingQueue(store.document.pendingRemovals, mode: mode).all,
+            pinned: pinnedDesktops(mode: mode),
             allowRemovals: allowRemovals,
             allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
         let plan = PlanApply.compute(input)

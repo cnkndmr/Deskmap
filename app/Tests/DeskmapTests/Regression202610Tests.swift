@@ -390,7 +390,7 @@ struct Regression202610Tests {
 
     /// Numara pini planın ötesindeki masaüstünü hedefliyorsa temizlik onu
     /// silmez; geçiş de silmemeli (silmek pinleri kaydırır). Geçişin girdisinde
-    /// pin bilgisi yok (PlanApply.Input), boş artık pin hedefi olsa da silinir.
+    /// pin bilgisi yoktu (PlanApply.Input), boş artık pin hedefi olsa da silinirdi.
     @Test func transitionNeverRemovesNumberPinTarget() {
         let live: [String: [UInt64]] = ["builtin": [5, 4, 6, 8, 1678, 1755]]
         let contents: [UInt64: [CGWindowID]] = [5: [1], 4: [2], 6: [3], 8: [4], 1678: [5]]
@@ -401,10 +401,14 @@ struct Regression202610Tests {
         // Geçiş: aynı masaüstü bu geçişin artığı (macOS açtı).
         let out = PlanApply.compute(PlanApply.Input(
             mode: .docked, live: live, contents: contents, names: [n("AI", 8)], plans: p[.docked],
+            leftovers: [1755], pinned: ["builtin": 6]))
+        #expect(!out.removals.contains(1755))
+        #expect(out.decisions.contains { $0.contains("space 1755") && $0.contains("a pin targets desktop 6") })
+        // Pin yokken aynı artık silinir (koruma yalnız pinden gelir).
+        let unpinned = PlanApply.compute(PlanApply.Input(
+            mode: .docked, live: live, contents: contents, names: [n("AI", 8)], plans: p[.docked],
             leftovers: [1755]))
-        withKnownIssue("PlanApply.compute removes an empty leftover that a number pin targets (Input has no pins)") {
-            #expect(!out.removals.contains(1755))
-        }
+        #expect(unpinned.removals == [1755])
     }
 
     /// Kuyruktaki silme ne geçişte ne temizlikte otomatik silinir.

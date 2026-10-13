@@ -133,7 +133,7 @@ final class DeskSim {
             mode: mode, live: fake.spaces, contents: fake.contents, names: names, plans: plans[mode],
             evacuation: succession.evacuation, arriving: extras.arriving,
             leftovers: extras.leftovers.union(savedLeftovers), newSpaces: extras.newSpaces,
-            compactBeyondPlan: compact, otherNamed: Set(otherNames.compactMap(\.space)), pending: pending)
+            compactBeyondPlan: compact, otherNamed: Set(otherNames.compactMap(\.space)), pending: pending, pinned: pinned)
         let plan = PlanApply.compute(input)
         var keep = Set<UInt64>()
         for name in names where plan.rebinds[name.id] == nil {
