@@ -85,8 +85,8 @@ struct Regression202610Tests {
 
     /// Mekanizma: Mission Control silmesinden hemen sonra boşluk okuması
     /// geçici olarak "dolu" dönerse yürütücü yalnız ilkini siler, sonrakileri
-    /// "kept (not empty)" bırakır; günlükteki "removed 1 of 4" / "1 of 3"
-    /// birebir. (Bu test mevcut davranışı belgeler, geçer.)
+    /// "kept (not empty)" bırakırdı; günlükteki "removed 1 of 4" / "1 of 3".
+    /// Düzeltildi: yerleşme beklemesi + yeniden okuma.
     @Test func log1013TransientEmptinessAfterRemovalRemovesOnlyFirst() async {
         let fake = FakeDesktops(spaces: ["builtin": [5, 4, 6, 8, 1678, 1738, 1714],
                                          "external": [1784, 1781, 1780, 1787, 1788, 1789]],
@@ -96,13 +96,27 @@ struct Regression202610Tests {
         sim.plans.set(["", "", "", "", ""], .docked, "external")
         sim.transientAfterRemoval = 10
         let result = await sim.cleanup(.docked)
-        #expect(result.planned == [1714, 1738, 1789])     // "removed 1 of 3"
-        #expect(result.removed == 1)
-        #expect(fake.removed == [1714])
-        // Sonraki kararlı taramalar birer birer siler: yavaş da olsa yakınsar.
+        #expect(result.planned == [1714, 1738, 1789])     // 13.10: "removed 1 of 3"
+        // Düzeltme: yürütücü silmeden sonra yerleşmeyi bekleyip yeniden okur.
+        #expect(result.removed == 3)
+        #expect(fake.removed == [1714, 1738, 1789])
         await sim.settle(.docked, sweeps: 6)
         #expect(fake.spaces["builtin"]!.count == 5 && fake.spaces["external"]!.count == 5)
         #expect(!fake.removedNonEmpty)
+    }
+
+    /// Yeniden okuma gerçekten dolu masaüstünü asla silmez: silmeden sonra
+    /// okuma geçici "dolu", sonraki masaüstünde pencere var (yarışla geldi).
+    @Test func settleRetryNeverRemovesARealWindowDesktop() async {
+        let fake = FakeDesktops(spaces: ["builtin": [1, 2, 3, 4]], location: [10: 1, 11: 3])
+        let sim = DeskSim(fake: fake, names: [], plans: plans())
+        sim.transientAfterRemoval = 3
+        var plan = PlanApply.Output()
+        plan.removals = [2, 3, 4]
+        let out = await PlanExecutor.run(plan, expected: fake.spaces, windowSpaces: fake.location,
+                                         allowRemovals: true, world: sim.world)
+        #expect(out.removedSpaces == [2, 4])
+        #expect(fake.spaces["builtin"] == [1, 3] && !fake.removedNonEmpty)
     }
 
     /// Kullanıcı beklentisi: tek temizlik turu planın ötesindeki bütün boş
@@ -118,9 +132,7 @@ struct Regression202610Tests {
         sim.plans.set(["", "", "", "", ""], .docked, "external")
         sim.transientAfterRemoval = 10
         let result = await sim.cleanup(.docked)
-        withKnownIssue("PlanExecutor: emptiness read right after a Mission Control removal is not retried") {
-            #expect(result.removed == 3)
-        }
+        #expect(result.removed == 3)
         #expect(!fake.removedNonEmpty)
     }
 
@@ -135,9 +147,7 @@ struct Regression202610Tests {
         sim.fake.spaces["builtin"]! += [1782, 1783, 1785]
         let r = await sim.transition(from: before, to: .undocked)
         #expect(r.plan.removals.count >= 2)
-        withKnownIssue("PlanExecutor: only the first removal of a batch succeeds when emptiness is read too early") {
-            #expect(r.outcome.removed == r.plan.removals.count)
-        }
+        #expect(r.outcome.removed == r.plan.removals.count)
         #expect(!sim.fake.removedNonEmpty && sim.removedNamed.isEmpty)
     }
 
@@ -247,9 +257,7 @@ struct Regression202610Tests {
             _ = await sim.cleanup(.docked)
             extra = max(extra, sim.fake.spaces.values.map(\.count).reduce(0, +) - 10)
         }
-        withKnownIssue("one cleanup pass after a transition leaves empty desktops when the emptiness read is transient") {
-            #expect(extra == 0)
-        }
+        #expect(extra == 0)
         #expect(!sim.fake.removedNonEmpty && sim.removedNamed.isEmpty)
         // Kararlı taramalar sonunda yakınsar.
         await sim.settle(.docked, sweeps: 6)

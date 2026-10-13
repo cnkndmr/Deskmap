@@ -29,7 +29,7 @@ final class FakeDesktops {
     }
 
     var world: PlanExecutor.World {
-        PlanExecutor.World(
+        var world = PlanExecutor.World(
             liveSpaces: { self.spaces },
             addDesktop: { role in
                 guard !self.failAdds else { return false }
@@ -60,6 +60,8 @@ final class FakeDesktops {
                 return true
             },
             shouldAbort: { self.abortWhen(self) })
+        world.wait = { _ in }   // testte gerçek bekleme yok
+        return world
     }
 }
 

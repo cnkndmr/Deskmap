@@ -1859,6 +1859,13 @@ final class Router: ObservableObject {
         commitSnapshot()
         extendQuietWindow(seconds: 3)
         Log.app.notice("Leftover cleanup (\(mode.rawValue, privacy: .public), \(reason, privacy: .public)): removed \(outcome.removed) of \(plan.removals.count) empty desktop(s) beyond the plan; before: \(counts, privacy: .public)")
+        // 13.10: kısmi temizlikten sonra kalanlar için yeniden planla. Yalnız
+        // ilerleme olduysa (en az bir silme): sonlu, döngüye girmez; her tur
+        // boşluğu yeniden ve canlı denetler (C1).
+        if !outcome.aborted, outcome.removed > 0, outcome.removed < plan.removals.count {
+            Log.app.notice("Leftover cleanup (\(reason, privacy: .public)): \(plan.removals.count - outcome.removed) left; rescheduling")
+            scheduleCleanup(reason: "follow-up", delay: 1)
+        }
     }
 
     /// Çökmeden kalan günlük (C6, B 21): taşımalar yapılmışsa bağlar ve

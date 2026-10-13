@@ -30,7 +30,16 @@ enum PlanExecutor {
         /// bağlanacağı space'ler ve taşıma haritası.
         var journal: @MainActor (_ moves: [ResolvedMove], _ rebinds: [String: UInt64],
                                  _ spaceMap: [UInt64: UInt64]) -> Void = { _, _, _ in }
+        /// Bekleme (ns). Mission Control silmesinden sonra boşluk okuması
+        /// ~50–100 ms "dolu" dönebilir; yürütücü yerleşmeyi bununla bekler.
+        var wait: @MainActor (UInt64) async -> Void = { try? await Task.sleep(nanoseconds: $0) }
     }
+
+    /// Bir silmeden sonra boşluk okuması "boş" değilse yeniden deneme sayısı
+    /// ve aralığı (en çok ~1,5 s). Okuma hiçbir zaman boş dönmezse masaüstü
+    /// kalır (C1 canlı kontrol korunur).
+    static let settleRetries = 15
+    static let settleInterval: UInt64 = 100_000_000
 
     struct Outcome: Equatable {
         var created = 0
@@ -183,7 +192,17 @@ enum PlanExecutor {
                 Log.app.notice("Plan: space \(space) kept (gone or the last desktop of its display)")
                 continue
             }
-            let empty = world.isEmpty(space)
+            var empty = world.isEmpty(space)
+            // 13.10: silmeden hemen sonra okuma geçici olarak "dolu" döner;
+            // yerleşmeyi bekleyip yeniden okur (yalnız bu turda silme olduysa).
+            if empty != true, outcome.removed > 0 {
+                for _ in 0..<settleRetries {
+                    if world.shouldAbort() { break }
+                    await world.wait(settleInterval)
+                    empty = world.isEmpty(space)
+                    if empty == true { break }
+                }
+            }
             guard empty == true else {
                 Log.app.notice("Plan: desktop \(index + 1) on \(role, privacy: .public) (space \(space)) kept (\(empty == nil ? "emptiness unknown" : "not empty", privacy: .public))")
                 continue
