@@ -1676,7 +1676,8 @@ final class Router: ObservableObject {
                                            contents: DesktopStateFile.windowIDs(current.fromContents))
         let namedBefore = Set(store.document.names.compactMap(\.space))
         let evacuation = store.resolveSuccession(snapshot: snapshot, live: live,
-                                                 windowSpaces: fresh.windowSpaces)
+                                                 windowSpaces: fresh.windowSpaces,
+                                                 carried: current.evacuation ?? [:])
         let extras = PlanApply.transitionExtras(
             from: current.from, fromContents: current.fromContents, fromMode: current.fromMode,
             mode: mode, live: displays, windowSpaces: fresh.windowSpaces, namedBefore: namedBefore,
@@ -1714,6 +1715,9 @@ final class Router: ObservableObject {
             // (ilk turun boşalttığı masaüstü artık "boşaltılan" görünmez).
             store.commitPlan(rebinds: outcome.rebinds, spaceMap: outcome.spaceMap)
             transition?.leftovers = leftovers.sorted()
+            // Tahliye kümesi de kalıcı: resolveSuccession adın yerleşmemiş
+            // hâlini yazdı, yeniden başlayan geçiş pencereleri bununla bulur.
+            transition?.evacuation = evacuation.isEmpty ? nil : evacuation
             clearJournal()
             writeDesktopState()
             Log.screens.notice("Desktop transition interrupted (\(outcome.abortReason ?? "", privacy: .public)); it restarts from the saved state when displays settle")

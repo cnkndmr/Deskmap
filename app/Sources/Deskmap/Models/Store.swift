@@ -635,14 +635,17 @@ final class Store: ObservableObject {
     /// R2: geçişte kaybolan space'lerin adları, her profile ayrı. Etkin
     /// profilin tahliye kümeleri döner.
     func resolveSuccession(snapshot: Succession.Snapshot, live: LiveDesktops,
-                           windowSpaces: [CGWindowID: UInt64]) -> [String: [CGWindowID]] {
+                           windowSpaces: [CGWindowID: UInt64],
+                           carried: [String: [CGWindowID]] = [:]) -> [String: [CGWindowID]] {
         var evacuation: [String: [CGWindowID]] = [:]
         mutate { doc in
             doc.syncActiveProfile()
             for i in doc.profiles.indices {
+                let active = doc.profiles[i].id == doc.activeProfileID
                 let result = Succession.resolve(names: doc.profiles[i].names, snapshot: snapshot,
                                                 live: live, windowSpaces: windowSpaces,
-                                                plans: doc.profiles[i].plans)
+                                                plans: doc.profiles[i].plans,
+                                                carried: active ? carried : [:])
                 if doc.profiles[i].names != result.names { doc.profiles[i].names = result.names }
                 if doc.profiles[i].id == doc.activeProfileID {
                     evacuation = result.evacuation

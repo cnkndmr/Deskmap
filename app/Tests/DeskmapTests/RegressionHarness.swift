@@ -34,6 +34,8 @@ final class DeskSim {
     var pending: Set<UInt64> = []
     /// Yarıda kalan geçişin kaydettiği artıklar (Router: transition.leftovers).
     var savedLeftovers: Set<UInt64> = []
+    /// Yarıda kalan geçişin tahliye kümesi (Router: transition.evacuation).
+    var savedEvacuation: [String: [CGWindowID]] = [:]
     /// Her başarılı silmeden sonra boşluk okuması bu kadar çağrı boyunca
     /// "dolu" döner (13.10 günlüğündeki geçici okuma; 0 = ideal macOS).
     var transientAfterRemoval = 0
@@ -120,7 +122,8 @@ final class DeskSim {
             contents: DesktopStateFile.windowIDs(before.contents))
         let namedBefore = Set(names.compactMap(\.space))
         let succession = Succession.resolve(names: names, snapshot: snap, live: live,
-                                            windowSpaces: fake.location, plans: plans)
+                                            windowSpaces: fake.location, plans: plans,
+                                            carried: savedEvacuation)
         names = succession.names
         let other = Succession.resolve(names: otherNames, snapshot: snap, live: live,
                                        windowSpaces: fake.location, plans: plans)
@@ -147,6 +150,7 @@ final class DeskSim {
                                          allowRemovals: true, world: world)
         commit(out)
         savedLeftovers = out.aborted ? PlanExecutor.leftovers(of: plan, input: input, outcome: out) : []
+        savedEvacuation = out.aborted ? succession.evacuation : [:]
         return (plan, out)
     }
 

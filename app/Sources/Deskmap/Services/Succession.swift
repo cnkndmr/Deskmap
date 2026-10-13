@@ -45,7 +45,8 @@ enum Succession {
     ///   kurulumdaki yerine bağlanır (R4).
     /// `windowSpaces`: yaşayan pencerelerin tek (normal) space'i.
     static func resolve(names: [DesktopName], snapshot: Snapshot, live: LiveDesktops,
-                        windowSpaces: [CGWindowID: UInt64], plans: DesktopPlans) -> Result {
+                        windowSpaces: [CGWindowID: UInt64], plans: DesktopPlans,
+                        carried: [String: [CGWindowID]] = [:]) -> Result {
         let alive = live.all
         let before = snapshot.all
         var result = Result(names: names)
@@ -98,6 +99,15 @@ enum Succession {
                   let space = live.space(at: slot), !bound.contains(space) else { continue }
             result.names[i].space = space
             bound.insert(space)
+        }
+        // Yarıda kalan geçişin tahliye kümesi (Transition.evacuation): ad hâlâ
+        // yerleşmemişse pencereleri yine onunla gider (yoksa yeniden hesap
+        // adı boş yere bağlar, pencereleri adsız içerik sayılırdı).
+        for i in result.names.indices where result.names[i].space == nil {
+            let id = result.names[i].id
+            guard result.evacuation[id] == nil, let saved = carried[id] else { continue }
+            let windows = saved.filter { windowSpaces[$0] != nil }
+            if !windows.isEmpty { result.evacuation[id] = windows }
         }
         return result
     }

@@ -37,6 +37,10 @@ struct DesktopStateFile: Codable, Equatable {
         /// Yarıda kalan turların artıkları (açılan, boşaltılan, silinemeyen):
         /// yeniden başlayan geçiş bunları da artık sayar.
         var leftovers: [UInt64]?
+        /// Yarıda kalan turun tahliye kümesi (ad kimliği → pencereler, R2):
+        /// yeniden başlayan geçiş yerleşmemiş adın pencerelerini bununla
+        /// bulur. İsteğe bağlı: eski dosyalarda yok (nil = boş).
+        var evacuation: [String: [CGWindowID]]?
     }
 
     var version = 1

@@ -318,10 +318,9 @@ struct Regression202610Tests {
         let second = await sim.transition(from: before, to: .undocked)
         #expect(!second.outcome.aborted)
         await sim.settle(.undocked)
-        withKnownIssue("evacuation set is not kept across an interrupted transition") {
-            #expect(windows(of: "HUB").allSatisfy { sim.fake.location[$0] == sim.space(of: "HUB") })
-            #expect(sim.fake.spaces["builtin"]!.count == 10)
-        }
+        #expect(sim.savedEvacuation.isEmpty)
+        #expect(windows(of: "HUB").allSatisfy { sim.fake.location[$0] == sim.space(of: "HUB") })
+        #expect(sim.fake.spaces["builtin"]!.count == 10)
         #expect(sim.place("HUB", mode: .undocked) == s("builtin", 5))
         #expect(!sim.fake.removedNonEmpty && sim.removedNamed.isEmpty)
     }

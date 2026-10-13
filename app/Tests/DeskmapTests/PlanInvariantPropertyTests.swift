@@ -214,14 +214,11 @@ struct PlanInvariantPropertyTests {
     /// Aynı diziler, geçişler rastgele yarıda kesilip aynı "önce" durumundan
     /// yeniden başlatılarak. Tohum 3: macOS adın pencerelerini dolu bir laptop
     /// masaüstüne kattığında (ad yerleşmemiş + tahliye kümesi) geçiş yarıda
-    /// kalırsa tahliye kümesi kaybolur; yeniden başlayan geçiş adı boş yere
-    /// bağlar, pencereleri planın ötesinde adsız kalır (bkz.
+    /// kalırsa tahliye kümesi kaybolurdu; düzeltme: Transition.evacuation (bkz.
     /// Regression202610Tests.interruptedEvacuationKeepsNameWithWindows).
     @Test func randomPlugSequencesWithInterruptsConverge() async {
         let failures = await randomPlugSequences(interrupts: true)
-        withKnownIssue("evacuation set is lost when a transition is interrupted (Store.resolveSuccession persists the unplaced name, Transition does not keep the evacuation)") {
-            #expect(failures.isEmpty, "\(failures)")
-        }
+        #expect(failures.isEmpty, "\(failures)")
     }
 
     /// Başarısız (tohum, adım, neden) listesi.

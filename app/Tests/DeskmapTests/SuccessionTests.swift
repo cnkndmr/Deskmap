@@ -57,6 +57,32 @@ struct SuccessionTests {
         #expect(result.evacuation == ["K": [1, 2]])
     }
 
+    /// Yarıda kalan geçişin tahliye kümesi (Transition.evacuation): ad hâlâ
+    /// yerleşmemişse yeniden çözümde pencereleri (yaşayanları) geri gelir;
+    /// ad bağlıysa ya da pencereler kapandıysa gelmez.
+    @Test func carriedEvacuationForUnplacedName() {
+        let live = LiveDesktops(mode: .undocked, spaces: ["builtin": [5]])
+        let snap = snapshot(["external": [100], "builtin": [5]], [100: [1, 2], 5: [9]])
+        let result = Succession.resolve(
+            names: [name("K", nil), name("B", 5), name("Z", nil)], snapshot: snap, live: live,
+            windowSpaces: [1: 5, 9: 5], plans: DesktopPlans(),
+            carried: ["K": [1, 2], "B": [9], "Z": [7]])
+        #expect(result.evacuation == ["K": [1]])
+        #expect(result.names == [name("K", nil), name("B", 5), name("Z", nil)])
+    }
+
+    /// Eski durum dosyası (evacuation alanı yok) okunur.
+    @Test func transitionWithoutEvacuationDecodes() throws {
+        let json = #"{"id":"t","startedAt":0,"reason":"r","from":[],"fromContents":{},"fromMode":"docked","moves":[]}"#
+        let t = try JSONDecoder().decode(DesktopStateFile.Transition.self, from: Data(json.utf8))
+        #expect(t.evacuation == nil)
+        var withSet = t
+        withSet.evacuation = ["K": [1, 2]]
+        let back = try JSONDecoder().decode(DesktopStateFile.Transition.self,
+                                            from: JSONEncoder().encode(withSet))
+        #expect(back.evacuation == ["K": [1, 2]])
+    }
+
     /// Ardıl adayı bu profilde başka ada bağlıysa ardıl olmaz.
     @Test func successorBoundToAnotherNameIsNotTaken() {
         let result = Succession.resolve(
