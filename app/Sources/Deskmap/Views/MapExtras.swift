@@ -125,16 +125,37 @@ struct DesktopPreview: View {
 
 // MARK: - Son hareketler
 
-/// Üst çubuktaki "Son hareketler" düğmesinin paneli: Deskmap'in hangi
-/// pencereyi ne zaman nereye taşıdığı, en yenisi başta.
+/// Üst çubuktaki "Son hareketler" düğmesinin paneli: iki sekme. "Değişiklikler"
+/// bu oturumun ayar geçmişi (geri al / yinele / bir satıra dön), "Pencere
+/// hareketleri" Deskmap'in hangi pencereyi ne zaman nereye taşıdığı.
 struct ActivityLogView: View {
+
+    enum Tab: Hashable { case changes, moves }
 
     @EnvironmentObject private var router: Router
     @EnvironmentObject private var store: Store
+    @State private var tab: Tab = .changes
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(L("Recent moves")).font(.headline)
+            Picker("", selection: $tab) {
+                Text(L("Changes")).tag(Tab.changes)
+                Text(L("Window moves")).tag(Tab.moves)
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            switch tab {
+            case .changes: ChangeHistoryList()
+            case .moves: windowMoves
+            }
+        }
+        .padding(14)
+        .frame(width: 380)
+    }
+
+    private var windowMoves: some View {
+        VStack(alignment: .leading, spacing: 8) {
             Text(L("Pinned windows Deskmap sent to their desktop, newest first: a window opens, or was moved away by hand, and Deskmap puts it back."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -167,19 +188,99 @@ struct ActivityLogView: View {
                 }
                 .frame(maxHeight: 280)
             }
-            if let entry = store.undoBuffer.entry, store.undoBuffer.isVisible(at: Date()) {
-                Divider()
-                Button {
-                    store.undo()
-                } label: {
-                    Label(L("%@ · Undo", entry.label), systemImage: "arrow.uturn.backward")
+        }
+    }
+}
+
+/// "Değişiklikler" sekmesi: en yeni üstte; imleçteki satır ● ve "ŞİMDİ",
+/// imlecin üstündekiler soluk (yinelenebilir), hover'da "Buraya dön".
+private struct ChangeHistoryList: View {
+
+    @EnvironmentObject private var store: Store
+    @State private var hovered: Int?
+
+    private struct Row: Identifiable {
+        /// Geçmişteki konum: 0 = açılış, i = i. girişten hemen sonra.
+        let id: Int
+        let label: String
+        let at: Date
+        let redoable: Bool
+    }
+
+    private var rows: [Row] {
+        let history = store.history
+        var rows = [Row(id: 0,
+                        label: history.originTrimmed ? L("Earliest kept state") : L("Deskmap opened"),
+                        at: history.originAt, redoable: true)]
+        for (i, entry) in history.entries.enumerated() {
+            rows.append(Row(id: i + 1, label: entry.label, at: entry.at, redoable: entry.isRedoable))
+        }
+        return rows.reversed()
+    }
+
+    var body: some View {
+        let history = store.history
+        VStack(alignment: .leading, spacing: 8) {
+            Text(L("Settings changes this session, newest first. Return to any row to put the settings back the way they were right after it; faded rows can be redone. Not kept after Deskmap quits."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                Button { store.undo() } label: {
+                    Label(L("Undo (⌘Z)"), systemImage: "arrow.uturn.backward")
                 }
-                .buttonStyle(.link)
-                .controlSize(.small)
+                .disabled(!history.canUndo)
+                Button { store.redo() } label: {
+                    Label(L("Redo (⇧⌘Z)"), systemImage: "arrow.uturn.forward")
+                }
+                .disabled(!history.canRedo)
+            }
+            .buttonStyle(.link)
+            .controlSize(.small)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(rows) { row in
+                        line(row, history: history)
+                    }
+                }
+            }
+            .frame(maxHeight: 280)
+        }
+    }
+
+    private func line(_ row: Row, history: ChangeHistory) -> some View {
+        let isNow = row.id == history.cursor
+        let ahead = row.id > history.cursor
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(isNow ? "●" : " ")
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 10)
+            Text(row.at, format: .dateTime.hour().minute().second())
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .frame(width: 64, alignment: .leading)
+            Text(row.label)
+                .fixedSize(horizontal: false, vertical: true)
+            if !row.redoable {
+                Text(L("cannot be redone"))
+                    .foregroundStyle(.tertiary)
+                    .help(L("Session-only changes (temporary pins) can be undone but not redone."))
+            }
+            Spacer(minLength: 0)
+            if isNow {
+                Text(L("NOW")).bold().foregroundStyle(Color.accentColor)
+            } else if hovered == row.id, history.canMove(to: row.id) {
+                Button(L("Return here")) { store.returnTo(row.id) }
+                    .buttonStyle(.link)
             }
         }
-        .padding(14)
-        .frame(width: 380)
+        .font(.caption)
+        .opacity(ahead ? 0.45 : 1)
+        .padding(.vertical, 5)
+        .contentShape(Rectangle())
+        .onHover { hovered = $0 ? row.id : (hovered == row.id ? nil : hovered) }
+        .overlay(alignment: .top) { Divider() }
     }
 }
 

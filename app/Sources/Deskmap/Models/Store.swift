@@ -37,11 +37,11 @@ final class Store: ObservableObject {
 
     @Published var document = Document() {
         didSet {
-            // Kayıttan sonra belge başka yoldan değiştiyse (yeni pin, düzen
-            // adımı, profil geçişi, URL komutu) geri alma o değişikliği de
-            // silerdi; kayıt düşer. Kaydı bırakan işlemin kendi değişimi
-            // `recording` içinde kayıttan önce gerçekleşir, ona dokunmaz.
-            undoBuffer.invalidate(ifChangedFrom: document)
+            // Kayıtsız değişim (profil geçişi, düzen adımı, URL komutu, CLI)
+            // de geçmişe giriş olur; gürültü (anahtar, ekranlar, ad
+            // önbellekleri, profil eşitlemesi) giriş üretmez. `recording` ve
+            // gezinme kendi girişini kendisi yazar (yeniden giriş bayrağı).
+            trackUntracked(from: oldValue)
             if oldValue.enabled != document.enabled { enabledChanges += 1 }
         }
     }
@@ -50,10 +50,12 @@ final class Store: ObservableObject {
     /// URL komutu) değişmediyse devam ettirir.
     private(set) var enabledChanges = 0
     @Published private(set) var lastError: String?
-    /// Son yıkıcı işlemden önceki belge; alt çubuktaki "Geri al" bunu geri
-    /// yükler. Düzen adımları ve profil geçişi kaydedilmez; araya girerlerse
-    /// bekleyen kaydı düşürürler.
-    @Published private(set) var undoBuffer = UndoBuffer()
+    /// Oturumluk ayar geçmişi: ⌘Z / ⇧⌘Z ve "Değişiklikler" listesi.
+    @Published private(set) var history = ChangeHistory()
+    /// >0 iken belge atamaları didSet'te giriş üretmez (`recording`, gezinme).
+    private var historyPaused = 0
+    /// Kayıtsız değişimin etiketi (bilinen kaynak); yoksa "Settings changed".
+    private var untrackedLabel: (label: String, coalesce: Bool)?
 
     /// Bağlı ekranların canlı masaüstü sırası (Router her kararlı taramada
     /// verir). Etkin kurulumda satır adları ve ad hedeflerinin yeri buradan.
@@ -137,6 +139,7 @@ final class Store: ObservableObject {
                 self?.save()
             }
             .store(in: &cancellables)
+        history = ChangeHistory(origin: document)
 
         // Kayıt 400 ms gecikmeli; çıkışta bekleyen değişiklik kaybolmasın.
         terminateObserver = NotificationCenter.default.addObserver(
@@ -159,6 +162,7 @@ final class Store: ObservableObject {
     init(demo document: Document) {
         self.document = document
         persists = false
+        history = ChangeHistory(origin: document)
     }
 
     /// Demo/test örneği diske hiç yazmaz (`save` sessizce döner).
@@ -246,14 +250,14 @@ final class Store: ObservableObject {
         let before = document
         migrationPending = false
         migrationSource = nil
-        document = result.document
+        pausingHistory { document = result.document }
         if preMigrationBackup != nil {
             // ⌘Z = "Geçişi geri al": şema 5 dosyası geri yazılır. Geçici
             // (kanıtsız) belgeye dönmek onu şema 6 olarak kaydederdi.
-            undoBuffer.record(L("Desktop names upgraded"), before: document, after: document,
-                              companion: { [weak self] in self?.undoUpgrade() })
+            history.record(L("Desktop names upgraded"), before: document, after: document,
+                           companion: { [weak self] in self?.undoUpgrade() })
         } else {
-            undoBuffer.record(L("Desktop names upgraded"), before: before, after: document, companion: nil)
+            history.record(L("Desktop names upgraded"), before: before, after: document)
         }
         migrationReport = result.report
         for entry in result.report.profiles {
@@ -411,29 +415,62 @@ final class Store: ObservableObject {
     private func recording(_ label: String, companion: (() -> Void)? = nil,
                            _ change: () -> Void) {
         let before = document
-        change()
+        pausingHistory(change)
         if document != before || companion != nil {
-            undoBuffer.record(label, before: before, after: document, companion: companion)
+            history.record(label, before: before, after: document, companion: companion)
         }
     }
 
     /// Belgeye dokunmayan ama geri alınabilir olması istenen işlem (geçici
-    /// pinin sürüklenmesi): yalnızca eşlik kapanışı saklanır.
+    /// pinin sürüklenmesi): yalnızca eşlik kapanışı saklanır (yinelenemez).
     func recordSessionChange(_ label: String, undo companion: @escaping () -> Void) {
-        undoBuffer.record(label, before: document, after: document, companion: companion)
+        history.record(label, before: document, after: document, companion: companion)
     }
 
-    /// Son yıkıcı işlemi geri alır: saklanan belge tek atamayla geri gelir,
-    /// ardından eşlik kapanışı (oturum pinleri) çalışır. Açık/kapalı
-    /// anahtarı ve o arada tanınan ekranlar şu anki değerleriyle korunur.
-    func undo() {
-        guard let entry = undoBuffer.take() else { return }
-        var restored = entry.before
+    private func pausingHistory(_ body: () -> Void) {
+        historyPaused += 1
+        defer { historyPaused -= 1 }
+        body()
+    }
+
+    /// Kayıtsız değişimi bilinen kaynağın etiketiyle yapar (didSet okur).
+    private func labeled(_ label: String, coalesce: Bool = false, _ body: () -> Void) {
+        let previous = untrackedLabel
+        untrackedLabel = (label, coalesce)
+        defer { untrackedLabel = previous }
+        body()
+    }
+
+    /// didSet: `recording` dışından gelen gerçek değişim giriş olur.
+    private func trackUntracked(from oldValue: Document) {
+        guard historyPaused == 0, oldValue != document,
+              !ChangeHistory.matches(oldValue, document, live: live) else { return }
+        let label = untrackedLabel ?? (L("Settings changed"), false)
+        history.record(label.label, before: oldValue, after: document, coalesce: label.coalesce)
+    }
+
+    /// Bir adım geri (⌘Z): saklanan belge tek atamayla gelir, ardından eşlik
+    /// kapanışı (oturum pinleri) çalışır. Açık/kapalı anahtarı ve o arada
+    /// tanınan ekranlar şu anki değerleriyle korunur.
+    func undo() { apply(history.undo()) }
+
+    /// Bir adım ileri (⇧⌘Z); eşlik kapanışlı giriş yinelenmez.
+    func redo() { apply(history.redo()) }
+
+    /// Geçmişte bir satıra dön: ayarlar o işlemden hemen sonraki hâle gelir
+    /// (0 = açılış durumu). İmleç taşınır, yeni giriş eklenmez.
+    func returnTo(_ position: Int) { apply(history.move(to: position)) }
+
+    private func apply(_ move: ChangeHistory.Move?) {
+        guard let move else { return }
+        var restored = move.document
         restored.enabled = document.enabled
         restored.screens = document.screens
         restored.refreshNameCaches(live: live)
-        if restored != document { document = restored }
-        entry.companion?()
+        pausingHistory {
+            if restored != document { document = restored }
+            move.companions.forEach { $0() }
+        }
     }
 
     /// Belgeyi değiştirir, ad önbelleklerini yeniler (geri alma kaydı yok).
@@ -607,7 +644,9 @@ final class Store: ObservableObject {
 
     /// Kuyruktaki ilk silme yapıldı ya da geçersiz (geri alma kaydı yok).
     func dropFirstPendingRemoval(mode: Mode, screen: String) {
-        document.dropFirstPendingRemoval(mode: mode, screen: screen)
+        labeled(L("Desktop plan updated"), coalesce: true) {
+            document.dropFirstPendingRemoval(mode: mode, screen: screen)
+        }
     }
 
     /// Gerçek bir masaüstü silindi (Mission Control ya da Deskmap): bütün
@@ -617,8 +656,10 @@ final class Store: ObservableObject {
     func recordDeletion(space: UInt64?, role: String, desktop: Int, mode: Mode,
                         shiftModes: [Mode]? = nil) -> GhostDesktop? {
         var ghost: GhostDesktop?
-        mutate { ghost = $0.recordDeletion(space: space, role: role, desktop: desktop, mode: mode,
-                                           shiftModes: shiftModes) }
+        labeled(L("Desktop deleted")) {
+            mutate { ghost = $0.recordDeletion(space: space, role: role, desktop: desktop, mode: mode,
+                                               shiftModes: shiftModes) }
+        }
         return ghost
     }
 
@@ -627,8 +668,10 @@ final class Store: ObservableObject {
     func followMissionControl(before: [String: [UInt64]], after: [String: [UInt64]], mode: Mode,
                               ownRemovals: Set<UInt64>) -> [DesktopDeletion] {
         var deletions: [DesktopDeletion] = []
-        mutate { deletions = $0.followMissionControl(before: before, after: after, mode: mode,
-                                                     ownRemovals: ownRemovals) }
+        labeled(L("Desktops changed in Mission Control"), coalesce: true) {
+            mutate { deletions = $0.followMissionControl(before: before, after: after, mode: mode,
+                                                         ownRemovals: ownRemovals) }
+        }
         return deletions
     }
 
@@ -638,7 +681,7 @@ final class Store: ObservableObject {
                            windowSpaces: [CGWindowID: UInt64],
                            carried: [String: [CGWindowID]] = [:]) -> [String: [CGWindowID]] {
         var evacuation: [String: [CGWindowID]] = [:]
-        mutate { doc in
+        labeled(L("Desktop names updated"), coalesce: true) { mutate { doc in
             doc.syncActiveProfile()
             for i in doc.profiles.indices {
                 let active = doc.profiles[i].id == doc.activeProfileID
@@ -652,29 +695,31 @@ final class Store: ObservableObject {
                     doc.names = result.names
                 }
             }
-        }
+        } }
         return evacuation
     }
 
     /// R4: kanıt yok (yeniden başlatma, geri yükleme).
     func bindByPlan(live: LiveDesktops) {
-        mutate { $0.bindByPlan(live: live) }
+        labeled(L("Desktop names updated"), coalesce: true) { mutate { $0.bindByPlan(live: live) } }
     }
 
     /// Plan uygulamasının sonucu: içeriği taşınan space'ler bütün
     /// profillerde (R5), etkin profilin adları kendi yerlerine.
     func commitPlan(rebinds: [String: UInt64], spaceMap: [UInt64: UInt64]) {
-        mutate { doc in
+        labeled(L("Desktop names updated"), coalesce: true) { mutate { doc in
             doc.applySpaceMap(spaceMap)
             for i in doc.names.indices {
                 if let space = rebinds[doc.names[i].id] { doc.names[i].space = space }
             }
-        }
+        } }
     }
 
     /// Plan ya da pin satırı silindi: o kurulumda gerçek silme yok.
     func clearPendingRemovals(mode: Mode, screen: String) {
-        document.clearPendingRemovals(mode: mode, screen: screen)
+        labeled(L("Desktop plan updated"), coalesce: true) {
+            document.clearPendingRemovals(mode: mode, screen: screen)
+        }
     }
 
     /// Ad hedefinin adı ve "bekliyor" durumu (adın masaüstü yok ya da
@@ -769,29 +814,38 @@ final class Store: ObservableObject {
     /// Başka bir profile geçer; Router kural ve profil değişimini görüp
     /// planı uygular (silme yok) ve pencereleri yeniden yerleştirir.
     func switchProfile(to id: String) {
-        mutate { $0.switchProfile(to: id) }
+        let name = profiles.first { $0.id == id }?.name ?? ""
+        labeled(L("Profile switched: %@", name)) { mutate { $0.switchProfile(to: id) } }
     }
 
     /// Profili ada göre ekler/günceller (bkz. `Document.upsertProfile`).
     func upsertProfile(_ profile: Profile, activate: Bool) {
-        mutate { $0.upsertProfile(profile, activate: activate) }
+        labeled(L("Profile updated: %@", profile.name)) {
+            mutate { $0.upsertProfile(profile, activate: activate) }
+        }
     }
 
     /// Yeni profil ekler; `activate` ise ona geçer. `copyingCurrent`: mevcut pinlerle başla.
     @discardableResult
     func addProfile(named name: String? = nil, copyingCurrent: Bool = false,
                     activate: Bool = true) -> Profile {
-        document.addProfile(named: name, copyingCurrent: copyingCurrent, activate: activate)
+        var added: Profile!
+        labeled(L("Profile added")) {
+            added = document.addProfile(named: name, copyingCurrent: copyingCurrent, activate: activate)
+        }
+        return added
     }
 
     /// Profilin kopyasını ekler; etkin profil değişmez.
     @discardableResult
     func duplicateProfile(_ id: String, named name: String) -> Profile? {
-        document.duplicateProfile(id, named: name)
+        var copy: Profile?
+        labeled(L("Profile duplicated: %@", name)) { copy = document.duplicateProfile(id, named: name) }
+        return copy
     }
 
     func renameProfile(_ id: String, to name: String) {
-        document.renameProfile(id, to: name)
+        labeled(L("Profile renamed: %@", name)) { document.renameProfile(id, to: name) }
     }
 
     /// Profili siler; son profil silinemez. Aktif siliniyorsa ilk kalana geçilir.
@@ -817,7 +871,7 @@ final class Store: ObservableObject {
         let profile = try doc.importProfile(from: data)
         if let live { doc.bindByPlan(live: live) }
         doc.refreshNameCaches(live: live)
-        document = doc
+        labeled(L("Profile imported: %@", profile.name)) { document = doc }
         return profile
     }
 

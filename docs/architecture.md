@@ -39,7 +39,7 @@ background queue
 | `Mode` | `Models/Rule.swift` | `docked` (an external display is connected) or `undocked`. |
 | `Document` | `Models/Store.swift` | Contents of `rules.json`: rules of the active profile, all profiles, known displays, the on/off switch. All rule and profile operations are pure `mutating` functions on it. |
 | `Store` | `Models/Store.swift` | `ObservableObject` that owns the `Document`, saves it (debounced 400 ms, flushed on quit), reports errors to the footer and records undo entries. |
-| `UndoBuffer` | `Models/UndoBuffer.swift` | One undo entry: the document before and after an action, plus an optional closure for state outside the document (temporary pins). Dropped when the document changes in any other way. |
+| `ChangeHistory` | `Models/ChangeHistory.swift` | Session timeline of settings changes: launch state plus up to 50 entries (document before/after, optional closure for state outside the document such as temporary pins, which makes the entry undo-only) and a cursor. Undo, redo, return to any row; a new change after undo drops the redo branch but keeps it until the next change so Undo can bring it back. Changes made without a label (URL command, CLI, profile switch) become entries in `Store`'s `didSet`; noise (pause switch, screens, name caches, profile sync) does not. Not saved. |
 | `Router` | `Services/Router.swift` | The engine. Sweeps, temporary pins (`sessionPins`), manual one-off moves. |
 | `Routing` | `Services/Routing.swift` | Pure helpers: `select` picks a window's target (used by both the engine and the UI), plus layout and move retry accounting. |
 | `AX` | `Services/Accessibility.swift` | Window enumeration, frames, `setFrame`, backoff for unresponsive apps. `AccessibilityPermission` polls the trust state. |
@@ -290,7 +290,7 @@ logged per sweep. Window titles are logged as `.private`.
 | `DocumentOperationsTests` | Desktop mapping and its inverse, desktop reordering, pin/unpin, profiles, import/export |
 | `RoutingTests` | `Routing.select` and layout retry accounting |
 | `EngineHelperTests` | Backoff decision, AX timeouts, window server filters, move retries and cooldown, live-window merge, pause safety, settle cap, external display order, space types, `Router.placement` |
-| `UndoBufferTests` | Recording, visibility window, validity checks, companion closure |
+| `ChangeHistoryTests` | Multi-step undo/redo, discarded redo branch and its undo, return to a row, 50-entry limit, noise vs. untracked changes, companion entries |
 | `MapLogicTests` | Shadowed pins, missing-desktop badge |
 | `TokenEditingTests` | `Document.setTokens` (identity, key collisions) and token picker helpers |
 | `LocalizationTests` | Key/translation consistency (see above) |

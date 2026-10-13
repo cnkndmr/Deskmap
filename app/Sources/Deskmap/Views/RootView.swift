@@ -441,7 +441,7 @@ struct RootView: View {
 
     /// Alt çubuktaki süreli iletilerden ilk düşecek olanın zamanı.
     private var nextFooterDeadline: Date? {
-        [store.undoBuffer.expiry,
+        [store.history.discardNoticeExpiry,
          router.status.lastActionAt.map { $0.addingTimeInterval(Self.actionFade) }]
             .compactMap { $0 }
             .filter { $0 > now }
@@ -885,25 +885,71 @@ struct RootView: View {
 
             Spacer()
 
-            if let entry = store.undoBuffer.entry, store.undoBuffer.isVisible(at: now) {
+            if store.history.discardNoticeVisible(at: now),
+               let count = store.history.discarded?.entries.count {
                 Button {
                     undo()
                 } label: {
-                    Label(L("%@ · Undo", entry.label), systemImage: "arrow.uturn.backward")
+                    Label(count == 1 ? L("1 redoable step discarded · Undo")
+                                     : L("%ld redoable steps discarded · Undo", count),
+                          systemImage: "exclamationmark.arrow.triangle.2.circlepath")
                 }
                 .buttonStyle(.link)
                 .controlSize(.small)
-                .keyboardShortcut("z", modifiers: .command)
                 .lineLimit(1)
                 .layoutPriority(1)
-                .help(L("Undo the last action (⌘Z)"))
+                .help(L("A new change replaced the steps you had undone. Undo brings them back."))
             }
+
+            historyButtons
+                .layoutPriority(1)
 
             pinSummary
                 .layoutPriority(1)
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+    }
+
+    /// Kalıcı ↶ ↷ düğmeleri; help metni sıradaki adımın etiketi, devre
+    /// dışıyken soluk.
+    private var historyButtons: some View {
+        HStack(spacing: 2) {
+            Button {
+                undo()
+            } label: {
+                Image(systemName: "arrow.uturn.backward")
+            }
+            .keyboardShortcut("z", modifiers: .command)
+            .disabled(!store.history.canUndo)
+            .help(store.history.undoEntry.map { L("Undo: %@ (⌘Z)", $0.label) }
+                  ?? L("Nothing to undo"))
+            .accessibilityLabel(L("Undo"))
+
+            Button {
+                redo()
+            } label: {
+                Image(systemName: "arrow.uturn.forward")
+            }
+            .keyboardShortcut("z", modifiers: [.command, .shift])
+            .disabled(!store.history.canRedo)
+            .help(store.history.redoEntry.map {
+                $0.isRedoable ? L("Redo: %@ (⇧⌘Z)", $0.label)
+                              : L("%@ cannot be redone", $0.label)
+            } ?? L("Nothing to redo"))
+            .accessibilityLabel(L("Redo"))
+        }
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+    }
+
+    /// ⇧⌘Z / "Yinele": metin alanı odaktaysa onun yinelemesi.
+    private func redo() {
+        if let editor = NSApp.keyWindow?.firstResponder as? NSTextView {
+            if let manager = editor.undoManager, manager.canRedo { manager.redo() }
+            return
+        }
+        store.redo()
     }
 
     /// ⌘Z / "Geri al": odak bir metin alanındaysa (profil adı, yüzde
