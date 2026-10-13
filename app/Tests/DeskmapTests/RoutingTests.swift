@@ -159,4 +159,14 @@ struct FreeMoveTests {
         #expect(Router.freeMoveRemaining(3600) == "1:00:00")
         #expect(Router.freeMoveRemaining(-3) == "0:00")
     }
+
+    @Test func untilLockAndHourDurations() {
+        #expect(Router.freeMoveDurations.contains(2 * 3600))
+        #expect(Router.freeMoveDurations.contains(5 * 3600))
+        #expect(Router.freeMoveDurations.last == Router.freeMoveUntilLock)
+        #expect(Router.isUntilLock(.distantFuture))
+        #expect(!Router.isUntilLock(Date().addingTimeInterval(5 * 3600)))
+        // Kilide kadar izin turda süresi dolmuş sayılmaz.
+        #expect(Router.activeFreeMoves([1: .distantFuture], now: Date()) == [1])
+    }
 }

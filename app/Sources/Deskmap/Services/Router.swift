@@ -266,6 +266,7 @@ final class Router: ObservableObject {
     nonisolated(unsafe) private var timer: Timer?
     private var cancellables = Set<AnyCancellable>()
     nonisolated(unsafe) private var sleepTokens: [NSObjectProtocol] = []
+    nonisolated(unsafe) private var lockToken: NSObjectProtocol?
 
     /// Pencere başına düzenin en son uygulandığı çözülmüş hedef ve nesil.
     /// Düzen hedef başına bir kez verilir; kullanıcı pencereyi sonradan elle
@@ -436,6 +437,12 @@ final class Router: ObservableObject {
                 Task { @MainActor in self?.setPaused(true, reason: reason) }
             })
         }
+        // Ekran kilitlenince "kilide kadar" serbest izinleri biter.
+        lockToken = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.apple.screenIsLocked"), object: nil, queue: .main) {
+            [weak self] _ in
+            Task { @MainActor in self?.endFreeMovesUntilLock(reason: "screen locked") }
+        }
         for name in [NSWorkspace.screensDidWakeNotification, NSWorkspace.didWakeNotification] {
             sleepTokens.append(center.addObserver(forName: name, object: nil, queue: .main) {
                 [weak self] note in
@@ -465,6 +472,7 @@ final class Router: ObservableObject {
         timer?.invalidate()
         followUp?.cancel()
         for token in sleepTokens { NSWorkspace.shared.notificationCenter.removeObserver(token) }
+        if let lockToken { DistributedNotificationCenter.default().removeObserver(lockToken) }
     }
 
     private func setPaused(_ paused: Bool, reason: String) {
@@ -712,8 +720,17 @@ final class Router: ObservableObject {
 
     // MARK: - Serbest hareket
 
-    /// Panelde sunulan süreler (sn).
-    nonisolated static let freeMoveDurations: [TimeInterval] = [60, 5 * 60, 15 * 60, 30 * 60, 60 * 60]
+    /// Panelde sunulan süreler (sn); sonuncusu `freeMoveUntilLock`.
+    nonisolated static let freeMoveDurations: [TimeInterval] = [
+        60, 5 * 60, 15 * 60, 30 * 60, 60 * 60, 2 * 3600, 5 * 3600, freeMoveUntilLock,
+    ]
+
+    /// Süre yerine "ekran kilitlenene kadar": izin `Date.distantFuture`'a
+    /// kadar verilir, kilit bildirimiyle biter.
+    nonisolated static let freeMoveUntilLock: TimeInterval = .infinity
+
+    /// Bitiş anı "kilide kadar" izni mi (saf).
+    nonisolated static func isUntilLock(_ until: Date) -> Bool { until == .distantFuture }
 
     /// Bu pencereler `duration` boyunca serbest: motor onları yerine
     /// döndürmez. Süren bir izin yeniden verilirse süre baştan başlar.
@@ -721,7 +738,7 @@ final class Router: ObservableObject {
     /// izinle birlikte saklanır.
     func allowFreeMove(_ windowIDs: [CGWindowID], for duration: TimeInterval) {
         guard duration > 0 else { return }
-        let end = Date().addingTimeInterval(duration)
+        let end = duration.isInfinite ? Date.distantFuture : Date().addingTimeInterval(duration)
         var granted = 0
         for id in windowIDs {
             guard let window = windows.first(where: { $0.id == id }),
@@ -744,7 +761,7 @@ final class Router: ObservableObject {
         // Süren taramanın bu pencereleri geri taşıması kesilsin; yeni tarama
         // taramaya bağlı son tarihi de yeniden hesaplar.
         generation.advance()
-        Log.routing.notice("Free move: \(granted) window(s) for \(Int(duration)) s")
+        Log.routing.notice("Free move: \(granted) window(s) for \(duration.isInfinite ? "until lock" : "\(Int(duration)) s", privacy: .public)")
         sweep()
     }
 
@@ -753,7 +770,7 @@ final class Router: ObservableObject {
     func extendFreeMove(_ windowIDs: [CGWindowID], by duration: TimeInterval) {
         let now = Date()
         for id in windowIDs {
-            guard let until = freeMoves[id], until > now else { continue }
+            guard let until = freeMoves[id], until > now, !Self.isUntilLock(until) else { continue }
             freeMoves[id] = until.addingTimeInterval(duration)
         }
     }
@@ -809,8 +826,19 @@ final class Router: ObservableObject {
         return match.ruleID == grant.ruleID && match.destination == grant.destination
     }
 
-    /// Süresi dolan izinleri düşürür (zamanlayıcı turu).
+    /// "Kilide kadar" izinleri bitirir (kilit bildirimi ya da turda kilit
+    /// görülürse); süreli izinler sürer.
+    private func endFreeMovesUntilLock(reason: String) {
+        let ids = freeMoves.filter { Self.isUntilLock($0.value) }.map(\.key)
+        guard !ids.isEmpty else { return }
+        Log.routing.notice("Free move ended (\(reason, privacy: .public)): \(ids.count) window(s)")
+        endFreeMove(ids)
+    }
+
+    /// Süresi dolan izinleri düşürür (zamanlayıcı turu). Bildirim kaçarsa
+    /// kilitli ekran da "kilide kadar" izinleri bitirir.
     private func expireFreeMoves(now: Date) {
+        if Self.screenIsLocked() { endFreeMovesUntilLock(reason: "screen locked (poll)") }
         let expired = freeMoves.filter { $0.value <= now }.map(\.key)
         guard !expired.isEmpty else { return }
         Log.routing.notice("Free move ended: \(expired.count) window(s)")
