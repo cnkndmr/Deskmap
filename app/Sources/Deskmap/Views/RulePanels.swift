@@ -245,12 +245,13 @@ struct RulePanel: View {
 
     // MARK: Başlık parçaları
 
-    /// Kurala şu an uyan açık pencereler; ilkinin başlığı seçim kaynağıdır.
+    /// Kurala şu an uyan açık pencereler. Başlık kaynağı `layoutSourceWindow`:
+    /// tıklanan satırın penceresi, yoksa ilk uyan pencere.
     private var matching: [Router.WindowSnapshot] {
         ui.windows.filter { rule.matches($0) }
     }
 
-    private var sourceTitle: String? { matching.first?.title }
+    private var sourceTitle: String? { layoutSourceWindow?.title }
 
     private var draftTokens: [String] {
         TokenPicker.tokens(segments: segments, chosen: chosen, appWide: appWide)
