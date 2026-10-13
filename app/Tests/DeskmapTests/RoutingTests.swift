@@ -183,3 +183,70 @@ struct FreeMoveTests {
         #expect(mixed.label.contains("5:00"))
     }
 }
+
+/// Serbest hareket beklenti tablosunun canlı Router (demo) satırları.
+@MainActor
+struct FreeMoveTableTests {
+
+    private func makeRouter() -> (Router, [CGWindowID]) {
+        let world = DemoData.make()
+        let router = Router(store: Store(demo: world.document),
+                            screens: ScreenService(demo: world.screens),
+                            demoWindows: world.windows)
+        let pinned = world.windows
+            .filter { $0.appName == "Messages" && $0.id != DemoData.unpinnedMessagesWindowID }
+            .map(\.id)
+        return (router, pinned)
+    }
+
+    @Test func lockEndsOnlyUntilLockGrants() {
+        let (router, ids) = makeRouter()
+        try? #require(ids.count >= 1)
+        let lockID = ids[0]
+        router.allowFreeMove([lockID], for: Router.freeMoveUntilLock)
+        #expect(router.freeMoves[lockID] == .distantFuture)
+        if ids.count > 1 { router.allowFreeMove([ids[1]], for: 3600) }
+        router.endFreeMovesUntilLock(reason: "test")
+        #expect(router.freeMoves[lockID] == nil)
+        if ids.count > 1 { #expect(router.freeMoves[ids[1]] != nil) }
+    }
+
+    @Test func extendSkipsUntilLockButExtendsTimed() {
+        let (router, ids) = makeRouter()
+        let id = ids[0]
+        router.allowFreeMove([id], for: Router.freeMoveUntilLock)
+        router.extendFreeMove([id], by: 300)
+        #expect(router.freeMoves[id] == .distantFuture)
+        // Panelde "+5 dk" yalnız süreli izinde görünür.
+        #expect(Router.freeMoveStatus([.distantFuture], now: Date()).timedRemaining == nil)
+        router.allowFreeMove([id], for: 60)
+        let before = router.freeMoves[id]!
+        router.extendFreeMove([id], by: 300)
+        #expect(router.freeMoves[id]! == before.addingTimeInterval(300))
+    }
+
+    @Test func newGrantReplacesRunningOne() {
+        let (router, ids) = makeRouter()
+        let id = ids[0]
+        router.allowFreeMove([id], for: 60)
+        router.allowFreeMove([id], for: Router.freeMoveUntilLock)
+        #expect(router.freeMoves[id] == .distantFuture)
+        router.allowFreeMove([id], for: 2 * 3600)
+        let left = router.freeMoves[id]!.timeIntervalSinceNow
+        #expect(left > 2 * 3600 - 5 && left <= 2 * 3600)
+    }
+
+    @Test func closedWindowLosesGrant() {
+        let until: [CGWindowID: Date] = [1: .distantFuture, 2: Date().addingTimeInterval(60)]
+        #expect(Router.liveFreeMoves(until, alive: [2]).keys.sorted() == [2])
+        #expect(Router.liveFreeMoves(until, alive: []).isEmpty)
+    }
+
+    @Test func restartStartsWithoutGrants() {
+        let (router, ids) = makeRouter()
+        router.allowFreeMove(ids, for: Router.freeMoveUntilLock)
+        #expect(!router.freeMoves.isEmpty)
+        let (fresh, _) = makeRouter()
+        #expect(fresh.freeMoves.isEmpty)
+    }
+}

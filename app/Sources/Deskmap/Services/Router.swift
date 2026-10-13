@@ -828,7 +828,7 @@ final class Router: ObservableObject {
 
     /// "Kilide kadar" izinleri bitirir (kilit bildirimi ya da turda kilit
     /// görülürse); süreli izinler sürer.
-    private func endFreeMovesUntilLock(reason: String) {
+    func endFreeMovesUntilLock(reason: String) {
         let ids = freeMoves.filter { Self.isUntilLock($0.value) }.map(\.key)
         guard !ids.isEmpty else { return }
         Log.routing.notice("Free move ended (\(reason, privacy: .public)): \(ids.count) window(s)")
@@ -843,6 +843,11 @@ final class Router: ObservableObject {
         guard !expired.isEmpty else { return }
         Log.routing.notice("Free move ended: \(expired.count) window(s)")
         endFreeMove(expired)
+    }
+
+    /// Kapanan pencerelerin izinleri düşer (saf).
+    nonisolated static func liveFreeMoves(_ until: [CGWindowID: Date], alive: Set<CGWindowID>) -> [CGWindowID: Date] {
+        until.filter { alive.contains($0.key) }
     }
 
     /// Şu an serbest olan pencereler (saf).
@@ -2430,7 +2435,7 @@ final class Router: ObservableObject {
                         return live[id] != nil
                     }
                     applied = applied.filter { live[$0.key] != nil }
-                    let freeMoves = self.freeMoves.filter { live[$0.key] != nil }
+                    let freeMoves = Self.liveFreeMoves(self.freeMoves, alive: Set(live.keys))
                     if freeMoves != self.freeMoves { self.freeMoves = freeMoves }
                     self.freeTargets = self.freeTargets.filter { live[$0.key] != nil }
                     self.appliedFloor = self.appliedFloor.filter { live[$0.key] != nil }
