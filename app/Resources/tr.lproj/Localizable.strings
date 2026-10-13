@@ -253,6 +253,7 @@
 "1 minute" = "1 dakika";
 "%ld minutes" = "%ld dakika";
 "%ld hours" = "%ld saat";
+"Free move needs a pinned window: %@" = "Serbest hareket yalnız pinli pencereye verilir: %@";
 "(some until the screen locks)" = "(bazıları ekran kilitlenene kadar)";
 "Until the screen locks" = "Ekran kilitlenene kadar";
 "Free to move · until the screen locks" = "Serbest · ekran kilitlenene kadar";

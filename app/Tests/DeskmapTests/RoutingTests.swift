@@ -250,3 +250,16 @@ struct FreeMoveTableTests {
         #expect(fresh.freeMoves.isEmpty)
     }
 }
+
+struct FreeMoveURLTests {
+    @Test func parsesFreeCommands() {
+        #expect(URLCommand.parse(URL(string: "deskmap://free/42/120")!)
+                == .freeMove(window: 42, duration: 120 * 60))
+        #expect(URLCommand.parse(URL(string: "deskmap://free/42/lock")!)
+                == .freeMove(window: 42, duration: Router.freeMoveUntilLock))
+        #expect(URLCommand.parse(URL(string: "deskmap://free-end/42")!) == .endFreeMove(window: 42))
+        #expect(URLCommand.parse(URL(string: "deskmap://free/42/0")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://free/42")!) == nil)
+        #expect(URLCommand.parse(URL(string: "deskmap://free/x/5")!) == nil)
+    }
+}

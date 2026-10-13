@@ -32,6 +32,8 @@ final class StatusFile {
             let minimized: Bool
             let fullscreen: Bool
             let pinned: Pin?
+            /// Serbest hareket: "lock" (kilide kadar), ISO bitiş anı ya da nil.
+            let free: String?
             /// Belge yolu (AXDocument); yoksa nil.
             let document: String?
             /// "Bu pencere" pininin anahtarı: "file:<yol>", "title:<parça>"
@@ -157,6 +159,8 @@ final class StatusFile {
                       frame: window.frame.map { [$0.minX, $0.minY, $0.width, $0.height] },
                       minimized: window.isMinimized, fullscreen: window.fullscreen != nil,
                       pinned: pins[window.id].map { .init(screen: $0.screen, desktop: $0.desktop) },
+                      free: router.freeMoves[window.id].map {
+                          Router.isUntilLock($0) ? "lock" : ISO8601DateFormatter().string(from: $0) },
                       document: window.document, key: key)
             },
             rules: store.document.rules,
