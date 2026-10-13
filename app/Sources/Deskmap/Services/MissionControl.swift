@@ -24,14 +24,14 @@ enum MissionControl {
     static func addDesktop(displayID: CGDirectDisplayID, displayUUID: String,
                            mainUUID: String?) async -> Bool {
         let before = desktopCount(uuid: displayUUID, mainUUID: mainUUID)
-        guard openMissionControl() else {
+        guard await open() else {
             Log.app.error("Add desktop: Mission Control could not be opened")
             return false
         }
         defer { closeIfOpen() }
 
         let deadline = Date().addingTimeInterval(appearTimeout)
-        var button: AXUIElement?
+        var button = addButton(displayID: displayID)
         while button == nil, Date() < deadline {
             try? await Task.sleep(nanoseconds: pollInterval)
             button = addButton(displayID: displayID)
@@ -76,11 +76,14 @@ enum MissionControl {
             Log.app.error("Remove desktop: desktop \(desktop) is no longer the expected one; nothing removed")
             return false
         }
-        guard openMissionControl() else { return false }
+        guard await open() else {
+            Log.app.error("Remove desktop: Mission Control could not be opened")
+            return false
+        }
         defer { closeIfOpen() }
 
         let deadline = Date().addingTimeInterval(appearTimeout)
-        var buttons: [AXUIElement] = []
+        var buttons = spaceButtons(displayID: displayID)
         while buttons.isEmpty, Date() < deadline {
             try? await Task.sleep(nanoseconds: pollInterval)
             buttons = spaceButtons(displayID: displayID)
@@ -130,6 +133,46 @@ enum MissionControl {
         return []
     }
 
+    /// Son Escape'in gönderildiği an. Kapanış geçişi bitmeden gelen açma
+    /// isteğini WindowManager yutar (13.10.2026 ölçüldü: kapanıştan 16 ms
+    /// sonra gönderilen istek alındı ama Mission Control açılmadı).
+    private static var lastClose: Date?
+    /// Kapanıştan sonra yeniden açmadan önce beklenecek en kısa süre.
+    private static let reopenGap: TimeInterval = 0.6
+
+    /// Önceki kapanışın bitmesini bekler, Mission Control'ü açar ve ağacın
+    /// belirmesini bekler. Ağaç hiç görünmezse istek yutulmuş demektir;
+    /// bir kez daha açılır. Ağaç göründükten sonra yeniden açılmaz: açıkken
+    /// açma isteği Mission Control'ü kapatır.
+    private static func open() async -> Bool {
+        await waitForClose()
+        for attempt in 1...2 {
+            guard openMissionControl() else { return false }
+            let deadline = Date().addingTimeInterval(appearTimeout)
+            while Date() < deadline {
+                try? await Task.sleep(nanoseconds: pollInterval)
+                if !displayGroups().isEmpty { return true }
+            }
+            Log.app.notice("Mission Control did not appear (attempt \(attempt))")
+            await waitForClose()
+        }
+        return false
+    }
+
+    /// Ağaç kaybolana ve son kapanıştan `reopenGap` geçene kadar bekler.
+    private static func waitForClose() async {
+        let deadline = Date().addingTimeInterval(appearTimeout)
+        while !displayGroups().isEmpty, Date() < deadline {
+            try? await Task.sleep(nanoseconds: pollInterval)
+        }
+        if let lastClose {
+            let remaining = reopenGap - Date().timeIntervalSince(lastClose)
+            if remaining > 0 {
+                try? await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+            }
+        }
+    }
+
     private static func openMissionControl() -> Bool {
         let url = URL(fileURLWithPath: "/System/Applications/Mission Control.app")
         guard FileManager.default.fileExists(atPath: url.path) else { return false }
@@ -151,6 +194,7 @@ enum MissionControl {
     }
 
     private static func close() {
+        lastClose = Date()
         let source = CGEventSource(stateID: .hidSystemState)
         for down in [true, false] {
             CGEvent(keyboardEventSource: source, virtualKey: 53, keyDown: down)?
