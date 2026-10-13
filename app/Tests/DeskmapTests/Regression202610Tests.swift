@@ -438,10 +438,10 @@ struct Regression202610Tests {
         let before = sim.snapshot(.docked)
         macUnplug(sim)
         let r = await sim.transition(from: before, to: .undocked)
-        withKnownIssue("PlanApply.compute uses a desktop named in another profile as a slot for this profile's content") {
-            #expect(r.plan.rebinds["VEGA"] != s("builtin", 6))
-            #expect(sim.fake.contents[1990, default: []].isEmpty)
-        }
+        #expect(r.plan.rebinds["VEGA"] != s("builtin", 6))
+        #expect(sim.fake.contents[1990, default: []].isEmpty)
+        #expect(sim.fake.spaces["builtin"]!.contains(1990) && sim.otherNames.first?.space == 1990)
+        #expect(windows(of: "VEGA").allSatisfy { sim.fake.location[$0] == sim.space(of: "VEGA") })
         #expect(!sim.fake.removedNonEmpty && sim.removedNamed.isEmpty)
     }
 
@@ -461,10 +461,8 @@ struct Regression202610Tests {
             await sim.transition(from: before2, to: .docked)
             await sim.settle(.docked)
         }
-        withKnownIssue("another profile's name is dragged by R5 onto this profile's content and its own desktop removed") {
-            #expect(sim.fake.spaces["builtin"]!.contains(1990))
-            #expect(sim.otherNames.first?.space == 1990)
-        }
+        #expect(sim.fake.spaces["builtin"]!.contains(1990))
+        #expect(sim.otherNames.first?.space == 1990)
         #expect(sim.removedNamed.isEmpty && !sim.fake.removedNonEmpty)
         #expect(sim.namesAtPlan(.docked).isEmpty)
     }

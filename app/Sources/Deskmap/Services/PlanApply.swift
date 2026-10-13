@@ -292,16 +292,29 @@ enum PlanApply {
         // ad onu sahiplenir, içeriği yerinden edilmez (yoksa her takışta
         // içerik için planın ötesine bir masaüstü açılırdı).
         var adopted = Set<UInt64>()
-        for (target, id) in claimed.sorted(by: { ($0.key.screen, $0.key.desktop) < ($1.key.screen, $1.key.desktop) }) {
+        // Öbür profilde adlı masaüstü bu profilin hedefi ya da boş yeri
+        // olmaz: içerik oraya taşınmaz (R5 öbür adı sürüklerdi), silinmez.
+        func otherOwned(_ space: UInt64?) -> Bool {
+            guard let space else { return false }
+            return input.otherNamed.contains(space) && nameOfSpace[space] == nil
+        }
+        for (planned, id) in claimed.sorted(by: { ($0.key.screen, $0.key.desktop) < ($1.key.screen, $1.key.desktop) }) {
             guard let name = byID[id] else { continue }
-            if let bound = name.space, bound == space(target), input.evacuation[id] == nil {
-                staying.insert(target)
+            if let bound = name.space, bound == space(planned), input.evacuation[id] == nil {
+                staying.insert(planned)
                 continue
             }
-            if let occupant = space(target), occupant != name.space, input.newSpaces.contains(occupant),
+            var target: Slot? = planned
+            if let occupant = space(planned), otherOwned(occupant) {
+                claimed[planned] = nil
+                staying.insert(planned)
+                output.decisions.append("name \(id) not placed at desktop \(planned.desktop) on \(planned.screen): space \(occupant) is named in another profile")
+                target = nil
+            }
+            if target != nil, let occupant = space(planned), occupant != name.space, input.newSpaces.contains(occupant),
                nameOfSpace[occupant] == nil, !input.otherNamed.contains(occupant), !content(occupant).isEmpty {
                 adopted.insert(occupant)
-                output.decisions.append("name \(id) takes new desktop \(target.desktop) on \(target.screen) (space \(occupant), \(content(occupant).count) windows macOS put there)")
+                output.decisions.append("name \(id) takes new desktop \(planned.desktop) on \(planned.screen) (space \(occupant), \(content(occupant).count) windows macOS put there)")
             }
             var windows: [CGWindowID] = []
             var source: UInt64?
@@ -311,10 +324,10 @@ enum PlanApply {
                 windows = content(bound)
                 source = bound
             }
-            groups.append(Group(windows: windows, source: source, name: id, role: target.screen,
+            groups.append(Group(windows: windows, source: source, name: id, role: planned.screen,
                                 target: target, origin: origin))
             origin += 1
-            arrivals[target, default: 0] += 1
+            if let target { arrivals[target, default: 0] += 1 }
         }
 
         // 2. Adın yerindeki başka içerik yerinden olur; öbürleri kalır.
@@ -331,6 +344,10 @@ enum PlanApply {
                 if adopted.contains(space) { continue }
                 let windows = content(space)
                 let unplanned = nameOfSpace[space]
+                if otherOwned(space) {
+                    staying.insert(here)
+                    continue
+                }
                 guard let owner = claimed[here], byID[owner]?.space != space else {
                     if input.compactBeyondPlan, unplanned == nil, !windows.isEmpty,
                        index + 1 > (input.plans[role] ?? []).count {
@@ -357,18 +374,21 @@ enum PlanApply {
             var target: Slot?
             if let index = list.firstIndex(of: entry.space) {
                 let candidate = Slot(screen: entry.role, desktop: index + 1)
-                if claimed[candidate] == nil, nameOfSpace[entry.space] == nil { target = candidate }
+                if claimed[candidate] == nil, nameOfSpace[entry.space] == nil, !otherOwned(entry.space) {
+                    target = candidate
+                }
             }
             if target == nil {
                 let candidate = Slot(screen: entry.role, desktop: entry.desktop)
                 let planned = (input.plans[entry.role] ?? []).count
                 if claimed[candidate] == nil, entry.desktop <= max(list.count, planned),
-                   space(candidate).map({ nameOfSpace[$0] == nil }) ?? true {
+                   space(candidate).map({ nameOfSpace[$0] == nil && !otherOwned($0) }) ?? true {
                     target = candidate
                 }
             }
             if target == nil, let index = list.indices.reversed().first(where: { i in
                 claimed[Slot(screen: entry.role, desktop: i + 1)] == nil && nameOfSpace[list[i]] == nil
+                    && !otherOwned(list[i])
             }) {
                 target = Slot(screen: entry.role, desktop: index + 1)
             }
@@ -394,6 +414,7 @@ enum PlanApply {
             if here.desktop <= plan.count, !plan[here.desktop - 1].isEmpty,
                byID[plan[here.desktop - 1]] != nil { return false }
             if claimed[here] != nil || staying.contains(here) || arrivals[here, default: 0] > 0 { return false }
+            if let existing = space(here), otherOwned(existing) { return false }
             if let existing = space(here), !leaving.contains(existing),
                !content(existing).isEmpty || nameOfSpace[existing] != nil { return false }
             return true
