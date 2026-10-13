@@ -850,6 +850,16 @@ final class Router: ObservableObject {
         Set(until.filter { $0.value > now }.keys)
     }
 
+    /// Birden çok iznin özeti (saf): en geç süreli bitiş sayılır, "kilide
+    /// kadar" izin varsa ayrıca yazılır. Hepsi kilide kadarsa sayaç yok.
+    nonisolated static func freeMoveStatus(_ until: [Date], now: Date) -> (label: String, timedRemaining: TimeInterval?) {
+        let timed = until.filter { !isUntilLock($0) }.max().map { $0.timeIntervalSince(now) }
+        let lock = until.contains(where: isUntilLock)
+        guard let timed else { return (L("Free to move · until the screen locks"), nil) }
+        let base = L("Free to move · %@ left", freeMoveRemaining(timed))
+        return (lock ? base + " " + L("(some until the screen locks)") : base, timed)
+    }
+
     /// Kalan süre metni (saf): "4:05", saat varsa "1:00:00".
     nonisolated static func freeMoveRemaining(_ interval: TimeInterval) -> String {
         let total = max(0, Int(interval.rounded(.up)))

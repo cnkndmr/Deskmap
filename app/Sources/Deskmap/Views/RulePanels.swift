@@ -460,8 +460,8 @@ struct FreeMoveRow: View {
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
             let free = windowIDs.filter { (router.freeMoves[$0] ?? .distantPast) > context.date }
-            if let until = free.compactMap({ router.freeMoves[$0] }).max() {
-                active(remaining: until.timeIntervalSince(context.date), free: free)
+            if !free.isEmpty {
+                active(now: context.date, free: free)
             } else {
                 idle
             }
@@ -500,16 +500,16 @@ struct FreeMoveRow: View {
 
     /// `free`: şu an serbest olan hedefler. Bir kısmı serbestse sayı
     /// gösterilir ve kalanlar için süre menüsü açık kalır.
-    private func active(remaining: TimeInterval, free: [CGWindowID]) -> some View {
+    private func active(now: Date, free: [CGWindowID]) -> some View {
         let rest = windowIDs.filter { !free.contains($0) }
-        let untilLock = free.compactMap { router.freeMoves[$0] }.allSatisfy(Router.isUntilLock)
+        let text = Router.freeMoveStatus(free.compactMap { router.freeMoves[$0] }, now: now)
+        let untilLock = text.timedRemaining == nil
         // İki satır: geri sayım ve açıklama üstte (sarmadan), düğmeler altta.
         return VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Image(systemName: "timer")
                     .foregroundStyle(Color.teal)
-                Text(untilLock ? L("Free to move · until the screen locks")
-                               : L("Free to move · %@ left", Router.freeMoveRemaining(remaining)))
+                Text(text.label)
                     .font(.caption.monospacedDigit())
                     .foregroundStyle(Color.teal)
                     .fixedSize()

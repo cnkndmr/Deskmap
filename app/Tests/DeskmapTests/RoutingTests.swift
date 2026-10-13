@@ -169,4 +169,17 @@ struct FreeMoveTests {
         // Kilide kadar izin turda süresi dolmuş sayılmaz.
         #expect(Router.activeFreeMoves([1: .distantFuture], now: Date()) == [1])
     }
+
+    @Test func mixedGrantStatus() {
+        let now = Date()
+        let lockOnly = Router.freeMoveStatus([.distantFuture], now: now)
+        #expect(lockOnly.timedRemaining == nil)
+        let timed = Router.freeMoveStatus([now.addingTimeInterval(120)], now: now)
+        #expect(timed.timedRemaining == 120)
+        #expect(timed.label.contains("2:00"))
+        // Karışık: sayaç süreli izinden gelir, distantFuture'dan değil.
+        let mixed = Router.freeMoveStatus([.distantFuture, now.addingTimeInterval(300)], now: now)
+        #expect(mixed.timedRemaining == 300)
+        #expect(mixed.label.contains("5:00"))
+    }
 }
