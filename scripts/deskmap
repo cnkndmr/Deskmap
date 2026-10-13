@@ -480,7 +480,12 @@ def free_move(args):
     elif not free:
         die(f"{window}: no free move (is the window pinned?)")
     else:
-        print(f"{window}: free " + ("until the screen locks" if free == "lock" else f"until {free}"))
+        if free == "lock":
+            print(f"{window}: free until the screen locks")
+        else:
+            from datetime import datetime
+            local = datetime.fromisoformat(free.replace("Z", "+00:00")).astimezone()
+            print(f"{window}: free until {local:%H:%M:%S}")
 
 
 def window_command(name):
