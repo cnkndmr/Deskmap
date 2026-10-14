@@ -590,3 +590,7 @@
 "Session-only changes (temporary pins) can be undone but not redone." = "Yalnız bu oturumluk değişiklikler (geçici pinler) geri alınabilir ama yinelenemez.";
 "NOW" = "ŞİMDİ";
 "Return here" = "Buraya dön";
+"Timed pins" = "Zamanlı pinler";
+"End all" = "Hepsini bitir";
+"End free movement; the windows go back to their pins" = "Serbest süreyi bitir; pencereler pinlerine döner";
+"Pinned windows that are free to move for a while; Deskmap puts them back when the time is up" = "Bir süreliğine serbest bırakılmış pinli pencereler; süre bitince Deskmap onları yerine döndürür";

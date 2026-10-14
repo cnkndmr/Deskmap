@@ -749,6 +749,57 @@ extension UnownedWindowsTray {
     }
 }
 
+/// Süreli serbest bırakılmış (zamanlı) pinli pencereler: bitişi en yakın
+/// olan üstte. Liste boşsa kutu hiç görünmez; sayaçlar satırdaki rozette.
+struct FreeMoveTray: View {
+
+    let mode: Mode
+
+    @EnvironmentObject private var ui: UIState
+    @EnvironmentObject private var router: Router
+
+    var body: some View {
+        // Süre dolan satır, yönlendiricinin temizliğini beklemeden düşsün.
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let windows = Self.timedWindows(ui.windows, freeMoves: router.freeMoves, now: context.date)
+            if !windows.isEmpty {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 4) {
+                        TrayHeader(systemImage: "timer", title: L("Timed pins"), count: windows.count)
+                        Spacer(minLength: 0)
+                        if windows.count > 1 {
+                            Button(L("End all")) { router.endFreeMove(windows.map(\.id)) }
+                                .buttonStyle(.link)
+                                .font(.caption)
+                                .help(L("End free movement; the windows go back to their pins"))
+                        }
+                    }
+                    .help(L("Pinned windows that are free to move for a while; Deskmap puts them back when the time is up"))
+                    VStack(spacing: 3) {
+                        ForEach(windows) { window in
+                            WindowRow(window: window, mode: mode, location: nil)
+                        }
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.orange.opacity(0.06)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.orange.opacity(0.3), lineWidth: 1))
+            }
+        }
+    }
+
+    /// Süresi sürmekte olan pencereler (saf), bitişi en yakın önce.
+    static func timedWindows(_ windows: [Router.WindowSnapshot], freeMoves: [CGWindowID: Date],
+                             now: Date) -> [Router.WindowSnapshot] {
+        windows
+            .filter { (freeMoves[$0.id] ?? .distantPast) > now }
+            .sorted { freeMoves[$0.id]! < freeMoves[$1.id]! }
+    }
+}
+
 /// Alt kutuların başlık satırı: simge, başlık, sayı.
 private struct TrayHeader: View {
 
