@@ -41,8 +41,8 @@ struct MigrationV6Tests {
         }
         #expect(target("Code", "orion-code", .docked) == "Orion")
         #expect(target("Code", "orion-code", .undocked) == "Orion")
-        #expect(target("Word", "Vega1", .docked) == "Nova Ek")
-        #expect(target("Word", "Vega1", .undocked) == "Nova Ek")
+        #expect(target("Word", "comet1", .docked) == "Nova Ek")
+        #expect(target("Word", "comet1", .undocked) == "Nova Ek")
         #expect(target("Code", "lumen-code", .docked) == "Lumen")
         #expect(target("Code", "lumen-code", .undocked) == "Lumen")
         #expect(target("ChatGPT", "", .docked) == nil)
@@ -150,7 +150,7 @@ struct MigrationV6Tests {
         #expect(V6.bindings(normal)["Lumen"] == 1032)
         #expect(!result.report.withEvidence)
         // Kurallar eski tablolarla ada bağlanır.
-        let word = normal.rules.first { $0.tokens == ["Vega1"] }
+        let word = normal.rules.first { $0.tokens == ["comet1"] }
         #expect(word?.docked?.nameID == normal.names.first { $0.name == "Orion" }?.id)
         #expect(word?.undocked?.nameID == normal.names.first { $0.name == "Nova Ek" }?.id)
     }

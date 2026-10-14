@@ -10,7 +10,7 @@ desktops:
 
 windows:
   - app: Code
-    title: Orion            # başlıkta geçmesi gereken parça(lar)
+    title: Orion-Makale            # başlıkta geçmesi gereken parça(lar)
     docked: external/1 left-half
     undocked: builtin/1 full
   - app: Safari

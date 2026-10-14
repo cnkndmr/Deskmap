@@ -222,7 +222,7 @@ private struct GeneralSettings: View {
     /// girişte bu yol açılır; taşınır ya da silinirse kayıt boşa düşer.
     private var launchAtLoginHelp: String {
         let path = Bundle.main.bundleURL.path
-        if path.hasPrefix("/Applications/") {
+        if path.hasPrefix("/Applications/") || Shots.isRunning {
             return L("Deskmap starts when you log in to macOS")
         }
         return L("This copy opens at login: %@. For a permanent install, copy it to /Applications.", path)

@@ -37,8 +37,8 @@ struct MultiPinTests {
 
     @Test func identicalTitlesFallBackToSessionPins() {
         // Aynı başlıklı iki Finder penceresi: kural ikisini ayıramaz.
-        let windows = [window(1, "Finder", "Comet_notes", desktop: 4),
-                       window(2, "Finder", "Comet_notes", desktop: 5)]
+        let windows = [window(1, "Finder", "Vega-Notes", desktop: 4),
+                       window(2, "Finder", "Vega-Notes", desktop: 5)]
         let both = plan([1, 2], windows)
         #expect(both.rules.count == 1 && both.sessions.map(\.window) == [2])
         let one = plan([1], windows)

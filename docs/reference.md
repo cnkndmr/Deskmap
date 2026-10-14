@@ -514,7 +514,7 @@ desktops:
   undocked: {builtin: 4}
 windows:
   - app: Code
-    title: Orion        # title fragment(s), optional
+    title: Orion-Makale        # title fragment(s), optional
     docked: external/1 left-half   # screen/desktop layout
     undocked: builtin/1 full
   - app: cmux

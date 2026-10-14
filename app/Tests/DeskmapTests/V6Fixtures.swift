@@ -64,7 +64,7 @@ enum V6 {
         both("Finder", "nova-folder", 6)
         both("Excel", "nova-1", 6); both("Excel", "nova-2", 6); both("Excel", "nova-3", 6)
         for i in 1...5 { both("Preview", "nova-pdf\(i)", 6) }
-        for i in 1...3 { rules.append(rule("Word", ["Vega\(i)"], docked: e(2), undocked: b(7))) }
+        for i in 1...3 { rules.append(rule("Word", ["comet\(i)"], docked: e(2), undocked: b(7))) }
         for (app, token) in [("Code", "orion-code"), ("Finder", "orion-folder"), ("Excel", "orion-sheet"),
                              ("Preview", "orion-pdf")] {
             rules.append(rule(app, [token], docked: e(1), undocked: b(9)))
@@ -100,7 +100,7 @@ enum V6 {
                              ("Preview", "orion-pdf")] {
             list.append(Win(app: app, title: title, space: 1681))
         }
-        for i in 1...3 { list.append(Win(app: "Word", title: "Vega\(i)", space: 1674)) }
+        for i in 1...3 { list.append(Win(app: "Word", title: "comet\(i)", space: 1674)) }
         for (app, title) in [("Code", "lumen-code"), ("Finder", "lumen-folder"), ("Excel", "lumen-sheet"),
                              ("Preview", "lumen-pdf1"), ("Preview", "lumen-pdf2"), ("Preview", "lumen-pdf3"),
                              ("Preview", "lumen-pdf4")] {

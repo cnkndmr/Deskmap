@@ -54,7 +54,7 @@ struct RoutingTests {
         let other = Rule(id: "safari", appName: "Safari", bundleID: "com.apple.Safari",
                          tokens: [], docked: builtin)
         let wrongTitle = Rule(id: "t", appName: "Code", bundleID: "com.microsoft.VSCode",
-                              tokens: ["Comet_notes"], docked: builtin)
+                              tokens: ["Vega"], docked: builtin)
         #expect(select([other, wrongTitle]) == nil)
         #expect(select([]) == nil)
     }

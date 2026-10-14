@@ -59,7 +59,7 @@ struct MapLogicTests {
     @Test func rulesWithoutTargetInModeOrWithoutWindowAreIgnored() {
         let noTarget = code("undockedOnly", tokens: ["atlas"], undocked: external)
         let wide = code("wide", tokens: [], docked: builtin)
-        let closed = code("closed", tokens: ["comet"], docked: external)
+        let closed = code("closed", tokens: ["vega"], docked: external)
         let result = ScreenMapView.shadows(
             rules: [noTarget, wide, closed], windows: [window(1, title: "Atlas")],
             sessionPins: [:], mode: .docked)

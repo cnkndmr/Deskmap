@@ -46,15 +46,15 @@ struct WindowIdentityTests {
 
     @Test func codeKeepsWorkspaceNotFile() {
         let code = "com.microsoft.VSCode"
-        #expect(parts("Code", code, "09_main_results.ipynb — Orion")
-                == ["Orion", "09_main_results.ipynb"])
-        #expect(parts("Code", code, "● PANO.md — Plover-Paper")
-                == ["Plover-Paper", "PANO.md"])
-        #expect(parts("Code", code, "PANO.md — Plover-Paper — Visual Studio Code")
-                == ["Plover-Paper", "PANO.md"])
+        #expect(parts("Code", code, "09_main_results.ipynb — Orion-Makale")
+                == ["Orion-Makale", "09_main_results.ipynb"])
+        #expect(parts("Code", code, "● PANO.md — Lumen-Makale")
+                == ["Lumen-Makale", "PANO.md"])
+        #expect(parts("Code", code, "PANO.md — Lumen-Makale — Visual Studio Code")
+                == ["Lumen-Makale", "PANO.md"])
         #expect(WindowIdentity.resolve(appName: "Code", bundleID: code,
-                                       title: "● PANO.md — Plover-Paper", others: [])
-                == .rule(["Plover-Paper"]))
+                                       title: "● PANO.md — Lumen-Makale", others: [])
+                == .rule(["Lumen-Makale"]))
     }
 
     @Test func narrowsWithNextSegmentWhenAmbiguous() {
@@ -88,40 +88,40 @@ struct WindowIdentityTests {
     // MARK: Finder, Office, Outlook, Teams, Terminal
 
     @Test func finderAndExcelUseTheName() {
-        #expect(parts("Finder", "com.apple.finder", "Nova-IEEE-Paper-expo")
-                == ["Nova-IEEE-Paper-expo"])
+        #expect(parts("Finder", "com.apple.finder", "Nova-Paper-conf2027")
+                == ["Nova-Paper-conf2027"])
         let excel = "com.microsoft.Excel"
-        #expect(parts("Microsoft Excel", excel, "Orion")
-                == ["Orion"])
+        #expect(parts("Microsoft Excel", excel, "Orion-Project-Timeline")
+                == ["Orion-Project-Timeline"])
         // Uzantı görünse de görünmese de aynı anahtar.
-        #expect(parts("Microsoft Excel", excel, "Orion.xlsx — Saved")
-                == ["Orion"])
+        #expect(parts("Microsoft Excel", excel, "Orion-Project-Timeline.xlsx — Saved")
+                == ["Orion-Project-Timeline"])
     }
 
     @Test func outlookKeepsAccountNotFolder() {
-        let account = "user@example.com"
+        let account = "jane.doe@example.com"
         #expect(parts("Microsoft Outlook", "com.microsoft.Outlook", "Inbox • \(account)") == [account])
         #expect(parts("Microsoft Outlook", "com.microsoft.Outlook", "Inbox (12) • \(account)") == [account])
     }
 
     @Test func teamsHasNoStableKeyAndFallsBackToSession() {
-        let title = "Chat | Example User (You) | Microsoft Teams"
+        let title = "Chat | Doe, Jane (You) | Microsoft Teams"
         #expect(parts("Microsoft Teams", "com.microsoft.teams2", title).isEmpty)
         #expect(WindowIdentity.resolve(appName: "Microsoft Teams", bundleID: "com.microsoft.teams2",
                                        title: title, others: []) == .none)
     }
 
     @Test func terminalKeepsHostWithoutDirectory() {
-        let title = "user — user@host:~ — ssh"
-        #expect(parts("Terminal", "com.apple.Terminal", title).first == "user@host")
+        let title = "jane — jane@build-server:~ — ssh"
+        #expect(parts("Terminal", "com.apple.Terminal", title).first == "jane@build-server")
         #expect(parts("Terminal", "com.apple.Terminal",
-                      "user — user@host:~/proj — ssh — 120×40").first
-                == "user@host")
+                      "jane — jane@build-server:~/proj — ssh — 120×40").first
+                == "jane@build-server")
         // Dizin değişse de kural aynı pencereye uyar.
         let rule = Rule(appName: "Terminal", bundleID: "com.apple.Terminal",
-                        tokens: ["user@host"])
+                        tokens: ["jane@build-server"])
         #expect(rule.matches(bundleID: "com.apple.Terminal", appName: "Terminal",
-                             title: "user — user@host:~/proj — ssh"))
+                             title: "jane — jane@build-server:~/proj — ssh"))
     }
 
     // MARK: Yedekler
@@ -141,9 +141,9 @@ struct WindowIdentityTests {
     // MARK: Regresyon
 
     @Test func terminalNeverNarrowsWithVolatileSegments() {
-        let other = snap(2, "Terminal", "com.apple.Terminal", "user — -zsh — 80×24")
+        let other = snap(2, "Terminal", "com.apple.Terminal", "jane — -zsh — 80×24")
         let r = WindowIdentity.resolve(appName: "Terminal", bundleID: "com.apple.Terminal",
-                                       title: "user — ✳ Claude Code — 120×40", others: [other])
+                                       title: "jane — ✳ Claude Code — 120×40", others: [other])
         #expect(r == .none)
     }
 
@@ -222,11 +222,11 @@ struct WindowIdentityTests {
     @Test func stableSegmentWinsAfterTitleChanges() {
         let terminal = "com.apple.Terminal"
         var history = WindowIdentity.Observations()
-        history.observe([snap(1, "Terminal", terminal, "user — user@host:~ — ssh — 80×24")])
-        history.observe([snap(1, "Terminal", terminal, "user — user@host:~/x — vim — 80×24")])
-        let now = snap(1, "Terminal", terminal, "user — user@host:~/x — vim — 80×24")
-        #expect(history.stableSegments(of: now) == ["user@host", "user"])
-        #expect(WindowIdentity.resolve(now, others: [], history: history) == .rule(["user@host"]))
+        history.observe([snap(1, "Terminal", terminal, "jane — jane@devbox:~ — ssh — 80×24")])
+        history.observe([snap(1, "Terminal", terminal, "jane — jane@devbox:~/x — vim — 80×24")])
+        let now = snap(1, "Terminal", terminal, "jane — jane@devbox:~/x — vim — 80×24")
+        #expect(history.stableSegments(of: now) == ["jane@devbox", "jane"])
+        #expect(WindowIdentity.resolve(now, others: [], history: history) == .rule(["jane@devbox"]))
     }
 
     @Test func everySegmentChangedMeansNoKey() {

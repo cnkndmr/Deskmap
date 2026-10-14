@@ -18,20 +18,20 @@ struct TokenEditingTests {
     @Test func setTokensKeepsIdentityAndDestinations() {
         var doc = Document()
         doc.rules = [rule("a", tokens: ["Atlas"])]
-        let changed = doc.setTokens(["Comet_notes", "notebooks"], for: "a")
+        let changed = doc.setTokens(["Vega", "notebooks"], for: "a")
         #expect(changed)
         #expect(doc.rules[0].id == "a")
-        #expect(doc.rules[0].tokens == ["Comet_notes", "notebooks"])
+        #expect(doc.rules[0].tokens == ["Vega", "notebooks"])
         #expect(doc.rules[0].docked == external)
         #expect(doc.rules[0].undocked?.screen == "builtin")
     }
 
     @Test func setTokensRefusesKeyCollisionWithAnotherRule() {
         var doc = Document()
-        doc.rules = [rule("a", tokens: ["Atlas"]), rule("b", tokens: ["Comet_notes"])]
+        doc.rules = [rule("a", tokens: ["Atlas"]), rule("b", tokens: ["Vega"])]
         // Büyük/küçük harf farkı çakışmayı gizlemez.
-        #expect(doc.conflictingRule(ifTokens: ["comet"], for: "a")?.id == "b")
-        let changed = doc.setTokens(["comet"], for: "a")
+        #expect(doc.conflictingRule(ifTokens: ["vega"], for: "a")?.id == "b")
+        let changed = doc.setTokens(["vega"], for: "a")
         #expect(!changed)
         #expect(doc.rules[0].tokens == ["Atlas"])
         // Kuralın kendi parçaları çakışma sayılmaz; uygulama geneline geçiş serbest.
@@ -75,7 +75,7 @@ struct TokenEditingTests {
     @Test func preselectionMatchesTokensCaseInsensitively() {
         let segments = ["Store.swift", "atlas", "Code"]
         #expect(TokenPicker.preselection(segments: segments, tokens: ["Atlas", "Code"]) == [1, 2])
-        #expect(TokenPicker.preselection(segments: segments, tokens: ["Comet_notes"]).isEmpty)
+        #expect(TokenPicker.preselection(segments: segments, tokens: ["Vega"]).isEmpty)
         #expect(TokenPicker.preselection(segments: [], tokens: ["Atlas"]).isEmpty)
         #expect(TokenPicker.preselection(segments: segments, tokens: []).isEmpty)
     }

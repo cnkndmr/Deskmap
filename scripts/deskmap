@@ -39,7 +39,7 @@ LAYOUT FILE (YAML or JSON):
     docked: {external: 4}
   windows:
     - app: Code                   # app name (or bundle: com.microsoft.VSCode)
-      title: Orion     # optional title fragment(s), string or list
+      title: Orion-Makale     # optional title fragment(s), string or list
       docked: external/2 left-half            # "screen/desktop layout"
       undocked: {screen: builtin, desktop: 3, layout: {x: 0, y: 0, w: 0.7, h: 1}}
       place: builtin/1 full       # instead of docked+undocked: same for both

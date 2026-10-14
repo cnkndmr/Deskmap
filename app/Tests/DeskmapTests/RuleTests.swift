@@ -92,7 +92,7 @@ struct RuleTests {
             {"app":"Code","match":{"type":"contains","value":"Atlas"}}
             """.utf8))
         #expect(v1.tokens == ["Atlas"])
-        #expect(v1.matches(bundleID: "", appName: "code", title: "atlas"))
+        #expect(v1.matches(bundleID: "", appName: "code", title: "ATLAS"))
     }
 
     @Test func lazyTitleOverloadOnlyLowercasesWhenNeeded() {

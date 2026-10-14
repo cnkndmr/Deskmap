@@ -13,6 +13,10 @@ import SwiftUI
 /// `SingleInstance`) hiç çağrılmaz.
 enum Shots {
 
+    /// Kareler üretilirken true: arayüz gerçek kurulum yolu gibi kişisel
+    /// ayrıntı göstermesin (bkz. `SettingsView.launchAtLoginHelp`).
+    @MainActor static var isRunning = false
+
     struct Options: Equatable {
         var directory: String
         /// Yalnızca bu adlardaki kareler üretilsin (ör. "01-map"); nil = hepsi.
@@ -59,6 +63,7 @@ enum Shots {
     @MainActor
     static func run(_ options: Options) -> Never {
         NSApplication.shared.setActivationPolicy(.accessory)
+        isRunning = true
 
         let crowded = options.scenario == "crowded"
         let world = crowded ? DemoData.crowded() : DemoData.make()
@@ -293,7 +298,7 @@ enum Shots {
         pump(0.5)
         capture("g01b-grid-crowded")
         // Alt kısım: uzun başlık, penceresi kapalı Preview sabitlemeleri, boş masaüstü.
-        ui.reveal = RevealRequest(window: DemoData.crowdedVegaWindowID, seq: 10)
+        ui.reveal = RevealRequest(window: DemoData.crowdedCometWindowID, seq: 10)
         pump(0.5)
         capture("g01c-grid-closed-pins")
 
@@ -309,8 +314,8 @@ enum Shots {
         pump(0.5)
         capture("g03-selected")
 
-        ui.panel = .rule(DemoData.crowdedVegaRuleID)
-        ui.panelSourceWindowID = DemoData.crowdedVegaWindowID
+        ui.panel = .rule(DemoData.crowdedCometRuleID)
+        ui.panelSourceWindowID = DemoData.crowdedCometWindowID
         capture("g04-selected-long")
 
         ui.panel = .session(DemoData.crowdedMessagesWindowID)

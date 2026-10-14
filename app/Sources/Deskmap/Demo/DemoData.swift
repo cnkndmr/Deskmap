@@ -154,7 +154,7 @@ enum DemoData {
     /// gösteren kareler (13-long-title*) için; dünyaya eklenmez, Shots.swift o
     /// kareler için ekleyip kaldırır.
     static let longTitleRuleID = "demo-rule-long-title"
-    static let longTitleToken = "Vega"
+    static let longTitleToken = "Comet_algorithm_change"
 
     static func longTitleRule() -> Rule {
         Rule(id: longTitleRuleID, appName: "Preview", bundleID: "com.apple.Preview",
@@ -181,8 +181,8 @@ enum DemoData {
     static let crowdedOutlookWindowID: CGWindowID = 102
     static let crowdedMessagesWindowID: CGWindowID = 109
     static let crowdedFreeWindowID: CGWindowID = 131
-    static let crowdedVegaRuleID = "crowded-rule-Vega"
-    static let crowdedVegaWindowID: CGWindowID = 121
+    static let crowdedCometRuleID = "crowded-rule-comet"
+    static let crowdedCometWindowID: CGWindowID = 121
 
     private static let retinaScreen = ScreenInfo(
         id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0002", name: "Built-in Retina Display",
@@ -233,17 +233,17 @@ enum DemoData {
                  undocked: dest("builtin", 3, .rightHalf)),
             // Masaüstü 3 "Nova Projesi": uzun başlıklı PDF, kod,
             // penceresi kapalı dört PDF.
-            rule(id: crowdedVegaRuleID, "Preview", "com.apple.Preview", [longTitleToken],
+            rule(id: crowdedCometRuleID, "Preview", "com.apple.Preview", [longTitleToken],
                  docked: dest("builtin", 3, .leftHalf), undocked: dest("builtin", 4)),
             rule("Visual Studio Code", "com.microsoft.VSCode", ["Nova"],
                  docked: dest("builtin", 3, .rightHalf), undocked: dest("builtin", 4)),
-            rule("Preview", "com.apple.Preview", ["Orion"],
+            rule("Preview", "com.apple.Preview", ["Orion_report_v3"],
                  docked: dest("builtin", 3), undocked: dest("builtin", 4)),
-            rule("Preview", "com.apple.Preview", ["Nova_draft"],
+            rule("Preview", "com.apple.Preview", ["Nova_Conf2027_draft"],
                  docked: dest("builtin", 3), undocked: dest("builtin", 4)),
             rule("Preview", "com.apple.Preview", ["Expo_template"],
                  docked: dest("builtin", 3), undocked: dest("builtin", 4)),
-            rule("Preview", "com.apple.Preview", ["Comet_notes"],
+            rule("Preview", "com.apple.Preview", ["Vega_notes"],
                  docked: dest("builtin", 3), undocked: dest("builtin", 4)),
             // Masaüstü 5 "Lumen Makale" bu laptopta yok (gerçekte 4 masaüstü).
             rule("Notes", "com.apple.Notes", ["Lumen"], docked: dest("builtin", 5)),
@@ -292,7 +292,7 @@ enum DemoData {
         let windows: [Router.WindowSnapshot] = [
             win(101, "Calendar", "com.apple.iCal", "Calendar", "builtin", 1),
             win(crowdedOutlookWindowID, "Microsoft Outlook", "com.microsoft.Outlook",
-                "Inbox • Acme Acme", "builtin", 1),
+                "Inbox • Acme Corp", "builtin", 1),
             win(103, "Microsoft Teams", "com.microsoft.teams2", "Chat | Team weekly | Microsoft Teams",
                 "builtin", 1),
             win(104, "Reminders", "com.apple.reminders", "Reminders", "builtin", 1),
@@ -308,13 +308,13 @@ enum DemoData {
             win(111, "Obsidian", "md.obsidian", "Hub — Obsidian", "builtin", 2),
             win(112, "Terminal", "com.apple.Terminal", "~/Documents/Atlas — zsh", "builtin", 2),
             win(113, "Terminal", "com.apple.Terminal", "claude — Atlas — 120×40", "builtin", 2),
-            win(crowdedVegaWindowID, "Preview", "com.apple.Preview",
+            win(crowdedCometWindowID, "Preview", "com.apple.Preview",
                 "\(longTitleToken)_v2_final.pdf — Preview", "builtin", 3),
-            win(122, "Visual Studio Code", "com.microsoft.VSCode", "vega.py — Nova",
+            win(122, "Visual Studio Code", "com.microsoft.VSCode", "comet.py — Nova-Project",
                 "builtin", 3),
             win(130, "Safari", "com.apple.Safari", "Orion — Overleaf — Safari", "external", 1),
             win(crowdedFreeWindowID, "Visual Studio Code", "com.microsoft.VSCode",
-                "comet.py — Orion", "external", 1),
+                "model.py — Orion-Makale", "external", 1),
             win(140, "Mail", "com.apple.mail", "Inbox — Mail", "external", 2),
             win(141, "Finder", "com.apple.finder", "Downloads", "external", 2,
                 frame: frame(monitorScreen, 0.55, 0.45, 0.32, 0.38)),
