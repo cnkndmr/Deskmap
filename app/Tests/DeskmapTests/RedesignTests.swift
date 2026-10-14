@@ -217,17 +217,11 @@ struct InspectorFitTests {
         #expect(BasicLayoutRow.shortLabel(.anyFrame) == L("As it is"))
     }
 
-    @Test func tallInspectorGrowsTheWindowUntilTheRoomIsFull() {
+    @Test func inspectorNeverChangesTheWindowHeight() {
+        // Sağ sütunun uzunluğu pencereyi büyütmez; sütun kendi içinde kayar.
         let base = RootView.heights(chrome: 120, panel: 0, room: 1400, preferredTotal: 740)
         #expect(base.map == 620)
-        // Kısa sütun haritayı değiştirmez; uzun sütun satırı uzatır.
-        #expect(RootView.heights(chrome: 120, panel: 0, room: 1400, preferredTotal: 740,
-                                 inspector: 400).map == 620)
-        #expect(RootView.heights(chrome: 120, panel: 0, room: 1400, preferredTotal: 740,
-                                 inspector: 900).map == 900)
-        // Alan dolunca sütun kendi içinde kayar.
-        #expect(RootView.heights(chrome: 120, panel: 0, room: 1000, preferredTotal: 740,
-                                 inspector: 1200).map == 880)
+        #expect(RootView.heights(chrome: 120, panel: 0, room: 1000, preferredTotal: 740).map == 620)
     }
 
     @Test func scrollResetsOnlyWhenTheSubjectChanges() {

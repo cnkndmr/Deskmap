@@ -270,11 +270,9 @@ struct WindowHeightTests {
         #expect(RootView.sidebarWidth(windowWidth: 1100) == 300)
     }
 
-    @Test func roomUsesTheWindowTopOrTheVisibleTop() {
+    @Test func roomComesFromTheVisibleFrameNotTheWindowTop() {
         let visible = CGRect(x: 0, y: 70, width: 1512, height: 875)   // Dock 70 pt, menü çubuğu üstte
-        #expect(WindowRoomReader.room(windowTop: 940, visible: visible, margin: 12) == 858)
-        // Henüz yerleşmemiş pencere (ekran dışı): kullanılabilir üst kenar.
-        #expect(WindowRoomReader.room(windowTop: 5000, visible: visible, margin: 12) == 863)
+        #expect(WindowRoomReader.room(visible: visible, margin: 12) == 863)
     }
 }
 

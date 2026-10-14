@@ -84,14 +84,12 @@ struct RootView: View {
     /// Pencerenin ekranın kullanılabilir alanının altında bıraktığı boşluk.
     static let screenMargin: CGFloat = 12
 
-    /// Ölçülen yükseklikler: "top" (üst çubuklar), "inspector" (sağ
-    /// sütunun doğal içeriği), "bottom" (alt çubuk). Harita alanı bunlardan
-    /// hesaplanır.
+    /// Ölçülen yükseklikler: "top" (üst çubuklar), "bottom" (alt çubuk).
+    /// Harita alanı bunlardan hesaplanır.
     @State private var heights: [String: CGFloat] = [:]
 
-    /// Pencerenin üst kenarından, bulunduğu ekranın kullanılabilir alt
-    /// kenarına (Dock ve menü çubuğu hariç) kadar olan yükseklik, eksi
-    /// `screenMargin`. `WindowRoomReader` pencere ekran değiştirince ya da
+    /// Pencerenin bulunduğu ekranın kullanılabilir yüksekliği (Dock ve menü
+    /// çubuğu hariç), eksi `screenMargin`. `WindowRoomReader` pencere ekran değiştirince ya da
     /// çözünürlük değişince yeniler; bilinmiyorsa nil.
     @State private var room: WindowRoom?
     /// Sistem hep görünen kaydırma çubuğu kullanıyor mu (fare takılıyken);
@@ -103,36 +101,50 @@ struct RootView: View {
     /// Harita alanı (kenar çubuğu + harita) ve alt panelin tavanı (saf).
     /// `room`: pencereye düşen toplam yükseklik; `chrome`: üst ve alt
     /// çubuklar; `panel`: panelin doğal yüksekliği (kapalıysa 0);
-    /// `inspector`: haritanın yanındaki sağ sütunun doğal yüksekliği.
     ///
     /// - Panel kapalıyken pencere `preferredTotal` olur (sığarsa).
     /// - Panel açılınca pencere aşağı uzar, harita daralmaz.
-    /// - Sağ sütun uzunsa harita satırı (sütun onun yanında) en çok alanın
-    ///   kalanı kadar uzar; sütun yalnız ekran dolunca kendi içinde kayar.
+    /// - Sağ sütunun uzunluğu pencereyi büyütmez: boy sabit, sütun kendi
+    ///   içinde kayar (seçim değişince pencere sıçramasın).
     /// - Sığmazsa önce harita taşan kadar kısalır, en az `minMapHeight`
     ///   (çok küçük ekranda alanın yarısı) kalır; panel yine sığmazsa
     ///   `panelCap` yüksekliğinde kendi içinde kayar.
     ///
     /// Sonuç her zaman: chrome + map + min(panel, panelCap) ≤ room.
     nonisolated static func heights(chrome: CGFloat, panel: CGFloat, room: CGFloat,
-                                    preferredTotal: CGFloat, inspector: CGFloat = 0)
+                                    preferredTotal: CGFloat)
         -> (map: CGFloat, panelCap: CGFloat?) {
-        let preferred = max(preferredTotal - chrome, inspector)
+        let preferred = max(preferredTotal - chrome, 0)
         let space = max(room - chrome, 0)
         let map = max(min(preferred, max(space - panel, min(minMapHeight, space / 2))), 0)
         let left = space - map
         return (map, panel > left ? max(left, 0) : nil)
     }
 
+    /// Son ölçülen üst ve alt çubuk yükseklikleri; uygulama yeniden
+    /// açılınca da ilk karede doğru boy için saklanır (yoksa tahmin 90/36).
+    @MainActor static var lastChrome: (top: CGFloat, bottom: CGFloat) = {
+        let saved = UserDefaults.standard.array(forKey: chromeKey) as? [Double] ?? []
+        return saved.count == 2 ? (saved[0], saved[1]) : (90, 36)
+    }() {
+        didSet {
+            guard oldValue != lastChrome else { return }
+            UserDefaults.standard.set([Double(lastChrome.top), Double(lastChrome.bottom)],
+                                      forKey: chromeKey)
+        }
+    }
+    private static let chromeKey = "MapWindowChromeHeights"
+
     /// Shots modunda sabit oda (gerçek ekran ve pencere konumu kullanılmaz).
     @Environment(\.demoRoom) private var demoRoom
 
-    /// Ölçüm gelene dek ana ekrana göre tahmin.
+    /// Ölçüm gelene dek panelin açılacağı ekran (menü çubuğunda tıklanan,
+    /// yani imlecin bulunduğu ekran) esas alınır; oda yalnız ekranın
+    /// kullanılabilir alanına bağlı olduğundan ilk kare de doğru boyda çizilir.
     private var currentRoom: WindowRoom {
         if let demoRoom { return demoRoom }
         if let room { return room }
-        let visible = NSScreen.main?.visibleFrame.size ?? CGSize(width: 1440, height: 860)
-        return WindowRoom(height: visible.height - Self.screenMargin, visible: visible)
+        return WindowRoomReader.expectedRoom(margin: Self.screenMargin)
     }
 
     private var windowWidth: CGFloat { Self.windowWidth(visibleWidth: currentRoom.visible.width) }
@@ -140,11 +152,14 @@ struct RootView: View {
 
     private var layoutHeights: (map: CGFloat, panelCap: CGFloat?) {
         let room = currentRoom
-        return Self.heights(chrome: (heights["top"] ?? 90) + (heights["bottom"] ?? 36),
+        // Çubuk yükseklikleri ölçülene dek son ölçülen değer (ilk açılışta
+        // sabit tahmin yerine; panel her açılışta aynı boyda başlasın).
+        let top = heights["top"] ?? Self.lastChrome.top
+        let bottom = heights["bottom"] ?? Self.lastChrome.bottom
+        return Self.heights(chrome: top + bottom,
                             panel: 0,
                             room: room.height,
-                            preferredTotal: Self.preferredHeight(visibleHeight: room.visible.height),
-                            inspector: heights["inspector"] ?? 0)
+                            preferredTotal: Self.preferredHeight(visibleHeight: room.visible.height))
     }
 
     /// Sürüklerken: pinli pencere bırakılınca kaydedilen hedef güncellenir,
@@ -278,8 +293,8 @@ struct RootView: View {
                 // Sağ: seçili pencerenin ayrıntısı. Sütun hep yerinde durur
                 // (pencere tıklamayla genişleyip daralmasın); seçim yoksa
                 // ipuçları. İçerik genişliği kaydırma çubuğu çıksa da
-                // değişmez (sütun yana kaymasın); yüksekliği ölçülür, pencere
-                // önce uzar, sütun yalnız ekran dolunca kayar.
+                // değişmez (sütun yana kaymasın); pencere boyu sabittir,
+                // uzun içerik sütunun içinde kayar.
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(spacing: 0) {
@@ -289,7 +304,6 @@ struct RootView: View {
                         .frame(width: Self.inspectorWidth - (legacyScrollers ? Self.scrollerGutter : 0),
                                alignment: .leading)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .measuresHeight("inspector")
                     }
                     // Başka pencere ya da kural seçilince baştan başlar; aynı
                     // pencerenin taslağı güncellenince yerinde kalır.
@@ -311,7 +325,12 @@ struct RootView: View {
         }
         .frame(width: totalWidth)
         .fixedSize(horizontal: false, vertical: true)
-        .onPreferenceChange(HeightPreference.self) { heights = $0 }
+        .onPreferenceChange(HeightPreference.self) {
+            heights = $0
+            if demoRoom == nil, let top = $0["top"], let bottom = $0["bottom"] {
+                Self.lastChrome = (top, bottom)
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(
             for: NSScroller.preferredScrollerStyleDidChangeNotification)) { _ in
             legacyScrollers = NSScroller.preferredScrollerStyle == .legacy
@@ -1049,10 +1068,10 @@ extension EnvironmentValues {
     }
 }
 
-/// Pencerenin bulunduğu ekranda aşağıya doğru ne kadar yer olduğunu
-/// bildirir: pencerenin üst kenarı (menü çubuğunun altı) ile ekranın
-/// kullanılabilir alanının alt kenarı arası, eksi pay. Pencere başka ekrana
-/// geçince, taşınınca ya da ekran ayarları değişince yeniden ölçer.
+/// Pencerenin bulunduğu ekranın kullanılabilir yüksekliğini bildirir ve
+/// pencereyi yerleştirir: gösterim başına bir kez konum verir, sonra yalnız
+/// ekrandan taşmayı düzeltir. Pencere başka ekrana geçince ya da ekran
+/// ayarları değişince yeniden ölçer.
 struct WindowRoomReader: NSViewRepresentable {
 
     let margin: CGFloat
@@ -1061,15 +1080,24 @@ struct WindowRoomReader: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { Probe(margin: margin, changed: changed) }
     func updateNSView(_ view: NSView, context: Context) {}
 
-    /// Kullanılabilir yükseklik (saf). Pencere üstü ekranın kullanılabilir
-    /// alanının dışındaysa (henüz yerleşmemiş) kullanılabilir üst kenar esas
-    /// alınır.
-    static func room(windowTop: CGFloat, visible: CGRect, margin: CGFloat) -> CGFloat {
-        let top = (visible.minY...visible.maxY).contains(windowTop) ? windowTop : visible.maxY
-        return max(top - visible.minY - margin, 0)
+    /// Kullanılabilir yükseklik (saf): ekranın kullanılabilir alanı (Dock
+    /// ve menü çubuğu hariç) eksi pay. Pencerenin o anki konumuna bağlı
+    /// değil; pencere taşınınca ya da boyu değişince oda küçülmez.
+    static func room(visible: CGRect, margin: CGFloat) -> CGFloat {
+        max(visible.height - margin, 0)
     }
 
-    /// Harita penceresinin konumu (saf). Dahili ekranda (laptop) üstte
+    /// Panel henüz ölçülmeden: imlecin bulunduğu ekran (menü çubuğu
+    /// simgesine o ekranda tıklanır), yoksa ana ekran.
+    @MainActor static func expectedRoom(margin: CGFloat) -> WindowRoom {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) }
+            ?? NSScreen.main
+        let visible = screen?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1440, height: 860)
+        return WindowRoom(height: room(visible: visible, margin: margin), visible: visible.size)
+    }
+
+    /// Harita penceresinin ilk konumu (saf). Dahili ekranda (laptop) üstte
     /// ortalanır; harici ekranda macOS'un koyduğu yer korunur. Her iki
     /// durumda da pencere ekranın kullanılabilir alanından taşmaz.
     static func placed(_ frame: CGRect, visible: CGRect, builtIn: Bool) -> CGPoint {
@@ -1085,6 +1113,36 @@ struct WindowRoomReader: NSViewRepresentable {
         let changed: (WindowRoom) -> Void
         private var last: WindowRoom?
         private var tokens: [NSObjectProtocol] = []
+        /// Kendi `setFrameOrigin` çağrılarımızın ürettiği olaylar yok sayılır.
+        private var adjusting = false
+        /// Bu gösterimde ilk konum verildi mi (panel gizlenince sıfırlanır).
+        private var placedThisShow = false
+        /// Korunacak üst kenar ve yatay orta: boy değişince pencere kaymasın.
+        private var top: CGFloat?
+        private var midX: CGFloat?
+        private var left: CGFloat?
+        private var right: CGFloat?
+
+        private func remember() {
+            guard let window else { return }
+            top = window.frame.maxY
+            left = window.frame.minX
+            midX = window.frame.midX
+            right = window.frame.maxX
+        }
+
+        /// Boy değişince yatayda neresi sabit kalır: laptop ekranında orta,
+        /// harici ekranda sağ kenar (macOS paneli simgeye sağdan hizalıyor),
+        /// kullanıcı taşıdıysa sol kenar. Üst kenar her zaman sabit.
+        private func anchor(_ frame: inout CGRect) {
+            if let top { frame.origin.y = top - frame.height }
+            guard let left, let midX, let right else { return }
+            frame.origin.x = userMoved ? left
+                : builtIn ? midX - frame.width / 2
+                : right - frame.width
+        }
+        /// Kullanıcı bu gösterimde pencereyi taşıdı (yeniden ortalanmaz).
+        private var userMoved = false
 
         init(margin: CGFloat, changed: @escaping (WindowRoom) -> Void) {
             self.margin = margin
@@ -1093,52 +1151,202 @@ struct WindowRoomReader: NSViewRepresentable {
         }
         required init?(coder: NSCoder) { nil }
 
-        deinit { tokens.forEach(NotificationCenter.default.removeObserver) }
+        deinit {
+            tokens.forEach(NotificationCenter.default.removeObserver)
+        }
+
+        /// İçerik boyu değişince pencere ona uydurulur.
+        override func setFrameSize(_ newSize: NSSize) {
+            let sizeChanged = newSize != frame.size
+            super.setFrameSize(newSize)
+            if sizeChanged { DispatchQueue.main.async { [weak self] in self?.fit() } }
+        }
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             tokens.forEach(NotificationCenter.default.removeObserver)
             tokens = []
+            placedThisShow = false
+            top = nil
+            midX = nil
             guard let window else { return }
             let center = NotificationCenter.default
-            for name in [NSWindow.didChangeScreenNotification, NSWindow.didMoveNotification,
-                         NSWindow.didBecomeKeyNotification, NSWindow.didResizeNotification] {
-                tokens.append(center.addObserver(forName: name, object: window, queue: .main) {
-                    [weak self] _ in self?.place(); self?.measure() })
+            func on(_ name: Notification.Name, _ object: Any?, _ body: @escaping (Probe) -> Void) {
+                tokens.append(center.addObserver(forName: name, object: object, queue: .main) {
+                    [weak self] _ in if let self { body(self) } })
             }
-            tokens.append(center.addObserver(
-                forName: NSApplication.didChangeScreenParametersNotification,
-                object: nil, queue: .main) { [weak self] _ in self?.place(); self?.measure() })
-            place()
+            on(NSWindow.didChangeOcclusionStateNotification, window) { $0.visibilityChanged() }
+            on(NSWindow.didBecomeKeyNotification, window) { $0.placeOnce() }
+            on(NSWindow.didMoveNotification, window) { $0.moved() }
+            on(NSWindow.didResizeNotification, window) { $0.resized() }
+            on(NSWindow.didChangeScreenNotification, window) { $0.keepOnScreen(); $0.measure() }
+            on(NSApplication.didChangeScreenParametersNotification, nil) {
+                $0.keepOnScreen(); $0.measure()
+            }
+            placeOnce()
             measure()
         }
 
-        /// Pencereyi ekran içinde tutar; laptop ekranında üst ortaya sabitler.
-        private func place() {
-            guard let window, let screen = window.screen else { return }
+        private var builtIn: Bool {
+            guard let screen = window?.screen else { return false }
             let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
-            let builtIn = number.map { CGDisplayIsBuiltin($0.uint32Value) != 0 } ?? false
-            let origin = WindowRoomReader.placed(window.frame, visible: screen.visibleFrame,
-                                                 builtIn: builtIn)
-            if abs(origin.x - window.frame.minX) > 0.5 || abs(origin.y - window.frame.minY) > 0.5 {
-                window.setFrameOrigin(origin)
+            return number.map { CGDisplayIsBuiltin($0.uint32Value) != 0 } ?? false
+        }
+
+        private func visibilityChanged() {
+            guard let window else { return }
+            if window.isVisible && window.occlusionState.contains(.visible) {
+                placeOnce()
+            } else if !window.isVisible {
+                placedThisShow = false
+                userMoved = false
+                top = nil
+                midX = nil
             }
         }
 
-        private func measure() {
+        /// Gösterim başına bir kez: laptop ekranında üst ortaya, harici
+        /// ekranda macOS'un yerinde (yalnız ekrana sığdırılarak).
+        private func placeOnce() {
+            guard !placedThisShow, let window, window.isVisible,
+                  let screen = window.screen else { return }
+            placedThisShow = true
+            if measure(now: true) {
+                // Başka ekrandan gelindi: SwiftUI yeni boya geçene dek
+                // pencere gösterilmez (eski boyun bir karesi görünmesin).
+                window.alphaValue = 0
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak window] in
+                    window?.alphaValue = 1
+                }
+            }
+            var frame = window.frame
+            if let size = fittedSize(window),
+               abs(size.width - frame.width) > 1.5 || abs(size.height - frame.height) > 1.5 {
+                frame.size = size
+            }
+            frame.origin.y = window.frame.maxY - frame.height
+            let target = WindowRoomReader.placed(frame, visible: screen.visibleFrame, builtIn: builtIn)
+            setFrame(target, size: frame.size)
+            remember()
+            DispatchQueue.main.async { [weak self] in self?.fit() }
+            logFrame("placed")
+        }
+
+        /// SwiftUI içeriğinin istediği pencere boyu. MenuBarExtra penceresi
+        /// içerik küçülünce kendiliğinden daralmıyor (kenarda saydam bant
+        /// kalıyordu); boy farklıysa üst kenar korunarak tek seferde uyulur.
+        private func fittedSize(_ window: NSWindow) -> CGSize? {
+            // Bu görünüm kök içeriğin arka planı: boyu içeriğin boyu
+            // (barındırıcının fittingSize'ı pencere küçülürken eski boyda kalıyor).
+            let fit = bounds.size
+            guard fit.width > 1, fit.height > 1 else { return nil }
+            return window.frameRect(forContentRect: CGRect(origin: .zero, size: fit)).size
+        }
+
+        private func fit() {
+            guard let window, window.isVisible, let screen = window.screen,
+                  let size = fittedSize(window),
+                  // SwiftUI pencereyi tam noktaya yuvarlıyor; 1 pt'lik fark
+                  // için boyutlandırılırsa iki taraf birbirini düzeltir durur.
+                  abs(size.width - window.frame.width) > 1.5
+                    || abs(size.height - window.frame.height) > 1.5 else { return }
+            var frame = window.frame
+            frame.size = size
+            anchor(&frame)
+            setFrame(WindowRoomReader.placed(frame, visible: screen.visibleFrame,
+                                             builtIn: builtIn && !userMoved),
+                     size: size)
+            remember()
+            window.alphaValue = 1
+            logFrame("fitted")
+        }
+
+        /// Kullanıcı taşıdı: yeni yer korunur, yalnız ekrandan taşma düzeltilir.
+        private func moved() {
+            guard !adjusting, let window else { return }
+            if placedThisShow { userMoved = true }
+            keepOnScreen()
+            remember()
+            measure()
+        }
+
+        /// Boy değişti: üst kenar yerinde kalır (tek çağrı), ekrana sığdırılır.
+        private func resized() {
+            guard !adjusting, let window, let screen = window.screen else { return }
+            // macOS boy değişince pencereyi simgenin altına geri koyuyor;
+            // üst kenar ve yatay orta korunur (tek çağrı).
+            var frame = window.frame
+            anchor(&frame)
+            move(to: WindowRoomReader.placed(frame, visible: screen.visibleFrame, builtIn: false))
+            remember()
+            logFrame("resized")
+            measure()
+        }
+
+        private func keepOnScreen() {
             guard let window, let screen = window.screen else { return }
+            move(to: WindowRoomReader.placed(window.frame, visible: screen.visibleFrame,
+                                             builtIn: false))
+        }
+
+        private func move(to origin: CGPoint) {
+            guard let window else { return }
+            setFrame(origin, size: window.frame.size)
+        }
+
+        private func setFrame(_ origin: CGPoint, size: CGSize) {
+            guard let window else { return }
+            let frame = CGRect(origin: origin, size: size)
+            guard abs(frame.minX - window.frame.minX) > 0.5 || abs(frame.minY - window.frame.minY) > 0.5
+                    || abs(frame.width - window.frame.width) > 0.5
+                    || abs(frame.height - window.frame.height) > 0.5 else { return }
+            adjusting = true
+            // MenuBarExtra penceresi setFrame'de konumu simgenin altına geri
+            // çekiyor; boy ayrı, konum setFrameOrigin ile verilir.
+            if abs(frame.width - window.frame.width) > 0.5
+                || abs(frame.height - window.frame.height) > 0.5 {
+                window.setFrame(frame, display: true)
+            }
+            window.setFrameOrigin(frame.origin)
+            adjusting = false
+        }
+
+        private func logFrame(_ why: String) {
+            guard let frame = window?.frame else { return }
+            Log.app.notice("""
+                Map window \(why, privacy: .public): \(Int(frame.minX)),\(Int(frame.minY)) \
+                \(Int(frame.width))×\(Int(frame.height))
+                """)
+        }
+
+        /// `now`: gösterim anında (durum güncellemesi dışında) oda hemen
+        /// verilir ki pencere ilk karede o ekranın boyuyla çizilsin.
+        @discardableResult
+        private func measure(now: Bool = false) -> Bool {
+            guard let window, let screen = window.screen else { return false }
             let room = WindowRoom(
-                height: WindowRoomReader.room(windowTop: window.frame.maxY,
-                                              visible: screen.visibleFrame, margin: margin),
+                height: WindowRoomReader.room(visible: screen.visibleFrame, margin: margin),
                 visible: screen.visibleFrame.size)
-            guard room != last else { return }
+            guard room != last else { return false }
+            let first = last == nil
             last = room
             Log.app.notice("""
                 Map window room: \(Int(room.height)) pt on \(screen.localizedName, privacy: .public) \
                 (visible \(Int(room.visible.width))×\(Int(room.visible.height)) pt)
                 """)
-            // Görünüm güncellemesi sırasında durum değiştirilmesin.
-            DispatchQueue.main.async { [changed] in changed(room) }
+            if now {
+                changed(room)
+                window.contentView?.layoutSubtreeIfNeeded()
+                return !first
+            }
+            // Görünüm güncellemesi sırasında durum değiştirilmesin; SwiftUI
+            // yeni odayla yerleşince pencere içeriğe uydurulur.
+            DispatchQueue.main.async { [weak self, changed] in
+                changed(room)
+                DispatchQueue.main.async { self?.fit() }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { self?.fit() }
+            }
+            return true
         }
     }
 }
