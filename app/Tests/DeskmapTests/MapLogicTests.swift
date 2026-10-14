@@ -512,3 +512,23 @@ struct TrayUnpinTests {
         #expect(RulePanel.unpinMode(for: empty, viewing: .docked) == nil)
     }
 }
+
+struct MapWindowPlacementTests {
+    private let visible = CGRect(x: 0, y: 0, width: 1512, height: 944)
+
+    @Test func builtInScreenCentersAtTop() {
+        let p = WindowRoomReader.placed(CGRect(x: 1300, y: 10, width: 1000, height: 600),
+                                        visible: visible, builtIn: true)
+        #expect(p == CGPoint(x: 256, y: 344))
+    }
+
+    @Test func externalScreenKeepsPositionButStaysInside() {
+        let ext = CGRect(x: 1512, y: 0, width: 2560, height: 1415)
+        let inside = WindowRoomReader.placed(CGRect(x: 2000, y: 500, width: 1000, height: 600),
+                                             visible: ext, builtIn: false)
+        #expect(inside == CGPoint(x: 2000, y: 500))
+        let over = WindowRoomReader.placed(CGRect(x: 3500, y: 1000, width: 1000, height: 600),
+                                           visible: ext, builtIn: false)
+        #expect(over == CGPoint(x: 3072, y: 815))
+    }
+}

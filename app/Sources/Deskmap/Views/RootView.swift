@@ -1069,6 +1069,17 @@ struct WindowRoomReader: NSViewRepresentable {
         return max(top - visible.minY - margin, 0)
     }
 
+    /// Harita penceresinin konumu (saf). Dahili ekranda (laptop) üstte
+    /// ortalanır; harici ekranda macOS'un koyduğu yer korunur. Her iki
+    /// durumda da pencere ekranın kullanılabilir alanından taşmaz.
+    static func placed(_ frame: CGRect, visible: CGRect, builtIn: Bool) -> CGPoint {
+        var x = builtIn ? visible.midX - frame.width / 2 : frame.minX
+        var y = builtIn ? visible.maxY - frame.height : frame.minY
+        x = min(max(x, visible.minX), max(visible.maxX - frame.width, visible.minX))
+        y = min(max(y, visible.minY), max(visible.maxY - frame.height, visible.minY))
+        return CGPoint(x: x, y: y)
+    }
+
     private final class Probe: NSView {
         let margin: CGFloat
         let changed: (WindowRoom) -> Void
@@ -1091,14 +1102,27 @@ struct WindowRoomReader: NSViewRepresentable {
             guard let window else { return }
             let center = NotificationCenter.default
             for name in [NSWindow.didChangeScreenNotification, NSWindow.didMoveNotification,
-                         NSWindow.didBecomeKeyNotification] {
+                         NSWindow.didBecomeKeyNotification, NSWindow.didResizeNotification] {
                 tokens.append(center.addObserver(forName: name, object: window, queue: .main) {
-                    [weak self] _ in self?.measure() })
+                    [weak self] _ in self?.place(); self?.measure() })
             }
             tokens.append(center.addObserver(
                 forName: NSApplication.didChangeScreenParametersNotification,
-                object: nil, queue: .main) { [weak self] _ in self?.measure() })
+                object: nil, queue: .main) { [weak self] _ in self?.place(); self?.measure() })
+            place()
             measure()
+        }
+
+        /// Pencereyi ekran içinde tutar; laptop ekranında üst ortaya sabitler.
+        private func place() {
+            guard let window, let screen = window.screen else { return }
+            let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+            let builtIn = number.map { CGDisplayIsBuiltin($0.uint32Value) != 0 } ?? false
+            let origin = WindowRoomReader.placed(window.frame, visible: screen.visibleFrame,
+                                                 builtIn: builtIn)
+            if abs(origin.x - window.frame.minX) > 0.5 || abs(origin.y - window.frame.minY) > 0.5 {
+                window.setFrameOrigin(origin)
+            }
         }
 
         private func measure() {
