@@ -192,6 +192,7 @@ struct RootView: View {
                         SetupDifferenceTray(mode: mode)
                         // İki sekmede de: sahipsizlik kurulumdan bağımsız.
                         UnownedWindowsTray(mode: mode)
+                        FreeMoveTray(mode: mode)
                     }
                     .padding(12)
                     // Uzun içerik (çip + yer) sütunu yana taşırmasın.

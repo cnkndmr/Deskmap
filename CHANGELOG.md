@@ -8,6 +8,9 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Timed pins box.** Pinned windows that are free to move for a while are
+  listed in their own box at the bottom of the left sidebar, soonest end
+  first, with an **End all** button; the box hides when there are none.
 - **Multi-step undo / redo and change history.** Every settings change this
   session is a step (up to 50, not saved): ⌘Z / ⇧⌘Z and permanent ↶ ↷ footer
   buttons replace the 10-second "· Undo" link. Recent moves gets two tabs,
