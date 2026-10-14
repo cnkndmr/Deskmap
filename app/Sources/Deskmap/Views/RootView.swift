@@ -1122,6 +1122,15 @@ struct WindowRoomReader: NSViewRepresentable {
         private var midX: CGFloat?
         private var left: CGFloat?
         private var right: CGFloat?
+        /// Gösterim gizli (alpha 0) başlar; boy ve konum oturunca açılır.
+        /// Ekran değiştiyse eski boy (`staleSize`) bitene dek gizli kalır.
+        private var revealPending = false
+        private var staleSize: CGSize?
+        private var revealDeadline = Date.distantPast
+        private var shownScreen: NSNumber?
+        /// Kendi boy/konum değişikliğimizden hemen sonra macOS'un ürettiği
+        /// taşıma (simgenin altına geri koyma) kullanıcı taşıması sayılmaz.
+        private var lastAdjust = Date.distantPast
 
         private func remember() {
             guard let window else { return }
@@ -1167,14 +1176,21 @@ struct WindowRoomReader: NSViewRepresentable {
             tokens.forEach(NotificationCenter.default.removeObserver)
             tokens = []
             placedThisShow = false
+            userMoved = false
             top = nil
             midX = nil
+            left = nil
+            right = nil
             guard let window else { return }
+            window.alphaValue = 0
             let center = NotificationCenter.default
             func on(_ name: Notification.Name, _ object: Any?, _ body: @escaping (Probe) -> Void) {
                 tokens.append(center.addObserver(forName: name, object: object, queue: .main) {
                     [weak self] _ in if let self { body(self) } })
             }
+            // Gösterim animasyonu alpha'yı kendisi 1'e çekiyor; gizli
+            // başlatma (eski karenin görünmemesi) bunu kapatmayı gerektirir.
+            window.animationBehavior = .none
             on(NSWindow.didChangeOcclusionStateNotification, window) { $0.visibilityChanged() }
             on(NSWindow.didBecomeKeyNotification, window) { $0.placeOnce() }
             on(NSWindow.didMoveNotification, window) { $0.moved() }
@@ -1202,6 +1218,10 @@ struct WindowRoomReader: NSViewRepresentable {
                 userMoved = false
                 top = nil
                 midX = nil
+                left = nil
+                right = nil
+                // Bir sonraki gösterimin ilk karesi (eski boy/konum) görünmesin.
+                window.alphaValue = 0
             }
         }
 
@@ -1211,14 +1231,18 @@ struct WindowRoomReader: NSViewRepresentable {
             guard !placedThisShow, let window, window.isVisible,
                   let screen = window.screen else { return }
             placedThisShow = true
-            if measure(now: true) {
-                // Başka ekrandan gelindi: SwiftUI yeni boya geçene dek
-                // pencere gösterilmez (eski boyun bir karesi görünmesin).
-                window.alphaValue = 0
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak window] in
-                    window?.alphaValue = 1
-                }
-            }
+            window.alphaValue = 0
+            let oldSize = window.frame.size
+            // Başka ekrandan gelindiyse SwiftUI yeni boya geçene dek gizli.
+            // (Ekran değişim bildirimi odayı önceden güncellemiş olabilir;
+            // ölçüt son gösterimin ekranı.)
+            let screenID = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+            let roomChanged = measure(now: true)
+            let screenChanged = shownScreen != nil && shownScreen != screenID
+            shownScreen = screenID
+            staleSize = roomChanged || screenChanged ? oldSize : nil
+            revealPending = true
+            revealDeadline = Date().addingTimeInterval(0.8)
             var frame = window.frame
             if let size = fittedSize(window),
                abs(size.width - frame.width) > 1.5 || abs(size.height - frame.height) > 1.5 {
@@ -1228,8 +1252,45 @@ struct WindowRoomReader: NSViewRepresentable {
             let target = WindowRoomReader.placed(frame, visible: screen.visibleFrame, builtIn: builtIn)
             setFrame(target, size: frame.size)
             remember()
-            DispatchQueue.main.async { [weak self] in self?.fit() }
             logFrame("placed")
+            DispatchQueue.main.async { [weak self] in self?.fit(); self?.tryReveal() }
+        }
+
+        /// Boy içeriğe oturdu ve (ekran değiştiyse) eski boy bittiyse görünür
+        /// yap; değilse kısa aralıkla yeniden dene, en geç süre dolunca aç.
+        private func tryReveal() {
+            guard revealPending, let window else { return }
+            guard window.isVisible else { revealPending = false; return }
+            let settled: Bool = {
+                guard let size = fittedSize(window) else { return false }
+                let fits = abs(size.width - window.frame.width) <= 1.5
+                    && abs(size.height - window.frame.height) <= 1.5
+                guard fits else { return false }
+                guard let staleSize else { return true }
+                return abs(window.frame.width - staleSize.width) > 1.5
+                    || abs(window.frame.height - staleSize.height) > 1.5
+            }()
+            if settled || Date() >= revealDeadline {
+                revealPending = false
+                let fromOtherScreen = staleSize != nil
+                staleSize = nil
+                if fromOtherScreen {
+                    // Boy oturdu ama SwiftUI içeriği bir iki kare daha eski
+                    // ekranın düzeniyle çiziyor; kısa bir bekleme.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                        guard let self, self.placedThisShow, let window = self.window,
+                              window.isVisible else { return }
+                        window.alphaValue = 1
+                    }
+                } else {
+                    window.alphaValue = 1
+                }
+                logFrame(settled ? "shown" : "shown (timeout)")
+                return
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) { [weak self] in
+                self?.fit(); self?.tryReveal()
+            }
         }
 
         /// SwiftUI içeriğinin istediği pencere boyu. MenuBarExtra penceresi
@@ -1257,14 +1318,17 @@ struct WindowRoomReader: NSViewRepresentable {
                                              builtIn: builtIn && !userMoved),
                      size: size)
             remember()
-            window.alphaValue = 1
             logFrame("fitted")
         }
 
         /// Kullanıcı taşıdı: yeni yer korunur, yalnız ekrandan taşma düzeltilir.
         private func moved() {
-            guard !adjusting, let window else { return }
-            if placedThisShow { userMoved = true }
+            guard !adjusting, window != nil else { return }
+            // Kendi boyutlandırmamızın ardından macOS'un yaptığı geri koyma
+            // ya da gizliyken olan taşıma kullanıcı taşıması değil.
+            if placedThisShow, !revealPending, Date().timeIntervalSince(lastAdjust) > 0.3 {
+                userMoved = true
+            }
             keepOnScreen()
             remember()
             measure()
@@ -1309,6 +1373,7 @@ struct WindowRoomReader: NSViewRepresentable {
             }
             window.setFrameOrigin(frame.origin)
             adjusting = false
+            lastAdjust = Date()
         }
 
         private func logFrame(_ why: String) {

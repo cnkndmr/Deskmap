@@ -39,7 +39,7 @@ install:
 	@test -n "$(SIGN_IDENTITY)" -a "$(SIGN_IDENTITY)" != "-" \
 	    || { echo "SIGN_IDENTITY is required for install"; exit 1; }
 	@./scripts/build-app.sh release
-	@pkill -x $(PROJECT) || true
+	@for pid in $$(pgrep -x $(PROJECT)); do kill $$pid; done; true
 	@if [ -d "$(INSTALL_DIR)/$(PROJECT).app" ]; then \
 	    mkdir -p "$(ARCHIVE_DIR)"; \
 	    dest="$(ARCHIVE_DIR)/$(PROJECT)-$$(date +%Y%m%d-%H%M%S).app"; \
