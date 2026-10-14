@@ -594,3 +594,11 @@
 "End all" = "Hepsini bitir";
 "End free movement; the windows go back to their pins" = "Serbest süreyi bitir; pencereler pinlerine döner";
 "Pinned windows that are free to move for a while; Deskmap puts them back when the time is up" = "Bir süreliğine serbest bırakılmış pinli pencereler; süre bitince Deskmap onları yerine döndürür";
+
+/* Toplu aç / kapat */
+"Open %ld" = "%ld aç";
+"Open all closed pinned windows on this desktop" = "Bu masaüstündeki kapalı pinli pencerelerin hepsini aç";
+"Open all closed pinned %@ windows here" = "Buradaki kapalı pinli %@ pencerelerinin hepsini aç";
+"Close all pinned %@ windows here" = "Buradaki pinli %@ pencerelerinin hepsini kapat";
+"Could not open every pin; check: %@" = "Pinlerin hepsi açılamadı; bak: %@";
+"Could not close %ld windows" = "%ld pencere kapatılamadı";

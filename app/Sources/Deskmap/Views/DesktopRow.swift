@@ -242,6 +242,7 @@ struct DesktopRow: View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 6) {
                 handle(inline: false, width: labelWidth)
+                openClosedButton
                 // Liste görünümü: satırın solunda küçük önizleme.
                 DesktopPreview(screenSize: screen.visibleSize, items: previewItems)
             }
@@ -502,6 +503,7 @@ struct DesktopRow: View {
                                           group: group.id)
             let collapsed = ui.collapsed.contains(key)
             VStack(alignment: .leading, spacing: 2) {
+              HStack(spacing: 4) {
                 Button {
                     if collapsed { ui.collapsed.remove(key) } else { ui.collapsed.insert(key) }
                 } label: {
@@ -538,6 +540,8 @@ struct DesktopRow: View {
                 .help(L("Drag to move the whole group to another desktop; click to collapse"))
                 .opacity(ui.drag?.item == groupItem(group) ? 0.4 : 1)
                 .contextMenu { groupSendMenu(group) }
+                groupToggle(group)
+              }
 
                 if !collapsed {
                     ForEach(group.windows) { window in
@@ -631,6 +635,68 @@ struct DesktopRow: View {
             })
     }
 
+    /// Bu masaüstünde açılabilecek kapalı pinler (yalnız canlı planda,
+    /// masaüstü varken; gölgede kalanlar hariç).
+    private var reopenableRules: [Rule] {
+        guard isLive, exists else { return [] }
+        return PinBatch.reopenable(orphanRules, shadowed: shadowed)
+    }
+
+    /// Masaüstü başlığındaki "kapalı pinleri aç" düğmesi; kapalı pin yoksa yok.
+    @ViewBuilder private var openClosedButton: some View {
+        let rules = reopenableRules
+        if !rules.isEmpty {
+            Button {
+                PinBatch.open(rules, mode: mode, router: router, store: store)
+            } label: {
+                Label(L("Open %ld", rules.count), systemImage: "arrow.up.forward.app")
+                    .font(.caption2.weight(.medium))
+                    .lineLimit(1)
+                    .fixedSize()
+            }
+            .buttonStyle(.borderless)
+            .help(L("Open all closed pinned windows on this desktop"))
+            .accessibilityLabel(L("Open all closed pinned windows on this desktop"))
+        }
+    }
+
+    /// Grup başlığındaki aç/kapat düğmesi: kapalı pin varsa hepsini açar,
+    /// yoksa gruptaki pinli pencerelerin hepsini kapatır.
+    @ViewBuilder private func groupToggle(_ group: AppGroup) -> some View {
+        if isLive {
+            let closed = PinBatch.reopenable(group.closed, shadowed: shadowed)
+            let pinned = group.windows.filter(isPinned)
+            switch PinBatch.groupAction(openPinned: pinned.count, closed: closed.count) {
+            case .open:
+                groupToggleButton(symbol: "arrow.up.forward.app",
+                                  help: L("Open all closed pinned %@ windows here", group.appName)) {
+                    PinBatch.open(closed, mode: mode, router: router, store: store)
+                }
+            case .close:
+                groupToggleButton(symbol: "xmark.app",
+                                  help: L("Close all pinned %@ windows here", group.appName)) {
+                    PinBatch.close(pinned, store: store)
+                }
+            case .none:
+                EmptyView()
+            }
+        }
+    }
+
+    private func groupToggleButton(symbol: String, help: String,
+                                   action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 18, height: 16)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(help)
+    }
+
     /// Grup başlığındaki sayı: "3 pencere", "3 + 2 kapalı" ya da "2 kapalı".
     private func countLabel(_ group: AppGroup) -> String {
         if group.closed.isEmpty { return L("%ld windows", group.windows.count) }
@@ -678,6 +744,7 @@ extension DesktopRow {
                         .lineLimit(1)
                         .fixedSize()
                 }
+                openClosedButton
                 if !groups.isEmpty {
                     Button {
                         showsList.toggle()
