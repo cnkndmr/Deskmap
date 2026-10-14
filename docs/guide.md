@@ -118,7 +118,12 @@ here*; the last card, **+ Add desktop**, adds one to the map.
   Removing a desktop that still has windows asks first and lists the apps
   (macOS then moves those windows to another desktop).
 - Pinned windows that are closed right now wait as chips under the card's
-  mini screen.
+  mini screen. **Open N** in the card's header opens all of them at once;
+  each one lands in its pinned place.
+- An app group (for example all Excel windows on a desktop) has its own
+  button at the right of its header: **↗** opens its closed pins, **✕**
+  closes all its pinned windows (the app keeps running, unpinned windows are
+  left alone, unsaved documents still ask). Works for every app.
 - An orange **Desktop 5 missing** badge means the pin wants desktop 5 but the
   display has only 3, so the window waits on the last one (hover it for the
   details).

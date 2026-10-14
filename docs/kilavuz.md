@@ -119,7 +119,13 @@ yazar; son kart **+ Masaüstü ekle** haritaya bir tane ekler.
   **Masaüstünü sil**. Hâlâ penceresi olan bir masaüstünü silmek önce sorar ve
   uygulamaları sıralar (macOS o pencereleri başka bir masaüstüne taşır).
 - Şu an kapalı olan sabit pencereler, kartın minik ekranının altında çip
-  olarak bekler.
+  olarak bekler. Kart başlığındaki **N aç** hepsini birden açar; her biri
+  sabitlendiği yere gelir.
+- Bir uygulama grubunun (ör. bir masaüstündeki bütün Excel pencereleri)
+  başlığının sağında kendi düğmesi var: **↗** kapalı pinlerini açar, **✕**
+  pinli pencerelerinin hepsini kapatır (uygulama açık kalır, sabit olmayan
+  pencerelere dokunulmaz, kaydedilmemiş belge yine sorar). Her uygulamada
+  çalışır.
 - Turuncu **Masaüstü 5 yok** rozeti, sabitleme 5. masaüstünü istiyor ama
   ekranda 3 tane var demek; pencere sonuncuda bekler (ayrıntı için üzerine
   gel).

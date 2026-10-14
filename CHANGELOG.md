@@ -8,6 +8,14 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Open a workspace at once.** A desktop with closed pinned windows shows
+  **Open N** next to its name (list and visual view); one click opens them
+  all, each routed to its pinned place. Every app group gets a button at the
+  right of its header: **↗** opens its closed pins (a half-open group is
+  completed first), **✕** closes all its pinned windows with their close
+  button (app keeps running, unpinned windows untouched, unsaved documents
+  still ask). Works for every app (`Services/PinBatch.swift`).
+
 - **Timed pins box.** Pinned windows that are free to move for a while are
   listed in their own box at the bottom of the left sidebar, soonest end
   first, with an **End all** button; the box hides when there are none.
@@ -22,6 +30,11 @@ number comes from the `VERSION` file.
   (`Models/ChangeHistory.swift`).
 
 ### Changed
+
+- **Map window placement**: placed once per open with a fixed height that
+  fits the screen's visible frame, pinned to the top center of the built-in
+  display, shown only after it is sized, and no longer pushed around by
+  system moves after a resize.
 
 - **Desktop names v2 (`rules.json` schema 6)**: a name now belongs to one
   physical desktop and follows it across displays, reordering and

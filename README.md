@@ -56,6 +56,12 @@ in or unplug a monitor.
     <td align="center"><b>Layouts</b></td>
     <td align="center"><b>Free move</b></td>
   </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/images/en/08-open-closed.png" width="70%" alt="Desktop 3 with an Open 4 button and a Preview group whose closed pins open with one click"></td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><b>Open a workspace at once</b></td>
+  </tr>
 </table>
 
 ## Features
@@ -68,6 +74,9 @@ in or unplug a monitor.
   Plug in or unplug, and every window moves to its place.
 - **The map.** Every display, every desktop, every window. Drag a window to move
   it. Add, remove and reorder desktops.
+- **Open or close a workspace at once.** One click opens every closed pinned
+  window of a desktop, each in its place; per app, close or reopen all its
+  pinned windows there (say, every Excel window of a project).
 - **Free move.** Let a pinned window roam for 1 to 60 minutes; then it goes
   home. Also from a right-click on the menu bar icon.
 - **Profiles.** *Office*, *Home*, *Café*: switch with a click.
