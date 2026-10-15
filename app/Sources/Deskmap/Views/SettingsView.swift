@@ -119,6 +119,11 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                 }
                 Spacer()
+                Link(L("Support Deskmap"), destination: URL(string: "https://paypal.me/mcankandemir")!)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 10)
+                    .help(L("Opens PayPal in your browser"))
             }
             .padding(10)
             .frame(width: 180)
