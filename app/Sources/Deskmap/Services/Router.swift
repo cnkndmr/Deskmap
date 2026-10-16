@@ -687,7 +687,7 @@ final class Router: ObservableObject {
     // MARK: - Oturum pinleri
 
     /// Bu pencereyi (kimliğiyle) pencere kapanana kadar hedefte tutar.
-    /// Kayıt diske yazılır; Space Router yeniden başlarsa pencere hâlâ
+    /// Kayıt diske yazılır; Deskmap yeniden başlarsa pencere hâlâ
     /// açıksa pin geri gelir.
     func pinSession(_ windowID: CGWindowID, destination: Destination) {
         // Adlı masaüstüne geçici pin o adı izler (yer önbellek).

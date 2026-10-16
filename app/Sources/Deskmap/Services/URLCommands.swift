@@ -4,8 +4,6 @@ import Foundation
 
 /// `deskmap://` URL şemasıyla gelen otomasyon komutları (Shortcuts
 /// "Open URLs", Raycast, Hammerspoon `hs.urlevent`, terminalde `open`).
-/// Eski `spacerouter://` şeması da (Deskmap'in eski adı) aynen kabul
-/// edilir — bakımcının Shortcuts/Raycast kurulumları bozulmasın diye.
 ///
 ///     deskmap://reapply              pinli pencereleri şimdi yerleştir
 ///     deskmap://pause                yönlendirmeyi duraklat
@@ -79,16 +77,13 @@ enum URLCommand: Equatable {
     case restoreBackup(id: String)
 
     static let scheme = "deskmap"
-    /// Eski uygulama adı; süresiz kabul edilir (bkz. tip belgesi).
-    static let legacyScheme = "spacerouter"
 
-    /// `url` geçerli bir komutsa onu döndürür; şema yanlışsa (ne `deskmap`
-    /// ne eski `spacerouter`), komut bilinmiyorsa ya da profil adı boşsa
+    /// `url` geçerli bir komutsa onu döndürür; şema `deskmap` değilse, komut bilinmiyorsa ya da profil adı boşsa
     /// `nil`. Komut adı büyük/küçük harfe duyarsızdır; `deskmap:reapply`
     /// (host'suz) biçimi de kabul edilir.
     static func parse(_ url: URL) -> URLCommand? {
         guard let urlScheme = url.scheme?.lowercased(),
-              urlScheme == scheme || urlScheme == legacyScheme
+              urlScheme == scheme
         else { return nil }
 
         // `deskmap://profile/Ofis`: host "profile", yol ["Ofis"].

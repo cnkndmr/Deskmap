@@ -796,8 +796,7 @@ struct Document: Codable, Equatable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let payload = try decoder.decode(ProfileExport.self, from: data)
-        guard payload.kind == ProfileExport.kind || payload.kind == ProfileExport.legacyKind
-                || !payload.rules.isEmpty else {
+        guard payload.kind == ProfileExport.kind || !payload.rules.isEmpty else {
             throw NSError(domain: "Deskmap", code: 2,
                           userInfo: [NSLocalizedDescriptionKey: L("This is not a Deskmap profile")])
         }
@@ -848,9 +847,7 @@ struct Document: Codable, Equatable {
     }
 }
 
-/// Dışa/içe aktarma dosyası (`Ad.deskmap.json`). Eski `Ad.spacerouter.json`
-/// dosyaları (`kind` alanı `legacyKind`) da içe aktarılabilir; yalnızca
-/// dışa aktarma yeni adı ve uzantıyı kullanır.
+/// Dışa/içe aktarma dosyası (`Ad.deskmap.json`).
 struct ProfileExport: Codable {
     /// Dışa aktarılan ad: kimlik ve ad (masaüstü bağı yok).
     struct Name: Codable, Equatable {
@@ -877,8 +874,6 @@ struct ProfileExport: Codable {
     var droppedRuleCount = 0
 
     static let kind = "deskmap-profile"
-    /// Deskmap'in eski adı; içe aktarmada hâlâ kabul edilir.
-    static let legacyKind = "spacerouter-profile"
     static let fileExtension = "deskmap.json"
 
     private enum CodingKeys: String, CodingKey {

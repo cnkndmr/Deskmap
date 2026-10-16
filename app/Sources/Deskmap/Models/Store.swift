@@ -93,13 +93,6 @@ final class Store: ObservableObject {
             .appendingPathComponent("Library/Application Support/Deskmap", isDirectory: true)
     }()
 
-    /// Eski ad (Space Router) altındaki veri klasörü; `init()` içinde bir
-    /// kez buradan `directoryURL`'e kopyalanır (bkz. `DataMigration`).
-    static let legacyDirectoryURL = Log.isTesting
-        ? testDirectory.appendingPathComponent("SpaceRouter", isDirectory: true)
-        : FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/SpaceRouter", isDirectory: true)
-
     /// Test sürecinin geçici kökü (gerçek Application Support yerine).
     nonisolated static let testDirectory = FileManager.default.temporaryDirectory
         .appendingPathComponent("DeskmapTests-\(ProcessInfo.processInfo.processIdentifier)", isDirectory: true)
@@ -126,9 +119,6 @@ final class Store: ObservableObject {
     nonisolated(unsafe) private var terminateObserver: NSObjectProtocol?
 
     init() {
-        // Deskmap'in eski adı Space Router'dı; yeni klasör hiç yoksa ve eski
-        // klasör varsa üç dosya bir kez kopyalanır (taşınmaz, silinmez).
-        DataMigration.migrate(from: Self.legacyDirectoryURL, to: Self.directoryURL)
         load()
         $document
             .dropFirst()

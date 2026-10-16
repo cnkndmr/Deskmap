@@ -116,9 +116,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <!-- Kapalı pinli Safari penceresini ayrı pencerede yeniden açmak için. -->
     <key>NSAppleEventsUsageDescription</key>
     <string>Deskmap opens a closed pinned browser window again in a new window on its desktop.</string>
-    <!-- Otomasyon: deskmap://reapply, pause, resume, toggle, profile/<ad>, next-profile.
-         Eski ad (Space Router) döneminden spacerouter:// şeması da kabul edilir
-         (Shortcuts/Raycast kurulumları bozulmasın). -->
+    <!-- Otomasyon: deskmap://reapply, pause, resume, toggle, profile/<ad>, next-profile. -->
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
@@ -127,7 +125,6 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
             <key>CFBundleURLSchemes</key>
             <array>
                 <string>deskmap</string>
-                <string>spacerouter</string>
             </array>
         </dict>
     </array>

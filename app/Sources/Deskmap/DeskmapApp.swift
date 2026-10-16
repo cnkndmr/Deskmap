@@ -97,7 +97,7 @@ final class AppModel {
     }
 }
 
-/// `deskmap://` (eski `spacerouter://`) URL'lerini alır. LSUIElement menü çubuğu uygulamasında
+/// `deskmap://` URL'lerini alır. LSUIElement menü çubuğu uygulamasında
 /// SwiftUI `.onOpenURL` güvenilir değil (sahne pencere değil); AppKit
 /// delegate'i Launch Services'ten gelen URL'leri her durumda alır,
 /// uygulama URL ile soğuk başlatılsa bile.

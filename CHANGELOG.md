@@ -90,6 +90,13 @@ number comes from the `VERSION` file.
   now stays on a name-only deleted-desktop row in its own profile instead of
   disappearing; no pins move.
 
+### Removed
+
+- **Support for the pre-Deskmap name**: the old data folder is no longer
+  copied on first launch, the old URL scheme is no longer registered and old
+  profile export files no longer import (`DataMigration` and its tests are
+  gone).
+
 ### Fixed
 
 - **Desktop names no longer get lost through the other setup's plan.** Removing
@@ -341,8 +348,7 @@ what it does.
   never reach the log), `docs/distribution.md` (why the Mac App Store is
   closed to this app: the sandbox blocks the Accessibility write API and
   moving windows between Spaces needs private SkyLight calls; Developer ID
-  and notarization instead) and `docs/naming.md` (the name is taken by an
-  unrelated macOS product; candidates checked against the store catalogue).
+  and notarization instead).
 - Screenshot mode: `Deskmap --shots <dir>` renders the real interface with
   demo data — fabricated displays, profiles, pins and windows — and writes
   PNGs, without touching `rules.json`, the Accessibility permission or a
@@ -435,20 +441,10 @@ what it does.
 
 ### Changed
 
-- **The app is now called Deskmap.** The old name described the mechanism,
-  not the job, and it belonged to an unrelated macOS product already
-  (spacerouter.org ships a "SpaceRouter Proxy.app"). The rename goes all the
-  way down: Swift module and target, bundle identifier `com.deskmap.app`,
-  logger subsystem, `Deskmap.app`, the `deskmap://` URL scheme, the
-  `~/Library/Application Support/Deskmap/` folder and `.deskmap.json`
-  profile exports. Nothing an existing user set up breaks:
-  `spacerouter://` URLs are still accepted, old `.spacerouter.json` exports
-  and `spacerouter-profile` files still import, and on first launch
-  `rules.json`, `rules.json.bak` and `session-pins.json` are copied out of
-  the old folder — copied, not moved, so the old one is left untouched.
-  Two things do need a hand: the Accessibility permission has to be granted
-  again (new identifier, new signature) and **Launch at login** has to be
-  switched back on. See [docs/naming.md](docs/naming.md).
+- **The app is now called Deskmap**: Swift module and target, bundle
+  identifier `com.deskmap.app`, logger subsystem, `Deskmap.app`, the
+  `deskmap://` URL scheme, the `~/Library/Application Support/Deskmap/`
+  folder and `.deskmap.json` profile exports.
 - Store and landing-page screenshots: `swift scripts/make-store-shots.swift`
   puts the real captures on a backdrop with one line of copy and writes
   2880×1800 and 1280×800 frames in both languages (`docs/store/`, generated,

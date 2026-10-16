@@ -46,18 +46,6 @@ cp -R build/Deskmap.app /Applications/
 confirm the login item, an orange **Approval needed** link appears next to
 the checkbox and opens System Settings › General › Login Items.
 
-### Coming from Space Router
-
-Deskmap is the same app under a new name (see
-[docs/naming.md](naming.md)). Your pins come with you: on first launch
-`rules.json`, `rules.json.bak` and `session-pins.json` are copied from
-`~/Library/Application Support/SpaceRouter/` into the new folder — copied, so
-the old one stays where it is. `spacerouter://` URLs still work, and so do
-`.spacerouter.json` profile exports.
-
-Two things macOS ties to the old identity, so each needs doing once: grant the
-**Accessibility** permission again, and switch **Launch at login** back on.
-
 ### Accessibility permission
 
 Deskmap reads and moves other apps' windows through the Accessibility

@@ -2,8 +2,8 @@
 
 Text for a download page, a GitHub release, a Homebrew cask description, or
 a store listing if one ever becomes possible. Field names follow App Store
-Connect so nothing has to be rewritten later. `<Name>` is the product name —
-see [naming.md](../docs/naming.md); "Deskmap" is the current recommendation.
+Connect so nothing has to be rewritten later. `<Name>` is the product name,
+Deskmap.
 
 ## English
 

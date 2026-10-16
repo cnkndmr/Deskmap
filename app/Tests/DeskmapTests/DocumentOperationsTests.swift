@@ -420,19 +420,6 @@ struct DocumentOperationsTests {
         #expect(doc.profiles.count == 1)
     }
 
-    /// Eski ad döneminde dışa aktarılmış `.spacerouter.json` dosyaları
-    /// (`kind: "spacerouter-profile"`), kuralları boş olsa bile kabul edilir.
-    @Test func importAcceptsLegacySpaceRouterKindEvenWithoutRules() throws {
-        var doc = Document()
-        let json = Data("""
-        { "kind": "spacerouter-profile", "name": "Eski", "rules": [] }
-        """.utf8)
-        let profile = try doc.importProfile(from: json)
-        #expect(profile.name == "Eski")
-        #expect(profile.rules.isEmpty)
-        #expect(doc.activeProfileID == profile.id)
-    }
-
     @Test func importAcceptsPlainRulesFileAndMergesScreens() throws {
         var doc = Document()
         doc.screens = [KnownScreen(id: "builtin", name: "Dahili", aspect: 1.55)]

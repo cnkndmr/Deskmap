@@ -237,7 +237,7 @@ and unknown display roles from `screens` are added to the map. A plain
 ## URL scheme
 
 `URLCommand.parse` is a pure function (unit-tested): the scheme must be
-`deskmap`, or the old `spacerouter` which is still accepted; the command comes from the host (`deskmap://reapply`) or
+`deskmap`; the command comes from the host (`deskmap://reapply`) or
 from the first path component (`deskmap:reapply`), case-insensitively.
 `profile` takes the name from the `name` query item or from the rest of the
 path (percent-decoded). URLs arrive through

@@ -294,7 +294,7 @@ struct LeftoverCycleTests {
         #expect(withPin.map(\.ghost) == [true])
     }
 
-    /// Testler gerçek veri klasörüne (Deskmap ya da eski Space Router) dokunmaz.
+    /// Testler gerçek veri klasörüne dokunmaz.
     @Test func testsNeverUseTheRealApplicationSupport() {
         let real = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support").path
@@ -302,6 +302,5 @@ struct LeftoverCycleTests {
         if ProcessInfo.processInfo.environment["DESKMAP_DATA_DIR"] == nil {
             #expect(!Store.directoryURL.path.hasPrefix(real))
         }
-        #expect(!Store.legacyDirectoryURL.path.hasPrefix(real))
     }
 }
