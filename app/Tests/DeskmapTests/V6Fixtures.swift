@@ -49,7 +49,7 @@ enum V6 {
         var space: UInt64
     }
 
-    /// "normal profil": 42 kurala benzer yapı.
+    /// "work profile": 42 kurala benzer yapı.
     static func normalProfilRules() -> [Rule] {
         var rules: [Rule] = []
         func both(_ app: String, _ token: String, _ desktop: Int) {
@@ -125,7 +125,7 @@ enum V6 {
     static func incidentDocument() -> Document {
         var d = Document()
         let normal = Profile(
-            id: normalID, name: "normal profil", rules: normalProfilRules(),
+            id: normalID, name: "work profile", rules: normalProfilRules(),
             ghostDesktops: [GhostDesktop(
                 screen: "external", name: "Notes Hub", desktop: 1, deletedAt: incident,
                 pins: [GhostDesktop.Pin(

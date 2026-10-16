@@ -169,7 +169,7 @@ struct LeftoverCycleTests {
                                      .init(window: 51, to: s("builtin", 5)), .init(window: 52, to: s("builtin", 5))])
         #expect(fixed.rebinds["HUB"] == s("external", 1))
         #expect(fixed.removals == [1755])
-        #expect(fixed.decisions.contains { $0.contains("name BR takes new desktop 1 on external") })
+        #expect(fixed.decisions.contains { $0.contains("name HUB takes new desktop 1 on external") })
     }
 
     /// Üç tam döngü (her biri günlükteki gibi): sayılar plana yakınsar

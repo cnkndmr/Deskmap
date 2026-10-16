@@ -30,3 +30,16 @@ scripts/hooktest/resize
 
 # Website build output (make site)
 website/_site/
+
+# Internal working material: kept on disk, not published
+design/
+PLAN.md
+research/
+docs/test-matrix.md
+docs/test-matrix-2026-10.md
+docs/desktop-names-v2.md
+__pycache__/
+# Personal make overrides (e.g. ARCHIVE_DIR)
+local.mk
+docs/profile-desktop-state.md
+website-concepts/

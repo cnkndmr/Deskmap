@@ -107,7 +107,7 @@ enum Shots {
         // `cacheDisplay`'in asıl sorunu buydu. `activate` + `makeKeyAndOrderFront`
         // gerçek (aktif) rengi yakalar. Menü çubuğu yardımcı süreci (Dock
         // simgesi yok, `SingleInstance`/`AppModel` hiç çalışmadı) olduğu için
-        // kısa süre önde/aktif olması zararsız; bakımcının canlı kopyası (ayrı
+        // kısa süre önde/aktif olması zararsız; kullanıcının canlı kopyası (ayrı
         // süreç, ayrı pencere) etkilenmez. Kareler bitince pencere kapatılır.
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)

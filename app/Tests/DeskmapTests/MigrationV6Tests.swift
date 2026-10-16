@@ -17,7 +17,7 @@ struct MigrationV6Tests {
         return (result.document, result.report)
     }
 
-    // MARK: - Walkthrough: normal profil
+    // MARK: - Walkthrough: work profile
 
     /// §A.8 walkthrough: Orion→1681, Nova Ek→1674, Lumen→1672,
     /// AI Setup→8, Notes Hub→1652, Nova Project→1653.

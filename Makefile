@@ -35,7 +35,9 @@ run: app
 # taşınır, yeni paket ditto ile kopyalanıp açılır. Ad-hoc imza Erişilebilirlik
 # iznini düşürdüğü için kimlik zorunlu.
 INSTALL_DIR ?= /Applications
-ARCHIVE_DIR ?= $(HOME)/Documents/Archive/Deskmap/kurulu-kopyalar
+# Kişisel değerler (ör. ARCHIVE_DIR) izlenmeyen local.mk'de tutulabilir.
+-include local.mk
+ARCHIVE_DIR ?= $(HOME)/Documents/Deskmap/installed-copies
 export SIGN_IDENTITY
 
 install:

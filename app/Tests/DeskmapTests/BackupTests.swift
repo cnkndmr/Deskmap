@@ -7,13 +7,13 @@ import Testing
 /// her test kendi geçici klasörünü kullanır.
 struct BackupTests {
 
-    private static let berlin = TimeZone(identifier: "Europe/Berlin")!
-    private let schedule = BackupSchedule(timeZone: BackupTests.berlin)
+    private static let paris = TimeZone(identifier: "Europe/Paris")!
+    private let schedule = BackupSchedule(timeZone: BackupTests.paris)
 
-    /// Berlin yerel saatiyle an.
+    /// Paris yerel saatiyle an.
     private func at(_ y: Int, _ mo: Int, _ d: Int, _ h: Int = 12, _ mi: Int = 0) -> Date {
         var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = Self.berlin
+        calendar.timeZone = Self.paris
         return calendar.date(from: DateComponents(year: y, month: mo, day: d, hour: h, minute: mi))!
     }
 

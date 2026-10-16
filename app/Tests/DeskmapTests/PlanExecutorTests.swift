@@ -178,7 +178,7 @@ struct PlanExecutorTests {
         #expect(Router.displaysAgree(sky: ["B"], connected: ["B", "E"], separateSpaces: false))
     }
 
-    /// Satır 1→2: "normal profil" monitör çıkar, sonra takılır. Silinen
+    /// Satır 1→2: "work profile" monitör çıkar, sonra takılır. Silinen
     /// masaüstünde pencere yok, her ad planındaki yerinde, ikinci uygulama boş.
     @Test func unplugReplugCycleEndsAtPlanWithoutGhostMovesOrNonEmptyRemovals() async {
         func n(_ id: String, _ space: UInt64?) -> DesktopName { DesktopName(id: id, name: id, space: space) }

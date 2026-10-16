@@ -850,7 +850,7 @@ def apply_layout(args):
     spec = load_spec(args.file)
     plan = build_plan(spec)
     status = fresh_status()
-    # Profil yazılmadıysa etkin profil değişir .
+    # Profil yazılmadıysa etkin profil değişir.
     name = plan["profile"] or status.get("profile")
     if not name:
         die("no active profile; name one with 'profile:'")

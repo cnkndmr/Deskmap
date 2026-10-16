@@ -126,7 +126,7 @@ executes them in that order (Mission Control for creating and removing,
 SkyLight for moving; each step verified, aborted when the display generation
 changes, 30 s cap). Only empty leftovers beyond the plan length are removed,
 re-checked right before each removal. The result and the journal are committed
-to `desktop-state.json`. Spec: [desktop-names-v2.md](desktop-names-v2.md).
+to `desktop-state.json`. Spec: the schema 6 design notes (desktop-names-v2, kept outside the repository).
 
 External display roles are assigned by position: sorted by `minX`, then
 `minY`, then UUID. The built-in display is always `builtin`.
@@ -158,7 +158,7 @@ All files live in `~/Library/Application Support/Deskmap/`.
   "setupNoticeDismissed": false,
   "screens": [
     { "id": "builtin",  "name": "Built-in Retina Display", "aspect": 1.54 },
-    { "id": "external", "name": "External Monitor",               "aspect": 1.78 }
+    { "id": "external", "name": "External Monitor",        "aspect": 1.78 }
   ],
   "rules": [
     {
@@ -192,8 +192,7 @@ All files live in `~/Library/Application Support/Deskmap/`.
   `desktop` beside it are only a cache of its last place. `pendingRemovals`
   stays at the top level and is shared. Schema 5 files (per-slot
   `desktopNames`, `desktopNameSpaces`, `plannedDesktops`) are upgraded once,
-  after a backup in `Backups/pre-migration/`; see
-  [desktop-names-v2.md](desktop-names-v2.md).
+  after a backup in `Backups/pre-migration/`.
 - `tokens: []` means "all windows of the app".
 - Reading is lenient: a single broken rule is skipped (the file is copied to
   `rules.json.bak` first and the footer shows how many were skipped).

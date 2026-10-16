@@ -298,12 +298,12 @@ struct Regression202610Tests {
         }
     }
 
-    /// Çıkar: macOS monitörün masaüstü 1'ini (BR) dolu laptop masaüstü 1'e
-    /// katar → BR yerleşmemiş, pencereleri tahliye kümesinde (R2). Geçiş ilk
+    /// Çıkar: macOS monitörün masaüstü 1'ini (HUB) dolu laptop masaüstü 1'e
+    /// katar → HUB yerleşmemiş, pencereleri tahliye kümesinde (R2). Geçiş ilk
     /// açılıştan sonra kesilir. Store.resolveSuccession adın yerleşmemiş
     /// hâlini kalıcı yazar, ama tahliye kümesi Transition'da saklanmaz:
-    /// yeniden başlayan geçiş BR'yi kanıtsız ad sayıp boş yerine bağlar,
-    /// BR'nin pencereleri adsız içerik olarak planın ötesine gider. Kullanıcı
+    /// yeniden başlayan geçiş HUB'yi kanıtsız ad sayıp boş yerine bağlar,
+    /// HUB'nin pencereleri adsız içerik olarak planın ötesine gider. Kullanıcı
     /// beklentisi: kesintiden sonra ad pencereleriyle birlikte.
     @Test func interruptedEvacuationKeepsNameWithWindows() async {
         let sim = dockedSim()
@@ -425,9 +425,9 @@ struct Regression202610Tests {
     }
 
     /// Öbür profilde adlı, boş, planın ötesindeki masaüstü (laptop 6.):
-    /// etkin profilin çıkarışı onu ICC'nin hedefi yapar (plan sırası 6),
-    /// ICC'nin pencereleri oraya taşınır, R5 taşıma haritası OTHER adını
-    /// sonraki takışta ICC'nin içeriğiyle sürükler ve 1990 silinir. Kullanıcı
+    /// etkin profilin çıkarışı onu VEGA'nin hedefi yapar (plan sırası 6),
+    /// VEGA'nin pencereleri oraya taşınır, R5 taşıma haritası OTHER adını
+    /// sonraki takışta VEGA'nin içeriğiyle sürükler ve 1990 silinir. Kullanıcı
     /// beklentisi: başka profilin adlı masaüstü bu profilin hedefi olmaz,
     /// silinmez, adı yerinde kalır.
     @Test func otherProfileNamedDesktopIsNotTakenOnUnplug() async {
