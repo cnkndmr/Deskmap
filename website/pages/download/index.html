@@ -1,0 +1,150 @@
+---
+title: Download — Deskmap
+description: Download Deskmap for macOS 13 or later, Apple silicon and Intel. Free and open source. How to open the app the first time, grant Accessibility, and build it from source.
+lang: en
+nav: download
+alt: tr/download/
+---
+<header class="page-head">
+  <div class="wrap">
+    <span class="label"><b>Sheet 02</b> · Download</span>
+    <h1>Get Deskmap.</h1>
+    <p class="lede">Free, open source, no account. Download the app, unzip it, drag it to Applications. The first launch takes two extra clicks because the app is not notarized.</p>
+    <div class="cta-row">
+      <a class="btn btn-pin" href="{{release_url}}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="18" height="18"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+        Download the latest release
+      </a>
+      <a class="btn btn-line" href="{{repo_url}}/releases">All versions</a>
+    </div>
+    <ul class="facts">
+      <li>Version {{version}}</li>
+      <li>macOS 13 or later</li>
+      <li>Apple silicon &amp; Intel</li>
+      <li>Free · MIT license</li>
+    </ul>
+  </div>
+</header>
+
+<section class="sec sec-flush">
+  <div class="wrap-narrow">
+    <div class="sec-head">
+      <div><span class="label"><b>§ 01</b> · Requirements</span>
+      <h2>What you need</h2></div>
+    </div>
+    <div class="ledger">
+      <dl>
+        <div class="row"><dt>macOS</dt><dd>13 (Ventura) or later</dd></div>
+        <div class="row"><dt>Mac</dt><dd>Apple silicon and Intel</dd></div>
+        <div class="row"><dt>Price</dt><dd>Free. <a class="text-link" href="{{paypal_url}}">Support the project</a> if you like it, never required.</dd></div>
+        <div class="row"><dt>License</dt><dd>MIT. The source is on <a class="text-link" href="{{repo_url}}">GitHub</a>.</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="label"><b>§ 02</b> · First launch</span>
+      <h2>Open it the first time</h2></div>
+      <p>Deskmap is not notarized by Apple, so macOS blocks the first launch.</p>
+    </div>
+    <ol class="install">
+      <li class="istep">
+        <span class="big" aria-hidden="true">1</span>
+        <h3>Install</h3>
+        <p>Download the zip from the <a class="text-link" href="{{release_url}}">latest release</a>, unzip it and drag <code>Deskmap.app</code> to <code>/Applications</code>.</p>
+      </li>
+      <li class="istep">
+        <span class="big" aria-hidden="true">2</span>
+        <h3>Let macOS open it</h3>
+        <p>Open the app once. macOS blocks it. Then go to <b>System Settings › Privacy &amp; Security</b> and click <b>Open Anyway</b>.</p>
+      </li>
+      <li class="istep">
+        <span class="big" aria-hidden="true">3</span>
+        <h3>Grant Accessibility</h3>
+        <p>In the welcome guide, click <b>Open System Settings and allow</b>. macOS opens <b>Privacy &amp; Security › Accessibility</b>; turn <b>Deskmap</b> on there. The guide notices it by itself.</p>
+      </li>
+    </ol>
+    <div class="callout callout-warn" style="margin-top:28px">
+      <p class="callout-title">After every update</p>
+      <p>macOS asks for the Accessibility permission again after each update. If a window stops moving after you updated, grant it again.</p>
+    </div>
+    <p class="muted">Deskmap has no Dock icon. It lives in the menu bar, and the welcome guide opens on first launch. Why the permission? It is needed to read window titles and to move windows. Nothing else is read: no network, none of your files, no window contents. See <a class="text-link" href="{{root}}privacy/">Privacy</a>.</p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="label"><b>§ 03</b> · Settings</span>
+      <h2>Four macOS settings to fix, once</h2></div>
+      <p>Deskmap checks these live: in the welcome guide, in Settings › macOS Settings, and with an orange card on the map if one goes wrong later. In System Settings › Desktop &amp; Dock:</p>
+    </div>
+    <div class="grid-2">
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th>Setting</th><th>Must be</th></tr></thead>
+          <tbody>
+            <tr><td>Automatically rearrange Spaces based on most recent use</td><td><b>Off</b></td></tr>
+            <tr><td>When switching to an application, switch to a Space with open windows</td><td><b>On</b></td></tr>
+            <tr><td>Displays have separate Spaces</td><td><b>On</b></td></tr>
+            <tr><td>Group windows by application</td><td>Off (recommended)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <figure class="plate">
+        <a class="zoom" href="{{root}}images/en/05-setup.png" aria-label="Open the settings screenshot full size">
+          <div class="shot"><img src="{{root}}images/en/05-setup.png" width="2535" height="1504" loading="lazy" decoding="async" alt="The setup card in Deskmap lists each macOS setting and says which one is wrong."></div>
+        </a>
+        <figcaption><span><b>Fig. 1</b> — The settings card tells you exactly which setting is wrong.</span></figcaption>
+      </figure>
+    </div>
+    <div class="callout callout-tip" style="margin-top:28px">
+      <p class="callout-title">One more, per app</p>
+      <p>macOS won't let any app check this one: for every app you are going to pin, right-click its Dock icon › <b>Options › Assign To → None</b>. If macOS has assigned the app to a desktop itself, it will fight over the window.</p>
+    </div>
+    <p><a class="text-link" href="{{root}}{{href.guide}}">Next: pin your first window in the user guide →</a></p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="label"><b>§ 04</b> · Updating</span>
+      <h2>Updating</h2></div>
+    </div>
+    <p>Deskmap has no update check and never contacts a server. To update, download the newer release the same way and replace the app. What changed is listed in the <a class="text-link" href="{{root}}{{href.changelog}}">changelog</a>. Remember that macOS asks for the Accessibility permission again after an update.</p>
+    <p class="muted">Moving a window to another desktop uses private macOS functions, and a macOS update can break them. Deskmap then falls back to display and layout only, and tells you.</p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="label"><b>§ 05</b> · From source</span>
+      <h2>Build it yourself</h2></div>
+      <p>You need the Xcode Command Line Tools (<code>xcode-select --install</code>) with Swift 5.9 or later. Xcode itself is not required.</p>
+    </div>
+    <div class="terminal" role="group" aria-label="Terminal: clone and build Deskmap" data-copy="git clone https://github.com/cnkndmr/Deskmap.git Deskmap&#10;cd Deskmap&#10;make app&#10;open build/Deskmap.app">
+      <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>Deskmap — zsh</span></div>
+<pre><span class="pr">$ </span>git clone https://github.com/cnkndmr/Deskmap.git Deskmap
+<span class="pr">$ </span>cd Deskmap
+<span class="pr">$ </span>make app                  <span class="cm"># release build → build/Deskmap.app</span>
+<span class="pr">$ </span>open build/Deskmap.app    <span class="cm"># or: make run</span></pre>
+    </div>
+    <p>For a permanent install, copy the app to <code>/Applications</code> and turn on <b>Launch at login</b> in Settings › General. That checkbox registers whichever copy is running, so move the app first if you ran it from <code>build/</code>.</p>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="wrap">
+    <div class="cta-row">
+      <a class="btn btn-pin" href="{{release_url}}">Download the latest release</a>
+      <a class="btn btn-line" href="{{repo_url}}/releases">All versions</a>
+      <a class="btn btn-line" href="{{root}}{{href.changelog}}">Changelog</a>
+      <a class="btn btn-line" href="{{root}}{{href.guide}}">User guide</a>
+    </div>
+  </div>
+</section>

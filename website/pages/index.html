@@ -1,0 +1,535 @@
+---
+title: Deskmap — every window in its right place
+og_title: Deskmap — every window in its right place
+description: Deskmap is a free, open-source macOS menu bar app. Pin a window once and it lives on the right display, the right desktop, in the right layout — even when you plug in or unplug a monitor.
+lang: en
+nav: home
+alt: tr/
+body_class: page-home page-motion
+css: motion
+js: motion
+---
+<!--
+  Motion variant of the home page (same copy and facts as pages/classic/index.html, the static version).
+  Behaviour: assets/motion.js; styles: assets/motion.css (see its header for
+  the scroll-progress engine, --p, and the reduced-motion end states).
+  Decorative scenes are aria-hidden; every fact they show is also in the text.
+-->
+<div class="m-progress" data-sd="page" aria-hidden="true"></div>
+
+<!-- HERO -->
+<section class="hero m-hero" data-sd="top" aria-labelledby="hero-title">
+  <div class="m-hero-grid" aria-hidden="true"></div>
+  <div class="wrap">
+    <div class="coords label m-in" style="--d:0" aria-hidden="true">
+      <span>Sheet 01 · Deskmap</span>
+      <span>Menu bar app for macOS</span>
+      <span><b>●</b> Every window, located</span>
+    </div>
+    <p class="label m-in" style="--d:1">Free &amp; open source · macOS 13+</p>
+    <h1 id="hero-title"><span class="sr">Every window on the right display, the right desktop, in the right layout. Every time.</span><span class="m-h1" aria-hidden="true"><span class="m-wd"><span style="--i:0">Every</span></span> <span class="m-wd"><span style="--i:1">window</span></span> <span class="m-wd"><span style="--i:2">on</span></span> <span class="m-wd"><span style="--i:3">the</span></span> <span class="m-wd"><span style="--i:4">right</span></span> <span class="m-wd"><span style="--i:5">display,</span></span> <span class="m-wd"><span style="--i:6">the</span></span> <span class="m-wd"><span style="--i:7">right</span></span> <span class="m-wd"><span style="--i:8">desktop,</span></span> <span class="m-wd"><span style="--i:9">in</span></span> <span class="m-wd"><span style="--i:10">the</span></span> <span class="m-wd"><span style="--i:11">right</span></span> <span class="m-wd"><span style="--i:12">layout.</span></span> <em><span class="m-wd"><span style="--i:13">Every</span></span> <span class="m-wd"><span style="--i:14">time.</span></span></em></span></h1>
+    <div class="hero-intro">
+      <p class="lede m-in" style="--d:4">Pin a window once. From then on it lives on that display, that desktop (Space), in that layout: when it opens, when it wanders off, and when you plug in or unplug a monitor.</p>
+      <div class="m-in" style="--d:5">
+        <div class="cta-row">
+          <a class="btn btn-pin m-magnet" href="{{release_url}}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+            Download for macOS
+          </a>
+          <a class="btn btn-line m-magnet" href="{{root}}docs/guide/">Read the user guide</a>
+        </div>
+        <ul class="facts">
+          <li>Version {{version}}</li>
+          <li>MIT license</li>
+          <li>Apple silicon &amp; Intel</li>
+          <li>No data collected</li>
+        </ul>
+      </div>
+    </div>
+
+    <figure class="plate m-hero-fig m-in" style="--d:6">
+      <div class="ruler-x" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>
+      <div class="ruler-y" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span></div>
+      <div class="m-stage-frame">
+        <div class="m-stage" role="img" aria-label="Diagram: four windows piled on one screen fly to their pinned places. VS Code and Pages take the left and right half of desktop 1 on a Studio Display, Terminal fills the built-in laptop display, and Mail goes to desktop 2. A map pin drops on each.">
+          <div class="m-dev m-mon"><span class="m-dev-name">Studio Display</span>
+            <div class="m-bar"><span class="m-sp on">1</span><span class="m-sp m-sp2">2<i></i></span><span class="m-sp">3</span></div>
+          </div>
+          <div class="m-neck"></div><div class="m-foot"></div>
+          <div class="m-dev m-lap"><span class="m-dev-name">Built-in Display</span>
+            <div class="m-bar"><span class="m-sp on">1</span></div>
+          </div>
+          <div class="m-base"></div>
+
+          <div class="m-hw" data-w="acme">
+            <div class="m-tb"><i></i><i></i><i></i><span><b style="background:#3A9BEA"></b>acme-web</span></div>
+            <div class="m-sk"><i style="width:62%"></i><i style="width:80%"></i><i style="width:45%"></i><i style="width:70%"></i><i style="width:56%"></i></div>
+            <span class="m-tag"><span class="m-tag-d">Desktop 1 · </span>Left half</span>
+            <span class="m-hpin"><svg viewBox="0 0 40 52"><path d="M20 51C20 51 2 31 2 19.5A18 18 0 0 1 38 19.5C38 31 20 51 20 51Z" fill="url(#m-pg)"/><circle cx="20" cy="19" r="6.5" fill="#16191F"/></svg><i class="m-ring"></i></span>
+          </div>
+          <div class="m-hw" data-w="notes">
+            <div class="m-tb"><i></i><i></i><i></i><span><b style="background:#F2C14E"></b>Release notes</span></div>
+            <div class="m-sk m-sk-doc"><i style="width:40%"></i><i style="width:92%"></i><i style="width:88%"></i><i style="width:94%"></i><i style="width:60%"></i></div>
+            <span class="m-tag"><span class="m-tag-d">Desktop 1 · </span>Right half</span>
+            <span class="m-hpin"><svg viewBox="0 0 40 52"><path d="M20 51C20 51 2 31 2 19.5A18 18 0 0 1 38 19.5C38 31 20 51 20 51Z" fill="url(#m-pg)"/><circle cx="20" cy="19" r="6.5" fill="#16191F"/></svg><i class="m-ring"></i></span>
+          </div>
+          <div class="m-hw" data-w="deploy">
+            <div class="m-tb"><i></i><i></i><i></i><span><b style="background:#9AA4B5"></b>deploy</span></div>
+            <div class="m-sk m-sk-term"><i style="width:30%"></i><i style="width:66%"></i><i style="width:48%"></i></div>
+            <span class="m-tag"><span class="m-tag-d">Built-in · </span>Full</span>
+            <span class="m-hpin"><svg viewBox="0 0 40 52"><path d="M20 51C20 51 2 31 2 19.5A18 18 0 0 1 38 19.5C38 31 20 51 20 51Z" fill="url(#m-pg)"/><circle cx="20" cy="19" r="6.5" fill="#16191F"/></svg><i class="m-ring"></i></span>
+          </div>
+          <div class="m-hw" data-w="mail">
+            <div class="m-tb"><i></i><i></i><i></i><span><b style="background:#4AA3F0"></b>Mail</span></div>
+            <div class="m-sk"><i style="width:70%"></i><i style="width:50%"></i><i style="width:76%"></i></div>
+          </div>
+          <span class="m-mail-tag">Mail → Desktop 2</span>
+          <svg width="0" height="0" style="position:absolute"><defs><linearGradient id="m-pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD27E"/><stop offset="1" stop-color="#EE7F2C"/></linearGradient></defs></svg>
+        </div>
+      </div>
+      <figcaption><span><b>Fig. 1</b> — Every window to its display, desktop and layout. Window names are examples.</span><span class="m-cap-r">Plan: Monitor connected <button type="button" class="play m-replay" hidden>Replay</button></span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- INTERLUDE: the problem -->
+<section class="interlude m-interlude" aria-label="The problem">
+  <div class="wrap">
+    <span class="label"><b>§ 00</b> · The problem</span>
+    <p class="m-words" data-sd="words"><span class="mute">You plug in the monitor. Your windows pile up on one screen. You drag them back, one by one,</span> <em>again.</em></p>
+    <p class="then m-reveal">Deskmap remembers where each one goes, and puts it there.</p>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="sec" id="how" aria-labelledby="how-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="m-reveal">
+        <span class="label"><b>§ 01</b> · How it works</span>
+        <h2 id="how-title">Your windows get an address.</h2>
+      </div>
+      <p class="m-reveal" style="--d:1">Every pin says three things: which display, which desktop, which part of the screen. Each pin has two of those addresses, one for when a monitor is connected and one for the laptop alone. Pull the cable and every window goes to its other address.</p>
+    </div>
+  </div>
+
+  <div class="m-plug" id="plug" data-sd="pin">
+    <div class="m-plug-sticky">
+      <div class="wrap">
+        <figure class="plate m-plug-fig">
+          <div class="m-plug-head" aria-hidden="true">
+            <span class="label">Plan in effect</span>
+            <span class="m-plan"><span class="m-plan-a">Monitor connected</span><span class="m-plan-b">Laptop only</span></span>
+            <span class="m-rail"><i></i></span>
+          </div>
+          <div class="m-plug-frame">
+            <div class="m-plug-stage" role="img" aria-label="Diagram: a Studio Display with three desktops and a built-in laptop display with three desktops, joined by a cable. When the cable is pulled, the four pinned windows move to their Laptop only places; when it is plugged in again, they move back to their Monitor connected places.">
+              <div class="m-cable">
+                <svg class="m-cable-w" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M21 82 H14.5 Q12 82 12 79 V50"/></svg>
+                <svg class="m-cable-n" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M80 65 V52"/></svg>
+                <span class="m-plughead"></span>
+              </div>
+              <span class="m-port"></span>
+              <div class="tile tile-monitor m-dim"><span class="tile-name">Studio Display</span></div>
+              <div class="region m-dim r-m1"><span>DESKTOP 1</span></div>
+              <div class="region m-dim r-m2"><span>DESKTOP 2</span></div>
+              <div class="region m-dim r-m3"><span>DESKTOP 3</span></div>
+              <div class="tile tile-laptop"><span class="tile-name">Built-in Display</span></div>
+              <div class="region r-l1"><span>1</span></div>
+              <div class="region r-l2"><span>2</span></div>
+              <div class="region r-l3"><span>3</span></div>
+              <span class="m-unplugged">Monitor unplugged</span>
+              <span class="m-settle"><i></i>Settling</span>
+
+              <div class="m-w" data-w="acme"><span class="t"><i class="dot" style="background:#3A9BEA"></i>acme-web</span><span class="sub">VS Code · project</span><svg class="pinmark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg></div>
+              <div class="m-w" data-w="notes"><span class="t"><i class="dot" style="background:#F2C14E"></i>Release notes</span><span class="sub">Pages · file</span><svg class="pinmark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg></div>
+              <div class="m-w" data-w="deploy"><span class="t"><i class="dot" style="background:#9AA4B5"></i>deploy</span><span class="sub">Terminal · user@host</span><svg class="pinmark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg></div>
+              <div class="m-w" data-w="mail"><span class="t"><i class="dot" style="background:#4AA3F0"></i>Mail</span><span class="sub">all windows</span><svg class="pinmark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg></div>
+            </div>
+          </div>
+          <p class="m-plug-status" aria-hidden="true">
+            <span style="--a:-1;--b:.14">Monitor connected · all pinned windows are in place</span>
+            <span style="--a:.14;--b:.26">Monitor unplugged · waiting for the displays to settle</span>
+            <span style="--a:.26;--b:.58">4 pinned windows moved to the Laptop only plan</span>
+            <span style="--a:.58;--b:.66">Monitor plugged in · waiting for the displays to settle</span>
+            <span style="--a:.66;--b:2">4 pinned windows moved to the Monitor connected plan</span>
+          </p>
+          <div class="controls m-plug-controls" hidden>
+            <div class="seg" role="group" aria-label="Display setup">
+              <button type="button" data-plug-plan="monitor" aria-pressed="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/></svg>Monitor connected</button>
+              <button type="button" data-plug-plan="laptop" aria-pressed="false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M2.5 18.5h19"/></svg>Laptop only</button>
+            </div>
+          </div>
+          <figcaption><span><b>Fig. 2</b> — Two plans, one pin. <span class="m-scroll-hint">Scroll to unplug and plug in again.</span> Window names are examples.</span></figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="m-steps-row">
+      <ol class="steps m-steps">
+        <li class="m-reveal"><span class="n">01</span><div><h3>Pin a window by its title</h3><p>Click a window on the map and pin it. Deskmap finds a stable key: the file it shows, VS Code's project folder, Terminal's <code>user@host</code>, Safari's tab group. Or pin every window of the app.</p></div></li>
+        <li class="m-reveal" style="--d:1"><span class="n">02</span><div><h3>It lives there now</h3><p>When the window opens, when it wanders off, after a restart: Deskmap puts it back on its display, its desktop, in its layout.</p></div></li>
+        <li class="m-reveal" style="--d:2"><span class="n">03</span><div><h3>Plug in, unplug: it returns</h3><p><em>Monitor connected</em> and <em>Laptop only</em> are two plans. When displays change, Deskmap waits a couple of seconds for them to settle, then places every pinned window where that plan says.</p></div></li>
+      </ol>
+      <p class="quote m-reveal" style="--d:3">“A pin is a promise about a title. Everything else is drag and drop.”<small>— from the <a class="text-link" href="{{root}}docs/guide/">user guide</a></small></p>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="sec" id="features" aria-labelledby="features-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="m-reveal">
+        <span class="label"><b>§ 02</b> · Features</span>
+        <h2 id="features-title">The map is the app.</h2>
+      </div>
+      <p class="m-reveal" style="--d:1">No scripts, no config file, no dependencies. You set everything up by clicking and dragging on a map of your displays and desktops.</p>
+    </div>
+
+    <figure class="plate m-bigshot" data-sd="in">
+      <div class="ruler-x" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>
+      <a class="zoom m-tilt" href="{{root}}images/en/01-map.png" aria-label="Open the map screenshot full size">
+        <div class="shot m-shot">
+          <img src="{{root}}images/en/01-map.png" width="2535" height="1504" loading="lazy" decoding="async" sizes="(max-width: 1180px) 92vw, 1130px" alt="The Deskmap map: a Studio Display shown as cards of desktops, each card holding the pinned windows at their own place and size, with a sidebar of pins and unassigned windows.">
+          <span class="m-curtain" aria-hidden="true"></span>
+        </div>
+      </a>
+      <figcaption><span><b>Fig. 3</b> — The map: every display, every desktop, every window.</span><span>Plan: Monitor connected</span></figcaption>
+    </figure>
+
+    <article class="feature">
+      <div class="ftext m-reveal">
+        <span class="label"><b>B2</b> · Pin by title</span>
+        <h3>Two projects in one app, two different places.</h3>
+        <p>Rules match the window title, not only the app. Two VS Code workspaces or two Safari tab groups can live on two different desktops.</p>
+        <div class="m-title" data-play aria-hidden="true">
+          <div class="m-trow">
+            <div class="m-tbar"><i></i><i></i><i></i><span class="m-tt"><span class="tk tk1">server.ts</span> <span class="tk">—</span> <span class="tk tk3">acme-web</span></span></div>
+            <span class="m-key"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg>acme-web <b>→ Desktop 1</b></span>
+          </div>
+          <div class="m-trow m-trow2">
+            <div class="m-tbar"><i></i><i></i><i></i><span class="m-tt"><span class="tk tk1">schema.sql</span> <span class="tk">—</span> <span class="tk tk3">acme-api</span></span></div>
+            <span class="m-key"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg>acme-api <b>→ Desktop 2</b></span>
+          </div>
+          <span class="m-title-cap">Visual Studio Code · two workspaces · the key is the project folder</span>
+        </div>
+        <ul>
+          <li>Keys come from the file a window shows, or the part of its title that stays the same.</li>
+          <li>Two different <code>main.pdf</code> files stay apart.</li>
+          <li>Or pin <em>all windows of the app</em>: good for Mail or Slack.</li>
+        </ul>
+      </div>
+      <figure class="plate m-fshot" data-sd="in">
+        <a class="zoom m-tilt" href="{{root}}images/en/02-pin.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/en/02-pin.png" width="2535" height="1504" sizes="(max-width: 900px) 92vw, 700px" alt="Pinning a window by the part of its title that names the workspace."><span class="m-curtain" aria-hidden="true"></span></div></a>
+        <figcaption><span><b>Fig. 4</b> — Choosing the part of the title that identifies the window.</span></figcaption>
+      </figure>
+    </article>
+
+    <article class="feature flip">
+      <figure class="plate m-fshot m-from-left" data-sd="in">
+        <a class="zoom m-tilt" href="{{root}}images/en/03-layout.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/en/03-layout.png" width="2535" height="1504" sizes="(max-width: 900px) 92vw, 700px" alt="A pin's panel: Studio Display, Desktop 2, Right half, with layout buttons and a Why here box."><span class="m-curtain" aria-hidden="true"></span></div></a>
+        <figcaption><span><b>Fig. 5</b> — Display, desktop and layout in one sentence.</span></figcaption>
+      </figure>
+      <div class="ftext m-reveal">
+        <span class="label"><b>C3</b> · Layouts</span>
+        <h3>Display, desktop and size in a single pin.</h3>
+        <p>Pick Full, Left half, Right half or As it is. Draw the area on a grid, pick a preset, or set a fixed size.</p>
+        <div class="m-lay" data-play aria-hidden="true">
+          <div class="m-lay-screen"><span class="m-lay-win"></span></div>
+          <div class="m-lay-names"><span>Full</span><span>Left half</span><span>Right half</span><span>As it is</span><i class="m-lay-ind"></i></div>
+        </div>
+        <ul>
+          <li>Drag a window's box onto another desktop's card to move it, on any display.</li>
+          <li><strong>Why here?</strong> says in plain words which pin put a window where it is.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="feature m-feature-strip">
+      <div class="ftext m-reveal">
+        <span class="label"><b>D1</b> · Workspaces</span>
+        <h3>Open a whole workspace at once.</h3>
+        <p>A desktop with closed pinned windows shows <strong>Open N</strong> next to its name. One click opens them all, each in its place.</p>
+        <ul>
+          <li>Per app group: reopen its closed pins, or close all its pinned windows there.</li>
+          <li>Unsaved documents still ask before closing.</li>
+        </ul>
+      </div>
+      <figure class="plate m-fshot" data-sd="in">
+        <a class="zoom m-tilt" href="{{root}}images/en/08-open-closed.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/en/08-open-closed.png" width="2535" height="1504" sizes="(max-width: 900px) 92vw, 700px" alt="Desktop 3 with an Open 4 button and a Preview group whose closed pins open with one click."><span class="m-curtain" aria-hidden="true"></span></div></a>
+        <figcaption><span><b>Fig. 6</b> — Closed pins wait as chips; Open 4 brings them back.</span></figcaption>
+      </figure>
+      <div class="m-strip" data-sd="strip" aria-hidden="true">
+        <div class="m-track">
+          <div class="m-desk"><span class="m-dname">Desktop 1</span><div class="m-dbody"><i class="m-dw" style="left:6%;top:10%;width:42%;height:80%"></i><i class="m-dw" style="left:52%;top:10%;width:42%;height:80%"></i></div></div>
+          <div class="m-desk"><span class="m-dname">Desktop 2</span><div class="m-dbody"><i class="m-dw" style="left:6%;top:10%;width:88%;height:80%"></i></div></div>
+          <div class="m-desk m-desk3"><span class="m-dname">Desktop 3 <span class="m-open">Open 4</span></span>
+            <div class="m-dbody">
+              <i class="m-chip" style="left:6%;top:10%;width:42%;height:38%;--j:0"></i>
+              <i class="m-chip" style="left:52%;top:10%;width:42%;height:38%;--j:1"></i>
+              <i class="m-chip" style="left:6%;top:52%;width:42%;height:38%;--j:2"></i>
+              <i class="m-chip" style="left:52%;top:52%;width:42%;height:38%;--j:3"></i>
+            </div>
+          </div>
+          <div class="m-desk"><span class="m-dname">Desktop 4</span><div class="m-dbody"><i class="m-dw" style="left:20%;top:16%;width:60%;height:68%"></i></div></div>
+        </div>
+      </div>
+    </article>
+
+    <article class="feature flip">
+      <figure class="plate m-fshot m-from-left" data-sd="in">
+        <a class="zoom m-tilt" href="{{root}}images/en/06-free-move.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/en/06-free-move.png" width="2535" height="1504" sizes="(max-width: 900px) 92vw, 700px" alt="A pinned window with 15 minutes of free movement; the panel shows the time left."><span class="m-curtain" aria-hidden="true"></span></div></a>
+        <img class="inset" loading="lazy" decoding="async" src="{{root}}images/en/07-menu.png" width="372" height="190" alt="The menu bar icon's right-click menu with Free move for 1, 5, 15, 30 or 60 minutes.">
+        <figcaption><span><b>Fig. 7</b> — Free move, also from the menu bar icon (inset).</span></figcaption>
+      </figure>
+      <div class="ftext m-reveal">
+        <span class="label"><b>E4</b> · Free move</span>
+        <h3>Let a window roam. It comes home.</h3>
+        <p>Need to move a pinned window by hand for a while? Give it 1 to 60 minutes of free movement. Deskmap leaves it alone until the time is up, then puts it back.</p>
+        <div class="m-free" data-play aria-hidden="true">
+          <span class="m-free-home">Pinned place</span>
+          <div class="m-free-win">
+            <span class="t"><i class="dot" style="background:#F2C14E"></i>Release notes</span>
+            <svg class="m-free-ring" viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15"/><circle class="fg" cx="18" cy="18" r="15" pathLength="100"/></svg>
+            <svg class="m-free-pin" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg>
+          </div>
+          <span class="m-free-chip">Free move · 1 to 60 min</span>
+        </div>
+        <ul>
+          <li>From the panel, the window's right-click menu, or a right-click on the menu bar icon.</li>
+          <li>Timed pins are listed together, soonest end first, with <strong>End all</strong>.</li>
+        </ul>
+      </div>
+    </article>
+
+    <article class="feature">
+      <div class="ftext m-reveal">
+        <span class="label"><b>F2</b> · Profiles</span>
+        <h3>Office, Home, Café. Switch with a click.</h3>
+        <p>A profile is a whole set of pins with a name. Switch from the toolbar, or from a URL.</p>
+        <div class="m-prof" data-play aria-hidden="true"><i class="m-prof-thumb"></i><span>Office</span><span>Home</span><span>Café</span></div>
+        <ul>
+          <li>Export a profile as a <code>.deskmap.json</code> file to carry your setup to another Mac.</li>
+          <li>Desktop names belong to the profile that gave them.</li>
+        </ul>
+      </div>
+      <figure class="plate m-fshot" data-sd="in">
+        <a class="zoom m-tilt" href="{{root}}images/en/07-settings-profiles.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/en/07-settings-profiles.png" width="1360" height="920" sizes="(max-width: 900px) 92vw, 700px" alt="Settings, Profiles tab: a list of profiles with Use buttons, New empty profile and Import."><span class="m-curtain" aria-hidden="true"></span></div></a>
+        <figcaption><span><b>Fig. 8</b> — Settings › Profiles.</span></figcaption>
+      </figure>
+    </article>
+
+    <div class="cards features-cards">
+      <div class="card m-spot m-reveal">
+        <span class="label"><b>G1</b> · Backups</span>
+        <h3>Automatic backups</h3>
+        <p>Every profile, pin and desktop name: hourly (kept a day), daily (kept a week), weekly (kept forever). Restore from Settings › Backups, and undo the restore.</p>
+      </div>
+      <div class="card m-spot m-reveal" style="--d:1">
+        <span class="label"><b>G2</b> · Undo</span>
+        <h3>Undo instead of dialogs</h3>
+        <p>Multi-step <kbd>⌘Z</kbd> / <kbd>⇧⌘Z</kbd> and a history of this session's changes you can jump back or forward in.</p>
+      </div>
+      <div class="card m-spot m-reveal" style="--d:2">
+        <span class="label"><b>G3</b> · Automation</span>
+        <h3><code>deskmap://</code> URLs</h3>
+        <p>For Shortcuts, Raycast or a terminal.</p>
+<pre><span class="c"># switch profile</span>
+open "deskmap://profile/Café"
+<span class="c"># place everything now</span>
+open "deskmap://reapply"</pre>
+      </div>
+      <div class="card m-spot m-reveal" style="--d:3">
+        <span class="label"><b>G4</b> · Small</span>
+        <h3>One small app</h3>
+        <p>Lives in the menu bar, no Dock icon. No scripts, no config file, no dependencies. System Integrity Protection stays on.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARE -->
+<section class="sec" id="compare" aria-labelledby="compare-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="m-reveal">
+        <span class="label"><b>§ 03</b> · Compare</span>
+        <h2 id="compare-title">How it compares.</h2>
+      </div>
+      <p class="m-reveal" style="--d:1">Rectangle Pro and Stay come closest, but neither moves a window to another desktop. yabai does, from a shell script. The map, temporary pins and timed free move are built into none of them.</p>
+    </div>
+    <div class="m-stats m-reveal" aria-hidden="true">
+      <span class="m-stat"><span class="m-roll" style="--n:7"><span><i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i></span></span><small>of 13 rows<br>shown here</small></span>
+      <span class="m-stat"><span class="m-roll" style="--n:5"><span><i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i></span></span><small>of 9 tools<br>shown here</small></span>
+      <span class="m-stat m-stat-us"><span class="m-roll" style="--n:7"><span><i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i></span></span><small>of 7 rows built<br>into Deskmap</small></span>
+    </div>
+    <div class="table-wrap m-matrix m-reveal">
+      <table class="matrix">
+        <caption class="sr">Deskmap compared with macOS, Rectangle Pro, Stay and yabai on seven capabilities</caption>
+        <thead>
+          <tr><th scope="col">Capability</th><th scope="col" class="us">Deskmap</th><th scope="col">macOS</th><th scope="col">Rectangle Pro</th><th scope="col">Stay</th><th scope="col">yabai</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Rules match the <strong>window title</strong>, not just the app</th><td class="us"><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td></tr>
+          <tr><th scope="row">Sends a window to a chosen <strong>native desktop</strong> (Space)</th><td class="us"><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk p"></i><span class="sr">Partly</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td></tr>
+          <tr><th scope="row">Separate targets per <strong>display setup</strong></th><td class="us"><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk p"></i><span class="sr">Partly</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td></tr>
+          <tr><th scope="row">Re-places windows when a display is <strong>plugged in or unplugged</strong></th><td class="us"><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk p"></i><span class="sr">Partly</span></td></tr>
+          <tr><th scope="row"><strong>Map</strong> of every display and desktop; drag to assign</th><td class="us"><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk p"></i><span class="sr">Partly</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td></tr>
+          <tr><th scope="row"><strong>Timed free move</strong> for a pinned window</th><td class="us"><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td></tr>
+          <tr><th scope="row">No config file or script to write</th><td class="us"><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk y"></i><span class="sr">Built in</span></td><td><i class="mk n"></i><span class="sr">Not available</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend" aria-hidden="true">
+      <span><i class="mk y"></i>Built in</span>
+      <span><i class="mk p"></i>Partly, or with a limitation</span>
+      <span><i class="mk n"></i>Not available</span>
+    </div>
+    <div class="compare-foot">
+      <p>Seven of thirteen rows, five of nine tools. The full table covers Moom, ShiftPlus, AeroSpace and Hammerspoon too, with notes and sources for every cell.</p>
+      <a class="btn btn-line m-magnet" href="{{root}}compare/">See the full comparison →</a>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section class="sec" id="install" aria-labelledby="install-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="m-reveal">
+        <span class="label"><b>§ 04</b> · Install</span>
+        <h2 id="install-title">Three steps.</h2>
+      </div>
+      <p class="m-reveal" style="--d:1">macOS 13 or later, Apple silicon and Intel. Deskmap is not notarized yet, so macOS asks you to confirm the first launch.</p>
+    </div>
+    <ol class="install">
+      <li class="istep m-reveal">
+        <span class="big m-num" aria-hidden="true"><span>01</span></span>
+        <h3>Download and drag</h3>
+        <p><a class="text-link" href="{{release_url}}">Download the latest release</a>, unzip it and drag <span class="path">Deskmap.app</span> to <span class="path">/Applications</span>.</p>
+      </li>
+      <li class="istep m-reveal" style="--d:1">
+        <span class="big m-num" aria-hidden="true"><span>02</span></span>
+        <h3>Open Anyway</h3>
+        <p>Open it once. macOS blocks it; go to <strong>System Settings › Privacy &amp; Security</strong> and click <strong>Open Anyway</strong>.</p>
+      </li>
+      <li class="istep m-reveal" style="--d:2">
+        <span class="big m-num" aria-hidden="true"><span>03</span></span>
+        <h3>Grant Accessibility</h3>
+        <p>Turn on <strong>Deskmap</strong> under Accessibility when the welcome guide asks. It takes it from there.</p>
+      </li>
+    </ol>
+    <p class="note-line">macOS asks for the Accessibility permission again after each update. To build from source: <code>make app</code> (needs the Xcode Command Line Tools).</p>
+    <div class="cta-row" style="margin-top:24px">
+      <a class="btn btn-pin m-magnet" href="{{release_url}}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+        Download Deskmap {{version}}
+      </a>
+      <a class="btn btn-line m-magnet" href="{{root}}download/">Install notes &amp; requirements</a>
+    </div>
+  </div>
+</section>
+
+<!-- PRIVACY -->
+<section class="sec" id="privacy" aria-labelledby="privacy-title">
+  <div class="wrap privacy">
+    <div>
+      <span class="label m-reveal" style="display:block;margin-bottom:16px"><b>§ 05</b> · Privacy</span>
+      <h2 id="privacy-title" class="m-reveal">Collects nothing. Sends nothing. <em>No network code at all.</em></h2>
+      <p class="body m-reveal">No analytics, no crash reporter, no update check. Your pins stay in plain JSON files on your Mac that you can read, edit or delete. Don't take our word for it: the source is open, so check it yourself.</p>
+      <div class="terminal m-term" data-play role="group" aria-label="Terminal: searching the source for network code finds no matches" data-copy="grep -rn 'URLSession\|import Network' app/Sources">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>Deskmap — zsh</span></div>
+<pre><span class="cm m-seg" style="--t:0s"># in a clone of the repository</span>
+<span class="m-seg" style="--t:.35s"><span class="pr">$ </span></span><span class="m-type" style="--t:.5s">grep -rn 'URLSession\|import Network' app/Sources</span>
+<span class="cm m-seg" style="--t:2s"># no matches</span>
+
+<span class="cm m-seg" style="--t:2.5s"># what it stores, on your Mac</span>
+<span class="m-seg" style="--t:2.85s"><span class="pr">$ </span></span><span class="m-type" style="--t:3s">ls ~/Library/Application\ Support/Deskmap</span>
+<span class="out m-seg" style="--t:4.35s">Backups  desktop-state.json  rules.json  session-pins.json  status.json</span><span class="m-caret" aria-hidden="true"></span></pre>
+      </div>
+      <p style="margin-top:20px"><a class="text-link" href="{{root}}privacy/">Read the privacy note →</a></p>
+    </div>
+    <div class="ledger m-ledger m-reveal">
+      <dl>
+        <div class="row"><dt>Reads</dt><dd>Open windows: their app, title, position and size, and which display and desktop each is on.</dd></div>
+        <div class="row"><dt>Never reads</dt><dd>Window contents, documents, keystrokes, the clipboard, or anything about you.</dd></div>
+        <div class="row"><dt>Writes</dt><dd>JSON files in <span class="path">~/Library/Application Support/Deskmap/</span> and its automatic backups.</dd></div>
+        <div class="row"><dt>Logs</dt><dd>Sparse entries to the macOS unified log. Window titles are never logged.</dd></div>
+        <div class="row"><dt>Permission</dt><dd>Accessibility, and only that. No Screen Recording, no Full Disk Access.</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section class="sec" id="faq" aria-labelledby="faq-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="m-reveal">
+        <span class="label"><b>§ 06</b> · FAQ</span>
+        <h2 id="faq-title">Questions, answered.</h2>
+      </div>
+      <p class="m-reveal" style="--d:1">Anything not covered here is in the <a href="{{root}}docs/guide/">user guide</a>, or open an issue on <a href="{{repo_url}}/issues">GitHub</a>.</p>
+    </div>
+    <div class="faq m-faq">
+      <details class="m-reveal">
+        <summary><span class="q">Q.01</span>Why does macOS block the first launch?</summary>
+        <div class="a"><p>Deskmap is not notarized yet. Open it once, then go to System Settings › Privacy &amp; Security and click <strong>Open Anyway</strong>.</p></div>
+      </details>
+      <details class="m-reveal" style="--d:1">
+        <summary><span class="q">Q.02</span>Why does it need the Accessibility permission?</summary>
+        <div class="a"><p>Without it, no app can see window titles or move windows. It is the only permission Deskmap asks for. macOS asks for it again after each update; if windows stop moving after an update, grant it again.</p></div>
+      </details>
+      <details class="m-reveal" style="--d:2">
+        <summary><span class="q">Q.03</span>What happens when I unplug my monitor?</summary>
+        <div class="a"><p>Every pin has two targets: one for <em>Monitor connected</em>, one for <em>Laptop only</em>. When displays change, Deskmap waits a couple of seconds for them to settle, then puts every pinned window where the plan in effect says.</p></div>
+      </details>
+      <details class="m-reveal" style="--d:3">
+        <summary><span class="q">Q.04</span>Do I need to change any macOS settings?</summary>
+        <div class="a"><p>Four, once, in Desktop &amp; Dock: <em>Automatically rearrange Spaces</em> off, <em>switch to a Space with open windows</em> on, <em>Displays have separate Spaces</em> on, and <em>Group windows by application</em> off (recommended). Deskmap checks these live and tells you which one is wrong. For each app you pin, also set its Dock icon › Options › Assign To to None.</p></div>
+      </details>
+      <details class="m-reveal" style="--d:4">
+        <summary><span class="q">Q.05</span>Do I have to disable System Integrity Protection or write a config?</summary>
+        <div class="a"><p>No. There are no scripts, no config file and no dependencies, and System Integrity Protection stays on. Everything is set up on the map.</p></div>
+      </details>
+      <details class="m-reveal" style="--d:5">
+        <summary><span class="q">Q.06</span>Can I automate it?</summary>
+        <div class="a"><p>Yes. Deskmap answers <code>deskmap://</code> links, so anything that can open a URL can drive it: <code>deskmap://profile/Café</code> switches profile, <code>deskmap://reapply</code> places everything now, <code>deskmap://toggle</code> pauses or resumes. The <a href="{{root}}docs/reference/">reference</a> lists them all.</p></div>
+      </details>
+      <details class="m-reveal" style="--d:6">
+        <summary><span class="q">Q.07</span>Is it really free?</summary>
+        <div class="a"><p>Yes, free and open source under the MIT license. If it saves you time, you can <a href="{{paypal_url}}">support the project</a>.</p></div>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final m-final" data-play="once" aria-labelledby="final-title">
+  <div class="wrap">
+    <svg class="m-route" viewBox="0 0 1000 120" aria-hidden="true">
+      <path class="m-route-base" d="M10 24H170Q190 24 190 44V70Q190 90 210 90H360Q380 90 380 70V40Q380 20 400 20H480Q500 20 500 40V116"/>
+      <path class="m-route-base" d="M990 96H830Q810 96 810 76V50Q810 30 790 30H640Q620 30 620 50V64Q620 84 600 84H520Q500 84 500 104V116"/>
+      <path class="m-route-go" id="m-route-l" pathLength="1" d="M10 24H170Q190 24 190 44V70Q190 90 210 90H360Q380 90 380 70V40Q380 20 400 20H480Q500 20 500 40V116"/>
+      <path class="m-route-go" id="m-route-r" pathLength="1" d="M990 96H830Q810 96 810 76V50Q810 30 790 30H640Q620 30 620 50V64Q620 84 600 84H520Q500 84 500 104V116"/>
+      <g class="m-route-win" data-route="m-route-l"><rect x="-15" y="-10" width="30" height="20" rx="3"/><path d="M-15 -4H15"/></g>
+      <g class="m-route-win" data-route="m-route-r"><rect x="-15" y="-10" width="30" height="20" rx="3"/><path d="M-15 -4H15"/></g>
+      <circle class="m-route-dot" cx="10" cy="24" r="4"/><circle class="m-route-dot" cx="990" cy="96" r="4"/>
+    </svg>
+    <img class="m-final-icon" src="{{root}}assets/images/icon-256.png" width="96" height="96" loading="lazy" decoding="async" alt="Deskmap app icon: an orange map pin holding a window">
+    <h2 id="final-title" class="m-reveal">Put every window in its right place.</h2>
+    <p class="m-reveal" style="--d:1">Free and open source. macOS 13 or later, Apple silicon and Intel.</p>
+    <div class="cta-row m-reveal" style="--d:2">
+      <a class="btn btn-pin m-magnet" href="{{release_url}}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+        Download for macOS
+      </a>
+      <a class="btn btn-line m-magnet" href="{{repo_url}}">View on GitHub</a>
+    </div>
+  </div>
+</section>

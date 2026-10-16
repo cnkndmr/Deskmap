@@ -2,7 +2,7 @@
 
 PROJECT := Deskmap
 
-.PHONY: help app run install logs measure-idle sample url check test concurrency-check dist clean
+.PHONY: help app run install logs measure-idle sample url check test concurrency-check dist site site-serve site-shots clean
 
 help:
 	@echo "make app        Build the menu bar app (build/$(PROJECT).app)"
@@ -20,6 +20,9 @@ help:
 	@echo "                Strict concurrency warnings (-strict-concurrency=complete; report only)"
 	@echo "make dist       Distributable package: universal build + signing + zip (build/dist)"
 	@echo "                FORMAT=dmg|both  VERSION=x.y.z  SIGN_IDENTITY=...  NOTARY_PROFILE=..."
+	@echo "make site       Build the website into website/_site (Node + pandoc)"
+	@echo "make site-serve Build it and serve it on http://localhost:$(SITE_PORT)"
+	@echo "make site-shots Website screenshots, dark and light (website/shots)"
 	@echo "make clean      Delete build output"
 
 app:
@@ -96,6 +99,25 @@ concurrency-check:
 dist:
 	@./scripts/make-dist.sh
 
+# Web sitesi: website/ kaynağından website/_site'a (gitignore'da). Bağlantılar
+# göreli olduğundan alt yolda (GitHub Pages /Deskmap/) da çalışır.
+SITE_PORT ?= 8766
+site:
+	@node scripts/build-site.mjs
+
+# SITE_URL bu sunucuya göre verilir; yoksa 404.html'nin /Deskmap/... mutlak
+# bağlantıları yerelde kırılır.
+site-serve:
+	@SITE_URL=http://localhost:$(SITE_PORT)/ node scripts/build-site.mjs
+	@echo "Serving http://localhost:$(SITE_PORT)/ (Ctrl-C to stop)"
+	@python3 -m http.server $(SITE_PORT) --directory website/_site
+
+# Sitenin ekran görüntüleri, koyu ve açık görünümde (website/shots/<dil>/ ve
+# .../light/), uygulamanın --shots kipiyle çizilir, en çok 1600 px. Arayüz
+# değişince çalıştır ve website/shots'u commit'le.
+site-shots: app
+	@./scripts/site-shots.sh
+
 clean:
-	@rm -rf build app/.build
+	@rm -rf build app/.build website/_site
 	@echo "Cleaned."

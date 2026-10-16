@@ -1,0 +1,72 @@
+---
+title: Documentation — Deskmap
+description: The Deskmap docs: a ten-minute user guide, the full reference, the architecture, the privacy statement and the changelog.
+lang: en
+nav: docs
+css: docs
+body_class: docs-index
+---
+<header class="page-head">
+  <div class="wrap">
+    <span class="label"><b>Sheet 03</b> · Documentation</span>
+    <h1>Read the map.</h1>
+    <p class="lede">Start with the user guide: it takes about ten minutes, from install to your first pinned window. Everything else, every rule, every setting and every failure mode, is in the reference.</p>
+  </div>
+</header>
+
+<section class="sec sec-flush">
+  <div class="wrap">
+    <div class="cards cards-3">
+      <a class="card card-start" href="{{root}}docs/guide/">
+        <span class="label"><b>01</b> · Get started</span>
+        <h3>User guide</h3>
+        <p>Install, grant Accessibility, fix four macOS settings, pin your first window, give it a place and a size. Then plans, profiles and desktop names.</p>
+        <span class="meta">About ten minutes</span>
+      </a>
+      <a class="card" href="{{root}}docs/reference/">
+        <span class="label"><b>02</b> · Reference</span>
+        <h3>Reference</h3>
+        <p>Every rule, every setting, every failure mode: pins, modes, desktops, profiles, undo, backups, automation, shortcuts and limitations.</p>
+        <span class="meta">The full manual</span>
+      </a>
+      <a class="card" href="{{root}}docs/architecture/">
+        <span class="label"><b>03</b> · Architecture</span>
+        <h3>Architecture</h3>
+        <p>How the app is put together: the main types, what happens during a sweep, the retry limits, the data files and how localization works.</p>
+        <span class="meta">For contributors</span>
+      </a>
+      <a class="card" href="{{root}}privacy/">
+        <span class="label"><b>04</b> · Privacy</span>
+        <h3>Privacy</h3>
+        <p>The app collects nothing, sends nothing and has no network code at all. What it reads, where that goes, and how to check it yourself.</p>
+        <span class="meta">No network code</span>
+      </a>
+      <a class="card" href="{{root}}changelog/">
+        <span class="label"><b>05</b> · Changelog</span>
+        <h3>Changelog</h3>
+        <p>Every notable change, release by release, in the Keep a Changelog format, including what is already done but not yet released.</p>
+        <span class="meta">Current version {{version}}</span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <span class="label"><b>§ 01</b> · Quick jumps</span>
+        <h2>Looking for something specific?</h2>
+      </div>
+      <p>Direct links into the reference. If the answer isn't there, <a href="{{repo_url}}/issues">open an issue on GitHub</a>.</p>
+    </div>
+    <ul class="jump-list">
+      <li><a href="{{root}}docs/reference/#automation-url-scheme">Automation (URL scheme) <span>deskmap://</span></a></li>
+      <li><a href="{{root}}docs/reference/#troubleshooting">Troubleshooting <span>when a pin doesn't take effect</span></a></li>
+      <li><a href="{{root}}docs/reference/#required-macos-settings">Required macOS settings <span>once, before the first pin</span></a></li>
+      <li><a href="{{root}}docs/reference/#keyboard-shortcuts">Keyboard shortcuts <span>⌘R · ⌘1 / ⌘2 · ⌘Z</span></a></li>
+      <li><a href="{{root}}docs/reference/#command-line-deskmap">Command line <span>scripts/deskmap</span></a></li>
+      <li><a href="{{root}}docs/reference/#limitations">Limitations <span>what it can't do</span></a></li>
+    </ul>
+  </div>
+</section>

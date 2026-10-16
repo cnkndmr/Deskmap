@@ -15,7 +15,7 @@ whether the store is possible at all is in
 | Screenshots, 2880×1800 and 1280×800, English and Turkish | `appstore/screenshots/` — `swift appstore/make-store-shots.swift` (the raw 1120×1280 captures in `docs/images/` are **not** an accepted size) |
 | Privacy manifest | `app/Resources/PrivacyInfo.xcprivacy` (no data collected, no tracking) |
 | Privacy policy text | [privacy.md](../docs/privacy.md) |
-| Support page | the user guide, `../docs/site/` (link in the README) |
+| Support page | the website's docs, `https://cnkndmr.github.io/Deskmap/docs/` (built from `website/` and `docs/` by `make site`) |
 | Localizations declared | `CFBundleLocalizations = [en, tr]` |
 | Minimum macOS, version, build | `LSMinimumSystemVersion 13.0`, `VERSION` file |
 | Universal binary | `make dist` builds arm64 + x86_64 |

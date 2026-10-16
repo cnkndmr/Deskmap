@@ -1,0 +1,132 @@
+---
+title: Compare — Deskmap
+description: How Deskmap compares with macOS, Rectangle Pro, Moom, Stay, ShiftPlus, yabai, AeroSpace and Hammerspoon on placing windows on displays and desktops, with notes and sources for every product.
+lang: en
+nav: compare
+body_class: page-compare
+---
+<style>
+.cmp-wrap{max-height:none}
+.cmp-wrap table.matrix{min-width:980px}
+.cmp-wrap th:first-child,.cmp-wrap td:first-child{position:sticky;left:0;z-index:2;background:var(--sheet);min-width:15rem;max-width:20rem;box-shadow:1px 0 0 var(--rule-strong)}
+.cmp-wrap thead th{white-space:nowrap}
+.cmp-wrap thead th:first-child{z-index:3}
+.cmp-wrap td.us{background:var(--pin-soft)}
+.cmp-wrap thead th.us{background:var(--pin-soft)}
+@media (max-width:640px){.cmp-wrap th:first-child,.cmp-wrap td:first-child{min-width:9.5rem;max-width:9.5rem;font-size:.84rem;padding:10px}.cmp-wrap th,.cmp-wrap td{padding:10px 12px}}
+.cmp-hint{display:none;color:var(--ink-3);font-size:.86rem;margin:0 0 10px}
+@media (max-width:900px){.cmp-hint{display:block}}
+.note-card h3{font-size:1.15rem}
+.note-card .note-src{margin:16px 0 6px}
+.note-card ul.src{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.88rem}
+.note-card ul.src a{color:var(--pin-ink);text-underline-offset:3px}
+.cmp-sum{max-width:44em;font-size:1.1rem;color:var(--ink-2);margin:28px 0 0}
+</style>
+<section class="wrap"><div class="page-head">
+  <span class="label">Comparison · checked on 30 September 2026</span>
+  <h1>How Deskmap compares</h1>
+  <p class="lede">Thirteen capabilities, nine tools, checked against each product's own documentation. Where a cell says &ldquo;partly&rdquo;, the notes below say why.</p>
+</div></section>
+
+<section class="sec sec-flush" aria-labelledby="matrix-title">
+  <div class="wrap">
+    <h2 id="matrix-title" class="sr">Comparison table</h2>
+    <p class="cmp-hint">Swipe the table sideways. The first column stays in place.</p>
+    <div class="table-wrap cmp-wrap" tabindex="0" role="region" aria-labelledby="matrix-title">
+      <table class="matrix">
+        <caption class="sr">Deskmap compared with eight other tools on thirteen capabilities</caption>
+        <thead>
+          <tr><th scope="col">Capability</th><th scope="col" class="us">Deskmap</th><th scope="col">macOS</th><th scope="col">Rectangle Pro</th><th scope="col">Moom</th><th scope="col">Stay</th><th scope="col">ShiftPlus</th><th scope="col">yabai</th><th scope="col">AeroSpace</th><th scope="col">Hammerspoon</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Rules match the <strong>window title</strong>, not just the app</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row">Sends a window to a chosen <strong>native desktop</strong> (Space)</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row">…with System Integrity Protection left on</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk na" aria-hidden="true"></i><span class="sr">Does not apply</span></td><td><i class="mk na" aria-hidden="true"></i><span class="sr">Does not apply</span></td><td><i class="mk na" aria-hidden="true"></i><span class="sr">Does not apply</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk na" aria-hidden="true"></i><span class="sr">Does not apply</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row">Separate targets per <strong>display setup</strong></th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row">Re-places windows when a display is <strong>plugged in or unplugged</strong></th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row">Routes <strong>new windows</strong> as they open</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row"><strong>Size and position</strong> per rule</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row"><strong>Map</strong> of every display and desktop; drag a window to assign it</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td></tr>
+          <tr><th scope="row"><strong>Temporary pin</strong> for one window</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row"><strong>Timed free move</strong> for a pinned window</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row">Switchable <strong>profiles</strong></th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row"><strong>Automation</strong> from outside (URL, AppleScript or CLI)</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Partly, or with a limitation</span></td></tr>
+          <tr><th scope="row">No config file or script to write</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Built in</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Not available</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span><i class="mk y" aria-hidden="true"></i>Built in</span>
+      <span><i class="mk p" aria-hidden="true"></i>Partly, or with a limitation (see the notes)</span>
+      <span><i class="mk n" aria-hidden="true"></i>Not available</span>
+      <span><i class="mk na" aria-hidden="true"></i>Does not apply (the tool does not move windows between desktops)</span>
+    </div>
+    <p class="cmp-sum">Rectangle Pro and Stay come closest, but neither moves a window to another desktop. yabai does, from a shell script. The map, temporary pins and timed free move are built into none of them.</p>
+  </div>
+</section>
+
+<section class="sec" aria-labelledby="notes-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <span class="label"><b>Notes</b> · Sources</span>
+        <h2 id="notes-title">Notes and sources</h2>
+      </div>
+      <p>Checked on 30 September 2026 against each product's own documentation.</p>
+    </div>
+    <div class="cards-3 cards">
+      <article class="card note-card" id="note-macos">
+        <h3>macOS</h3>
+        <p><em>Dock › Options › Assign To</em> pins a whole app, not a window, to the desktop you are on; you cannot choose a desktop by number, and a new window follows only its app's assignment. Mission Control shows one desktop's windows at a time and a drag there is a one-off move. Shortcuts has <em>Move Window</em> and <em>Resize Window</em> actions, but there are no rules to trigger.</p>
+        <p class="label note-src">Sources</p>
+        <ul class="src"><li><a href="https://support.apple.com/guide/mac-help/work-in-multiple-spaces-mh14112/mac">Spaces</a></li><li><a href="https://support.apple.com/guide/mac-help/tile-app-windows-mchlef287e5d/mac">tiling</a></li></ul>
+      </article>
+      <article class="card note-card" id="note-rectangle-pro">
+        <h3>Rectangle Pro</h3>
+        <p>Layout entries match by title and can apply when a window opens or when a chosen display connects or disconnects. Those are triggers per display event, not setups stored side by side. It does not move windows between desktops.</p>
+        <p class="label note-src">Sources</p>
+        <ul class="src"><li><a href="https://rectangleapp.com/pro/docs/layouts/">layouts</a></li><li><a href="https://github.com/rxhanson/RectanglePro-Community">URL scheme</a></li></ul>
+      </article>
+      <article class="card note-card" id="note-moom-4">
+        <h3>Moom 4</h3>
+        <p>Saved layouts are snapshots: windows are matched by title only when a layout is applied, the geometry is the saved frame, and a window opened later is not routed. Layouts can trigger on a display configuration. Several named layouts exist, but no profiles that group rules.</p>
+        <p class="label note-src">Sources</p>
+        <ul class="src"><li><a href="https://manytricks.com/moom/help/customactions.html">custom actions</a></li><li><a href="https://manytricks.com/moom/help/applescript.html">AppleScript</a></li></ul>
+      </article>
+      <article class="card note-card" id="note-stay">
+        <h3>Stay</h3>
+        <p>Stores window frames per display combination and restores them when displays change; titles are matched with regular expressions. Windows are restored when their app launches, but a window opened later in a running app is not routed. The stored sets follow the display setup; there are no profiles you switch yourself. Automation is basic AppleScript and hot keys.</p>
+        <p class="label note-src">Sources</p>
+        <ul class="src"><li><a href="https://cordlessdog.com/stay/">overview</a></li><li><a href="https://cordlessdog.com/stay/documentation/window-title-pattern-matching/">title patterns</a></li><li><a href="https://cordlessdog.com/stay/documentation/general-preferences/">preferences</a></li></ul>
+      </article>
+      <article class="card note-card" id="note-shiftplus">
+        <h3>ShiftPlus</h3>
+        <p>A workspace is restored by hotkey: apps are launched on their assigned Space, and an app already on the wrong Space is quit and relaunched after asking; open windows are not moved. Arrangement presets are per app, applied on restore. Automation is a Raycast extension.</p>
+        <p class="label note-src">Sources</p>
+        <ul class="src"><li><a href="https://shiftplus.app/blog/stop-macos-rearranging-spaces/">Spaces</a></li><li><a href="https://shiftplus.app/blog/mac-windows-rearrange-external-monitor/">displays</a></li><li><a href="https://www.raycast.com/nghia_luong/shiftplus">Raycast extension</a></li></ul>
+      </article>
+      <article class="card note-card" id="note-yabai">
+        <h3>yabai</h3>
+        <p>Rules match titles by regular expression and send windows to a Space with a grid position. Moving windows between Spaces works with System Integrity Protection on since 7.1.25 (May 2026) on recent macOS; older systems need the scripting addition. Display signals fire, but re-placing is a script you write. <code>--one-shot</code> rules apply once to the next matching window; they are not tied to one window. Everything is configured from the command line.</p>
+        <p class="label note-src">Sources</p>
+        <ul class="src"><li><a href="https://github.com/asmvik/yabai/blob/master/doc/yabai.asciidoc">manual</a></li><li><a href="https://github.com/asmvik/yabai/blob/master/CHANGELOG.md">changelog</a></li></ul>
+      </article>
+      <article class="card note-card" id="note-aerospace">
+        <h3>AeroSpace</h3>
+        <p>Uses its own virtual workspaces instead of native desktops. <code>on-window-detected</code> rules match titles and run for every new window, in a TOML config. Workspaces are re-assigned to monitors on reconnect; single windows are not re-placed. Rules choose tiling or floating, not a size or position (<a href="https://github.com/nikitabobko/AeroSpace/issues/714">#714</a>). Binding modes switch key sets, not window rules.</p>
+        <p class="label note-src">Sources</p>
+        <ul class="src"><li><a href="https://nikitabobko.github.io/AeroSpace/guide">guide</a></li><li><a href="https://nikitabobko.github.io/AeroSpace/commands">commands</a></li></ul>
+      </article>
+      <article class="card note-card" id="note-hammerspoon">
+        <h3>Hammerspoon</h3>
+        <p>A scripting framework: every “partly” mark means "possible if you write the Lua". Nothing here works out of the box, and moving windows between Spaces is reported unreliable on macOS 15 and later in released builds (<a href="https://github.com/Hammerspoon/hammerspoon/pull/3889">#3889</a>).</p>
+        <p class="label note-src">Sources</p>
+        <ul class="src"><li><a href="https://www.hammerspoon.org/docs/hs.spaces.html">hs.spaces</a></li><li><a href="https://www.hammerspoon.org/docs/hs.window.filter.html">hs.window.filter</a></li><li><a href="https://www.hammerspoon.org/docs/hs.layout.html">hs.layout</a></li><li><a href="https://www.hammerspoon.org/docs/hs.screen.watcher.html">hs.screen.watcher</a></li></ul>
+      </article>
+    </div>
+    <div class="callout callout-note" style="margin-top:32px">
+      <p class="callout-title">Out of date?</p>
+      <p>Products change. If something here is out of date, <a href="{{repo_url}}/issues">open an issue</a>.</p>
+    </div>
+  </div>
+</section>

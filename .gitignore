@@ -27,3 +27,6 @@ appstore/screenshots/
 scripts/hooktest/vdisplay
 scripts/hooktest/HookProbe
 scripts/hooktest/resize
+
+# Website build output (make site)
+website/_site/

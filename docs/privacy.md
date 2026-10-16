@@ -28,6 +28,8 @@ What it writes stays on the Mac, in your own Application Support folder:
 |---|---|
 | `~/Library/Application Support/Deskmap/rules.json` | your pins, profiles and known displays |
 | `~/Library/Application Support/Deskmap/session-pins.json` | temporary pins (window and process IDs) |
+| `~/Library/Application Support/Deskmap/desktop-state.json` | desktops per display and their windows (IDs only, no titles) |
+| `~/Library/Application Support/Deskmap/status.json` | a snapshot of the current state (displays, windows, profile) for the `deskmap` command-line tool |
 | `~/Library/Application Support/Deskmap/Backups/` | automatic backups of `rules.json` (hourly for a day, daily for a week, weekly forever) |
 
 All are plain JSON you can read, edit or delete. Deleting them resets the

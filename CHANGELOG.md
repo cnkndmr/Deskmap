@@ -31,6 +31,11 @@ number comes from the `VERSION` file.
 
 ### Changed
 
+- **Docs on the website**: the one-page guide `docs/site/` is gone; the
+  guide, kılavuz, reference, architecture, privacy and this changelog are
+  built into the website by `make site` and deployed to GitHub Pages
+  (`.github/workflows/pages.yml`).
+
 - **Map window placement**: placed once per open with a fixed height that
   fits the screen's visible frame, pinned to the top center of the built-in
   display, shown only after it is sized, and no longer pushed around by
