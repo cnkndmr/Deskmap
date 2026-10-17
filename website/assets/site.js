@@ -5,6 +5,7 @@
      .reveal                  fade in on scroll
      a.zoom > img             click-to-enlarge lightbox (link works without JS)
      .prose pre, [data-copy]  copy button (data-copy="text to copy")
+     .lang-switch a           on docs pages, carries #section to the twin page
      #atlas                   home page two-setup map demo                  */
 (function () {
   'use strict';
@@ -33,6 +34,17 @@
     });
     if (mq.addEventListener) mq.addEventListener('change', paintTheme);
     paintTheme();
+  }
+
+  /* ---------- language switch keeps the section ----------
+     EN and TR docs share heading ids, so #automation-url-scheme on one is the
+     same section on the other. Only on docs pages: elsewhere ids differ. */
+  if (document.body.classList.contains('page-doc')) {
+    document.querySelectorAll('.lang-switch a[href], a[hreflang][lang]').forEach(function (a) {
+      a.addEventListener('click', function () {
+        if (location.hash && a.getAttribute('href').indexOf('#') < 0) a.setAttribute('href', a.getAttribute('href') + location.hash);
+      });
+    });
   }
 
   /* ---------- mobile nav ---------- */

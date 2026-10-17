@@ -77,6 +77,10 @@
  * the switch goes to the other language's home page. Give the TR page the
  * reverse `alt` (EN path, e.g. `alt: download/`). The site root itself is
  * written `alt: .` (so the TR home has `alt: .`, the EN home `alt: tr/`).
+ * Every page has a Turkish twin: tr/ (animated home), tr/classic/ (static
+ * home, noindex), tr/docs/ (docs landing), tr/download/, tr/compare/, and
+ * the Markdown docs (DOC_PAGES). In layout/page bodies use {{href.KEY}} for
+ * links that have a twin, so each language links within itself.
  *
  * ── Adding a page ──────────────────────────────────────────────────────────
  *   1. Create website/pages/<path>/index.html with the front matter above.
@@ -114,8 +118,10 @@ const GLOBALS = {
 
 /* Language-aware site-relative paths ({{href.KEY}}). */
 const NAV_HREFS = {
-  en: { home: '', docs: 'docs/', guide: 'docs/guide/', download: 'download/', compare: 'compare/', changelog: 'changelog/' },
-  tr: { home: 'tr/', docs: 'tr/docs/kilavuz/', guide: 'tr/docs/kilavuz/', download: 'tr/download/', compare: 'compare/', changelog: 'changelog/' },
+  en: { home: '', docs: 'docs/', guide: 'docs/guide/', reference: 'docs/reference/', architecture: 'docs/architecture/',
+        privacy: 'privacy/', download: 'download/', compare: 'compare/', changelog: 'changelog/', classic: 'classic/' },
+  tr: { home: 'tr/', docs: 'tr/docs/', guide: 'tr/docs/kilavuz/', reference: 'tr/docs/reference/', architecture: 'tr/docs/architecture/',
+        privacy: 'tr/privacy/', download: 'tr/download/', compare: 'tr/compare/', changelog: 'tr/changelog/', classic: 'tr/classic/' },
 };
 const NAV_ORDER = ['home', 'docs', 'download', 'compare', 'changelog'];
 
@@ -136,13 +142,13 @@ const I18N = {
     zoom: 'Open full size',
   },
   tr: {
-    nav_home: 'Anasayfa', nav_docs: 'Belgeler', nav_download: 'İndir', nav_compare: 'Karşılaştırma', nav_changelog: 'Değişiklikler',
-    nav_label: 'Ana menü', brand_label: 'Deskmap anasayfası', lang_label: 'Dil', skip: 'İçeriğe geç',
+    nav_home: 'Ana sayfa', nav_docs: 'Belgeler', nav_download: 'İndir', nav_compare: 'Karşılaştırma', nav_changelog: 'Değişiklikler',
+    nav_label: 'Ana menü', brand_label: 'Deskmap ana sayfası', lang_label: 'Dil', skip: 'İçeriğe geç',
     theme_dark: 'Koyu temaya geç', theme_light: 'Açık temaya geç',
     menu_open: 'Menüyü aç', menu_close: 'Menüyü kapat', download_short: 'İndir',
     foot_blurb: 'Her pencere doğru ekranda, doğru masaüstünde, doğru düzende. Can Kandemir’den macOS için ücretsiz bir menü çubuğu uygulaması.',
     foot_product: 'Ürün', foot_docs: 'Belgeler', foot_project: 'Proje',
-    foot_all_docs: 'Tüm belgeler (EN)', foot_guide: 'Kullanım kılavuzu', foot_reference: 'Başvuru (EN)', foot_architecture: 'Mimari (EN)', foot_privacy: 'Gizlilik',
+    foot_all_docs: 'Tüm belgeler', foot_guide: 'Kullanım kılavuzu', foot_reference: 'Başvuru', foot_architecture: 'Mimari', foot_privacy: 'Gizlilik',
     foot_issue: 'Sorun bildir', foot_support: 'Projeyi destekle',
     foot_license: 'MIT Lisansı · © {{year}} Can Kandemir · Hiç veri toplamaz',
     foot_vibe: 'Claude Code ile vibe coding yöntemiyle yazıldı',
@@ -298,7 +304,8 @@ function renderHandwrittenPages() {
  *   1. GitHub alert blockquotes (> [!NOTE] / [!TIP] / [!IMPORTANT] /
  *      [!WARNING] / [!CAUTION]) become <div class="callout callout-…"> in the
  *      Markdown itself, so the result does not depend on the pandoc version.
- *   2. pandoc -f gfm -t html5 (fragment, no section divs, with highlighting).
+ *   2. pandoc -f gfm+attributes -t html5 (fragment, no section divs, with
+ *      highlighting; `## Heading {#id}` sets an explicit id).
  *   3. Post-processing: links between docs → site URLs (DOC_PAGES + README →
  *      home), other repo files → github.com/…/blob/main/<path>, screenshots
  *      → {{root}}images/… wrapped in a.zoom with width/height, mermaid code
@@ -310,25 +317,52 @@ function renderHandwrittenPages() {
  * The changelog gets a release timeline (one section.release per version).
  * Title comes from DOC_PAGES; the meta description is DOC_PAGES.description
  * or else the first paragraph (whole sentences up to 158 characters).
+ * Languages: every EN doc has a Turkish twin (kilavuz.md for the guide,
+ * docs/tr/*.md for the rest), linked both ways with `alt`. The sidebar lists
+ * only the reader's language, each language has its own prev/next chain.
+ * Turkish sources: pandoc reads gfm+attributes, so a heading may carry an
+ * explicit id; TR pages keep the EN page's ids ("## Otomasyon (URL şeması)
+ * {#automation-url-scheme}") so deep links and the EN/TR switch (site.js
+ * carries the #hash over) land on the same section. Links in docs/tr/*.md:
+ * write them relative to docs/tr/ (reference.md, ../kilavuz.md,
+ * ../images/tr/x.png, ../../app/…) or copy the EN page's links verbatim; a
+ * path missing under docs/tr/ is retried relative to the EN source. Links to
+ * EN docs with a twin go to the twin, images/en/x → images/tr/x when a TR
+ * screenshot exists.
  * Do NOT add internal docs (desktop-names-v2, naming, distribution,
  * profile-desktop-state, test-matrix*): links to them go to GitHub.
- * The docs landing page is hand-written: website/pages/docs/index.html.
+ * The docs landing pages are hand-written: website/pages/docs/index.html
+ * and website/pages/tr/docs/index.html.
  * ═════════════════════════════════════════════════════════════════════════ */
 const DOC_PAGES = [
   { key: 'guide', src: 'docs/guide.md', url: 'docs/guide/', lang: 'en', alt: 'tr/docs/kilavuz/', group: 'start', title: 'User guide', nav: 'User guide' },
-  { key: 'kilavuz', src: 'docs/kilavuz.md', url: 'tr/docs/kilavuz/', lang: 'tr', alt: 'docs/guide/', group: 'start', title: 'Kullanım kılavuzu', nav: 'Kullanım kılavuzu', tag: 'TR' },
-  { key: 'reference', src: 'docs/reference.md', url: 'docs/reference/', lang: 'en', group: 'ref', title: 'Reference', nav: 'Reference', nav_tr: 'Başvuru',
+  { key: 'reference', src: 'docs/reference.md', url: 'docs/reference/', lang: 'en', alt: 'tr/docs/reference/', group: 'ref', title: 'Reference', nav: 'Reference',
     description: 'Every rule, every setting, every failure mode of Deskmap: pins, modes, desktops, profiles, backups, automation, shortcuts, troubleshooting and limitations.' },
-  { key: 'architecture', src: 'docs/architecture.md', url: 'docs/architecture/', lang: 'en', group: 'ref', title: 'Architecture', nav: 'Architecture', nav_tr: 'Mimari',
+  { key: 'architecture', src: 'docs/architecture.md', url: 'docs/architecture/', lang: 'en', alt: 'tr/docs/architecture/', group: 'ref', title: 'Architecture', nav: 'Architecture',
     description: 'How Deskmap is put together: the main types, what happens during a sweep, the retry limits, the data files and how localization works.' },
-  { key: 'privacy', src: 'docs/privacy.md', url: 'privacy/', lang: 'en', group: 'project', title: 'Privacy', nav: 'Privacy', nav_tr: 'Gizlilik', siteNav: 'none' },
-  { key: 'changelog', src: 'CHANGELOG.md', url: 'changelog/', lang: 'en', group: 'project', title: 'Changelog', nav: 'Changelog', nav_tr: 'Değişiklikler', siteNav: 'changelog', tocDepth: 2,
+  { key: 'privacy', src: 'docs/privacy.md', url: 'privacy/', lang: 'en', alt: 'tr/privacy/', group: 'project', title: 'Privacy', nav: 'Privacy', siteNav: 'none' },
+  { key: 'changelog', src: 'CHANGELOG.md', url: 'changelog/', lang: 'en', alt: 'tr/changelog/', group: 'project', title: 'Changelog', nav: 'Changelog', siteNav: 'changelog', tocDepth: 2,
     description: 'Every notable change to Deskmap, release by release: what was added, changed and fixed, and what is done but not released yet.' },
+  /* Turkish pages. `base` = the EN page's key (drives changelog/privacy
+   * handling and the body class). Sources live in docs/tr/ except the guide. */
+  { key: 'kilavuz', base: 'guide', src: 'docs/kilavuz.md', url: 'tr/docs/kilavuz/', lang: 'tr', alt: 'docs/guide/', group: 'start', title: 'Kullanım kılavuzu', nav: 'Kullanım kılavuzu' },
+  { key: 'tr_reference', base: 'reference', src: 'docs/tr/reference.md', url: 'tr/docs/reference/', lang: 'tr', alt: 'docs/reference/', group: 'ref', title: 'Başvuru', nav: 'Başvuru',
+    description: 'Deskmap’in bütün kuralları, ayarları ve aksayabilecek her şeyi: sabitlemeler, planlar, masaüstleri, profiller, yedekler, otomasyon, kısayollar, sorun giderme ve sınırlar.' },
+  { key: 'tr_architecture', base: 'architecture', src: 'docs/tr/architecture.md', url: 'tr/docs/architecture/', lang: 'tr', alt: 'docs/architecture/', group: 'ref', title: 'Mimari', nav: 'Mimari',
+    description: 'Deskmap nasıl kurulu: ana tipler, bir tarama sırasında neler olduğu, yeniden deneme sınırları, veri dosyaları ve yerelleştirmenin nasıl işlediği.' },
+  { key: 'tr_privacy', base: 'privacy', src: 'docs/tr/privacy.md', url: 'tr/privacy/', lang: 'tr', alt: 'privacy/', group: 'project', title: 'Gizlilik', nav: 'Gizlilik', siteNav: 'none' },
+  { key: 'tr_changelog', base: 'changelog', src: 'docs/tr/CHANGELOG.md', url: 'tr/changelog/', lang: 'tr', alt: 'changelog/', group: 'project', title: 'Değişiklikler', nav: 'Değişiklikler', siteNav: 'changelog', tocDepth: 2,
+    description: 'Deskmap’te öne çıkan her değişiklik, sürüm sürüm: neler eklendi, neler değişti, neler düzeltildi; bitmiş ama henüz yayımlanmamış olanlar da.' },
 ];
 const DOC_GROUPS = ['start', 'ref', 'project'];
-/* Reading order for prev/next. The Turkish guide sits outside the EN chain
- * and continues into the reference. */
-const DOC_CHAIN = { en: ['guide', 'reference', 'architecture', 'privacy', 'changelog'], tr: ['kilavuz', 'reference'] };
+/* Reading order for prev/next, one chain per language. */
+const DOC_CHAIN = {
+  en: ['guide', 'reference', 'architecture', 'privacy', 'changelog'],
+  tr: ['kilavuz', 'tr_reference', 'tr_architecture', 'tr_privacy', 'tr_changelog'],
+};
+const baseKey = (d) => d.base || d.key;
+/* The EN page a TR page translates (via alt), for link fallback. */
+const enTwin = (d) => (d.lang === 'tr' ? DOC_PAGES.find((e) => e.lang === 'en' && e.url === d.alt) : null);
 /* Docs UI strings (kept here, not in I18N, so the docs pipeline is
  * self-contained). */
 const DOCS_UI = {
@@ -336,24 +370,27 @@ const DOCS_UI = {
     docs: 'Docs', all_docs: 'All docs', on_this_page: 'On this page', doc_nav: 'Documentation',
     g_start: 'Get started', g_ref: 'Reference', g_project: 'Project',
     prev: 'Previous', next: 'Next', edit: 'Edit this page on GitHub', updated: 'Last change',
-    source: 'Source', anchor: 'Link to this section', diagram: 'Diagram', diagram_note: 'rendered from the Mermaid source in',
+    source: 'Source', anchor: 'Link to this section', diagram: 'Diagram', diagram_note: 'rendered from the Mermaid source in', fig: 'Fig.',
     unreleased: 'Unreleased', latest: 'Latest', in_progress: 'Not released yet', back_top: 'Back to top',
+    fallback_description: 'Deskmap documentation.',
+    months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   },
   tr: {
     docs: 'Belgeler', all_docs: 'Tüm belgeler', on_this_page: 'Bu sayfada', doc_nav: 'Belgeler',
     g_start: 'Başlarken', g_ref: 'Başvuru', g_project: 'Proje',
     prev: 'Önceki', next: 'Sonraki', edit: 'Bu sayfayı GitHub’da düzenle', updated: 'Son değişiklik',
-    source: 'Kaynak', anchor: 'Bu bölümün bağlantısı', diagram: 'Diyagram', diagram_note: 'Mermaid kaynağından çizildi:',
+    source: 'Kaynak', anchor: 'Bu bölümün bağlantısı', diagram: 'Diyagram', diagram_note: 'Mermaid kaynağından çizildi:', fig: 'Şekil',
     unreleased: 'Yayımlanmadı', latest: 'Son sürüm', in_progress: 'Henüz yayımlanmadı', back_top: 'Başa dön',
+    fallback_description: 'Deskmap belgeleri.',
+    months: ['Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran', 'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'],
   },
 };
 /* Repo files that moved after old docs (mostly the changelog) linked them. */
 const MOVED = { 'docs/app-store-submission.md': 'appstore/submission.md' };
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 function pandoc(markdown, source) {
   const bin = process.env.PANDOC || (fs.existsSync('/opt/homebrew/bin/pandoc') ? '/opt/homebrew/bin/pandoc' : 'pandoc');
-  const r = spawnSync(bin, ['-f', 'gfm', '-t', 'html5', '--wrap=none'], { input: markdown, encoding: 'utf8', maxBuffer: 64 << 20 });
+  const r = spawnSync(bin, ['-f', 'gfm+attributes', '-t', 'html5', '--wrap=none'], { input: markdown, encoding: 'utf8', maxBuffer: 64 << 20 });
   if (r.error || r.status !== 0) throw new Error(`pandoc failed on ${source}: ${r.error?.message || r.stderr}`);
   return r.stdout;
 }
@@ -449,27 +486,52 @@ function lastChange(src) {
   return r.status === 0 ? r.stdout.trim() : '';
 }
 
-/** Site-relative URL (without {{root}}) for a repo file, or null. */
+/** Site-relative URL (without {{root}}) for a repo file, or null. On a TR
+ *  page a link to an EN doc that has a Turkish twin goes to the twin (the
+ *  anchor is kept: TR pages keep the EN heading ids, see docs/tr/). EN pages
+ *  keep their deliberate links to Turkish docs ("[Türkçe](kilavuz.md)"). */
 function siteUrlForRepoPath(repoPath, lang) {
   const doc = DOC_PAGES.find((d) => d.src === repoPath);
-  if (doc) return doc.url;
+  if (doc) return lang === 'tr' && doc.lang === 'en' && doc.alt ? doc.alt : doc.url;
   if (repoPath === 'README.md') return NAV_HREFS[lang].home;
   return null;
 }
 
+/** docs/images/en/x.png on a TR page → docs/images/tr/x.png if that exists. */
+function localizedImage(repoPath, lang) {
+  if (lang !== 'tr') return repoPath;
+  const m = /^docs\/images\/en\/(.+)$/.exec(repoPath);
+  if (!m) return repoPath;
+  const tr = `docs/images/tr/${m[1]}`;
+  return fs.existsSync(path.join(REPO, tr)) || fs.existsSync(path.join(SHOTS, 'tr', m[1])) ? tr : repoPath;
+}
+
 function rewriteUrls(html, d) {
   const dir = path.posix.dirname(d.src);
+  // A TR doc in docs/tr/ may also use the EN page's links verbatim
+  // (reference.md, ../app/…, images/en/…): a path that does not exist
+  // relative to docs/tr/ is retried relative to the EN source's folder.
+  const twin = enTwin(d);
+  const twinDir = twin ? path.posix.dirname(twin.src) : null;
+  const resolve = (base, p) => {
+    const r = path.posix.normalize(path.posix.join(base, p));
+    return MOVED[r] || r;
+  };
+  const exists = (r) => !r.startsWith('..') && (DOC_PAGES.some((x) => x.src === r) || r === 'README.md' || fs.existsSync(path.join(REPO, r)));
   return html.replace(/(\s(?:href|src))="([^"]*)"/g, (all, attr, url) => {
     if (!url || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|\{\{)/i.test(url)) return all;
     const hashAt = url.indexOf('#');
     const p = hashAt < 0 ? url : url.slice(0, hashAt);
     const frag = hashAt < 0 ? '' : url.slice(hashAt);
-    let resolved = path.posix.normalize(path.posix.join(dir, decodeURI(p)));
-    resolved = MOVED[resolved] || resolved;
+    let resolved = resolve(dir, decodeURI(p));
+    if (twinDir !== null && twinDir !== dir && !exists(resolved)) {
+      const alt = resolve(twinDir, decodeURI(p));
+      if (exists(alt)) resolved = alt;
+    }
     if (resolved.startsWith('..')) { warn(`${d.src}: link outside the repo: ${url}`); return all; }
     const site = siteUrlForRepoPath(resolved, d.lang);
     if (site !== null) return `${attr}="{{root}}${site}${frag}"`;
-    if (resolved.startsWith('docs/images/')) return `${attr}="{{root}}${resolved.slice('docs/'.length)}"`;
+    if (resolved.startsWith('docs/images/')) return `${attr}="{{root}}${localizedImage(resolved, d.lang).slice('docs/'.length)}"`;
     const abs = path.join(REPO, resolved);
     if (!fs.existsSync(abs)) warn(`${d.src}: link to a missing repo file: ${url}`);
     const kind = fs.existsSync(abs) && fs.statSync(abs).isDirectory() ? 'tree' : 'blob';
@@ -502,7 +564,7 @@ function mermaidFigures(html, d, ui, counter) {
     const sect = heads.length ? plain(heads[heads.length - 1][1]) : '';
     const label = sect ? `${ui.diagram}: ${sect}` : `${ui.diagram} ${counter.n}`;
     return `<figure class="plate diagram"><div class="mermaid" role="img" aria-label="${esc(label)}">${code}</div>`
-      + `<figcaption><span><b>Fig. ${counter.n}</b> · ${esc(ui.diagram)}</span><span>${esc(ui.diagram_note)} <a href="${GLOBALS.repo_url}/blob/main/${d.src}">${d.src}</a></span></figcaption></figure>`;
+      + `<figcaption><span><b>${esc(ui.fig)} ${counter.n}</b> · ${esc(ui.diagram)}</span><span>${esc(ui.diagram_note)} <a href="${GLOBALS.repo_url}/blob/main/${d.src}">${d.src}</a></span></figcaption></figure>`;
   });
 }
 
@@ -532,12 +594,12 @@ function changelogTimeline(html, ui) {
     const v = /^\[?([^\]\s—–]+)\]?\s*(?:[—–-]\s*(\d{4}-\d{2}-\d{2}))?/.exec(text);
     const ver = v ? v[1] : text;
     const date = v && v[2];
-    const unreleased = /^unreleased$/i.test(ver);
+    const unreleased = /^(?:unreleased|yayımlanmadı|yayımlanmamış)$/i.test(ver);
     const id = unreleased ? 'unreleased' : 'v' + ver;
     let tag = '';
     if (unreleased) tag = `<span class="rel-tag rel-tag-next">${esc(ui.in_progress)}</span>`;
     else if (ver === VERSION) tag = `<span class="rel-tag">${esc(ui.latest)}</span>`;
-    const when = date ? `<time datetime="${date}">${+date.slice(8)} ${MONTHS[+date.slice(5, 7) - 1]} ${date.slice(0, 4)}</time>` : '';
+    const when = date ? `<time datetime="${date}">${+date.slice(8)} ${ui.months[+date.slice(5, 7) - 1]} ${date.slice(0, 4)}</time>` : '';
     const h2 = `<h2 id="${id}"><span class="rel-ver">${esc(unreleased ? ui.unreleased : ver)}</span>${when}${tag}</h2>`;
     return `<section class="release${unreleased ? ' release-next' : ''}">${h2}${chunk.slice(m[0].length)}</section>\n`;
   }).join('');
@@ -568,7 +630,7 @@ function docsSidebar(cur, ui) {
   return `<aside class="docs-side">
   <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav"><span class="label">${esc(ui.docs)}</span><span class="cur">${esc(cur.nav)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
   <nav class="docs-nav" id="docs-nav" aria-label="${esc(ui.doc_nav)}">
-    <a class="docs-home" href="{{root}}docs/">← ${esc(ui.all_docs)}</a>
+    <a class="docs-home" href="{{root}}{{href.docs}}">← ${esc(ui.all_docs)}</a>
 ${groups}
   </nav>
 </aside>`;
@@ -593,7 +655,7 @@ function renderMarkdownDocs() {
     const ui = DOCS_UI[d.lang];
     const md = alertsToCallouts(fs.readFileSync(path.join(REPO, d.src), 'utf8'), d.lang);
     let html = pandoc(md, d.src);
-    const description = d.description || summarize(html) || `${d.title} — Deskmap documentation.`;
+    const description = d.description || summarize(html) || `${d.title} — ${ui.fallback_description}`;
 
     html = html.replace(/<a href="#cb\d+-\d+"[^>]*><\/a>/g, ''); // pandoc line anchors
     html = rewriteUrls(html, d);
@@ -602,7 +664,7 @@ function renderMarkdownDocs() {
     html = mermaidFigures(html, d, ui, { n: 0 });
     // A hand-made contents list right after the intro duplicates the TOC.
     html = html.replace(/<ul>\s*(?:<li><a href="#[^"]*">[^<]*<\/a><\/li>\s*){4,}<\/ul>/, '');
-    if (d.key === 'changelog') html = changelogTimeline(html, ui);
+    if (baseKey(d) === 'changelog') html = changelogTimeline(html, ui);
     if (d.key === 'privacy') html = html.replace(/(<h2 id="türkçe-özet")/, '<div class="lang-block" lang="tr">$1') + (html.includes('id="türkçe-özet"') ? '</div>' : '');
     html = anchorHeadings(html, ui);
 
@@ -617,10 +679,10 @@ function renderMarkdownDocs() {
   <span>${esc(ui.source)} <a href="${GLOBALS.repo_url}/blob/main/${d.src}"><code>${d.src}</code></a></span>
   ${date ? `<span>${esc(ui.updated)} <time datetime="${date}">${date}</time></span>` : ''}
 </div>`;
-    const body = `<div class="docs-shell${d.key === 'changelog' ? ' docs-changelog' : ''}">
+    const body = `<div class="docs-shell${baseKey(d) === 'changelog' ? ' docs-changelog' : ''}">
 ${docsSidebar(d, ui)}
 <div class="docs-main">
-  <p class="label doc-crumb"><a href="{{root}}docs/"><b>§ ${esc(ui.docs)}</b></a> · ${esc(groupName(d))}</p>
+  <p class="label doc-crumb"><a href="{{root}}{{href.docs}}"><b>§ ${esc(ui.docs)}</b></a> · ${esc(groupName(d))}</p>
   <article class="prose doc">
 ${html}
   </article>
@@ -635,7 +697,7 @@ ${toc.length ? `<aside class="docs-toc"><nav aria-label="${esc(ui.on_this_page)}
       outRel: d.url + 'index.html', source: d.src, body,
       data: {
         title: `${d.title} — Deskmap`, description, lang: d.lang, nav: d.siteNav || 'docs',
-        alt: d.alt, css: 'docs', js: 'docs', body_class: `page-doc doc-${d.key}`,
+        alt: d.alt, css: 'docs', js: 'docs', body_class: `page-doc doc-${d.key}${d.base ? ' doc-' + d.base : ''}`,
       },
     });
   }
