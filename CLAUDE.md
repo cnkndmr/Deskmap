@@ -3,20 +3,25 @@
 ## Releases always update the Homebrew tap
 
 Deskmap is installed with `brew install --cask cnkndmr/tap/deskmap`. The cask
-lives in a separate repository, **cnkndmr/homebrew-tap** (`Casks/deskmap.rb`),
-and nothing updates it automatically. A release is not finished until the tap
-is updated too:
+lives in a separate repository, **cnkndmr/homebrew-tap** (`Casks/deskmap.rb`).
+A release is not finished until the tap points at it:
 
-1. After the new `Deskmap-<version>.zip` is attached to the GitHub release
-   `v<version>`, set `version` in `Casks/deskmap.rb` to the new version and
-   `sha256` to the checksum of exactly that zip (`shasum -a 256 Deskmap-<version>.zip`).
-2. Update the rest of the cask whenever the app changes what it describes:
+1. **Automatic.** When the GitHub release `v<version>` is published, the
+   workflow `.github/workflows/homebrew.yml` downloads `Deskmap-<version>.zip`
+   from it, sets `version` and `sha256` in `Casks/deskmap.rb` and pushes
+   "deskmap <version>" to the tap (only if something changed). Attach the zip
+   before publishing the release; if it was missing or replaced later, rerun
+   the workflow from the Actions tab (Run workflow, tag `v<version>`). It needs
+   the secret `HOMEBREW_TAP_TOKEN` (fine-grained token, Contents read/write on
+   cnkndmr/homebrew-tap only) and fails with a clear error without it.
+2. **Manual.** The workflow never touches the rest of the cask. Update it by
+   hand in the tap whenever the app changes what it describes:
    - `depends_on macos:` when `LSMinimumSystemVersion` changes,
    - `app` when the bundle name changes,
    - `zap trash:` when the data folder (`~/Library/Application Support/Deskmap`)
      or the bundle identifier (`com.deskmap.app`) changes,
    - `desc` / `homepage` when the tagline or the website URL changes.
-3. Commit and push the tap in the same task as the release, then check it:
+3. **Check.** After the workflow run is green:
    `brew update && brew info --cask cnkndmr/tap/deskmap` shows the new version.
 
-Do the same when a release asset is re-uploaded: a new zip means a new sha256.
+A re-uploaded release asset means a new sha256: rerun the workflow for that tag.

@@ -1,0 +1,103 @@
+name: Homebrew tap
+
+# Points the cask in cnkndmr/homebrew-tap at a published release: sets
+# `version` and `sha256` in Casks/deskmap.rb and pushes "deskmap <version>".
+# Needs the secret HOMEBREW_TAP_TOKEN: a fine-grained token with
+# Contents read/write on cnkndmr/homebrew-tap only (GITHUB_TOKEN cannot push
+# to another repository).
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to publish to the tap (e.g. v0.5.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: homebrew-tap
+  cancel-in-progress: false
+
+jobs:
+  cask:
+    name: Update Casks/deskmap.rb
+    runs-on: ubuntu-latest
+
+    env:
+      TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.tag }}
+
+    steps:
+      - name: Check the tap token
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "::error::Secret HOMEBREW_TAP_TOKEN is not set. Add a fine-grained token with Contents read/write on cnkndmr/homebrew-tap under Settings › Secrets and variables › Actions."
+            exit 1
+          fi
+
+      - name: Download the release zip
+        id: asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$TAG" in
+            v[0-9]*) ;;
+            *) echo "::error::Tag '$TAG' does not look like v<version>."; exit 1 ;;
+          esac
+          version="${TAG#v}"
+          asset="Deskmap-${version}.zip"
+          mkdir -p dl
+          if ! gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$asset" --dir dl; then
+            echo "::error::Release $TAG has no asset named $asset."
+            exit 1
+          fi
+          if [ ! -s "dl/$asset" ]; then
+            echo "::error::Release $TAG has no asset named $asset."
+            exit 1
+          fi
+          sha256="$(sha256sum "dl/$asset" | cut -d' ' -f1)"
+          echo "$asset sha256 $sha256"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Check out the tap
+        uses: actions/checkout@v4
+        with:
+          repository: cnkndmr/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Update version and sha256
+        working-directory: tap
+        env:
+          VERSION: ${{ steps.asset.outputs.version }}
+          SHA256: ${{ steps.asset.outputs.sha256 }}
+        run: |
+          cask=Casks/deskmap.rb
+          sed -i -E \
+            -e "s/^(  version )\"[^\"]*\"/\1\"${VERSION}\"/" \
+            -e "s/^(  sha256 )\"[^\"]*\"/\1\"${SHA256}\"/" \
+            "$cask"
+          grep -q "^  version \"${VERSION}\"$" "$cask" || { echo "::error::Could not set version in $cask."; exit 1; }
+          grep -q "^  sha256 \"${SHA256}\"$" "$cask" || { echo "::error::Could not set sha256 in $cask."; exit 1; }
+          git diff
+
+      - name: Commit and push
+        working-directory: tap
+        env:
+          VERSION: ${{ steps.asset.outputs.version }}
+        run: |
+          if git diff --quiet; then
+            echo "Cask already points at $VERSION; nothing to push."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "deskmap ${VERSION}"
+          git push
