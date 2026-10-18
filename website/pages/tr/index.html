@@ -5,531 +5,416 @@ description: Deskmap, macOS için ücretsiz ve açık kaynak bir menü çubuğu 
 lang: tr
 nav: home
 alt: .
-body_class: page-home page-motion
-css: motion
-js: motion
+layout: bare
+css: cine, home
+js: cine, home
+body_class: page-home page-cinematic
+theme_color: #ffffff #000000
 ---
 <!--
-  Animasyonlu Türkçe anasayfa: pages/index.html'in (EN, motion) Türkçesi; statik
-  sürüm pages/tr/classic/index.html. Sınıflar ve data- öznitelikleri EN ile aynı
-  kalmalı (assets/motion.js, assets/motion.css). Süs sahneleri aria-hidden;
-  gösterdikleri her bilgi metinde de var.
+  Türkçe ana sayfa: pages/index.html'in Türkçesi (layout: bare, bkz.
+  scripts/build-site.mjs "Bare pages"). Sınıflar, id'ler ve data- öznitelikleri
+  EN ile aynı kalmalı (assets/home.js, assets/home.css). Üst bar ve alt bilgi
+  bütün sinematik sayfaların ortak parçaları (website/partials/). Haritanın parçaları
+  <template id="mapRegions"> içinde; betiğin kendi kurduğu birkaç metin
+  home.js STR.tr'de. CSS'in büyük harfe çevirdiği yerlerdeki İngilizce ürün
+  adları lang="en" taşır (yoksa "STUDİO" olur).
 -->
-<div class="m-progress" data-sd="page" aria-hidden="true"></div>
+{{site_header}}
 
-<!-- HERO -->
-<section class="hero m-hero" data-sd="top" aria-labelledby="hero-title">
-  <div class="m-hero-grid" aria-hidden="true"></div>
+<main id="main">
+
+<!-- ============ HERO ============ -->
+<section class="hero" aria-labelledby="hero-title">
+  <div class="halo" aria-hidden="true"></div>
   <div class="wrap">
-    <div class="coords label m-in" style="--d:0" aria-hidden="true">
-      <span>Pafta 01 · Deskmap</span>
-      <span>macOS menü çubuğu uygulaması</span>
-      <span><b>●</b> Her pencerenin bir adresi var</span>
-    </div>
-    <p class="label m-in" style="--d:1">Ücretsiz ve açık kaynak · macOS 13+</p>
-    <h1 id="hero-title"><span class="sr">Her pencere doğru ekranda, doğru masaüstünde, doğru düzende. Her seferinde.</span><span class="m-h1" aria-hidden="true"><span class="m-wd"><span style="--i:0">Her</span></span> <span class="m-wd"><span style="--i:1">pencere</span></span> <span class="m-wd"><span style="--i:2">doğru</span></span> <span class="m-wd"><span style="--i:3">ekranda,</span></span> <span class="m-wd"><span style="--i:4">doğru</span></span> <span class="m-wd"><span style="--i:5">masaüstünde,</span></span> <span class="m-wd"><span style="--i:6">doğru</span></span> <span class="m-wd"><span style="--i:7">düzende.</span></span> <em><span class="m-wd"><span style="--i:8">Her</span></span> <span class="m-wd"><span style="--i:9">seferinde.</span></span></em></span></h1>
-    <div class="hero-intro">
-      <p class="lede m-in" style="--d:4">Pencereyi bir kez sabitle. Bundan sonra o ekranda, o masaüstünde (Alan), o düzende durur: açıldığında da, bir yere kaydığında da, monitörü taktığında ya da çıkardığında da.</p>
-      <div class="m-in" style="--d:5">
-        <div class="cta-row">
-          <a class="btn btn-pin m-magnet" href="{{release_url}}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
-            macOS için indir
-          </a>
-          <a class="btn btn-line m-magnet" href="{{root}}{{href.guide}}">Kullanım kılavuzunu oku</a>
-        </div>
-        <ul class="facts">
-          <li>Sürüm {{version}}</li>
-          <li>MIT lisansı</li>
-          <li>Apple silicon ve Intel</li>
-          <li>Hiç veri toplamaz</li>
-        </ul>
-      </div>
-    </div>
-
-    <figure class="plate m-hero-fig m-in" style="--d:6">
-      <div class="ruler-x" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>
-      <div class="ruler-y" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span></div>
-      <div class="m-stage-frame">
-        <div class="m-stage" role="img" aria-label="Diyagram: tek ekrana yığılmış dört pencere sabit yerlerine uçuyor. VS Code ile Pages, Studio Display’in 1. masaüstünde sol ve sağ yarıya yerleşiyor; Terminal dahili laptop ekranını dolduruyor; Mail 2. masaüstüne gidiyor. Her birinin üstüne bir harita iğnesi düşüyor.">
-          <div class="m-dev m-mon"><span class="m-dev-name"><span lang="en">Studio Display</span></span>
-            <div class="m-bar"><span class="m-sp on">1</span><span class="m-sp m-sp2">2<i></i></span><span class="m-sp">3</span></div>
-          </div>
-          <div class="m-neck"></div><div class="m-foot"></div>
-          <div class="m-dev m-lap"><span class="m-dev-name">Dahili ekran</span>
-            <div class="m-bar"><span class="m-sp on">1</span></div>
-          </div>
-          <div class="m-base"></div>
-
-          <div class="m-hw" data-w="acme">
-            <div class="m-tb"><i></i><i></i><i></i><span><b style="background:#3A9BEA"></b>acme-web</span></div>
-            <div class="m-sk"><i style="width:62%"></i><i style="width:80%"></i><i style="width:45%"></i><i style="width:70%"></i><i style="width:56%"></i></div>
-            <span class="m-tag"><span class="m-tag-d">Masaüstü 1 · </span>Sol yarı</span>
-            <span class="m-hpin"><svg viewBox="0 0 40 52"><path d="M20 51C20 51 2 31 2 19.5A18 18 0 0 1 38 19.5C38 31 20 51 20 51Z" fill="url(#m-pg)"/><circle cx="20" cy="19" r="6.5" fill="#16191F"/></svg><i class="m-ring"></i></span>
-          </div>
-          <div class="m-hw" data-w="notes">
-            <div class="m-tb"><i></i><i></i><i></i><span><b style="background:#F2C14E"></b>Sürüm notu</span></div>
-            <div class="m-sk m-sk-doc"><i style="width:40%"></i><i style="width:92%"></i><i style="width:88%"></i><i style="width:94%"></i><i style="width:60%"></i></div>
-            <span class="m-tag"><span class="m-tag-d">Masaüstü 1 · </span>Sağ yarı</span>
-            <span class="m-hpin"><svg viewBox="0 0 40 52"><path d="M20 51C20 51 2 31 2 19.5A18 18 0 0 1 38 19.5C38 31 20 51 20 51Z" fill="url(#m-pg)"/><circle cx="20" cy="19" r="6.5" fill="#16191F"/></svg><i class="m-ring"></i></span>
-          </div>
-          <div class="m-hw" data-w="deploy">
-            <div class="m-tb"><i></i><i></i><i></i><span><b style="background:#9AA4B5"></b>deploy</span></div>
-            <div class="m-sk m-sk-term"><i style="width:30%"></i><i style="width:66%"></i><i style="width:48%"></i></div>
-            <span class="m-tag"><span class="m-tag-d">Dahili · </span>Tam</span>
-            <span class="m-hpin"><svg viewBox="0 0 40 52"><path d="M20 51C20 51 2 31 2 19.5A18 18 0 0 1 38 19.5C38 31 20 51 20 51Z" fill="url(#m-pg)"/><circle cx="20" cy="19" r="6.5" fill="#16191F"/></svg><i class="m-ring"></i></span>
-          </div>
-          <div class="m-hw" data-w="mail">
-            <div class="m-tb"><i></i><i></i><i></i><span><b style="background:#4AA3F0"></b>Mail</span></div>
-            <div class="m-sk"><i style="width:70%"></i><i style="width:50%"></i><i style="width:76%"></i></div>
-          </div>
-          <span class="m-mail-tag">Mail → Masaüstü 2</span>
-          <svg width="0" height="0" style="position:absolute"><defs><linearGradient id="m-pg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFD27E"/><stop offset="1" stop-color="#EE7F2C"/></linearGradient></defs></svg>
-        </div>
-      </div>
-      <figcaption><span><b>Şek. 1</b> — Her pencere kendi ekranına, masaüstüne ve düzenine. Pencere adları örnektir.</span><span class="m-cap-r">Plan: Monitör bağlı <button type="button" class="play m-replay" hidden>Yeniden oynat</button></span></figcaption>
-    </figure>
-  </div>
-</section>
-
-<!-- INTERLUDE: the problem -->
-<section class="interlude m-interlude" aria-label="Sorun">
-  <div class="wrap">
-    <span class="label"><b>§ 00</b> · Sorun</span>
-    <p class="m-words" data-sd="words"><span class="mute">Monitörü takıyorsun. Pencereler tek ekrana yığılıyor. Hepsini tek tek yerine sürüklüyorsun,</span> <em>yine.</em></p>
-    <p class="then m-reveal">Deskmap hangi pencerenin nereye ait olduğunu hatırlar ve onu oraya koyar.</p>
-  </div>
-</section>
-
-<!-- HOW IT WORKS -->
-<section class="sec" id="how" aria-labelledby="how-title">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="m-reveal">
-        <span class="label"><b>§ 01</b> · Nasıl çalışır</span>
-        <h2 id="how-title">Pencerelerin bir adresi olur.</h2>
-      </div>
-      <p class="m-reveal" style="--d:1">Her sabitleme üç şey söyler: hangi ekran, hangi masaüstü, ekranın hangi kısmı. Ve her sabitlemenin iki adresi vardır: biri monitör takılıyken, biri yalnız laptopla. Kabloyu çektiğinde her pencere öbür adresine gider.</p>
-    </div>
-  </div>
-
-  <div class="m-plug" id="plug" data-sd="pin">
-    <div class="m-plug-sticky">
-      <div class="wrap">
-        <figure class="plate m-plug-fig">
-          <div class="m-plug-head" aria-hidden="true">
-            <span class="label">Geçerli plan</span>
-            <span class="m-plan"><span class="m-plan-a">Monitör bağlı</span><span class="m-plan-b">Sadece laptop</span></span>
-            <span class="m-rail"><i></i></span>
-          </div>
-          <div class="m-plug-frame">
-            <div class="m-plug-stage" role="img" aria-label="Diyagram: üç masaüstlü bir Studio Display ile üç masaüstlü dahili laptop ekranı, bir kabloyla bağlı. Kablo çekilince dört sabit pencere Sadece laptop planındaki yerlerine geçiyor; kablo yeniden takılınca Monitör bağlı planındaki yerlerine dönüyor.">
-              <div class="m-cable">
-                <svg class="m-cable-w" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M21 82 H14.5 Q12 82 12 79 V50"/></svg>
-                <svg class="m-cable-n" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M80 65 V52"/></svg>
-                <span class="m-plughead"></span>
-              </div>
-              <span class="m-port"></span>
-              <div class="tile tile-monitor m-dim"><span class="tile-name"><span lang="en">Studio Display</span></span></div>
-              <div class="region m-dim r-m1"><span>MASAÜSTÜ 1</span></div>
-              <div class="region m-dim r-m2"><span>MASAÜSTÜ 2</span></div>
-              <div class="region m-dim r-m3"><span>MASAÜSTÜ 3</span></div>
-              <div class="tile tile-laptop"><span class="tile-name">Dahili ekran</span></div>
-              <div class="region r-l1"><span>1</span></div>
-              <div class="region r-l2"><span>2</span></div>
-              <div class="region r-l3"><span>3</span></div>
-              <span class="m-unplugged">Monitör çıkarıldı</span>
-              <span class="m-settle"><i></i>Yatışıyor</span>
-
-              <div class="m-w" data-w="acme"><span class="t"><i class="dot" style="background:#3A9BEA"></i>acme-web</span><span class="sub">VS Code · proje</span><svg class="pinmark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg></div>
-              <div class="m-w" data-w="notes"><span class="t"><i class="dot" style="background:#F2C14E"></i>Sürüm notu</span><span class="sub">Pages · dosya</span><svg class="pinmark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg></div>
-              <div class="m-w" data-w="deploy"><span class="t"><i class="dot" style="background:#9AA4B5"></i>deploy</span><span class="sub">Terminal · user@host</span><svg class="pinmark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg></div>
-              <div class="m-w" data-w="mail"><span class="t"><i class="dot" style="background:#4AA3F0"></i>Mail</span><span class="sub">tüm pencereler</span><svg class="pinmark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg></div>
-            </div>
-          </div>
-          <p class="m-plug-status" aria-hidden="true">
-            <span style="--a:-1;--b:.14">Monitör bağlı · sabit pencerelerin hepsi yerinde</span>
-            <span style="--a:.14;--b:.26">Monitör çıkarıldı · ekranların yatışması bekleniyor</span>
-            <span style="--a:.26;--b:.58">4 sabit pencere Sadece laptop planına taşındı</span>
-            <span style="--a:.58;--b:.66">Monitör takıldı · ekranların yatışması bekleniyor</span>
-            <span style="--a:.66;--b:2">4 sabit pencere Monitör bağlı planına taşındı</span>
-          </p>
-          <div class="controls m-plug-controls" hidden>
-            <div class="seg" role="group" aria-label="Plan">
-              <button type="button" data-plug-plan="monitor" aria-pressed="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9 20h6M12 16v4"/></svg>Monitör bağlı</button>
-              <button type="button" data-plug-plan="laptop" aria-pressed="false">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M2.5 18.5h19"/></svg>Sadece laptop</button>
-            </div>
-          </div>
-          <figcaption><span><b>Şek. 2</b> — İki plan, tek sabitleme. <span class="m-scroll-hint">Kabloyu çekip yeniden takmak için aşağı kaydır.</span> Pencere adları örnektir.</span></figcaption>
-        </figure>
-      </div>
-    </div>
-  </div>
-
-  <div class="wrap">
-    <div class="m-steps-row">
-      <ol class="steps m-steps">
-        <li class="m-reveal"><span class="n">01</span><div><h3>Pencereyi başlığıyla sabitle</h3><p>Haritada pencereye tıkla ve sabitle. Deskmap ona kararlı bir anahtar bulur: gösterdiği dosya, VS Code’un proje klasörü, Terminal’in <code>kullanıcı@makine</code>’si, Safari’nin sekme grubu. İstersen uygulamanın bütün pencerelerini sabitle.</p></div></li>
-        <li class="m-reveal" style="--d:1"><span class="n">02</span><div><h3>Artık orada yaşar</h3><p>Pencere açıldığında, bir yere kaydığında, yeniden başlattıktan sonra: Deskmap onu kendi ekranına, kendi masaüstüne, kendi düzenine geri koyar.</p></div></li>
-        <li class="m-reveal" style="--d:2"><span class="n">03</span><div><h3>Tak, çıkar: yerine döner</h3><p><em>Monitör bağlı</em> ve <em>Sadece laptop</em> iki ayrı plandır. Ekranlar değişince Deskmap birkaç saniye yatışmalarını bekler, sonra her sabit pencereyi o planın dediği yere koyar.</p></div></li>
-      </ol>
-      <p class="quote m-reveal" style="--d:3">“Sabitleme, bir başlık sözüdür. Gerisi sürükle bırak.”<small>— <a class="text-link" href="{{root}}{{href.guide}}">Kullanım kılavuzundan</a></small></p>
-    </div>
-  </div>
-</section>
-
-<!-- FEATURES -->
-<section class="sec" id="features" aria-labelledby="features-title">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="m-reveal">
-        <span class="label"><b>§ 02</b> · Özellikler</span>
-        <h2 id="features-title">Harita, uygulamanın kendisi.</h2>
-      </div>
-      <p class="m-reveal" style="--d:1">Betik yok, ayar dosyası yok, bağımlılık yok. Her şeyi ekranlarının ve masaüstlerinin haritası üzerinde tıklayıp sürükleyerek kurarsın.</p>
-    </div>
-
-    <figure class="plate m-bigshot" data-sd="in">
-      <div class="ruler-x" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>
-      <a class="zoom m-tilt" href="{{root}}images/tr/01-map.png" aria-label="Harita ekran görüntüsünü tam boyutta aç">
-        <div class="shot m-shot">
-          <img src="{{root}}images/tr/01-map.png" width="2535" height="1504" loading="lazy" decoding="async" sizes="(max-width: 1180px) 92vw, 1130px" alt="Deskmap haritası: Studio Display masaüstü kartlarıyla gösteriliyor, her kartta sabit pencereler kendi yerinde ve boyutunda; solda sabitlemeler ve yeri olmayan pencereler.">
-          <span class="m-curtain" aria-hidden="true"></span>
-        </div>
+    <div class="hero-icon fade-late" style="--d:.05s"><img src="{{root}}assets/images/icon-256.png" alt="Deskmap uygulama simgesi" width="104" height="104"></div>
+    <p class="eyebrow fade-late" style="--d:.15s">Deskmap · pencerelerini yerine koyan Mac menü çubuğu uygulaması</p>
+    <h1 class="mega words" id="hero-title" aria-label="Her pencere kendi yerinde.">
+      <span class="w" style="--i:0" aria-hidden="true">Her</span>
+      <span class="w" style="--i:1" aria-hidden="true">pencere</span>
+      <span class="w grad" style="--i:2" aria-hidden="true">kendi</span>
+      <span class="w grad" style="--i:3" aria-hidden="true">yerinde.</span>
+    </h1>
+    <p class="lede fade-late" style="--d:1.0s">Pencereyi bir kez sabitle. Hep doğru ekranda, doğru masaüstünde, doğru düzende durur. <strong>Her seferinde.</strong></p>
+    <div class="cta-row fade-late" style="--d:1.25s">
+      <a class="btn" href="{{release_url}}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M6.5 10l5.5 5.5L17.5 10M4 20h16"/></svg>
+        Mac için indir
       </a>
-      <figcaption><span><b>Şek. 3</b> — Harita: her ekran, her masaüstü, her pencere.</span><span>Plan: Monitör bağlı</span></figcaption>
-    </figure>
+      <a class="link-arrow" href="#plug">Nasıl çalıştığını izle</a>
+    </div>
+    <ul class="meta fade-late" style="--d:1.4s" aria-label="Kısaca"><li>Ücretsiz</li><li>Açık kaynak, MIT</li><li>macOS 13+</li><li>Apple silicon ve Intel</li></ul>
+  </div>
+  <div class="cue" aria-hidden="true"></div>
+</section>
 
-    <article class="feature">
-      <div class="ftext m-reveal">
-        <span class="label"><b>B2</b> · Başlığa göre sabitle</span>
-        <h3>Aynı uygulamada iki proje, iki ayrı yer.</h3>
-        <p>Kurallar yalnız uygulamaya değil, pencere başlığına bakar. İki VS Code çalışma alanı ya da iki Safari sekme grubu iki ayrı masaüstünde durabilir.</p>
-        <div class="m-title" data-play aria-hidden="true">
-          <div class="m-trow">
-            <div class="m-tbar"><i></i><i></i><i></i><span class="m-tt"><span class="tk tk1">server.ts</span> <span class="tk">—</span> <span class="tk tk3">acme-web</span></span></div>
-            <span class="m-key"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg>acme-web <b>→ Masaüstü 1</b></span>
+<!-- ============ SCENE 1: plug / unplug ============ -->
+<section class="scene" id="plug" aria-labelledby="plug-title">
+  <h2 class="sr" id="plug-title">Monitörü tak, her pencere kendi yerine gider. Çıkar, her biri geri döner.</h2>
+  <div class="scene-stick">
+    <div class="plan-row">
+      <p class="plan-label" id="plan-label">Plan</p>
+      <div class="plan" id="plan" data-on="laptop" role="group" aria-labelledby="plan-label">
+        <span class="knob" aria-hidden="true"></span>
+        <button type="button" data-plan="monitor" aria-pressed="false">Monitör bağlı</button>
+        <button type="button" data-plan="laptop" aria-pressed="true">Sadece laptop</button>
+      </div>
+    </div>
+
+    <div class="stage" id="stage" aria-hidden="true">
+      <div class="floor"></div>
+      <div class="display" id="display"><span class="tag" lang="en">Studio Display</span><div class="bez"><div class="scr"></div></div><div class="neck"></div><div class="foot"></div></div>
+      <div class="laptop" id="laptop"><div class="bez"><div class="scr"></div></div><div class="base"></div></div>
+
+      <div class="thumb-1" id="thumb1"></div>
+      <div class="thumbs-l" data-tl="0"><span>Masaüstü 1</span></div>
+      <div class="thumbs-l" data-tl="1"><span>Masaüstü 2</span></div>
+      <div class="thumbs-l" data-tl="2"><span>Masaüstü 3</span></div>
+      <div class="thumbs-l" data-tl="3"><span>Masaüstü 4</span></div>
+      <div class="thumbs-l" data-tl="4"><span>Masaüstü 5</span></div>
+
+      <div class="win" data-w="0" style="--c:#ff6a5c"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="ti"><b></b>Design Review</span></div><div class="body"><i></i><i></i><i></i><i></i></div><span class="pinmark">●</span></div>
+      <div class="win" data-w="1" style="--c:#2f8cff"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="ti"><b></b>Release notes</span></div><div class="body"><i></i><i></i><i></i><i></i></div><span class="pinmark">●</span></div>
+      <div class="win" data-w="2" style="--c:#30c85a"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="ti"><b></b>Messages <span>acme-web</span></span></div><div class="body"><i></i><i></i><i></i><i></i></div><span class="pinmark">●</span></div>
+      <div class="win term" data-w="3" style="--c:#7ee787"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="ti"><b></b>deploy <span>· ~/acme-web</span></span></div><div class="body">$ make release<br>✓ built<br>$ _</div><span class="pinmark">●</span></div>
+      <div class="win" data-w="4" style="--c:#a26bff"><div class="bar"><span class="dots"><i></i><i></i><i></i></span><span class="ti"><b></b>Handbook</span></div><div class="body"><i></i><i></i><i></i><i></i></div><span class="pinmark">●</span></div>
+
+      <div class="sweep" id="sweep"></div>
+    </div>
+
+    <div class="captions" id="captions">
+      <p data-c="0"><strong>Pencereler savruluyor.</strong><span>Nereye denk gelirse orada açılıyor, tek ekrana yığılıyorlar.</span></p>
+      <p data-c="1"><strong>Monitörü tak.</strong><span>Deskmap <em>Monitör bağlı</em> planına geçer.</span></p>
+      <p data-c="2"><strong class="grad">Her pencere evine uçar.</strong><span>Her sabitleme: tek ekran, tek masaüstü, tek düzen.</span></p>
+      <p data-c="3"><strong>Çıkar.</strong><span>Bu kez <em>Sadece laptop</em> planı devreye girer.</span></p>
+      <p data-c="4"><strong class="grad">Her biri kendi masaüstüne döner.</strong><span>Bir kez sabitle. Her seferinde aynısı olur.</span></p>
+    </div>
+    <div class="static-story" id="staticStory" data-on="monitor">
+      <p data-s="monitor">Monitörü tak: <span>her sabit pencere kendi ekranına, masaüstüne ve düzenine gider.</span></p>
+      <p data-s="laptop">Çıkar: <span>her biri <em>Sadece laptop</em> planındaki yerine döner.</span></p>
+    </div>
+    <p class="sr" id="planLive" aria-live="polite"></p>
+  </div>
+</section>
+
+<!-- ============ PIN BY TITLE ============ -->
+<section class="block center" aria-labelledby="pin-title">
+  <div class="wrap">
+    <p class="eyebrow rv">Başlığa göre sabitle</p>
+    <h2 class="big rv" id="pin-title" style="--d:.1s">İki proje.<br><span class="grad">İki ayrı yer.</span></h2>
+    <p class="lede rv" style="--d:.2s">İki VS Code çalışma alanı ya da iki Safari sekme grubu iki ayrı yerde durabilir. Başlığın, çalışma alanını adlandıran parçasını seç. İstersen uygulamanın tamamını, istersen tek bir pencereyi sabitle.</p>
+    <div class="titlebar-demo rv" style="--d:.25s">
+      <div class="tb"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="t">Messages — <mark>acme-web</mark></span></div>
+      <div class="route">
+        <span class="arrow" aria-hidden="true">→</span>
+        <span class="chip" lang="en">Studio Display</span>
+        <span class="chip">Masaüstü 2</span>
+        <span class="chip">Sağ yarı</span>
+      </div>
+      <p class="demo-note">Alanı ızgara üzerinde çiz, hazır bir düzen seç ya da sabit bir boyut ver. Ekran, masaüstü ve düzen tek bir sabitlemede bir arada.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SCENE 2: the map ============ -->
+<section class="scene" id="map" aria-labelledby="map-title">
+  <div class="scene-stick">
+    <div class="map-head">
+      <p class="eyebrow">Harita</p>
+      <h2 class="big" id="map-title"><span class="w2">Harita,</span> <span class="w2 grad">uygulamanın</span> <span class="w2 grad">kendisi.</span></h2>
+    </div>
+    <div class="map-frame" id="mapFrame">
+      <div class="map-tilt" id="mapTilt">
+        <div class="map-pan" id="mapPan">
+          <div class="map-img" id="mapImg">
+            <img src="{{root}}images/tr/01-map.png" alt="Deskmap haritası: Studio Display, 1’den 5’e masaüstü kartlarıyla; sabit pencereler kendi yerlerinde çizili, yeri olmayan pencereler yan sütunda" loading="lazy" decoding="async">
+            <div class="map-spot" id="mapSpot" aria-hidden="true"></div>
+            <div class="hots" id="hots" role="group" aria-label="Haritanın parçaları. Her biri bir açıklama açar."></div>
           </div>
-          <div class="m-trow m-trow2">
-            <div class="m-tbar"><i></i><i></i><i></i><span class="m-tt"><span class="tk tk1">schema.sql</span> <span class="tk">—</span> <span class="tk tk3">acme-api</span></span></div>
-            <span class="m-key"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg>acme-api <b>→ Masaüstü 2</b></span>
-          </div>
-          <span class="m-title-cap"><span lang="en">Visual Studio Code</span> · iki çalışma alanı · anahtar, proje klasörü</span>
-        </div>
-        <ul>
-          <li>Anahtar, pencerenin gösterdiği dosyadan ya da başlığın hep aynı kalan parçasından gelir.</li>
-          <li>İki ayrı <code>main.pdf</code> birbirine karışmaz.</li>
-          <li>İstersen <em>uygulamanın bütün pencerelerini</em> sabitle: Mail ya da Slack için birebir.</li>
-        </ul>
-      </div>
-      <figure class="plate m-fshot" data-sd="in">
-        <a class="zoom m-tilt" href="{{root}}images/tr/02-pin.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/tr/02-pin.png" width="2535" height="1504" sizes="(max-width: 900px) 92vw, 700px" alt="Messages penceresinin paneli: bu pencere (general) → Built-in Display · Masaüstü 2 · Tam; başlığında “general” geçen pencerelere uyar."><span class="m-curtain" aria-hidden="true"></span></div></a>
-        <figcaption><span><b>Şek. 4</b> — Pencereyi tanımlayan başlık parçasını seçmek.</span></figcaption>
-      </figure>
-    </article>
-
-    <article class="feature flip">
-      <figure class="plate m-fshot m-from-left" data-sd="in">
-        <a class="zoom m-tilt" href="{{root}}images/tr/03-layout.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/tr/03-layout.png" width="2535" height="1504" sizes="(max-width: 900px) 92vw, 700px" alt="Bir sabitlemenin paneli: Studio Display, Masaüstü 2, Sağ yarı; altında düzen düğmeleri ve Neden burada? kutusu."><span class="m-curtain" aria-hidden="true"></span></div></a>
-        <figcaption><span><b>Şek. 5</b> — Ekran, masaüstü ve düzen tek cümlede.</span></figcaption>
-      </figure>
-      <div class="ftext m-reveal">
-        <span class="label"><b>C3</b> · Düzenler</span>
-        <h3>Ekran, masaüstü ve boyut tek sabitlemede.</h3>
-        <p><strong>Tam</strong>, <strong>Sol yarı</strong>, <strong>Sağ yarı</strong> ya da <strong>Olduğu gibi</strong>. Alanı ızgara üzerinde çiz, hazır bir düzen seç ya da sabit bir boyut ver.</p>
-        <div class="m-lay" data-play aria-hidden="true">
-          <div class="m-lay-screen"><span class="m-lay-win"></span></div>
-          <div class="m-lay-names"><span>Tam</span><span>Sol yarı</span><span>Sağ yarı</span><span>Olduğu gibi</span><i class="m-lay-ind"></i></div>
-        </div>
-        <ul>
-          <li>Pencerenin kutusunu başka bir masaüstünün kartına sürükle, hangi ekranda olursa olsun.</li>
-          <li><strong>Neden burada?</strong> pencereyi hangi sabitlemenin oraya koyduğunu düz sözlerle söyler.</li>
-        </ul>
-      </div>
-    </article>
-
-    <article class="feature m-feature-strip">
-      <div class="ftext m-reveal">
-        <span class="label"><b>D1</b> · Çalışma alanları</span>
-        <h3>Bütün bir çalışma düzenini tek tıkla aç.</h3>
-        <p>Kapalı sabit pencereleri olan masaüstünün adının yanında <strong>N aç</strong> çıkar. Tek tık hepsini açar, her biri kendi yerine gelir.</p>
-        <ul>
-          <li>Uygulama grubu başına da var: kapalı sabitlemelerini yeniden aç ya da oradaki sabit pencerelerinin hepsini kapat.</li>
-          <li>Kaydedilmemiş bir belge varsa pencere kapanmadan önce yine sorulur.</li>
-        </ul>
-      </div>
-      <figure class="plate m-fshot" data-sd="in">
-        <a class="zoom m-tilt" href="{{root}}images/tr/08-open-closed.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/tr/08-open-closed.png" width="2535" height="1504" sizes="(max-width: 900px) 92vw, 700px" alt="Masaüstü 3’te 4 aç düğmesi ve dört kapalı sabitlemesi tek tıkla açılan bir Preview (Önizleme) grubu."><span class="m-curtain" aria-hidden="true"></span></div></a>
-        <figcaption><span><b>Şek. 6</b> — Kapalı sabitlemeler çip olarak bekler; 4 aç hepsini geri getirir.</span></figcaption>
-      </figure>
-      <div class="m-strip" data-sd="strip" aria-hidden="true">
-        <div class="m-track">
-          <div class="m-desk"><span class="m-dname">Masaüstü 1</span><div class="m-dbody"><i class="m-dw" style="left:6%;top:10%;width:42%;height:80%"></i><i class="m-dw" style="left:52%;top:10%;width:42%;height:80%"></i></div></div>
-          <div class="m-desk"><span class="m-dname">Masaüstü 2</span><div class="m-dbody"><i class="m-dw" style="left:6%;top:10%;width:88%;height:80%"></i></div></div>
-          <div class="m-desk m-desk3"><span class="m-dname">Masaüstü 3 <span class="m-open">4 aç</span></span>
-            <div class="m-dbody">
-              <i class="m-chip" style="left:6%;top:10%;width:42%;height:38%;--j:0"></i>
-              <i class="m-chip" style="left:52%;top:10%;width:42%;height:38%;--j:1"></i>
-              <i class="m-chip" style="left:6%;top:52%;width:42%;height:38%;--j:2"></i>
-              <i class="m-chip" style="left:52%;top:52%;width:42%;height:38%;--j:3"></i>
-            </div>
-          </div>
-          <div class="m-desk"><span class="m-dname">Masaüstü 4</span><div class="m-dbody"><i class="m-dw" style="left:20%;top:16%;width:60%;height:68%"></i></div></div>
         </div>
       </div>
-    </article>
-
-    <article class="feature flip">
-      <figure class="plate m-fshot m-from-left" data-sd="in">
-        <a class="zoom m-tilt" href="{{root}}images/tr/06-free-move.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/tr/06-free-move.png" width="2535" height="1504" sizes="(max-width: 900px) 92vw, 700px" alt="15 dakika serbest bırakılmış sabit bir pencere; panelde Serbest · 15:00 kaldı yazıyor, yanında +5 dk ve Şimdi bitir."><span class="m-curtain" aria-hidden="true"></span></div></a>
-        <img class="inset" loading="lazy" decoding="async" src="{{root}}images/en/07-menu.png" width="372" height="190" alt="Menü çubuğu simgesinin sağ tık menüsü: 1, 5, 15, 30 ya da 60 dakika serbest bırakma seçenekleri (İngilizce arayüz).">
-        <figcaption><span><b>Şek. 7</b> — Serbest bırak, menü çubuğu simgesinden de (küçük resim).</span></figcaption>
-      </figure>
-      <div class="ftext m-reveal">
-        <span class="label"><b>E4</b> · Serbest bırak</span>
-        <h3>Pencere biraz gezsin. Sonra evine döner.</h3>
-        <p>Sabit bir pencereyi bir süre elle mi taşıyacaksın? 1 ile 60 dakika arası serbest bırak. Süre bitene dek Deskmap ona dokunmaz, sonra yerine koyar.</p>
-        <div class="m-free" data-play aria-hidden="true">
-          <span class="m-free-home">Sabit yeri</span>
-          <div class="m-free-win">
-            <span class="t"><i class="dot" style="background:#F2C14E"></i>Sürüm notu</span>
-            <svg class="m-free-ring" viewBox="0 0 36 36"><circle class="bg" cx="18" cy="18" r="15"/><circle class="fg" cx="18" cy="18" r="15" pathLength="100"/></svg>
-            <svg class="m-free-pin" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22s-7-7.6-7-13a7 7 0 0 1 14 0c0 5.4-7 13-7 13Z"/></svg>
-          </div>
-          <span class="m-free-chip">Serbest · 1–60 dk</span>
+      <div class="map-card" id="mapCard" role="dialog" aria-modal="false" aria-labelledby="mcTitle">
+        <span class="mc-handle" aria-hidden="true"></span>
+        <h3 id="mcTitle" tabindex="-1"></h3>
+        <p class="mc-text" id="mcText"></p>
+        <figure class="mc-shot" id="mcShot" hidden><div class="mc-crop" id="mcCrop"></div><figcaption id="mcCap"></figcaption></figure>
+        <div class="mc-top">
+          <p class="mc-k" id="mcK"></p>
+          <button class="mc-b" id="mcPrev" type="button"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5L4.5 7 9 11.5"/></svg></button>
+          <button class="mc-b" id="mcNext" type="button"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 2.5L9.5 7 5 11.5"/></svg></button>
+          <button class="mc-b" id="mcClose" type="button" aria-label="Kapat ve uzaklaştır"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 3l8 8M11 3L3 11"/></svg></button>
         </div>
-        <ul>
-          <li>Panelden, pencerenin sağ tık menüsünden ya da menü çubuğu simgesine sağ tıklayarak.</li>
-          <li>Süreli sabitlemeler, en erken biteni başta, bir arada listelenir; <strong>Hepsini bitir</strong> ile tek seferde biter.</li>
-        </ul>
       </div>
-    </article>
+      <p class="map-prompt" aria-hidden="true">Haritanın bir parçasına dokun ya da birini seç:</p>
+      <ul class="map-legend" id="mapLegend"><li class="lp"><span class="t-mouse">Haritanın bir parçasına tıkla ya da birini seç:</span><span class="t-touch">Haritanın bir parçasına dokun ya da birini seç:</span></li></ul>
+      <!-- Haritanın parçaları, sırayla (home.js okur; geometri home.js MAP_GEOMETRY'de,
+           data-id ile eşleşir). data-chip = kısa çip / ipucu etiketi, h3 = kart başlığı
+           ve sıcak noktanın adı, p = kart metni (HTML olabilir), figure = isteğe bağlı
+           ekran görüntüsü (figcaption alt metin olarak da kullanılır). -->
+      <template id="mapRegions">
+        <div data-id="on" data-chip="Aç / kapat">
+          <h3>Deskmap açık</h3>
+          <p>Sol üstteki anahtar Deskmap’i duraklatır: <strong>kapalıyken hiçbir pencere taşınmaz</strong>. Yeniden başlatınca da kapalı kalır; uygulama uyuyor gibi görünüyorsa önce buraya bak. Menü çubuğu simgesinde ayrıca <strong>15 dakika duraklat</strong> var.</p>
+        </div>
+        <div data-id="plan" data-chip="Planlar">
+          <h3>İki plan: monitörlü, monitörsüz</h3>
+          <p>Her sabitlemenin iki hedefi var. <strong>Plan</strong> seçimi (⌘1 / ⌘2) <strong>Monitör bağlı</strong> ya da <strong>Sadece laptop</strong> planını gösterir; geçerli olan <em>şu an geçerli</em> diye işaretlidir. Monitörü tak ya da çıkar: her sabit pencere o planın dediği yere gider.</p>
+        </div>
+        <div data-id="search" data-chip="Ara">
+          <h3>Pencere ara</h3>
+          <p>Tek bir pencere mi arıyorsun? <strong>⌘F</strong>’ye bas, adının bir parçasını yaz.</p>
+        </div>
+        <div data-id="view" data-chip="Görünümler">
+          <h3>Görsel ya da Liste</h3>
+          <p><strong>Görsel</strong> her masaüstünü minik bir ekran olarak çizer. Satır mı istiyorsun? <strong>Liste</strong> her masaüstü için bir satır ve yanında küçük bir önizleme gösterir.</p>
+          <figure><img src="{{root}}images/tr/01-map-list.png" alt="" loading="lazy" decoding="async"><figcaption>Liste görünümü: masaüstü başına bir satır.</figcaption></figure>
+        </div>
+        <div data-id="profile" data-chip="Profiller">
+          <h3>Profiller: masa, kafe, sunum</h3>
+          <p>Profil, adı olan bir sabitleme takımıdır. <strong>Profil: … ▾</strong> aralarında anında geçiş yapar. Profili çoğalt, dışa aktar ya da sil; dışa aktarılan <code>.deskmap.json</code> düzenini başka bir Mac’e taşır.</p>
+          <figure><img src="{{root}}images/tr/04-profiles.png" alt="" loading="lazy" decoding="async"><figcaption>“Desk” profili ve 8 sabit penceresi.</figcaption></figure>
+        </div>
+        <div data-id="recent" data-chip="Son hareketler">
+          <h3>Son hareketler</h3>
+          <p><strong>Pencere hareketleri</strong> Deskmap’in hangi sabit pencereyi ne zaman nereye gönderdiğini gösterir: “pencerem neden zıpladı?” sorusunun cevabı. <strong>Değişiklikler</strong> bu oturumun adımlarını listeler; <strong>Buraya dön</strong> istediğin adıma geri götürür.</p>
+        </div>
+        <div data-id="quick" data-chip="Hızlı başlangıç">
+          <h3>Hızlı başlangıç</h3>
+          <p>Pencereler zaten istediğin yerde mi? <strong>Hepsini olduğu yere sabitle (N)</strong> hepsini tek seferde sabitler; bazılarını seçmek için kutulara ⌘-tıkla. Her biri şu anki masaüstünü, boyutunu ve konumunu korur.</p>
+        </div>
+        <div data-id="oneplan" data-chip="Tek planda">
+          <h3>Yalnız bir planda yeri olanlar</h3>
+          <p>Planlardan birinde istemediğin bir sabitlemeyi bu kutuya sürükle; yalnız öteki planda kalır. Turuncu <strong>Masaüstü 5 yok</strong> rozeti, sabitlemenin olmayan bir masaüstünü istediğini söyler; pencere o zaman son masaüstünde bekler.</p>
+        </div>
+        <div data-id="unassigned" data-chip="Yeri olmayanlar">
+          <h3>Yeri olmayan pencereler</h3>
+          <p>Henüz bir yere ait olmayan pencereler burada bekler; her biri <em>şu an</em> nerede olduğunu gösterir. Birine ya da raptiye düğmesine tıkla, ayrıntısı sağdaki sütunda açılır.</p>
+          <figure><img src="{{root}}images/tr/02-pin.png" alt="" loading="lazy" decoding="async"><figcaption>Messages’a tıklandı: bu pencereyi ya da uygulamanın bütün pencerelerini seç, sonra Sabitle.</figcaption></figure>
+        </div>
+        <div data-id="desktop" data-chip="Bir masaüstü">
+          <h3>Her masaüstüne bir kart</h3>
+          <p>Harita her ekranı, masaüstü başına bir kartla gösterir. Kart minik bir ekrandır: üzerindeki her pencere kendi yerinde ve boyutunda bir kutudur, <strong>≡</strong> düz listesini açar. Kapalı sabit pencereler kartın altında çip olarak bekler; <strong>N aç</strong> hepsini birden açar.</p>
+          <figure><img src="{{root}}images/tr/08-open-closed.png" alt="" loading="lazy" decoding="async"><figcaption>Masaüstü 3’ün altında dört kapalı Preview sabitlemesi bekliyor.</figcaption></figure>
+        </div>
+        <div data-id="window" data-chip="Bir pencere">
+          <h3>Bir pencereye tıkla</h3>
+          <p>Kutusuna tıkla, sağdaki sütun nereye gittiğini söyler: ekran, masaüstü ve düzen. <strong>Tam</strong>, <strong>Sol yarı</strong>, <strong>Sağ yarı</strong> ya da <strong>Olduğu gibi</strong>; gerisi (ızgara, hazır düzenler, sabit boyut) <strong>Gelişmiş</strong> altında.</p>
+          <figure><img src="{{root}}images/tr/03-layout.png" alt="" loading="lazy" decoding="async"><figcaption>acme-web: Studio Display, Masaüstü 2, Sağ yarı.</figcaption></figure>
+        </div>
+        <div data-id="empty" data-chip="Henüz yok">
+          <h3>Henüz var olmayan bir masaüstü</h3>
+          <p>Kesik çizgiyle çizilir. Masaüstü oluşturmaya macOS yalnız <em>sana</em> izin verir: Mission Control’de ekle, kart düz çizgiye döner. Bir pencereyi taşımak için kutusunu istediğin karta sürükle, hangi ekranda olursa olsun.</p>
+        </div>
+        <div data-id="add" data-chip="Masaüstü ekle">
+          <h3>Masaüstü ekle</h3>
+          <p>Son kart, <strong>+ Masaüstü ekle</strong>, haritaya bir masaüstü ekler. Bir karta sağ tıklayıp <strong>Masaüstünü yeniden adlandır…</strong>, <strong>Adı kaldır</strong> ya da <strong>Masaüstünü sil</strong>’i seçebilirsin.</p>
+        </div>
+        <div data-id="inspector" data-chip="Sağ sütun">
+          <h3>Pencereye tıkla, nereye gittiğini gör</h3>
+          <p>Tık: ayrıntı ve düzen. Bir masaüstüne sürükle: oraya taşı. Sağ tık: başka yere gönder ya da <strong>bir süre serbest bırak</strong>. ⌘-tık: birkaçını seç, hepsini birden sabitle.</p>
+          <figure><img src="{{root}}images/tr/06-free-move.png" alt="" loading="lazy" decoding="async"><figcaption>Serbest bırak: 15 dakika izin, sonra acme-web sabit yerine döner.</figcaption></figure>
+        </div>
+        <div data-id="footer" data-chip="Geri al ve yinele">
+          <h3>Geri al, yinele ve sabitlemeler</h3>
+          <p>Her ayar değişikliği bir adımdır: buradaki <strong>Geri al</strong> ve <strong>Yinele</strong> okları ya da ⌘Z ve ⇧⌘Z. Neredeyse hiçbir şey onay istemez, çünkü Geri al var. Yanında, profilde kaç sabit pencere olduğu yazar.</p>
+        </div>
+      </template>
+    </div>
+  </div>
+</section>
 
-    <article class="feature">
-      <div class="ftext m-reveal">
-        <span class="label"><b>F2</b> · Profiller</span>
-        <h3>Ofis, ev, kafe. Tek tıkla geç.</h3>
-        <p>Profil, adı olan bir sabitleme takımıdır. Araç çubuğundan ya da bir URL ile geçersin.</p>
-        <div class="m-prof" data-play aria-hidden="true"><i class="m-prof-thumb"></i><span>Ofis</span><span>Ev</span><span>Kafe</span></div>
-        <ul>
-          <li>Profili <code>.deskmap.json</code> dosyası olarak dışa aktar, düzenini başka bir Mac’e taşı.</li>
-          <li>Masaüstü adları, onları veren profile aittir.</li>
-        </ul>
+<!-- ============ SCENE 3: free move ============ -->
+<section class="scene" id="free" aria-labelledby="free-title">
+  <div class="scene-stick">
+    <div class="free">
+      <div class="free-copy">
+        <p class="eyebrow">Serbest bırak</p>
+        <h2 class="big" id="free-title">Biraz gezsin.<br><span class="grad">Sonra evine döner.</span></h2>
+        <p class="lede">Sabit bir pencereye 1 ile 60 dakika arası izin ver, istediğin yere taşı. Süre bitince sabit yerine döner. Menü çubuğu simgesine sağ tıklayarak da olur.</p>
       </div>
-      <figure class="plate m-fshot" data-sd="in">
-        <a class="zoom m-tilt" href="{{root}}images/tr/07-settings-profiles.png"><div class="shot m-shot"><img loading="lazy" decoding="async" src="{{root}}images/tr/07-settings-profiles.png" width="1360" height="920" sizes="(max-width: 900px) 92vw, 700px" alt="Ayarlar, Profiller sekmesi: Kullan düğmeleriyle profil listesi, Yeni boş profil ve İçe aktar."><span class="m-curtain" aria-hidden="true"></span></div></a>
-        <figcaption><span><b>Şek. 8</b> — Ayarlar › Profiller.</span></figcaption>
-      </figure>
-    </article>
-
-    <div class="cards features-cards">
-      <div class="card m-spot m-reveal">
-        <span class="label"><b>G1</b> · Yedekler</span>
-        <h3>Kendiliğinden yedek</h3>
-        <p>Bütün profiller, sabitlemeler ve masaüstü adları: saatte bir (bir gün saklanır), günde bir (bir hafta), haftada bir (süresiz). Ayarlar › Yedekler’den geri getir; geri getirmeyi de geri alabilirsin.</p>
-      </div>
-      <div class="card m-spot m-reveal" style="--d:1">
-        <span class="label"><b>G2</b> · Geri al</span>
-        <h3>Onay soruları yerine geri al</h3>
-        <p>Çok adımlı <kbd>⌘Z</kbd> / <kbd>⇧⌘Z</kbd> ve bu oturumdaki değişikliklerin geçmişi; istediğin adıma geri ya da ileri dön.</p>
-      </div>
-      <div class="card m-spot m-reveal" style="--d:2">
-        <span class="label"><b>G3</b> · Otomasyon</span>
-        <h3><code>deskmap://</code> bağlantıları</h3>
-        <p>Kestirmeler, Raycast ya da Terminal için.</p>
-<pre><span class="c"># profil değiştir</span>
-open "deskmap://profile/Kafe"
-<span class="c"># her şeyi şimdi yerleştir</span>
-open "deskmap://reapply"</pre>
-      </div>
-      <div class="card m-spot m-reveal" style="--d:3">
-        <span class="label"><b>G4</b> · Küçük</span>
-        <h3>Tek, küçük bir uygulama</h3>
-        <p>Menü çubuğunda yaşar, Dock’ta simgesi yok. Betik yok, ayar dosyası yok, bağımlılık yok. Sistem Bütünlüğü Koruması (SIP) açık kalır.</p>
+      <div class="dial-wrap" aria-hidden="true">
+        <div class="dial">
+          <svg viewBox="0 0 220 220">
+            <defs><linearGradient id="dialGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2997ff"/><stop offset="1" stop-color="#64d2ff"/></linearGradient></defs>
+            <circle class="ticks" cx="110" cy="110" r="104"/>
+            <circle class="track" cx="110" cy="110" r="88"/>
+            <circle class="prog" id="dialProg" cx="110" cy="110" r="88"/>
+          </svg>
+          <div class="readout"><b id="dialTime">15:00</b><span id="dialSub">kalan serbest süre</span></div>
+        </div>
+        <div class="home-row">
+          <div class="slot" id="slot">sabit yeri · Masaüstü 2</div>
+          <div class="mini" id="mini"><i></i><i></i><i></i><span>Messages <em>acme-web</em></span></div>
+        </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- COMPARE -->
-<section class="sec" id="compare" aria-labelledby="compare-title">
+<!-- ============ FEATURES ============ -->
+<section class="block" id="features" aria-labelledby="features-title">
   <div class="wrap">
-    <div class="sec-head">
-      <div class="m-reveal">
-        <span class="label"><b>§ 03</b> · Karşılaştırma</span>
-        <h2 id="compare-title">Ötekilerden farkı.</h2>
-      </div>
-      <p class="m-reveal" style="--d:1">En yakın olanlar Rectangle Pro ve Stay, ama ikisi de pencereyi başka bir masaüstüne taşımıyor. yabai taşıyor, ama kabuk betiğiyle. Harita, geçici sabitlemeler ve süreli serbest bırakma hiçbirinde hazır gelmiyor.</p>
-    </div>
-    <div class="m-stats m-reveal" aria-hidden="true">
-      <span class="m-stat"><span class="m-roll" style="--n:7"><span><i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i></span></span><small>satır gösteriliyor<br>(toplam 13)</small></span>
-      <span class="m-stat"><span class="m-roll" style="--n:5"><span><i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i></span></span><small>araç gösteriliyor<br>(toplam 9)</small></span>
-      <span class="m-stat m-stat-us"><span class="m-roll" style="--n:7"><span><i>0</i><i>1</i><i>2</i><i>3</i><i>4</i><i>5</i><i>6</i><i>7</i><i>8</i><i>9</i></span></span><small>satırın hepsi<br>Deskmap’te hazır</small></span>
-    </div>
-    <div class="table-wrap m-matrix m-reveal">
-      <table class="matrix">
-        <caption class="sr">Deskmap’in macOS, Rectangle Pro, Stay ve yabai ile yedi yetenekte karşılaştırması</caption>
-        <thead>
-          <tr><th scope="col">Yetenek</th><th scope="col" class="us">Deskmap</th><th scope="col">macOS</th><th scope="col">Rectangle Pro</th><th scope="col">Stay</th><th scope="col" lang="en">yabai</th></tr>
-        </thead>
-        <tbody>
-          <tr><th scope="row">Kurallar yalnız uygulamaya değil, <strong>pencere başlığına</strong> bakar</th><td class="us"><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td></tr>
-          <tr><th scope="row">Pencereyi seçilen <strong>macOS masaüstüne</strong> (Alan) gönderir</th><td class="us"><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk p"></i><span class="sr">Kısmen</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td></tr>
-          <tr><th scope="row">Her <strong>ekran kurulumu</strong> için ayrı hedef</th><td class="us"><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk p"></i><span class="sr">Kısmen</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td></tr>
-          <tr><th scope="row">Ekran <strong>takılınca ya da çıkarılınca</strong> pencereleri yeniden yerleştirir</th><td class="us"><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk p"></i><span class="sr">Kısmen</span></td></tr>
-          <tr><th scope="row">Her ekranın ve masaüstünün <strong>haritası</strong>; sürükleyerek ata</th><td class="us"><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk p"></i><span class="sr">Kısmen</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td></tr>
-          <tr><th scope="row">Sabit pencereye <strong>süreli serbestlik</strong></th><td class="us"><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td></tr>
-          <tr><th scope="row">Yazılacak ayar dosyası ya da betik yok</th><td class="us"><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk y"></i><span class="sr">Hazır</span></td><td><i class="mk n"></i><span class="sr">Yok</span></td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="legend" aria-hidden="true">
-      <span><i class="mk y"></i>Hazır geliyor</span>
-      <span><i class="mk p"></i>Kısmen ya da bir sınırla</span>
-      <span><i class="mk n"></i>Yok</span>
-    </div>
-    <div class="compare-foot">
-      <p>On üç satırın yedisi, dokuz aracın beşi. Tam tablo Moom, ShiftPlus, AeroSpace ve Hammerspoon’u da kapsıyor; her hücrenin notu ve kaynağıyla.</p>
-      <a class="btn btn-line m-magnet" href="{{root}}{{href.compare}}">Tam karşılaştırmaya bak →</a>
+    <p class="eyebrow rv">Dahası da var</p>
+    <h2 class="big rv" id="features-title" style="--d:.1s">Küçük bir uygulama.<br><span class="grad">Büyük bir rahatlık.</span></h2>
+    <div class="beats">
+      <article class="beat b-wide b-work rv">
+        <div class="txt">
+          <p class="k">Tek tık</p>
+          <h3>Bütün bir çalışma düzenini aç.</h3>
+          <p class="d">Bir masaüstünün kapalı sabit pencerelerinin hepsi birden açılır, her biri kendi yerinde. Uygulama başına da çalışır: bir uygulamanın o masaüstündeki bütün sabit pencerelerini kapat ya da yeniden aç.</p>
+        </div>
+        <div class="shot">
+          <img src="{{root}}images/tr/08-open-closed.png" alt="Masaüstü 3’te “4 aç” düğmesi ve kapalı sabitlemeleri tek tıkla açılan bir Preview grubu" loading="lazy" decoding="async">
+        </div>
+      </article>
+
+      <article class="beat rv" style="--d:.1s">
+        <div class="vis" aria-hidden="true">
+          <div class="undo">
+            <div class="keys"><span class="key z">⌘</span><span class="key z">Z</span><span class="key alt">⇧⌘Z</span></div>
+            <ul class="hist">
+              <li>Design Review sabitlendi</li>
+              <li>Release notes → Masaüstü 2</li>
+              <li>Düzen: sağ yarı</li>
+              <li>Profil: Kafe</li>
+              <li class="cur"></li>
+            </ul>
+          </div>
+        </div>
+        <p class="k">Onay yerine geri al</p>
+        <h3>Her değişikliği geri sar.</h3>
+        <p class="d">Çok adımlı ⌘Z ve ⇧⌘Z, bir de istediğin adıma geri ya da ileri dönebildiğin oturum geçmişi.</p>
+      </article>
+
+      <article class="beat rv">
+        <div class="vis" aria-hidden="true">
+          <div class="url">
+            <div class="line"><span class="p">$ open </span><span id="urlType">deskmap://profile/Kafe</span><span class="caret"></span></div>
+            <ul id="urlList">
+              <li class="on"><code>deskmap://profile/Kafe</code><span>profil değiştir</span></li>
+              <li><code>deskmap://reapply</code><span>her şeyi şimdi yerleştir</span></li>
+              <li><code>deskmap://toggle</code><span>duraklat ya da sürdür</span></li>
+            </ul>
+          </div>
+        </div>
+        <p class="k">Otomasyon</p>
+        <h3>Bir bağlantı yeter.</h3>
+        <p class="d">Kestirmeler, Raycast ya da Terminal için <code>deskmap://</code> URL’leri.</p>
+      </article>
+
+      <article class="beat rv" style="--d:.1s">
+        <div class="vis" aria-hidden="true">
+          <div>
+            <div class="flip"><span><span>Ofis.</span><span class="grad">Ev.</span><span>Kafe.</span><span>Ofis.</span></span></div>
+            <p class="flip-sub">tek tık, bütün düzen</p>
+          </div>
+        </div>
+        <p class="k">Profiller</p>
+        <h3>Ofis. Ev. Kafe.</h3>
+        <p class="d">Bütün düzenini tek tıkla değiştir.</p>
+      </article>
+
+      <article class="beat rv" style="--d:.2s">
+        <div class="vis" aria-hidden="true">
+          <div class="tracks" id="tracks"></div>
+        </div>
+        <p class="k">Otomatik yedekler</p>
+        <h3>Saatlik. Günlük. Haftalık.</h3>
+        <p class="d">Her profil, sabitleme ve masaüstü adı. Saatlikler bir gün, günlükler bir hafta, haftalıklar süresiz saklanır. Herhangi birini geri getir; geri getirmeyi de geri alabilirsin.</p>
+      </article>
     </div>
   </div>
 </section>
 
-<!-- INSTALL -->
-<section class="sec" id="install" aria-labelledby="install-title">
+<!-- ============ COMPARE ============ -->
+<section class="block center" aria-labelledby="cmp-title" style="padding-top:40px">
   <div class="wrap">
-    <div class="sec-head">
-      <div class="m-reveal">
-        <span class="label"><b>§ 04</b> · Kurulum</span>
-        <h2 id="install-title">Üç adım.</h2>
-      </div>
-      <p class="m-reveal" style="--d:1">macOS 13 ya da üstü; Apple silicon ve Intel. Deskmap henüz notarize edilmedi, bu yüzden macOS ilk açılışta onay ister.</p>
-    </div>
-    <ol class="install">
-      <li class="istep m-reveal">
-        <span class="big m-num" aria-hidden="true"><span>01</span></span>
-        <h3>İndir ve sürükle</h3>
-        <p><a class="text-link" href="{{release_url}}">Son sürümü indir</a>, zip’i aç ve <span class="path">Deskmap.app</span>’i <span class="path">Uygulamalar</span> klasörüne sürükle.</p>
-      </li>
-      <li class="istep m-reveal" style="--d:1">
-        <span class="big m-num" aria-hidden="true"><span>02</span></span>
-        <h3>Yine de Aç</h3>
-        <p>Bir kez aç. macOS engeller; <strong>Sistem Ayarları › Gizlilik ve Güvenlik</strong>’e git ve <strong>Yine de Aç</strong>’a (Open Anyway) tıkla.</p>
-      </li>
-      <li class="istep m-reveal" style="--d:2">
-        <span class="big m-num" aria-hidden="true"><span>03</span></span>
-        <h3>Erişilebilirlik izni ver</h3>
-        <p>Başlangıç rehberi sorduğunda Erişilebilirlik altında <strong>Deskmap</strong>’i aç. Gerisini o halleder.</p>
-      </li>
+    <p class="eyebrow rv">Karşılaştırma</p>
+    <h2 class="big rv" id="cmp-title" style="--d:.1s">Yan yana.</h2>
+    <p class="lede rv" style="--d:.15s;margin-top:22px">En yakın olanlar Rectangle Pro ve Stay, ama ikisi de pencereyi başka bir masaüstüne taşımıyor. yabai taşıyor, ama kabuk betiğiyle.</p>
+    <table class="cmp rv" style="--d:.2s">
+      <caption class="sr">Deskmap’in macOS, Rectangle Pro, Moom, Stay ve yabai ile karşılaştırması: tam karşılaştırmadaki on üç yetenekten altısı</caption>
+      <thead>
+        <tr><th class="feat" scope="col"><span class="sr">Yetenek</span></th><th class="us" scope="col">Deskmap</th><th scope="col">macOS</th><th scope="col">Rectangle Pro</th><th scope="col">Moom</th><th scope="col">Stay</th><th scope="col">yabai</th></tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Kurallar pencere başlığına bakar</th><td class="us"><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m p" role="img" aria-label="Kısmen"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td></tr>
+        <tr><th scope="row">Ekran takılınca ya da çıkarılınca pencereleri yeniden yerleştirir</th><td class="us"><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m p" role="img" aria-label="Kısmen"></i></td></tr>
+        <tr><th scope="row">Pencereyi macOS’un kendi masaüstlerinden birine gönderir</th><td class="us"><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m p" role="img" aria-label="Kısmen"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td></tr>
+        <tr><th scope="row">…Sistem Bütünlüğü Koruması açıkken</th><td class="us"><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m na" role="img" aria-label="Geçerli değil"></i></td><td><i class="m na" role="img" aria-label="Geçerli değil"></i></td><td><i class="m na" role="img" aria-label="Geçerli değil"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td></tr>
+        <tr><th scope="row">Her ekranın ve masaüstünün haritası</th><td class="us"><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m p" role="img" aria-label="Kısmen"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td></tr>
+        <tr><th scope="row">Yazılacak ayar dosyası ya da betik yok</th><td class="us"><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m y" role="img" aria-label="Hazır"></i></td><td><i class="m n" role="img" aria-label="Yok"></i></td></tr>
+      </tbody>
+    </table>
+    <div class="legend" aria-hidden="true"><span><i class="m y"></i>Hazır</span><span><i class="m p"></i>Kısmen</span><span><i class="m n"></i>Yok</span><span><i class="m na"></i>Geçerli değil</span></div>
+    <p class="cmp-note">13 satırın altısı. ShiftPlus, AeroSpace, Hammerspoon, öteki yedi satır ve bütün kaynaklar tam sayfada.</p>
+    <p style="margin-top:22px"><a class="link-arrow" href="{{root}}{{href.compare}}">Notları ve kaynaklarıyla tam karşılaştırma</a></p>
+  </div>
+</section>
+
+<!-- ============ INSTALL ============ -->
+<section class="block" id="install" aria-labelledby="install-title">
+  <div class="wrap">
+    <p class="eyebrow rv">Kurulum</p>
+    <h2 class="big rv" id="install-title" style="--d:.1s">Üç adım.<br><span class="grad">Sonra unut gitsin.</span></h2>
+    <p class="lede rv" style="--d:.2s;margin-top:24px">macOS 13 ya da üstü; Apple silicon ve Intel. Deskmap henüz notarize edilmedi, bu yüzden macOS ilk açılışta onay ister.</p>
+    <ol class="steps">
+      <li class="step rv"><span class="n grad" aria-hidden="true">1</span><h3>İndir ve sürükle</h3><p><a href="{{release_url}}">Son sürümü</a> indir, zip’i aç ve <b>Deskmap.app</b>’i Uygulamalar klasörüne sürükle.</p></li>
+      <li class="step rv" style="--d:.15s"><span class="n grad" aria-hidden="true">2</span><h3>Yine de Aç</h3><p>Bir kez aç. macOS engeller; Sistem Ayarları › Gizlilik ve Güvenlik’e git ve <b>Yine de Aç</b>’a tıkla.</p></li>
+      <li class="step rv" style="--d:.3s"><span class="n grad" aria-hidden="true">3</span><h3>Erişilebilirlik izni ver</h3><p>Başlangıç rehberi sorduğunda <b>Erişilebilirlik</b> altında Deskmap’i aç. Gerisini o halleder.</p></li>
     </ol>
-    <p class="note-line">macOS her güncellemeden sonra Erişilebilirlik iznini yeniden ister. Kaynaktan derlemek için: <code>make app</code> (Xcode Command Line Tools gerekir).</p>
-    <div class="cta-row" style="margin-top:24px">
-      <a class="btn btn-pin m-magnet" href="{{release_url}}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
-        Deskmap {{version}} sürümünü indir
-      </a>
-      <a class="btn btn-line m-magnet" href="{{root}}{{href.download}}">Kurulum notları ve gereksinimler</a>
-    </div>
+    <p class="install-foot rv">macOS her güncellemeden sonra Erişilebilirlik iznini yeniden ister.</p>
   </div>
 </section>
 
-<!-- PRIVACY -->
-<section class="sec" id="privacy" aria-labelledby="privacy-title">
-  <div class="wrap privacy">
-    <div>
-      <span class="label m-reveal" style="display:block;margin-bottom:16px"><b>§ 05</b> · Gizlilik</span>
-      <h2 id="privacy-title" class="m-reveal">Hiçbir şey toplamaz. Hiçbir yere göndermez. <em>Ağ kodu bile yok.</em></h2>
-      <p class="body m-reveal">Analitik yok, çökme raporlayıcısı yok, güncelleme denetimi yok. Sabitlemelerin Mac’inde düz JSON dosyalarında durur; okuyabilir, düzenleyebilir, silebilirsin. Bize inanmak zorunda değilsin: kaynak açık, kendin bak.</p>
-      <div class="terminal m-term" data-play role="group" aria-label="Terminal: kaynakta ağ kodu aramak hiçbir sonuç bulmuyor" data-copy="grep -rn 'URLSession\|import Network' app/Sources">
-        <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>Deskmap — zsh</span></div>
-<pre><span class="cm m-seg" style="--t:0s"># deponun bir klonunda</span>
-<span class="m-seg" style="--t:.35s"><span class="pr">$ </span></span><span class="m-type" style="--t:.5s">grep -rn 'URLSession\|import Network' app/Sources</span>
-<span class="cm m-seg" style="--t:2s"># sonuç yok</span>
-
-<span class="cm m-seg" style="--t:2.5s"># Mac’inde sakladıkları</span>
-<span class="m-seg" style="--t:2.85s"><span class="pr">$ </span></span><span class="m-type" style="--t:3s">ls ~/Library/Application\ Support/Deskmap</span>
-<span class="out m-seg" style="--t:4.35s">Backups  desktop-state.json  rules.json  session-pins.json  status.json</span><span class="m-caret" aria-hidden="true"></span></pre>
-      </div>
-      <p style="margin-top:20px"><a class="text-link" href="{{root}}{{href.privacy}}">Gizlilik notunu oku →</a></p>
-    </div>
-    <div class="ledger m-ledger m-reveal">
-      <dl>
-        <div class="row"><dt>Ne okur</dt><dd>Açık pencereleri: uygulamasını, başlığını, konumunu ve boyutunu, hangi ekranda ve hangi masaüstünde olduğunu.</dd></div>
-        <div class="row"><dt>Asla okumaz</dt><dd>Pencere içeriğini, belgeleri, tuş vuruşlarını, panoyu ya da seninle ilgili herhangi bir şeyi.</dd></div>
-        <div class="row"><dt>Ne yazar</dt><dd><span class="path">~/Library/Application Support/Deskmap/</span> içindeki JSON dosyalarını ve onların otomatik yedeklerini.</dd></div>
-        <div class="row"><dt>Günlüğe</dt><dd>macOS birleşik günlüğüne seyrek kayıtlar. Pencere başlıkları asla yazılmaz.</dd></div>
-        <div class="row"><dt>İzin</dt><dd>Yalnız Erişilebilirlik. Ekran Kaydı yok, Tam Disk Erişimi yok.</dd></div>
+<!-- ============ SCENE 4: privacy ============ -->
+<section class="scene" id="privacy" aria-labelledby="priv-title">
+  <div class="scene-stick">
+    <div class="priv">
+      <p class="eyebrow">Gizlilik</p>
+      <h2 class="big" id="priv-title"><span class="pw">Hiçbir</span> <span class="pw">şey</span> <span class="pw">toplamaz.</span> <span class="pw">Hiçbir</span> <span class="pw">yere</span> <span class="pw">göndermez.</span> <span class="pw grad">Ağ</span> <span class="pw grad">kodu</span> <span class="pw grad">bile</span> <span class="pw grad">yok.</span></h2>
+      <dl class="facts">
+        <div><dt>Okur</dt><dd>Açık pencereleri: uygulamasını, başlığını, konumunu, boyutunu, ekranını ve masaüstünü.</dd></div>
+        <div><dt>Asla okumaz</dt><dd>Pencere içeriğini, belgeleri, tuş vuruşlarını, panoyu.</dd></div>
+        <div><dt>İzin</dt><dd>Yalnız <b>Erişilebilirlik</b>, başka hiçbiri.</dd></div>
+        <div><dt>Sistem</dt><dd>Betik yok, ayar dosyası yok. <b>SIP açık kalır.</b></dd></div>
       </dl>
     </div>
   </div>
 </section>
 
-<!-- FAQ -->
-<section class="sec" id="faq" aria-labelledby="faq-title">
+<!-- ============ FAQ ============ -->
+<section class="block" aria-labelledby="faq-title">
   <div class="wrap">
-    <div class="sec-head">
-      <div class="m-reveal">
-        <span class="label"><b>§ 06</b> · SSS</span>
-        <h2 id="faq-title">Sık sorulanlar.</h2>
-      </div>
-      <p class="m-reveal" style="--d:1">Burada olmayan her şey <a href="{{root}}{{href.guide}}">kullanım kılavuzunda</a>; ya da <a href="{{repo_url}}/issues">GitHub’da bir sorun bildir</a>.</p>
-    </div>
-    <div class="faq m-faq">
-      <details class="m-reveal">
-        <summary><span class="q">S.01</span>macOS ilk açılışı neden engelliyor?</summary>
-        <div class="a"><p>Deskmap henüz notarize edilmedi. Bir kez aç, sonra Sistem Ayarları › Gizlilik ve Güvenlik’e git ve <strong>Yine de Aç</strong>’a tıkla.</p></div>
-      </details>
-      <details class="m-reveal" style="--d:1">
-        <summary><span class="q">S.02</span>Erişilebilirlik izni neden gerekli?</summary>
-        <div class="a"><p>Bu izin olmadan hiçbir uygulama pencere başlıklarını göremez, pencereleri taşıyamaz. Deskmap’in istediği tek izin bu. macOS her güncellemeden sonra onu yeniden ister; güncellemeden sonra pencereler kıpırdamıyorsa izni yeniden ver.</p></div>
-      </details>
-      <details class="m-reveal" style="--d:2">
-        <summary><span class="q">S.03</span>Monitörü çıkarınca ne oluyor?</summary>
-        <div class="a"><p>Her sabitlemenin iki hedefi var: biri <em>Monitör bağlı</em>, biri <em>Sadece laptop</em> için. Ekranlar değişince Deskmap birkaç saniye yatışmalarını bekler, sonra her sabit pencereyi geçerli planın dediği yere koyar.</p></div>
-      </details>
-      <details class="m-reveal" style="--d:3">
-        <summary><span class="q">S.04</span>macOS’ta bir ayarı değiştirmem gerekiyor mu?</summary>
-        <div class="a"><p>Dört tane, bir kez, Masaüstü ve Dock’ta: <em>Alanları en son kullanıma göre otomatik olarak yeniden düzenle</em> kapalı, <em>Bir uygulamaya geçildiğinde, uygulamanın açık pencerelerinin olduğu bir Alan’a geç</em> açık, <em>Ekranların ayrı Alanları var</em> açık, <em>Pencereleri uygulamaya göre grupla</em> kapalı (önerilir). Deskmap bunları canlı denetler ve hangisinin yanlış olduğunu söyler. Sabitlediğin her uygulama için ayrıca Dock simgesine sağ tık › Seçenekler › Ata → Hiçbiri.</p></div>
-      </details>
-      <details class="m-reveal" style="--d:4">
-        <summary><span class="q">S.05</span>Sistem Bütünlüğü Korumasını kapatmam ya da ayar dosyası yazmam gerekiyor mu?</summary>
-        <div class="a"><p>Hayır. Betik yok, ayar dosyası yok, bağımlılık yok; Sistem Bütünlüğü Koruması açık kalır. Her şey haritada kurulur.</p></div>
-      </details>
-      <details class="m-reveal" style="--d:5">
-        <summary><span class="q">S.06</span>Otomatikleştirebilir miyim?</summary>
-        <div class="a"><p>Evet. Deskmap <code>deskmap://</code> bağlantılarını yanıtlar, yani URL açabilen her şey onu yönetebilir: <code>deskmap://profile/Kafe</code> profil değiştirir, <code>deskmap://reapply</code> her şeyi şimdi yerleştirir, <code>deskmap://toggle</code> duraklatır ya da sürdürür. Tam liste <a href="{{root}}{{href.reference}}">başvuru belgesinde</a>.</p></div>
-      </details>
-      <details class="m-reveal" style="--d:6">
-        <summary><span class="q">S.07</span>Gerçekten ücretsiz mi?</summary>
-        <div class="a"><p>Evet, MIT lisansıyla ücretsiz ve açık kaynak. İşini kolaylaştırıyorsa <a href="{{paypal_url}}">projeye destek olabilirsin</a>.</p></div>
-      </details>
+    <h2 class="big center rv" id="faq-title">Sorular.</h2>
+    <div class="faq">
+      <details class="rv"><summary>macOS ilk açılışı neden engelliyor?</summary><div class="a"><p>Deskmap henüz notarize edilmedi. Bir kez aç, sonra Sistem Ayarları › Gizlilik ve Güvenlik’e git ve <strong>Yine de Aç</strong>’a tıkla.</p></div></details>
+      <details class="rv"><summary>Erişilebilirlik izni neden gerekli?</summary><div class="a"><p>Bu izin olmadan hiçbir uygulama pencere başlıklarını göremez, pencereleri taşıyamaz. Deskmap’in istediği tek izin bu. macOS her güncellemeden sonra onu yeniden ister.</p></div></details>
+      <details class="rv"><summary>Monitörü çıkarınca ne oluyor?</summary><div class="a"><p>Her sabitlemenin iki hedefi var: biri <em>Monitör bağlı</em>, biri <em>Sadece laptop</em> için. Ekranlar değişince Deskmap birkaç saniye yatışmalarını bekler, sonra her sabit pencereyi geçerli planın dediği yere koyar.</p></div></details>
+      <details class="rv"><summary>Sistem Bütünlüğü Korumasını kapatmam ya da ayar dosyası yazmam gerekiyor mu?</summary><div class="a"><p>Hayır. Betik yok, ayar dosyası yok, bağımlılık yok; Sistem Bütünlüğü Koruması açık kalır. Her şey haritada kurulur.</p></div></details>
+      <details class="rv"><summary>Otomatikleştirebilir miyim?</summary><div class="a"><p>Evet. Deskmap <code>deskmap://</code> bağlantılarını yanıtlar: <code>deskmap://profile/Kafe</code> profil değiştirir, <code>deskmap://reapply</code> her şeyi şimdi yerleştirir, <code>deskmap://toggle</code> duraklatır ya da sürdürür.</p></div></details>
+      <details class="rv"><summary>Gerçekten ücretsiz mi?</summary><div class="a"><p>Evet. MIT lisansıyla ücretsiz ve açık kaynak.</p></div></details>
     </div>
   </div>
 </section>
 
-<!-- FINAL CTA -->
-<section class="final m-final" data-play="once" aria-labelledby="final-title">
+<!-- ============ FINALE ============ -->
+<section class="finale" aria-labelledby="final-title">
   <div class="wrap">
-    <svg class="m-route" viewBox="0 0 1000 120" aria-hidden="true">
-      <path class="m-route-base" d="M10 24H170Q190 24 190 44V70Q190 90 210 90H360Q380 90 380 70V40Q380 20 400 20H480Q500 20 500 40V116"/>
-      <path class="m-route-base" d="M990 96H830Q810 96 810 76V50Q810 30 790 30H640Q620 30 620 50V64Q620 84 600 84H520Q500 84 500 104V116"/>
-      <path class="m-route-go" id="m-route-l" pathLength="1" d="M10 24H170Q190 24 190 44V70Q190 90 210 90H360Q380 90 380 70V40Q380 20 400 20H480Q500 20 500 40V116"/>
-      <path class="m-route-go" id="m-route-r" pathLength="1" d="M990 96H830Q810 96 810 76V50Q810 30 790 30H640Q620 30 620 50V64Q620 84 600 84H520Q500 84 500 104V116"/>
-      <g class="m-route-win" data-route="m-route-l"><rect x="-15" y="-10" width="30" height="20" rx="3"/><path d="M-15 -4H15"/></g>
-      <g class="m-route-win" data-route="m-route-r"><rect x="-15" y="-10" width="30" height="20" rx="3"/><path d="M-15 -4H15"/></g>
-      <circle class="m-route-dot" cx="10" cy="24" r="4"/><circle class="m-route-dot" cx="990" cy="96" r="4"/>
-    </svg>
-    <img class="m-final-icon" src="{{root}}assets/images/icon-256.png" width="96" height="96" loading="lazy" decoding="async" alt="Deskmap uygulama simgesi: bir pencereyi tutan turuncu harita iğnesi">
-    <h2 id="final-title" class="m-reveal">Her pencereyi kendi yerine koy.</h2>
-    <p class="m-reveal" style="--d:1">Ücretsiz ve açık kaynak. macOS 13 ya da üstü, Apple silicon ve Intel.</p>
-    <div class="cta-row m-reveal" style="--d:2">
-      <a class="btn btn-pin m-magnet" href="{{release_url}}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
-        macOS için indir
+    <img class="rv" src="{{root}}assets/images/icon-256.png" alt="" width="88" height="88">
+    <h2 class="mega rv" id="final-title" style="--d:.1s">Bir kez sabitle.<br><span class="grad">O kadar.</span></h2>
+    <div class="cta-row rv" style="--d:.25s">
+      <a class="btn" href="{{release_url}}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M6.5 10l5.5 5.5L17.5 10M4 20h16"/></svg>
+        Deskmap’i indir
       </a>
-      <a class="btn btn-line m-magnet" href="{{repo_url}}">GitHub’da incele</a>
+      <a class="link-arrow" href="{{root}}{{href.guide}}">Kullanım kılavuzunu oku</a>
     </div>
+    <ul class="meta" aria-label="Kısaca"><li>Ücretsiz</li><li>MIT</li><li>macOS 13+</li><li>Hiç veri toplamaz</li></ul>
   </div>
 </section>
+
+</main>
+
+{{site_footer}}

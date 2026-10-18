@@ -4,147 +4,195 @@ description: Deskmap’i macOS 13 ve üstü için indir, Apple silicon ve Intel.
 lang: tr
 nav: download
 alt: download/
+body_class: page-download
+css: download
 ---
-<header class="page-head">
+<!--
+  İndirme sayfası: pages/download/index.html’in Türkçesi (yapı, id’ler ve
+  sınıflar aynı; bileşenler assets/cine.css). CSS’in büyük harfe çevirdiği
+  yerlerdeki İngilizce ürün adları lang="en" taşır.
+-->
+<section class="page-hero" aria-labelledby="dl-title">
   <div class="wrap">
-    <span class="label"><b>Pafta 02</b> · İndir</span>
-    <h1>Deskmap’i indir.</h1>
-    <p class="lede">Ücretsiz, açık kaynak, hesap gerekmez. İndir, zip’i aç, Uygulamalar klasörüne sürükle. Deskmap henüz notarize edilmediği için ilk açılışta iki tık fazladan gerekir.</p>
+    <div class="hero-mark"><img src="{{root}}assets/images/icon-256.png" alt="" width="88" height="88"></div>
+    <p class="eyebrow">İndir · Sürüm {{version}}</p>
+    <h1 class="page-title" id="dl-title"><span class="grad">Deskmap’i</span> indir.</h1>
+    <p class="lede">Ücretsiz, açık kaynak, hesap gerekmez. İndir, zip’i aç, Uygulamalar klasörüne sürükle. Deskmap henüz notarize edilmediği için ilk açılışta fazladan iki tık gerekir.</p>
     <div class="cta-row">
-      <a class="btn btn-pin" href="{{release_url}}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="18" height="18"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+      <a class="btn" href="{{release_url}}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
         Son sürümü indir
       </a>
-      <a class="btn btn-line" href="{{repo_url}}/releases">Tüm sürümler</a>
+      <a class="link-arrow" href="{{repo_url}}/releases">Tüm sürümler</a>
     </div>
-    <ul class="facts">
-      <li>Sürüm {{version}}</li>
-      <li>macOS 13 ve üstü</li>
-      <li>Apple silicon ve Intel</li>
-      <li>Ücretsiz · MIT lisansı</li>
-    </ul>
+    <ul class="meta" aria-label="Bir bakışta"><li>Sürüm {{version}}</li><li>macOS 13 ve üstü</li><li>Apple silicon ve Intel</li><li>Ücretsiz · MIT</li></ul>
   </div>
-</header>
+</section>
 
-<section class="sec sec-flush">
-  <div class="wrap-narrow">
-    <div class="sec-head">
-      <div><span class="label"><b>§ 01</b> · Gereksinimler</span>
-      <h2>Ne gerekiyor?</h2></div>
+<section class="section section-tight" aria-labelledby="req-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Gereksinimler</p>
+      <h2 class="h2" id="req-title">Ne gerekiyor?</h2>
     </div>
-    <div class="ledger">
-      <dl>
-        <div class="row"><dt>macOS</dt><dd>13 (Ventura) ve üstü</dd></div>
-        <div class="row"><dt>Mac</dt><dd>Apple silicon ve Intel</dd></div>
-        <div class="row"><dt>Fiyat</dt><dd>Ücretsiz. Beğenirsen <a class="text-link" href="{{paypal_url}}">projeyi destekleyebilirsin</a>; zorunlu değil.</dd></div>
-        <div class="row"><dt>Lisans</dt><dd>MIT. Kaynak kod <a class="text-link" href="{{repo_url}}">GitHub</a>’da.</dd></div>
-      </dl>
+    <dl class="specs">
+      <div><dt lang="en">macOS</dt><dd>13 Ventura ve üstü</dd></div>
+      <div><dt lang="en">Mac</dt><dd>Apple silicon ve Intel</dd></div>
+      <div><dt>Fiyat</dt><dd>Ücretsiz<small>Beğenirsen <a href="{{paypal_url}}">projeyi destekleyebilirsin</a>; zorunlu değil.</small></dd></div>
+      <div><dt>Lisans</dt><dd>MIT<small>Kaynak kod <a href="{{repo_url}}">GitHub</a>’da.</small></dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="get-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="kicker">Kurulum</p>
+      <h2 class="h2" id="get-title">İki yoldan kurulur.</h2>
+    </div>
+    <div class="tabs" data-tabs>
+      <div class="seg" role="tablist" aria-label="Kurulum yolu">
+        <button type="button" role="tab" id="tab-zip" aria-controls="panel-zip" aria-selected="true">İndir</button>
+        <button type="button" role="tab" id="tab-brew" aria-controls="panel-brew" aria-selected="false" lang="en">Homebrew</button>
+      </div>
+      <div class="tab-panel" role="tabpanel" id="panel-zip" aria-labelledby="tab-zip">
+        <div class="split center-y">
+          <div>
+            <h3 class="h3">Doğrudan GitHub’dan.</h3>
+            <p class="muted">Homebrew cask’ının kurduğu uygulamanın aynısı, doğrudan son sürümden. Sonra aşağıda anlatıldığı gibi ilk kez aç.</p>
+          </div>
+          <div class="tile get-card">
+            <ol class="get-steps">
+              <li><span class="n grad" aria-hidden="true">1</span><span><a href="{{release_url}}">Son sürümden</a> zip’i indir.</span></li>
+              <li><span class="n grad" aria-hidden="true">2</span><span>Zip’i aç.</span></li>
+              <li><span class="n grad" aria-hidden="true">3</span><span><code>Deskmap.app</code>’i Uygulamalar (<code>/Applications</code>) klasörüne sürükle.</span></li>
+            </ol>
+            <a class="link-arrow" href="{{release_url}}">GitHub’daki son sürüm</a>
+          </div>
+        </div>
+      </div>
+      <div class="tab-panel" role="tabpanel" id="panel-brew" aria-labelledby="tab-brew">
+        <div class="split center-y">
+          <div>
+            <h3 class="h3">Terminal’de tek satır.</h3>
+            <p class="muted">Deskmap’in kendi Homebrew deposunda (tap) bir cask’ı var. Aynı uygulamayı kurar; aşağıdaki ilk açılış adımları yine geçerli.</p>
+          </div>
+          <div class="terminal" role="group" aria-label="Terminal: Deskmap’i Homebrew ile kur" data-copy="brew install --cask cnkndmr/tap/deskmap">
+            <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>zsh</span></div>
+<pre><span class="pr">$ </span>brew install --cask cnkndmr/tap/deskmap</pre>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="sec">
+<section class="section section-line" id="first-launch" aria-labelledby="first-title">
   <div class="wrap">
-    <div class="sec-head">
-      <div><span class="label"><b>§ 02</b> · İlk açılış</span>
-      <h2>İlk kez aç</h2></div>
-      <p>Deskmap henüz Apple tarafından notarize edilmedi; bu yüzden macOS ilk açılışı engeller.</p>
+    <div class="section-head center">
+      <p class="kicker">İlk açılış</p>
+      <h2 class="h2" id="first-title">İlk kez aç.</h2>
+      <p class="sub">Deskmap henüz Apple tarafından notarize edilmedi; bu yüzden macOS ilk açılışı engeller. Üç adım, bir kez.</p>
     </div>
-    <ol class="install">
-      <li class="istep">
-        <span class="big" aria-hidden="true">1</span>
-        <h3>Kur</h3>
-        <p><a class="text-link" href="{{release_url}}">Son sürümden</a> zip’i indir, aç ve <code>Deskmap.app</code>’i Uygulamalar (<code>/Applications</code>) klasörüne sürükle.</p>
-      </li>
-      <li class="istep">
-        <span class="big" aria-hidden="true">2</span>
-        <h3>macOS’un açmasına izin ver</h3>
-        <p>Uygulamayı bir kez aç; macOS engeller. Sonra <b>Sistem Ayarları › Gizlilik ve Güvenlik</b>’e git ve <b>Yine de Aç</b>’a bas (İngilizce macOS’ta: Open Anyway).</p>
-      </li>
-      <li class="istep">
-        <span class="big" aria-hidden="true">3</span>
-        <h3>Erişilebilirlik iznini ver</h3>
-        <p>Başlangıç rehberinde <b>Sistem Ayarları’nı aç ve izin ver</b>’e bas; macOS <b>Gizlilik ve Güvenlik › Erişilebilirlik</b>’i açar. Orada <b>Deskmap</b>’i aç; rehber bunu kendiliğinden fark eder.</p>
-      </li>
+    <ol class="steps" style="margin-top:0">
+      <li class="step rv"><span class="n grad" aria-hidden="true">1</span><h3>Kur</h3><p><a href="{{release_url}}">Son sürümden</a> zip’i indir, aç ve <b>Deskmap.app</b>’i Uygulamalar (<b>/Applications</b>) klasörüne sürükle.</p></li>
+      <li class="step rv" style="--d:.12s"><span class="n grad" aria-hidden="true">2</span><h3>macOS’un açmasına izin ver</h3><p>Uygulamayı bir kez aç; macOS engeller. Sonra <b>Sistem Ayarları › Gizlilik ve Güvenlik</b>’e git ve <b>Yine de Aç</b>’a bas (İngilizce macOS’ta: Open Anyway).</p></li>
+      <li class="step rv" style="--d:.24s"><span class="n grad" aria-hidden="true">3</span><h3>Erişilebilirlik iznini ver</h3><p>Başlangıç rehberinde <b>Sistem Ayarları’nı aç ve izin ver</b>’e bas; macOS <b>Gizlilik ve Güvenlik › Erişilebilirlik</b>’i açar. Orada <b>Deskmap</b>’i aç; rehber bunu kendiliğinden fark eder.</p></li>
     </ol>
-    <div class="callout callout-warn" style="margin-top:28px">
-      <p class="callout-title">Her güncellemeden sonra</p>
-      <p>macOS, Erişilebilirlik iznini her güncellemeden sonra yeniden ister. Güncellemeden sonra pencereler kıpırdamıyorsa izni yeniden ver.</p>
+    <div class="split" style="margin-top:28px">
+      <div class="callout callout-warn">
+        <p class="callout-title">Her güncellemeden sonra</p>
+        <p>macOS, Erişilebilirlik iznini her güncellemeden sonra yeniden ister. Güncellemeden sonra pencereler kıpırdamıyorsa izni yeniden ver.</p>
+      </div>
+      <p class="muted" style="margin:0">Deskmap’in Dock’ta simgesi yok; menü çubuğunda yaşar ve ilk açılışta başlangıç rehberi açılır. İzin neden gerekli? Pencere başlıklarını görmek ve pencereleri taşımak için. Başka bir şeye bakmaz: ağ yok, dosyalarına erişim yok, pencere içeriği yok. Ayrıntı için <a href="{{root}}{{href.privacy}}">Gizlilik</a> sayfasına bak.</p>
     </div>
-    <p class="muted">Deskmap’in Dock’ta simgesi yok; menü çubuğunda yaşar ve ilk açılışta başlangıç rehberi açılır. İzin neden gerekli? Pencere başlıklarını görmek ve pencereleri taşımak için. Başka bir şeye bakmaz: ağ yok, dosyalarına erişim yok, pencere içeriği yok. Ayrıntı için <a class="text-link" href="{{root}}{{href.privacy}}">Gizlilik</a> sayfasına bak.</p>
   </div>
 </section>
 
-<section class="sec">
+<section class="section section-alt" id="settings" aria-labelledby="settings-title">
   <div class="wrap">
-    <div class="sec-head">
-      <div><span class="label"><b>§ 03</b> · Ayarlar</span>
-      <h2>Dört macOS ayarını düzelt (bir kez)</h2></div>
-      <p>Deskmap bu ayarları canlı denetler: başlangıç rehberinde, Ayarlar › macOS ayarları sekmesinde ve sonradan biri bozulursa haritada turuncu bir kartla. Sistem Ayarları › Masaüstü ve Dock’ta (parantez içinde İngilizce macOS’taki adı):</p>
+    <div class="section-head">
+      <p class="kicker">Ayarlar</p>
+      <h2 class="h2" id="settings-title">Dört macOS ayarı. Bir kez düzelt.</h2>
+      <p class="sub">Deskmap bu ayarları canlı denetler: başlangıç rehberinde, Ayarlar › macOS ayarları sekmesinde ve sonradan biri bozulursa haritada turuncu bir kartla. Sistem Ayarları › Masaüstü ve Dock’ta (parantez içinde İngilizce macOS’taki adı):</p>
     </div>
-    <div class="grid-2">
-      <div class="table-wrap">
+    <div class="split">
+      <div class="table-wrap" role="region" aria-label="Dört ayar" tabindex="0">
         <table class="data">
-          <thead><tr><th>Ayar</th><th>Olması gereken</th></tr></thead>
+          <thead><tr><th scope="col">Ayar</th><th scope="col">Olması gereken</th></tr></thead>
           <tbody>
-            <tr><td>Alanları en son kullanıma göre otomatik olarak yeniden düzenle (Automatically rearrange Spaces based on most recent use)</td><td><b>Kapalı</b></td></tr>
-            <tr><td>Bir uygulamaya geçildiğinde, uygulamanın açık pencerelerinin olduğu bir Alan’a geç (When switching to an application, switch to a Space with open windows)</td><td><b>Açık</b></td></tr>
-            <tr><td>Ekranların ayrı Alanları var (Displays have separate Spaces)</td><td><b>Açık</b></td></tr>
-            <tr><td>Pencereleri uygulamaya göre grupla (Group windows by application)</td><td>Kapalı (önerilir)</td></tr>
+            <tr><td>Alanları en son kullanıma göre otomatik olarak yeniden düzenle <span class="muted" lang="en">(Automatically rearrange Spaces based on most recent use)</span></td><td><span class="badge badge-off">Kapalı</span></td></tr>
+            <tr><td>Bir uygulamaya geçildiğinde, uygulamanın açık pencerelerinin olduğu bir Alan’a geç <span class="muted" lang="en">(When switching to an application, switch to a Space with open windows)</span></td><td><span class="badge badge-on">Açık</span></td></tr>
+            <tr><td>Ekranların ayrı Alanları var <span class="muted" lang="en">(Displays have separate Spaces)</span></td><td><span class="badge badge-on">Açık</span></td></tr>
+            <tr><td>Pencereleri uygulamaya göre grupla <span class="muted" lang="en">(Group windows by application)</span></td><td><span class="badge badge-soft">Kapalı (önerilir)</span></td></tr>
           </tbody>
         </table>
       </div>
-      <figure class="plate">
+      <figure class="figure">
         <a class="zoom" href="{{root}}images/tr/05-setup.png" aria-label="Ayar ekran görüntüsünü tam boyutta aç">
-          <div class="shot"><img src="{{root}}images/tr/05-setup.png" width="2535" height="1504" loading="lazy" decoding="async" alt="Deskmap’teki ayar kartı her macOS ayarını listeler ve hangisinin bozuk olduğunu söyler."></div>
+          <img src="{{root}}images/tr/05-setup.png" width="2535" height="1504" loading="lazy" decoding="async" alt="Deskmap’teki ayar kartı her macOS ayarını listeler ve hangisinin bozuk olduğunu söyler.">
         </a>
-        <figcaption><span><b>Şek. 1</b> — Ayar kartı hangi ayarın bozuk olduğunu tek tek söyler.</span></figcaption>
+        <figcaption>Ayar kartı hangi ayarın bozuk olduğunu tek tek söyler.</figcaption>
       </figure>
     </div>
     <div class="callout callout-tip" style="margin-top:28px">
-      <p class="callout-title">Bir tane daha, uygulama başına</p>
-      <p>macOS hiçbir uygulamanın bunu denetlemesine izin vermiyor: sabitleyeceğin her uygulamanın Dock simgesine sağ tık › <b>Seçenekler › Ata → Hiçbiri</b> (Options › Assign To → None). macOS uygulamayı kendi bir masaüstüne atadıysa pencere için çekişirler.</p>
+      <p class="callout-title">Bir ayar daha: her uygulama için</p>
+      <p>macOS hiçbir uygulamanın bunu denetlemesine izin vermiyor: sabitleyeceğin her uygulamanın Dock simgesine sağ tık › <b>Seçenekler › Ata → Hiçbiri</b> (Options › Assign To → None). macOS uygulamayı belirli bir masaüstüne atadıysa macOS ile Deskmap pencereyi birbirinden çekiştirir.</p>
     </div>
-    <p><a class="text-link" href="{{root}}{{href.guide}}">Sıradaki: kılavuzda ilk pencereni sabitle →</a></p>
+    <p style="margin:24px 0 0"><a class="link-arrow" href="{{root}}{{href.guide}}">Sıradaki: kılavuzda ilk pencereni sabitle</a></p>
   </div>
 </section>
 
-<section class="sec">
+<section class="section" id="update" aria-labelledby="keep-title">
   <div class="wrap">
-    <div class="sec-head">
-      <div><span class="label"><b>§ 04</b> · Güncelleme</span>
-      <h2>Güncelleme</h2></div>
+    <div class="section-head">
+      <p class="kicker">Güncelleme ve kaldırma</p>
+      <h2 class="h2" id="keep-title">Güncelleyici yok. Geride iz yok.</h2>
     </div>
-    <p>Deskmap güncelleme denetlemez ve hiçbir sunucuya bağlanmaz. Güncellemek için yeni sürümü aynı şekilde indir ve eski uygulamanın yerine koy. Neyin değiştiği <a class="text-link" href="{{root}}{{href.changelog}}">değişiklik günlüğünde</a> yazıyor. macOS’un Erişilebilirlik iznini güncellemeden sonra yeniden istediğini unutma.</p>
-    <p class="muted">Bir pencereyi başka masaüstüne taşımak macOS’un belgelenmemiş özel çağrılarını kullanır; bir macOS güncellemesi bunları bozabilir. O zaman Deskmap yalnız ekran ve düzenle devam eder ve sana haber verir.</p>
+    <div class="tiles tiles-2">
+      <div class="tile tile-glow">
+        <h3>Güncelleme</h3>
+        <p>Deskmap güncelleme denetlemez ve hiçbir sunucuya bağlanmaz. Güncellemek için yeni sürümü aynı şekilde indir ve eski uygulamanın yerine koy. Neyin değiştiği <a href="{{root}}{{href.changelog}}">değişiklik günlüğünde</a> yazıyor.</p>
+        <p>macOS’un Erişilebilirlik iznini güncellemeden sonra yeniden istediğini unutma.</p>
+      </div>
+      <div class="tile tile-glow" id="uninstall">
+        <h3>Kaldırma</h3>
+        <p>Deskmap’ten çık (menü çubuğu simgesine sağ tık › <b>Çık</b>) ve uygulamayı Çöp Sepeti’ne sürükle. Homebrew ile kurduysan: <code>brew uninstall --cask deskmap</code>.</p>
+        <p>Sabitlemelerin, profillerin ve yedeklerin <code class="path">~/Library/Application Support/Deskmap/</code> klasöründe kalır. O klasörü de silersen geride hiçbir şey kalmaz.</p>
+      </div>
+    </div>
+    <p class="muted small" style="margin:22px 0 0;max-width:46em">Bir pencereyi başka masaüstüne taşımak macOS’un belgelenmemiş özel çağrılarını kullanır; bir macOS güncellemesi bunları bozabilir. O zaman Deskmap yalnız ekran ve düzenle devam eder ve sana haber verir.</p>
   </div>
 </section>
 
-<section class="sec">
+<section class="section section-line" id="source" aria-labelledby="src-title">
   <div class="wrap">
-    <div class="sec-head">
-      <div><span class="label"><b>§ 05</b> · Kaynaktan</span>
-      <h2>Kendin derle</h2></div>
-      <p>Xcode Command Line Tools (<code>xcode-select --install</code>) ve Swift 5.9 ya da üstü gerekir. Xcode’un kendisi gerekmez.</p>
-    </div>
-    <div class="terminal" role="group" aria-label="Terminal: Deskmap’i klonla ve derle" data-copy="git clone https://github.com/cnkndmr/Deskmap.git Deskmap&#10;cd Deskmap&#10;make app&#10;open build/Deskmap.app">
-      <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>Deskmap — zsh</span></div>
+    <div class="split center-y">
+      <div class="section-head" style="margin:0">
+        <p class="kicker">Kaynaktan</p>
+        <h2 class="h2" id="src-title">Kendin derle.</h2>
+        <p class="sub">Xcode Command Line Tools (<code>xcode-select --install</code>) ve Swift 5.9 ya da üstü gerekir. Xcode’un kendisi gerekmez.</p>
+      </div>
+      <div class="terminal" role="group" aria-label="Terminal: Deskmap’i klonla ve derle" data-copy="git clone https://github.com/cnkndmr/Deskmap.git Deskmap&#10;cd Deskmap&#10;make app&#10;open build/Deskmap.app">
+        <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>Deskmap — zsh</span></div>
 <pre><span class="pr">$ </span>git clone https://github.com/cnkndmr/Deskmap.git Deskmap
 <span class="pr">$ </span>cd Deskmap
 <span class="pr">$ </span>make app                  <span class="cm"># release derleme → build/Deskmap.app</span>
 <span class="pr">$ </span>open build/Deskmap.app    <span class="cm"># ya da: make run</span></pre>
+      </div>
     </div>
-    <p>Kalıcı kurulum için uygulamayı Uygulamalar (<code>/Applications</code>) klasörüne kopyala ve Ayarlar › Genel’de <b>Girişte başlat</b>’ı aç. Bu kutu çalışan kopyayı kaydeder; uygulamayı <code>build/</code> içinden çalıştırdıysan önce taşı.</p>
+    <p class="muted" style="margin:28px 0 0;max-width:46em">Kalıcı kurulum için uygulamayı Uygulamalar (<code>/Applications</code>) klasörüne kopyala ve Ayarlar › Genel’de <b>Girişte başlat</b>’ı aç. Bu kutu çalışan kopyayı kaydeder; uygulamayı <code>build/</code> içinden çalıştırdıysan önce taşı.</p>
   </div>
 </section>
 
-<section class="sec">
+<section class="section center" aria-labelledby="end-title">
   <div class="wrap">
+    <h2 class="h2" id="end-title">Bir kez sabitle. <span class="grad">O kadar.</span></h2>
     <div class="cta-row">
-      <a class="btn btn-pin" href="{{release_url}}">Son sürümü indir</a>
-      <a class="btn btn-line" href="{{repo_url}}/releases">Tüm sürümler</a>
-      <a class="btn btn-line" href="{{root}}{{href.changelog}}">Değişiklikler</a>
-      <a class="btn btn-line" href="{{root}}{{href.guide}}">Kılavuz</a>
+      <a class="btn" href="{{release_url}}">Son sürümü indir</a>
+      <a class="link-arrow" href="{{repo_url}}/releases">Tüm sürümler</a>
+      <a class="link-arrow" href="{{root}}{{href.changelog}}">Değişiklikler</a>
+      <a class="link-arrow" href="{{root}}{{href.guide}}">Kullanım kılavuzu</a>
     </div>
   </div>
 </section>

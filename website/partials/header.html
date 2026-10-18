@@ -1,0 +1,25 @@
+<!-- Cinematic site header: skip link + fixed glass nav bar. Used by layout.html and by the bare home pages ({{site_header}}). Styles: assets/cine.css (.nav), behaviour: assets/cine.js (#themeBtn, #menuBtn). -->
+<a class="skip" href="#main">{{t.skip}}</a>
+
+<header class="nav" id="nav">
+  <div class="wrap">
+    <a class="brand" href="{{home_href}}" aria-label="{{t.brand_label}}">
+      <img src="{{root}}assets/images/icon-64.png" alt="" width="24" height="24">
+      Deskmap
+    </a>
+    <ul id="navlinks">
+{{nav_items}}
+    </ul>
+    <div class="nav-actions">
+      <div class="lang-switch" role="group" aria-label="{{t.lang_label}}">{{lang_switch}}</div>
+      <button class="icon-btn theme-btn" id="themeBtn" type="button" aria-label="{{t.theme_label}}" aria-pressed="false">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M4.6 4.6l1.6 1.6M17.8 17.8l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.6 19.4l1.6-1.6M17.8 6.2l1.6-1.6"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.3 14.6A8.6 8.6 0 0 1 9.4 3.7a.6.6 0 0 0-.8-.7A9.6 9.6 0 1 0 21 15.4a.6.6 0 0 0-.7-.8z"/></svg>
+      </button>
+      <a class="pill" href="{{release_url}}">{{t.download_short}}</a>
+      <button class="icon-btn menu-btn" id="menuBtn" type="button" aria-label="{{t.menu_open}}" data-label-open="{{t.menu_open}}" data-label-close="{{t.menu_close}}" aria-expanded="false" aria-controls="navlinks">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 8h16M4 16h16"/></svg>
+      </button>
+    </div>
+  </div>
+</header>

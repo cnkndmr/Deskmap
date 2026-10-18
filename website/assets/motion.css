@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Deskmap website — animated home page (pages/index.html; static version: pages/classic/).
+   Deskmap website — animated home page (pages/motion/index.html, served at motion/; static version: pages/classic/).
    Loaded after site.css (front matter `css: motion`); behaviour in motion.js.
 
    HOW THE MOTION WORKS

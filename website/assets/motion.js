@@ -1,4 +1,4 @@
-/* Deskmap website — animated home page (pages/index.html; static version: pages/classic/).
+/* Deskmap website — animated home page (pages/motion/index.html, served at motion/; static version: pages/classic/).
    Loaded after site.js (front matter `js: motion`). See motion.css for the
    model: html.m-on enables motion; [data-sd] elements get a scroll progress
    --p (CSS scroll-driven animations, or the fallback below); [data-play]

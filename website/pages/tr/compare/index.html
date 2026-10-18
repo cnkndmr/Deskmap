@@ -1,133 +1,229 @@
 ---
 title: Karşılaştırma — Deskmap
-description: Deskmap; macOS, Rectangle Pro, Moom, Stay, ShiftPlus, yabai, AeroSpace ve Hammerspoon’la pencereleri ekranlara ve masaüstlerine yerleştirme açısından nasıl karşılaştırılır, her ürün için notlar ve kaynaklarla.
+description: Deskmap’in macOS, Rectangle Pro, Moom, Stay, ShiftPlus, yabai, AeroSpace ve Hammerspoon ile karşılaştırması: pencereleri ekranlara ve masaüstlerine yerleştirmede hangisi ne yapıyor, her ürün için notlar ve kaynaklarla.
 lang: tr
 nav: compare
 alt: compare/
 body_class: page-compare
+css: compare
 ---
-<style>
-.cmp-wrap{max-height:none}
-.cmp-wrap table.matrix{min-width:980px}
-.cmp-wrap th:first-child,.cmp-wrap td:first-child{position:sticky;left:0;z-index:2;background:var(--sheet);min-width:15rem;max-width:20rem;box-shadow:1px 0 0 var(--rule-strong)}
-.cmp-wrap thead th{white-space:nowrap}
-.cmp-wrap thead th:first-child{z-index:3}
-.cmp-wrap td.us{background:var(--pin-soft)}
-.cmp-wrap thead th.us{background:var(--pin-soft)}
-@media (max-width:640px){.cmp-wrap th:first-child,.cmp-wrap td:first-child{min-width:9.5rem;max-width:9.5rem;font-size:.84rem;padding:10px}.cmp-wrap th,.cmp-wrap td{padding:10px 12px}}
-.cmp-hint{display:none;color:var(--ink-3);font-size:.86rem;margin:0 0 10px}
-@media (max-width:900px){.cmp-hint{display:block}}
-.note-card h3{font-size:1.15rem}
-.note-card .note-src{margin:16px 0 6px}
-.note-card ul.src{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.88rem}
-.note-card ul.src a{color:var(--pin-ink);text-underline-offset:3px}
-.cmp-sum{max-width:44em;font-size:1.1rem;color:var(--ink-2);margin:28px 0 0}
-</style>
-<section class="wrap"><div class="page-head">
-  <span class="label">Karşılaştırma · 30 Eylül 2026’da denetlendi</span>
-  <h1>Deskmap ve ötekiler</h1>
-  <p class="lede">On üç yetenek, dokuz araç; her biri ürünün kendi belgelerine göre denetlendi. Bir hücrede &ldquo;kısmen&rdquo; yazıyorsa nedenini aşağıdaki notlar anlatıyor.</p>
-</div></section>
-
-<section class="sec sec-flush" aria-labelledby="matrix-title">
+<!--
+  Karşılaştırma sayfası (sinematik sistem, assets/cine.css + assets/compare.css).
+  İngilizce ikizi: pages/compare/index.html; yapı, kimlikler, satırlar ve işaretler aynı.
+-->
+<section class="page-hero" aria-labelledby="cmp-title">
   <div class="wrap">
-    <h2 id="matrix-title" class="sr">Karşılaştırma tablosu</h2>
-    <p class="cmp-hint">Tabloyu yana kaydır. İlk sütun yerinde kalır.</p>
-    <div class="table-wrap cmp-wrap" tabindex="0" role="region" aria-labelledby="matrix-title">
-      <table class="matrix">
-        <caption class="sr">Deskmap’in sekiz başka araçla on üç yetenekte karşılaştırması</caption>
-        <thead>
-          <tr><th scope="col">Yetenek</th><th scope="col" class="us">Deskmap</th><th scope="col">macOS</th><th scope="col">Rectangle Pro</th><th scope="col">Moom</th><th scope="col">Stay</th><th scope="col">ShiftPlus</th><th scope="col" lang="en">yabai</th><th scope="col">AeroSpace</th><th scope="col">Hammerspoon</th></tr>
-        </thead>
-        <tbody>
-          <tr><th scope="row">Kurallar yalnız uygulamaya değil, <strong>pencere başlığına</strong> bakar</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">Pencereyi seçilen <strong>macOS masaüstüne</strong> (Alan) gönderir</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">…Sistem Bütünlüğü Koruması (SIP) açıkken</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk na" aria-hidden="true"></i><span class="sr">Geçerli değil</span></td><td><i class="mk na" aria-hidden="true"></i><span class="sr">Geçerli değil</span></td><td><i class="mk na" aria-hidden="true"></i><span class="sr">Geçerli değil</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk na" aria-hidden="true"></i><span class="sr">Geçerli değil</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">Her <strong>ekran kurulumu</strong> için ayrı hedef</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">Ekran <strong>takılınca ya da çıkarılınca</strong> pencereleri yeniden yerleştirir</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row"><strong>Yeni pencereleri</strong> açıldıkları anda yerine gönderir</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">Her kural için <strong>boyut ve konum</strong></th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">Her ekranın ve masaüstünün <strong>haritası</strong>; pencereyi sürükleyerek ata</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td></tr>
-          <tr><th scope="row">Tek pencere için <strong>geçici sabitleme</strong></th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">Sabit pencereye <strong>süreli serbestlik</strong></th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">Aralarında geçilebilen <strong>profiller</strong></th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">Dışarıdan <strong>otomasyon</strong> (URL, AppleScript ya da CLI)</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
-          <tr><th scope="row">Yazılacak ayar dosyası ya da betik yok</th><td class="us"><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="mk n" aria-hidden="true"></i><span class="sr">Yok</span></td></tr>
-        </tbody>
-      </table>
+    <div class="hero-mark"><img src="{{root}}assets/images/icon-256.png" alt="" width="88" height="88"></div>
+    <p class="eyebrow">Karşılaştırma · 30 Eylül 2026’da denetlendi</p>
+    <h1 class="page-title" id="cmp-title">Deskmap ve <span class="grad">ötekiler.</span></h1>
+    <p class="lede">On üç yetenek, dokuz araç; her biri ürünün kendi belgelerine göre denetlendi. Bir hücrede “kısmen” yazıyorsa nedenini aşağıdaki notlar anlatıyor.</p>
+    <div class="cta-row">
+      <a class="link-arrow" href="#matrix">Tabloya git</a>
+      <a class="link-arrow" href="#notes">Notlar ve kaynaklar</a>
     </div>
-    <div class="legend">
-      <span><i class="mk y" aria-hidden="true"></i>Hazır geliyor</span>
-      <span><i class="mk p" aria-hidden="true"></i>Kısmen ya da bir sınırla (notlara bak)</span>
-      <span><i class="mk n" aria-hidden="true"></i>Yok</span>
-      <span><i class="mk na" aria-hidden="true"></i>Geçerli değil (araç pencereleri masaüstleri arasında taşımaz)</span>
-    </div>
-    <p class="cmp-sum">En çok yaklaşanlar Rectangle Pro ve Stay, ama ikisi de pencereyi başka bir masaüstüne taşımıyor. <span lang="en">yabai</span> taşıyor, bir kabuk betiğiyle. Harita, geçici sabitleme ve süreli serbestlik hiçbirinde hazır gelmiyor.</p>
+    <ul class="meta" aria-label="Bir bakışta"><li>13 yetenek</li><li>9 araç</li><li>Her ürün için kaynak</li></ul>
   </div>
 </section>
 
-<section class="sec" aria-labelledby="notes-title">
+<section class="section section-tight cmp-sec" id="matrix" aria-labelledby="matrix-title">
+  <div class="wrap-wide">
+    <div class="section-head">
+      <p class="kicker">Tablo</p>
+      <h2 class="h2" id="matrix-title">On üç yetenek, <span class="grad">dokuz araç.</span></h2>
+      <p class="sub">Deskmap’in sütunu vurgulu. Bir ürünün notunu okumak için adını seç.</p>
+    </div>
+    <ul class="cmp-legend" aria-label="Açıklama"><li><i class="m y" aria-hidden="true"></i>Hazır geliyor</li><li><i class="m p" aria-hidden="true"></i>Kısmen ya da bir sınırla (notlara bak)</li><li><i class="m n" aria-hidden="true"></i>Yok</li><li><i class="m na" aria-hidden="true"></i>Geçerli değil (araç pencereleri masaüstleri arasında taşımaz)</li></ul>
+    <p class="cmp-hint">Tabloyu yana kaydır. İlk iki sütun yerinde kalır.</p>
+    <div class="table-wrap cmp-full" tabindex="0" role="region" aria-label="Karşılaştırma tablosu">
+      <table class="cmp">
+        <caption class="sr">Deskmap’in sekiz başka araçla on üç yetenekte karşılaştırması</caption>
+        <thead>
+          <tr><th scope="col" class="feat">Yetenek</th><th scope="col" class="us"><span class="grad">Deskmap</span></th><th scope="col"><a href="#note-macos">macOS</a></th><th scope="col"><a href="#note-rectangle-pro">Rectangle Pro</a></th><th scope="col"><a href="#note-moom-4">Moom</a></th><th scope="col"><a href="#note-stay">Stay</a></th><th scope="col"><a href="#note-shiftplus">ShiftPlus</a></th><th scope="col"><a href="#note-yabai">yabai</a></th><th scope="col"><a href="#note-aerospace">AeroSpace</a></th><th scope="col"><a href="#note-hammerspoon">Hammerspoon</a></th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Kurallar yalnız uygulamaya değil, <strong>pencere başlığına</strong> bakar</th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">Pencereyi seçilen <strong>macOS masaüstüne</strong> (Alan) gönderir</th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">…Sistem Bütünlüğü Koruması (SIP) açıkken</th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m na" aria-hidden="true"></i><span class="sr">Geçerli değil</span></td><td><i class="m na" aria-hidden="true"></i><span class="sr">Geçerli değil</span></td><td><i class="m na" aria-hidden="true"></i><span class="sr">Geçerli değil</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m na" aria-hidden="true"></i><span class="sr">Geçerli değil</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">Her <strong>ekran kurulumu</strong> için ayrı hedef</th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">Ekran <strong>takılınca ya da çıkarılınca</strong> pencereleri yeniden yerleştirir</th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row"><strong>Yeni pencereleri</strong> açıldıkları anda yerine gönderir</th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">Her kural için <strong>boyut ve konum</strong></th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">Her ekranın ve masaüstünün <strong>haritası</strong>; pencereyi sürükleyerek ata</th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td></tr>
+          <tr><th scope="row">Tek pencere için <strong>geçici sabitleme</strong></th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">Sabit pencereye <strong>süreli serbestlik</strong></th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">Aralarında geçilebilen <strong>profiller</strong></th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">Dışarıdan <strong>otomasyon</strong> (URL, AppleScript ya da CLI)</th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m p" aria-hidden="true"></i><span class="sr">Kısmen ya da bir sınırla</span></td></tr>
+          <tr><th scope="row">Yazılacak ayar dosyası ya da betik yok</th><td class="us"><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m y" aria-hidden="true"></i><span class="sr">Hazır</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td><td><i class="m n" aria-hidden="true"></i><span class="sr">Yok</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <ol class="cmp-cards" aria-label="Yeteneklere göre karşılaştırma">
+      <li class="cc">
+        <h3>Kurallar yalnız uygulamaya değil, <strong>pencere başlığına</strong> bakar</h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>macOS</span><span class="sr">: Yok</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Moom</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Stay</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Yok</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>yabai</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Pencereyi seçilen <strong>macOS masaüstüne</strong> (Alan) gönderir</h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>macOS</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Moom</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Stay</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>yabai</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>…Sistem Bütünlüğü Koruması (SIP) açıkken</h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>macOS</span><span class="sr">: Hazır</span></li><li class="na"><i class="m na" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Geçerli değil</span></li><li class="na"><i class="m na" aria-hidden="true"></i><span>Moom</span><span class="sr">: Geçerli değil</span></li><li class="na"><i class="m na" aria-hidden="true"></i><span>Stay</span><span class="sr">: Geçerli değil</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>yabai</span><span class="sr">: Hazır</span></li><li class="na"><i class="m na" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Geçerli değil</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Her <strong>ekran kurulumu</strong> için ayrı hedef</h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>macOS</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Moom</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Stay</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>yabai</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Ekran <strong>takılınca ya da çıkarılınca</strong> pencereleri yeniden yerleştirir</h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>macOS</span><span class="sr">: Yok</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Moom</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Stay</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>yabai</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3><strong>Yeni pencereleri</strong> açıldıkları anda yerine gönderir</h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>macOS</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Moom</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Stay</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Yok</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>yabai</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Her kural için <strong>boyut ve konum</strong></h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>macOS</span><span class="sr">: Yok</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Moom</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Stay</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>yabai</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Her ekranın ve masaüstünün <strong>haritası</strong>; pencereyi sürükleyerek ata</h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>macOS</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Moom</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Stay</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>yabai</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Yok</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Tek pencere için <strong>geçici sabitleme</strong></h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>macOS</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Moom</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Stay</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>yabai</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Sabit pencereye <strong>süreli serbestlik</strong></h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>macOS</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Moom</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Stay</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>yabai</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Aralarında geçilebilen <strong>profiller</strong></h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>macOS</span><span class="sr">: Yok</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Moom</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Stay</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>yabai</span><span class="sr">: Yok</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Dışarıdan <strong>otomasyon</strong> (URL, AppleScript ya da CLI)</h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>macOS</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Moom</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Stay</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Kısmen ya da bir sınırla</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>yabai</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Hazır</span></li><li class="p"><i class="m p" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Kısmen ya da bir sınırla</span></li></ul>
+      </li>
+      <li class="cc">
+        <h3>Yazılacak ayar dosyası ya da betik yok</h3>
+        <ul><li class="y us"><i class="m y" aria-hidden="true"></i><span>Deskmap</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>macOS</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Rectangle Pro</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Moom</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>Stay</span><span class="sr">: Hazır</span></li><li class="y"><i class="m y" aria-hidden="true"></i><span>ShiftPlus</span><span class="sr">: Hazır</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>yabai</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>AeroSpace</span><span class="sr">: Yok</span></li><li class="n"><i class="m n" aria-hidden="true"></i><span>Hammerspoon</span><span class="sr">: Yok</span></li></ul>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section class="section section-alt" aria-labelledby="sum-title">
   <div class="wrap">
-    <div class="sec-head">
-      <div>
-        <span class="label"><b>Notlar</b> · Kaynaklar</span>
-        <h2 id="notes-title">Notlar ve kaynaklar</h2>
+    <div class="section-head rv">
+      <p class="kicker">Özet</p>
+      <h2 class="h2" id="sum-title">Kısacası.</h2>
+      <p class="sub">En çok yaklaşanlar Rectangle Pro ve Stay, ama ikisi de pencereyi başka bir masaüstüne taşımıyor. yabai taşıyor, bir kabuk betiğiyle. Harita, geçici sabitleme ve süreli serbestlik hiçbirinde hazır gelmiyor.</p>
+    </div>
+    <div class="tiles">
+      <div class="tile rv" style="--d:0s">
+        <p class="kicker">En yakın</p>
+        <h3>Rectangle Pro ve Stay</h3>
+        <p>İkisi de pencere başlığına bakıyor ve bir ekran takılıp çıkarılınca pencereleri yeniden yerleştiriyor, ama hiçbiri pencereyi başka bir masaüstüne taşımıyor.</p>
       </div>
-      <p>30 Eylül 2026’da her ürünün kendi belgelerine göre denetlendi.</p>
-    </div>
-    <div class="cards-3 cards">
-      <article class="card note-card" id="note-macos">
-        <h3>macOS</h3>
-        <p><em>Dock › Seçenekler › Ata</em> (Options › Assign To) tek bir pencereyi değil, bütün uygulamayı o an bulunduğun masaüstüne bağlar; masaüstünü numarasıyla seçemezsin, yeni pencere de yalnız uygulamasının atamasını izler. <span lang="en">Mission Control</span> bir seferde tek masaüstünün pencerelerini gösterir, orada sürüklemek de tek seferlik bir taşımadır. Kestirmeler’de <em>Move Window</em> ve <em>Resize Window</em> eylemleri var, ama onları tetikleyecek kurallar yok.</p>
-        <p class="label note-src">Kaynaklar</p>
-        <ul class="src"><li><a href="https://support.apple.com/guide/mac-help/work-in-multiple-spaces-mh14112/mac">Alanlar</a></li><li><a href="https://support.apple.com/guide/mac-help/tile-app-windows-mchlef287e5d/mac">döşeme</a></li></ul>
-      </article>
-      <article class="card note-card" id="note-rectangle-pro">
-        <h3>Rectangle Pro</h3>
-        <p>Düzen kayıtları başlığa göre eşleşir; bir pencere açılınca ya da seçilen bir ekran bağlanınca veya ayrılınca uygulanabilir. Bunlar ekran olayına bağlı tetikleyicilerdir, yan yana saklanan kurulumlar değil. Pencereleri masaüstleri arasında taşımaz.</p>
-        <p class="label note-src">Kaynaklar</p>
-        <ul class="src"><li><a href="https://rectangleapp.com/pro/docs/layouts/">düzenler</a></li><li><a href="https://github.com/rxhanson/RectanglePro-Community">URL şeması</a></li></ul>
-      </article>
-      <article class="card note-card" id="note-moom-4">
-        <h3>Moom 4</h3>
-        <p>Kayıtlı düzenler birer anlık görüntüdür: pencereler yalnız düzen uygulanırken başlığa göre eşleşir, boyut ve konum kaydedilen çerçevedir, sonradan açılan pencere yerine gönderilmez. Düzenler bir ekran yapılandırmasıyla tetiklenebilir. Adlandırılmış birden çok düzen olabilir, ama kuralları bir araya toplayan profiller yok.</p>
-        <p class="label note-src">Kaynaklar</p>
-        <ul class="src"><li><a href="https://manytricks.com/moom/help/customactions.html">özel eylemler</a></li><li><a href="https://manytricks.com/moom/help/applescript.html">AppleScript</a></li></ul>
-      </article>
-      <article class="card note-card" id="note-stay">
-        <h3>Stay</h3>
-        <p>Pencere çerçevelerini her ekran birleşimi için saklar, ekranlar değişince geri getirir; başlıklar düzenli ifadelerle eşleşir. Pencereler uygulamaları açılınca geri gelir, ama çalışan bir uygulamada sonradan açılan pencere yerine gönderilmez. Saklanan setler ekran kurulumunu izler; kendin geçebileceğin profiller yok. Otomasyon basit AppleScript ve kısayol tuşlarından ibaret.</p>
-        <p class="label note-src">Kaynaklar</p>
-        <ul class="src"><li><a href="https://cordlessdog.com/stay/">genel bakış</a></li><li><a href="https://cordlessdog.com/stay/documentation/window-title-pattern-matching/">başlık desenleri</a></li><li><a href="https://cordlessdog.com/stay/documentation/general-preferences/">tercihler</a></li></ul>
-      </article>
-      <article class="card note-card" id="note-shiftplus">
-        <h3>ShiftPlus</h3>
-        <p>Bir çalışma alanı kısayol tuşuyla geri getirilir: uygulamalar atandıkları Alan’da açılır, yanlış Alan’da açık duran bir uygulama da sorulduktan sonra kapatılıp yeniden açılır; açık pencereler taşınmaz. Yerleşim ön ayarları uygulama başınadır ve geri getirirken uygulanır. Otomasyon bir Raycast uzantısıyla.</p>
-        <p class="label note-src">Kaynaklar</p>
-        <ul class="src"><li><a href="https://shiftplus.app/blog/stop-macos-rearranging-spaces/">Alanlar</a></li><li><a href="https://shiftplus.app/blog/mac-windows-rearrange-external-monitor/">ekranlar</a></li><li><a href="https://www.raycast.com/nghia_luong/shiftplus">Raycast uzantısı</a></li></ul>
-      </article>
-      <article class="card note-card" id="note-yabai">
+      <div class="tile rv" style="--d:0.08s">
+        <p class="kicker">Betik gerektiren</p>
         <h3>yabai</h3>
-        <p>Kurallar başlıkları düzenli ifadeyle eşler ve pencereleri ızgara konumuyla bir Alan’a gönderir. Pencereleri Alanlar arasında taşımak, yeni macOS sürümlerinde 7.1.25’ten (Mayıs 2026) beri SIP açıkken de çalışıyor; eski sistemler scripting addition ister. Ekran sinyalleri gelir, ama yeniden yerleştirme senin yazdığın bir betiktir. <code>--one-shot</code> kuralları eşleşen bir sonraki pencereye bir kez uygulanır; tek bir pencereye bağlı değildir. Her şey komut satırından ayarlanır.</p>
-        <p class="label note-src">Kaynaklar</p>
-        <ul class="src"><li><a href="https://github.com/asmvik/yabai/blob/master/doc/yabai.asciidoc">kılavuz</a></li><li><a href="https://github.com/asmvik/yabai/blob/master/CHANGELOG.md">değişiklik günlüğü</a></li></ul>
+        <p>Pencereleri başka bir masaüstüne gönderiyor; yeni macOS sürümlerinde 7.1.25’ten beri Sistem Bütünlüğü Koruması açıkken de. Ekran değişince yeniden yerleştirme senin yazdığın bir betik, her şey de komut satırından ayarlanıyor.</p>
+      </div>
+      <div class="tile tile-glow rv" style="--d:0.16s">
+        <p class="kicker">Yalnız <span lang="en">Deskmap</span>’te</p>
+        <h3>Harita, geçici sabitleme ve süreli serbestlik.</h3>
+        <p>Öteki sekiz aracın hiçbirinde hazır gelmiyor.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="notes" aria-labelledby="notes-title">
+  <div class="wrap">
+    <div class="section-head rv">
+      <p class="kicker">Notlar · Kaynaklar</p>
+      <h2 class="h2" id="notes-title">Notlar ve kaynaklar.</h2>
+      <p class="sub">30 Eylül 2026’da her ürünün kendi belgelerine göre denetlendi.</p>
+    </div>
+    <div class="tiles tiles-2 notes">
+      <article class="tile note rv" id="note-macos" style="--d:0s" aria-labelledby="note-macos-h">
+        <h3 id="note-macos-h">macOS</h3>
+        <p><em>Dock › Seçenekler › Ata</em> (Options › Assign To) tek bir pencereyi değil, bütün uygulamayı o an bulunduğun masaüstüne bağlar; masaüstünü numarasıyla seçemezsin, yeni pencere de yalnız uygulamasının atamasını izler. <span lang="en">Mission Control</span> bir seferde tek masaüstünün pencerelerini gösterir, orada sürüklemek de tek seferlik bir taşımadır. Kestirmeler’de <em>Move Window</em> ve <em>Resize Window</em> eylemleri var, ama onları tetikleyecek kurallar yok.</p>
+        <div class="note-src">
+          <p class="kicker">Kaynaklar</p>
+          <ul class="src" aria-label="macOS için kaynaklar"><li><a href="https://support.apple.com/guide/mac-help/work-in-multiple-spaces-mh14112/mac">Alanlar</a></li><li><a href="https://support.apple.com/guide/mac-help/tile-app-windows-mchlef287e5d/mac">döşeme</a></li></ul>
+        </div>
       </article>
-      <article class="card note-card" id="note-aerospace">
-        <h3>AeroSpace</h3>
-        <p>macOS masaüstleri yerine kendi sanal çalışma alanlarını kullanır. <code>on-window-detected</code> kuralları başlıkları eşler ve bir TOML ayar dosyasında, her yeni pencere için çalışır. Ekran yeniden bağlanınca çalışma alanları monitörlere yeniden atanır; tek tek pencereler yeniden yerleştirilmez. Kurallar boyutu ya da konumu değil, pencerenin döşenmiş mi yüzen mi olacağını belirler (<a href="https://github.com/nikitabobko/AeroSpace/issues/714">#714</a>). Binding mode’lar pencere kurallarını değil, tuş setlerini değiştirir.</p>
-        <p class="label note-src">Kaynaklar</p>
-        <ul class="src"><li><a href="https://nikitabobko.github.io/AeroSpace/guide">rehber</a></li><li><a href="https://nikitabobko.github.io/AeroSpace/commands">komutlar</a></li></ul>
+      <article class="tile note rv" id="note-rectangle-pro" style="--d:0.08s" aria-labelledby="note-rectangle-pro-h">
+        <h3 id="note-rectangle-pro-h">Rectangle Pro</h3>
+        <p>Düzen kayıtları başlığa göre eşleşir; bir pencere açılınca ya da seçilen bir ekran bağlanınca veya ayrılınca uygulanabilir. Bunlar ekran olayına bağlı tetikleyicilerdir, yan yana saklanan kurulumlar değil. Pencereleri masaüstleri arasında taşımaz.</p>
+        <div class="note-src">
+          <p class="kicker">Kaynaklar</p>
+          <ul class="src" aria-label="Rectangle Pro için kaynaklar"><li><a href="https://rectangleapp.com/pro/docs/layouts/">düzenler</a></li><li><a href="https://github.com/rxhanson/RectanglePro-Community">URL şeması</a></li></ul>
+        </div>
       </article>
-      <article class="card note-card" id="note-hammerspoon">
-        <h3>Hammerspoon</h3>
+      <article class="tile note rv" id="note-moom-4" style="--d:0s" aria-labelledby="note-moom-4-h">
+        <h3 id="note-moom-4-h">Moom 4</h3>
+        <p>Kayıtlı düzenler birer anlık görüntüdür: pencereler yalnız düzen uygulanırken başlığa göre eşleşir, boyut ve konum kaydedilen çerçevedir, sonradan açılan pencere yerine gönderilmez. Düzenler bir ekran yapılandırmasıyla tetiklenebilir. Adlandırılmış birden çok düzen olabilir, ama kuralları bir araya toplayan profiller yok.</p>
+        <div class="note-src">
+          <p class="kicker">Kaynaklar</p>
+          <ul class="src" aria-label="Moom 4 için kaynaklar"><li><a href="https://manytricks.com/moom/help/customactions.html">özel eylemler</a></li><li><a href="https://manytricks.com/moom/help/applescript.html">AppleScript</a></li></ul>
+        </div>
+      </article>
+      <article class="tile note rv" id="note-stay" style="--d:0.08s" aria-labelledby="note-stay-h">
+        <h3 id="note-stay-h">Stay</h3>
+        <p>Pencere çerçevelerini her ekran birleşimi için saklar, ekranlar değişince geri getirir; başlıklar düzenli ifadelerle eşleşir. Pencereler uygulamaları açılınca geri gelir, ama çalışan bir uygulamada sonradan açılan pencere yerine gönderilmez. Saklanan setler ekran kurulumunu izler; kendin geçebileceğin profiller yok. Otomasyon basit AppleScript ve kısayol tuşlarından ibaret.</p>
+        <div class="note-src">
+          <p class="kicker">Kaynaklar</p>
+          <ul class="src" aria-label="Stay için kaynaklar"><li><a href="https://cordlessdog.com/stay/">genel bakış</a></li><li><a href="https://cordlessdog.com/stay/documentation/window-title-pattern-matching/">başlık desenleri</a></li><li><a href="https://cordlessdog.com/stay/documentation/general-preferences/">tercihler</a></li></ul>
+        </div>
+      </article>
+      <article class="tile note rv" id="note-shiftplus" style="--d:0s" aria-labelledby="note-shiftplus-h">
+        <h3 id="note-shiftplus-h">ShiftPlus</h3>
+        <p>Bir çalışma alanı kısayol tuşuyla geri getirilir: uygulamalar atandıkları Alan’da açılır, yanlış Alan’da açık duran bir uygulama da sorulduktan sonra kapatılıp yeniden açılır; açık pencereler taşınmaz. Yerleşim ön ayarları uygulama başınadır ve geri getirirken uygulanır. Otomasyon bir Raycast uzantısıyla.</p>
+        <div class="note-src">
+          <p class="kicker">Kaynaklar</p>
+          <ul class="src" aria-label="ShiftPlus için kaynaklar"><li><a href="https://shiftplus.app/blog/stop-macos-rearranging-spaces/">Alanlar</a></li><li><a href="https://shiftplus.app/blog/mac-windows-rearrange-external-monitor/">ekranlar</a></li><li><a href="https://www.raycast.com/nghia_luong/shiftplus">Raycast uzantısı</a></li></ul>
+        </div>
+      </article>
+      <article class="tile note rv" id="note-yabai" style="--d:0.08s" aria-labelledby="note-yabai-h">
+        <h3 id="note-yabai-h">yabai</h3>
+        <p>Kurallar başlıkları düzenli ifadeyle eşler ve pencereleri ızgara konumuyla bir Alan’a gönderir. Pencereleri Alanlar arasında taşımak, yeni macOS sürümlerinde 7.1.25’ten (Mayıs 2026) beri SIP açıkken de çalışıyor; eski sistemler bir betik eklentisi (<span lang="en">scripting addition</span>) ister. Ekran sinyalleri gelir, ama yeniden yerleştirme senin yazdığın bir betiktir. <code>--one-shot</code> kuralları eşleşen bir sonraki pencereye bir kez uygulanır; tek bir pencereye bağlı değildir. Her şey komut satırından ayarlanır.</p>
+        <div class="note-src">
+          <p class="kicker">Kaynaklar</p>
+          <ul class="src" aria-label="yabai için kaynaklar"><li><a href="https://github.com/asmvik/yabai/blob/master/doc/yabai.asciidoc">kılavuz</a></li><li><a href="https://github.com/asmvik/yabai/blob/master/CHANGELOG.md">değişiklik günlüğü</a></li></ul>
+        </div>
+      </article>
+      <article class="tile note rv" id="note-aerospace" style="--d:0s" aria-labelledby="note-aerospace-h">
+        <h3 id="note-aerospace-h">AeroSpace</h3>
+        <p>macOS masaüstleri yerine kendi sanal çalışma alanlarını kullanır. <code>on-window-detected</code> kuralları başlıkları eşler ve bir TOML ayar dosyasında, her yeni pencere için çalışır. Ekran yeniden bağlanınca çalışma alanları monitörlere yeniden atanır; tek tek pencereler yeniden yerleştirilmez. Kurallar boyutu ya da konumu değil, pencerenin döşenmiş mi yüzen mi olacağını belirler (<a href="https://github.com/nikitabobko/AeroSpace/issues/714">#714</a>). Tuş atama kipleri (<span lang="en">binding mode</span>) pencere kurallarını değil, tuş atamalarını değiştirir.</p>
+        <div class="note-src">
+          <p class="kicker">Kaynaklar</p>
+          <ul class="src" aria-label="AeroSpace için kaynaklar"><li><a href="https://nikitabobko.github.io/AeroSpace/guide">rehber</a></li><li><a href="https://nikitabobko.github.io/AeroSpace/commands">komutlar</a></li></ul>
+        </div>
+      </article>
+      <article class="tile note rv" id="note-hammerspoon" style="--d:0.08s" aria-labelledby="note-hammerspoon-h">
+        <h3 id="note-hammerspoon-h">Hammerspoon</h3>
         <p>Bir betik çatısı: her “kısmen” işareti “Lua’sını yazarsan olur” demek. Burada hiçbir şey kutudan çıktığı gibi çalışmaz; yayımlanmış sürümlerde pencereleri Alanlar arasında taşımanın macOS 15 ve sonrasında güvenilmez olduğu bildiriliyor (<a href="https://github.com/Hammerspoon/hammerspoon/pull/3889">#3889</a>).</p>
-        <p class="label note-src">Kaynaklar</p>
-        <ul class="src"><li><a href="https://www.hammerspoon.org/docs/hs.spaces.html">hs.spaces</a></li><li><a href="https://www.hammerspoon.org/docs/hs.window.filter.html">hs.window.filter</a></li><li><a href="https://www.hammerspoon.org/docs/hs.layout.html">hs.layout</a></li><li><a href="https://www.hammerspoon.org/docs/hs.screen.watcher.html">hs.screen.watcher</a></li></ul>
+        <div class="note-src">
+          <p class="kicker">Kaynaklar</p>
+          <ul class="src" aria-label="Hammerspoon için kaynaklar"><li><a href="https://www.hammerspoon.org/docs/hs.spaces.html">hs.spaces</a></li><li><a href="https://www.hammerspoon.org/docs/hs.window.filter.html">hs.window.filter</a></li><li><a href="https://www.hammerspoon.org/docs/hs.layout.html">hs.layout</a></li><li><a href="https://www.hammerspoon.org/docs/hs.screen.watcher.html">hs.screen.watcher</a></li></ul>
+        </div>
       </article>
     </div>
-    <div class="callout callout-note" style="margin-top:32px">
-      <p class="callout-title">Eskidi mi?</p>
-      <p>Ürünler değişiyor. Burada eskimiş bir şey görürsen <a href="{{repo_url}}/issues">bir sorun bildir</a>.</p>
+  </div>
+</section>
+
+<section class="section section-line center" aria-labelledby="end-title">
+  <div class="wrap-narrow">
+    <h2 class="h2" id="end-title">Eskidi <span class="grad">mi?</span></h2>
+    <p class="lede end-text">Ürünler değişiyor. Burada eskimiş bir şey görürsen <a href="{{repo_url}}/issues">bir sorun bildir</a>.</p>
+    <div class="cta-row">
+      <a class="btn" href="{{root}}{{href.download}}">Deskmap’i indir</a>
+      <a class="link-arrow" href="{{root}}{{href.docs}}">Belgeleri oku</a>
     </div>
   </div>
 </section>

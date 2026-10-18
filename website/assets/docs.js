@@ -1,11 +1,16 @@
-/* Deskmap website — documentation pages (front matter `js: docs`).
-     .docs-nav-toggle      mobile disclosure for the docs sidebar
+/* Deskmap website — documentation pages (front matter `js: docs`), loaded
+   after assets/cine.js, which already does the theme toggle, copy buttons on
+   .prose pre, the screenshot lightbox and the EN/TR #hash carry-over.
+     .docs-nav-toggle      mobile disclosure for the docs sidebar (Escape and
+                           a link click close it)
      .docs-toc             "On this page" scroll-spy
      .toc-inline           closes after a jump on narrow screens
-     .diagram .mermaid     Mermaid diagrams: the library (pinned version) is
-                           loaded only on pages that have one; without JS or
-                           if it fails, the Mermaid source stays readable.
-   Copy buttons on code blocks come from site.js.                          */
+     .diagram .mermaid     Mermaid diagrams: the self-hosted library
+                           (assets/vendor, pinned version) is loaded only on
+                           pages that have one, themed from the cine tokens and
+                           redrawn when the theme changes; without JS or if it
+                           fails, the Mermaid source stays readable.
+   No third-party requests.                                                 */
 (function () {
   var SELF = document.currentScript && document.currentScript.src;
   'use strict';
@@ -20,6 +25,11 @@
       nav.classList.toggle('open', open);
       tog.setAttribute('aria-expanded', open);
     });
+    var shut = function () { nav.classList.remove('open'); tog.setAttribute('aria-expanded', 'false'); };
+    nav.addEventListener('click', function (e) { if (e.target.closest('a')) shut(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && nav.classList.contains('open')) { shut(); tog.focus(); }
+    });
   }
 
   /* ---------- scroll-spy ---------- */
@@ -30,7 +40,7 @@
   var current = -1, ticking = false;
   function spy() {
     ticking = false;
-    var line = (parseFloat(getComputedStyle(root).getPropertyValue('--header-h')) || 64) + 40;
+    var line = (parseFloat(getComputedStyle(root).getPropertyValue('--nav-h')) || 52) + Math.min(window.innerHeight * 0.3, 240); // a heading in the top third counts as read
     var idx = -1;
     for (var i = 0; i < heads.length; i++) {
       if (heads[i] && heads[i].getBoundingClientRect().top <= line) idx = i; else if (heads[i]) break;
@@ -64,7 +74,9 @@
   var diagrams = Array.prototype.slice.call(document.querySelectorAll('.diagram .mermaid'));
   if (!diagrams.length) return;
   /* Self-hosted copy (MIT) so docs pages make no third-party requests. */
-  var SRC = SELF ? new URL('vendor/mermaid-10.9.1.min.js', SELF).href : 'https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js';
+  var me = SELF || (document.querySelector('script[src*="assets/docs.js"]') || {}).src;
+  if (!me) return;
+  var SRC = new URL('vendor/mermaid-10.9.1.min.js', me).href;
   var sources = diagrams.map(function (el) { return el.textContent; });
 
   function cssVar(n) { return getComputedStyle(root).getPropertyValue(n).trim(); }
@@ -73,15 +85,17 @@
     if (!m) return;
     m.initialize({
       startOnLoad: false, securityLevel: 'strict', theme: 'base',
-      fontFamily: '"IBM Plex Sans", -apple-system, sans-serif',
+      fontFamily: cssVar('--font') || '-apple-system, BlinkMacSystemFont, sans-serif',
       flowchart: { htmlLabels: true, curve: 'basis' },
       themeVariables: {
-        fontSize: '14px',
-        background: cssVar('--sheet'), mainBkg: cssVar('--paper-2'),
-        primaryColor: cssVar('--paper-2'), primaryTextColor: cssVar('--ink'),
-        primaryBorderColor: cssVar('--ink-3'), lineColor: cssVar('--ink-3'),
-        textColor: cssVar('--ink'), clusterBkg: cssVar('--paper'), clusterBorder: cssVar('--ink-3'),
-        edgeLabelBackground: cssVar('--sheet'), tertiaryColor: cssVar('--sheet')
+        fontSize: '14px', fontFamily: cssVar('--font'),
+        background: cssVar('--tile'), mainBkg: cssVar('--bg'),
+        primaryColor: cssVar('--bg'), primaryTextColor: cssVar('--fg'),
+        primaryBorderColor: cssVar('--accent'), lineColor: cssVar('--fg-3'),
+        secondaryColor: cssVar('--bg-2'), secondaryBorderColor: cssVar('--fg-3'), secondaryTextColor: cssVar('--fg'),
+        textColor: cssVar('--fg'), clusterBkg: cssVar('--bg-2'), clusterBorder: cssVar('--line'),
+        edgeLabelBackground: cssVar('--tile'), tertiaryColor: cssVar('--bg-2'), tertiaryTextColor: cssVar('--fg'),
+        nodeTextColor: cssVar('--fg'), titleColor: cssVar('--fg')
       }
     });
     diagrams.forEach(function (el, i) {
@@ -89,14 +103,19 @@
       el.textContent = sources[i];
     });
     m.run({ nodes: diagrams }).then(function () {
-      diagrams.forEach(function (el) { el.classList.add('is-rendered'); });
+      diagrams.forEach(function (el) {
+        el.classList.add('is-rendered');
+        // A wide diagram is not shrunk below a readable size: it scrolls sideways instead.
+        var svg = el.querySelector('svg'), natural = svg && parseFloat(svg.style.maxWidth);
+        if (natural && natural > el.clientWidth) svg.style.minWidth = Math.round(Math.min(natural, Math.max(el.clientWidth * 1.5, 620))) + 'px';
+      });
     }, function () {
       diagrams.forEach(function (el, i) { el.classList.remove('is-rendered'); el.textContent = sources[i]; });
     });
   }
   function load() {
     var s = document.createElement('script');
-    s.src = SRC; s.async = true; s.crossOrigin = 'anonymous';
+    s.src = SRC; s.async = true;
     s.onload = render;
     document.head.appendChild(s);
   }

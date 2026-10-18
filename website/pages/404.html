@@ -6,30 +6,68 @@ nav: none
 noindex: true
 root: absolute
 body_class: page-404
+css: notfound
 ---
-<section class="sec">
-  <div class="wrap-narrow" style="text-align:center">
-    <p class="label"><b>404</b> · Sheet not found</p>
-    <svg viewBox="0 0 160 120" width="200" height="150" role="img" aria-label="An empty desktop with a dashed outline where a window used to be, and a pin lying beside it." style="margin:28px auto 8px;display:block;max-width:100%;height:auto">
-      <rect x="6" y="6" width="148" height="108" rx="8" fill="none" stroke="currentColor" stroke-opacity=".45"/>
-      <path d="M6 24h148" stroke="currentColor" stroke-opacity=".25"/>
-      <rect x="28" y="40" width="64" height="48" rx="5" fill="none" stroke="#EE7F2C" stroke-width="1.5" stroke-dasharray="4 4"/>
-      <g transform="translate(112 52) rotate(24)"><path d="M10 34C10 34 0 21 0 13.5A10 10 0 0 1 20 13.5C20 21 10 34 10 34Z" fill="#EE7F2C"/><circle cx="10" cy="13" r="3.2" fill="#16191F"/></g>
+<!--
+  404, cinematic. Bilingual on one page (GitHub Pages serves this single
+  file for every missing URL): English hero, then a full Turkish block
+  with lang="tr". root: absolute, so links work at any depth.
+  Page styles: assets/notfound.css (the drifting-window scene).
+-->
+<section class="page-hero nf-hero" aria-labelledby="nf-title">
+  <div class="wrap">
+    <svg class="nf-scene" viewBox="0 0 320 200" role="img" aria-labelledby="nf-scene-label">
+      <title id="nf-scene-label">A desktop with three windows in place and an empty dashed slot; the fourth window drifts away past the edge of the screen. / Üç pencere yerinde, kesik çizgili bir boşluk; dördüncü pencere ekranın kenarından kayıp gidiyor.</title>
+      <rect class="nf-screen" x="10" y="12" width="300" height="176" rx="14"/>
+      <rect class="nf-menubar" x="10" y="12" width="300" height="16" rx="14"/>
+      <path class="nf-menubar" d="M10 22h300v6H10z"/>
+      <g class="nf-win">
+        <rect x="30" y="44" width="116" height="60" rx="7"/><path class="nf-bar" d="M30 51a7 7 0 0 1 7-7h102a7 7 0 0 1 7 7v4H30z"/>
+      </g>
+      <g class="nf-win">
+        <rect x="30" y="114" width="116" height="56" rx="7"/><path class="nf-bar" d="M30 121a7 7 0 0 1 7-7h102a7 7 0 0 1 7 7v4H30z"/>
+      </g>
+      <g class="nf-win">
+        <rect x="160" y="114" width="130" height="56" rx="7"/><path class="nf-bar" d="M160 121a7 7 0 0 1 7-7h116a7 7 0 0 1 7 7v4H160z"/>
+      </g>
+      <rect class="nf-slot" x="160" y="44" width="130" height="60" rx="7"/>
+      <g class="nf-drift">
+        <g class="nf-lost">
+          <rect x="160" y="44" width="130" height="60" rx="7"/>
+          <path class="nf-lost-bar" d="M160 51a7 7 0 0 1 7-7h116a7 7 0 0 1 7 7v4H160z"/>
+          <circle class="nf-dot" cx="168" cy="49.5" r="1.8"/><circle class="nf-dot" cx="174" cy="49.5" r="1.8"/><circle class="nf-dot" cx="180" cy="49.5" r="1.8"/>
+          <text class="nf-code" x="225" y="88" text-anchor="middle">404</text>
+        </g>
+      </g>
     </svg>
-    <h1 style="margin-top:8px">This window wandered off.</h1>
-    <p class="lede" style="margin:16px auto 28px;max-width:34em;text-align:center">There is no page at this address. It may have moved to another desktop, or the link is wrong.</p>
-    <div class="cta-row" style="justify-content:center">
-      <a class="btn btn-pin" href="{{root}}">Back to the home page</a>
-      <a class="btn btn-line" href="{{root}}docs/">Open the docs</a>
+    <p class="eyebrow">Error 404</p>
+    <h1 class="page-title" id="nf-title">This window <span class="grad">wandered off.</span></h1>
+    <p class="lede">There is no page at this address. It may have moved to another desktop, or the link is wrong.</p>
+    <div class="cta-row">
+      <a class="btn" href="{{root}}{{href.home}}">Back to the home page</a>
+      <a class="link-arrow" href="{{root}}{{href.docs}}">Open the docs</a>
     </div>
+    <ul class="nf-links" aria-label="Popular pages">
+      <li><a href="{{root}}{{href.download}}">Download</a></li>
+      <li><a href="{{root}}{{href.guide}}">User guide</a></li>
+      <li><a href="{{root}}{{href.changelog}}">Changelog</a></li>
+    </ul>
   </div>
-  <div class="wrap-narrow" lang="tr" style="text-align:center;margin-top:48px;padding-top:40px;border-top:1px solid currentColor;border-top-color:color-mix(in srgb, currentColor 18%, transparent)">
-    <p class="label"><b>404</b> · Pafta bulunamadı</p>
-    <h2 style="margin-top:8px">Bu pencere ortadan kaybolmuş.</h2>
-    <p class="lede" style="margin:16px auto 28px;max-width:34em;text-align:center">Bu adreste bir sayfa yok. Başka bir masaüstüne taşınmış olabilir ya da bağlantı yanlış.</p>
-    <div class="cta-row" style="justify-content:center">
-      <a class="btn btn-pin" href="{{root}}tr/" hreflang="tr">Ana sayfaya dön</a>
-      <a class="btn btn-line" href="{{root}}tr/docs/" hreflang="tr">Belgeleri aç</a>
+</section>
+
+<section class="section section-tight section-line nf-tr" lang="tr" aria-labelledby="nf-title-tr">
+  <div class="wrap center">
+    <p class="eyebrow">Hata 404</p>
+    <h2 class="h2" id="nf-title-tr">Bu pencere <span class="grad">kayıplara karışmış.</span></h2>
+    <p class="lede">Bu adreste bir sayfa yok. Sayfa başka bir masaüstüne taşınmış olabilir ya da bağlantı hatalı.</p>
+    <div class="cta-row">
+      <a class="btn" href="{{root}}tr/" hreflang="tr">Ana sayfaya dön</a>
+      <a class="link-arrow" href="{{root}}tr/docs/" hreflang="tr">Belgeleri aç</a>
     </div>
+    <ul class="nf-links" aria-label="Sık ziyaret edilen sayfalar">
+      <li><a href="{{root}}tr/download/" hreflang="tr">İndir</a></li>
+      <li><a href="{{root}}tr/docs/kilavuz/" hreflang="tr">Kullanım kılavuzu</a></li>
+      <li><a href="{{root}}tr/changelog/" hreflang="tr">Değişiklikler</a></li>
+    </ul>
   </div>
 </section>

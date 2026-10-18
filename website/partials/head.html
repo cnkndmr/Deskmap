@@ -1,0 +1,26 @@
+<!-- Shared <head> essentials of every page (all layouts, also `layout: bare`). Filled by scripts/build-site.mjs as {{site_head}}. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{title}}</title>
+<meta name="description" content="{{description}}">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="{{theme_light}}" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="{{theme_dark}}" media="(prefers-color-scheme: dark)">
+{{robots}}<link rel="canonical" href="{{canonical}}">
+{{alternates}}<meta property="og:type" content="website">
+<meta property="og:site_name" content="Deskmap">
+<meta property="og:title" content="{{og_title}}">
+<meta property="og:description" content="{{description}}">
+<meta property="og:url" content="{{canonical}}">
+<meta property="og:image" content="{{og_image}}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="{{og_locale}}">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="{{root}}assets/images/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="{{root}}assets/images/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="{{root}}assets/images/apple-touch-icon.png">
+<script>
+  /* Before first paint: mark JS, apply a remembered or ?theme= forced theme. */
+  (function(){var r=document.documentElement;r.className+=' js';try{var q=new URLSearchParams(location.search).get('theme');var t=q||localStorage.getItem('deskmap-theme');if(t==='light'||t==='dark')r.setAttribute('data-theme',t);}catch(e){}})();
+</script>

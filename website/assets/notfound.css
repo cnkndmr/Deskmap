@@ -1,0 +1,53 @@
+/* 404 page only (pages/404.html, front matter `css: notfound`), on top of
+   cine.css. The scene: a small desktop whose fourth window drifts out of its
+   slot and past the screen edge. Reduced motion: the window rests, displaced. */
+
+.nf-hero { padding-bottom: clamp(48px, 7vh, 80px); }
+.nf-scene { display: block; width: min(360px, 100%); height: auto; margin: 0 auto 30px; overflow: visible; }
+
+.nf-screen { fill: var(--screen); stroke: var(--line); }
+.nf-menubar { fill: var(--win-bar); }
+.nf-win rect { fill: var(--win-body); stroke: var(--win-line); }
+.nf-win .nf-bar { fill: var(--win-bar); }
+.nf-slot { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 5 5; opacity: .75; }
+
+.nf-lost rect { fill: var(--win-body); stroke: var(--accent); stroke-width: 1.5; }
+.nf-lost-bar { fill: var(--win-bar); }
+.nf-dot { fill: var(--fg-3); }
+.nf-code { fill: var(--accent); font: 700 22px/1 var(--font); letter-spacing: -.04em; }
+.nf-drift { filter: drop-shadow(0 12px 18px var(--glow)); }
+
+/* Rest pose (also the reduced-motion pose): nudged out of the slot. */
+.nf-lost { transform-box: view-box; transform-origin: 225px 74px; transform: translate(34px, -22px) rotate(7deg); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .nf-lost { animation: nf-wander 9s cubic-bezier(.45,.05,.35,1) infinite; }
+  .nf-slot { animation: nf-pulse 9s ease-in-out infinite; }
+}
+@keyframes nf-wander {
+  0%, 8%   { transform: translate(0, 0) rotate(0); opacity: 1; }
+  30%      { transform: translate(30px, -18px) rotate(6deg); opacity: 1; }
+  48%      { transform: translate(52px, -8px) rotate(3deg); opacity: 1; }
+  66%      { transform: translate(92px, -30px) rotate(10deg); opacity: 0; }
+  67%      { transform: translate(-14px, 0) rotate(-3deg); opacity: 0; }
+  86%      { transform: translate(-2px, 0) rotate(-.5deg); opacity: 1; }
+  100%     { transform: translate(0, 0) rotate(0); opacity: 1; }
+}
+@keyframes nf-pulse {
+  0%, 20%, 90%, 100% { opacity: .2; }
+  50%, 70% { opacity: .9; }
+}
+
+.nf-links { list-style: none; margin: 34px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 10px; }
+.nf-links a {
+  display: inline-block; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line);
+  font-size: 14px; font-weight: 500; color: var(--fg-2);
+  background: color-mix(in srgb, var(--bg-3) 45%, transparent);
+  transition: color .2s, border-color .2s;
+}
+.nf-links a:hover { color: var(--fg); border-color: color-mix(in srgb, var(--accent) 50%, transparent); text-decoration: none; }
+
+.nf-tr .h2 { max-width: 16ch; margin-inline: auto; }
+.nf-tr .lede { margin-top: 20px; }
+
+@media (prefers-reduced-motion: reduce) { .nf-links a { transition: none; } }

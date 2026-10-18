@@ -7,67 +7,79 @@ alt: docs/
 css: docs
 body_class: docs-index
 ---
-<header class="page-head">
+<!--
+  Belgeler giriş sayfası (sinematik). İngilizce ikizi: pages/docs/index.html,
+  aynı yapı ve sınıflar.
+-->
+<section class="page-hero" aria-labelledby="docs-title">
   <div class="wrap">
-    <span class="label"><b>Pafta 03</b> · Belgeler</span>
-    <h1>Haritayı oku.</h1>
-    <p class="lede">Kullanım kılavuzuyla başla: kurulumdan ilk sabitlediğin pencereye kadar on dakika kadar sürer. Geri kalan her şey, yani her kural, her ayar ve ters gidebilecek her durum başvuruda.</p>
+    <div class="hero-mark"><img src="{{root}}assets/images/icon-256.png" alt="" width="88" height="88"></div>
+    <p class="eyebrow">Belgeler</p>
+    <h1 class="page-title" id="docs-title">Haritayı <span class="grad">oku.</span></h1>
+    <p class="lede">Kullanım kılavuzuyla başla: kurulumdan ilk sabitlediğin pencereye yaklaşık on dakika sürer. Her kural, her ayar ve ters gidebilecek her durum başvuruda.</p>
+    <div class="cta-row">
+      <a class="btn" href="{{root}}{{href.guide}}">Kullanım kılavuzunu aç</a>
+      <a class="link-arrow" href="{{root}}{{href.reference}}">Başvuruya git</a>
+    </div>
   </div>
-</header>
+</section>
 
-<section class="sec sec-flush">
+<section class="section section-tight" aria-label="Bütün belgeler">
   <div class="wrap">
-    <div class="cards cards-3">
-      <a class="card card-start" href="{{root}}{{href.guide}}">
-        <span class="label"><b>01</b> · Başlarken</span>
+    <div class="tiles">
+      <a class="tile tile-wide tile-glow tile-lead rv" href="{{root}}{{href.guide}}">
+        <p class="kicker">Başlarken</p>
         <h3>Kullanım kılavuzu</h3>
         <p>Kur, Erişilebilirlik iznini ver, dört macOS ayarını düzelt, ilk pencereni sabitle, ona bir yer ve bir boyut ver. Ardından planlar, profiller ve masaüstü adları.</p>
-        <span class="meta">Yaklaşık on dakika</span>
+        <span class="tile-meta">Yaklaşık on dakika</span>
+        <span class="tile-go">Okumaya başla</span>
       </a>
-      <a class="card" href="{{root}}{{href.reference}}">
-        <span class="label"><b>02</b> · Başvuru</span>
+      <a class="tile rv" style="--d:.06s" href="{{root}}{{href.reference}}">
+        <p class="kicker">Başvuru</p>
         <h3>Başvuru</h3>
         <p>Her kural, her ayar, aksayabilecek her şey: sabitlemeler, planlar, masaüstleri, profiller, geri alma, yedekler, otomasyon, kısayollar ve sınırlar.</p>
-        <span class="meta">Eksiksiz el kitabı</span>
+        <span class="tile-meta">Eksiksiz el kitabı</span>
+        <span class="tile-go">Aç</span>
       </a>
-      <a class="card" href="{{root}}{{href.architecture}}">
-        <span class="label"><b>03</b> · Mimari</span>
+      <a class="tile rv" href="{{root}}{{href.architecture}}">
+        <p class="kicker">Başvuru</p>
         <h3>Mimari</h3>
-        <p>Uygulamanın nasıl kurulduğu: ana tipler, bir tarama sırasında olanlar, yeniden deneme sınırları, veri dosyaları ve yerelleştirmenin işleyişi.</p>
-        <span class="meta">Katkıda bulunanlar için</span>
+        <p>Uygulamanın nasıl kurulduğu: ana türler, bir tarama sırasında olanlar, yeniden deneme sınırları, veri dosyaları ve yerelleştirmenin işleyişi.</p>
+        <span class="tile-meta">Katkıda bulunanlar için</span>
+        <span class="tile-go">Aç</span>
       </a>
-      <a class="card" href="{{root}}{{href.privacy}}">
-        <span class="label"><b>04</b> · Gizlilik</span>
+      <a class="tile rv" style="--d:.06s" href="{{root}}{{href.privacy}}">
+        <p class="kicker">Proje</p>
         <h3>Gizlilik</h3>
-        <p>Uygulama hiçbir şey toplamaz, hiçbir yere bir şey göndermez; içinde ağ kodu bile yok. Neyi okuduğu, bunun nereye gittiği ve kendin nasıl kontrol edebileceğin.</p>
-        <span class="meta">Ağ kodu yok</span>
+        <p>Uygulama hiçbir şey toplamaz, hiçbir yere bir şey göndermez; içinde ağ kodu bile yok. Neyi okuduğu, okuduklarını nerede tuttuğu ve bunu kendin nasıl doğrulayabileceğin.</p>
+        <span class="tile-meta">Ağ kodu yok</span>
+        <span class="tile-go">Aç</span>
       </a>
-      <a class="card" href="{{root}}{{href.changelog}}">
-        <span class="label"><b>05</b> · Değişiklikler</span>
+      <a class="tile rv" style="--d:.12s" href="{{root}}{{href.changelog}}">
+        <p class="kicker">Proje</p>
         <h3>Değişiklikler</h3>
-        <p>Öne çıkan her değişiklik, sürüm sürüm, Keep a Changelog biçiminde; bitmiş ama henüz yayımlanmamış olanlar da dahil.</p>
-        <span class="meta">Güncel sürüm {{version}}</span>
+        <p>Öne çıkan her değişiklik, sürüm sürüm, <span lang="en">Keep a Changelog</span> biçiminde; bitmiş ama henüz yayımlanmamış olanlar da dahil.</p>
+        <span class="tile-meta">Güncel sürüm {{version}}</span>
+        <span class="tile-go">Aç</span>
       </a>
     </div>
   </div>
 </section>
 
-<section class="sec">
+<section class="section" aria-labelledby="jump-title">
   <div class="wrap">
-    <div class="sec-head">
-      <div>
-        <span class="label"><b>§ 01</b> · Hızlı geçiş</span>
-        <h2>Belirli bir şey mi arıyorsun?</h2>
-      </div>
-      <p>Başvurunun ilgili bölümlerine doğrudan bağlantılar. Aradığın orada yoksa <a href="{{repo_url}}/issues">GitHub’da sorun bildir</a>.</p>
+    <div class="section-head">
+      <p class="kicker">Hızlı geçiş</p>
+      <h2 class="h2" id="jump-title">Belirli bir şey mi arıyorsun?</h2>
+      <p class="sub">Başvurunun ilgili bölümlerine doğrudan bağlantılar. Aradığın orada yoksa <a href="{{repo_url}}/issues">GitHub’da sorun bildir</a>.</p>
     </div>
     <ul class="jump-list">
-      <li><a href="{{root}}{{href.reference}}#automation-url-scheme">Otomasyon (URL şeması) <span>deskmap://</span></a></li>
-      <li><a href="{{root}}{{href.reference}}#troubleshooting">Sorun giderme <span>sabitleme işe yaramıyorsa</span></a></li>
-      <li><a href="{{root}}{{href.reference}}#required-macos-settings">Gerekli macOS ayarları <span>ilk sabitlemeden önce, bir kez</span></a></li>
+      <li><a href="{{root}}{{href.reference}}#automation-url-scheme">Otomasyon (URL şeması) <span><code>deskmap://</code></span></a></li>
+      <li><a href="{{root}}{{href.reference}}#troubleshooting">Sorun giderme <span>Sabitleme işe yaramıyorsa</span></a></li>
+      <li><a href="{{root}}{{href.reference}}#required-macos-settings">Gerekli macOS ayarları <span>İlk sabitlemeden önce, bir kez</span></a></li>
       <li><a href="{{root}}{{href.reference}}#keyboard-shortcuts">Klavye kısayolları <span>⌘R · ⌘1 / ⌘2 · ⌘Z</span></a></li>
-      <li><a href="{{root}}{{href.reference}}#command-line-deskmap">Komut satırı <span>scripts/deskmap</span></a></li>
-      <li><a href="{{root}}{{href.reference}}#limitations">Sınırlar <span>neleri yapamaz</span></a></li>
+      <li><a href="{{root}}{{href.reference}}#command-line-deskmap">Komut satırı <span><code>scripts/deskmap</code></span></a></li>
+      <li><a href="{{root}}{{href.reference}}#limitations">Sınırlar <span>Neleri yapamaz</span></a></li>
     </ul>
   </div>
 </section>

@@ -13,20 +13,20 @@ Bu kılavuz on dakika sürer. macOS 13 ya da üstü gerekir.
 
 ## 1. Kur ve izni ver
 
-1. **Deskmap.app**'i Uygulamalar klasörüne kopyala ve aç. Dock'ta simgesi
+1. **Deskmap.app**’i Uygulamalar klasörüne kopyala ve aç. Dock’ta simgesi
    yok; menü çubuğunda yaşar.
 2. İlk açılışta **başlangıç rehberi** açılır ve üç adımda yürütür. 1. adım
-   izin: **Sistem Ayarları'nı aç ve izin ver**'e bas.
-3. macOS, Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik'i açar.
-   **Deskmap**'i aç; rehber kendiliğinden fark eder.
+   izin: **Sistem Ayarları’nı aç ve izin ver**’e bas.
+3. macOS, Sistem Ayarları › Gizlilik ve Güvenlik › Erişilebilirlik’i açar.
+   **Deskmap**’i aç; rehber kendiliğinden fark eder.
 
    Bu izin pencere başlıklarını görmek ve pencereleri taşımak için gerekli.
    Başka bir şeye bakmaz: ağ yok, dosyalarına erişim yok, pencere içeriği yok.
-4. 2. adım aşağıdaki macOS ayarlarını denetler, 3. adım nasıl başlamak
-   istediğini sorar: **Pencerelerimi olduğu yere sabitle** (önerilen) ya da
-   **Boş başla**. Rehberi **Ayarlar › Genel**'den yeniden açabilirsin.
-5. **Ayarlar**'ı aç (araç çubuğunda ⚙ ya da ⌘,) › **Genel** › **Girişte
-   başlat**'ı aç ki her açılışta orada olsun.
+4. Rehberin 2. adımı aşağıdaki macOS ayarlarını denetler; 3. adımda nasıl
+   başlamak istediğin sorulur: **Pencerelerimi olduğu yere sabitle** (önerilen) ya da
+   **Boş başla**. Rehberi **Ayarlar › Genel**’den yeniden açabilirsin.
+5. **Ayarlar**’ı aç (araç çubuğunda ⚙ ya da ⌘,) › **Genel** › **Girişte
+   başlat**’ı aç ki her açılışta orada olsun.
 
 ![Harita: ekranlar, masaüstleri ve üzerlerindeki pencereler](images/tr/01-map.png)
 
@@ -34,13 +34,13 @@ Bu kılavuz on dakika sürer. macOS 13 ya da üstü gerekir.
 
 Uygulama bu ayarları canlı denetler: başlangıç rehberinin 2. adımı,
 **Ayarlar › macOS ayarları** sekmesi ve sonradan biri bozulursa haritadaki
-turuncu kart. **Masaüstü ve Dock'u aç**'a bas ve şunları ayarla (parantez
-içinde İngilizce macOS'taki adı):
+turuncu kart. **Masaüstü ve Dock’u aç**’a bas ve şunları ayarla (parantez
+içinde İngilizce macOS’taki adı):
 
 | Ayar | Olması gereken |
 |---|---|
 | Alanları en son kullanıma göre otomatik olarak yeniden düzenle (Automatically rearrange Spaces based on most recent use) | **Kapalı** |
-| Bir uygulamaya geçildiğinde, uygulamanın açık pencerelerinin olduğu bir Alan'a geç (When switching to an application, switch to a Space with open windows) | **Açık** |
+| Bir uygulamaya geçildiğinde, uygulamanın açık pencerelerinin olduğu bir Alan’a geç (When switching to an application, switch to a Space with open windows) | **Açık** |
 | Ekranların ayrı Alanları var (Displays have separate Spaces) | **Açık** |
 | Pencereleri uygulamaya göre grupla (Group windows by application) | Kapalı (önerilir) |
 
@@ -53,18 +53,18 @@ Hiçbiri** (Options › Assign To → None). macOS uygulamayı kendi bir masaüs
 
 ## 3. İlk pencereni sabitle
 
-1. Önemsediğin pencereyi aç — diyelim VS Code'da bir proje.
+1. Önemsediğin pencereyi aç — diyelim VS Code’da bir proje.
 2. Menü çubuğu simgesine tıkla. **Harita** her ekranı, masaüstü başına bir
    küçük kartla gösterir. Kart minik bir ekrandır: o masaüstündeki her
    pencere kendi yerinde ve boyutunda bir kutudur. Kalabalıklaşan kart,
    aynı alanı kaplayan kutuları üst üste dizer ve her birinin başlığı
    görünür kalır; fazlasını **+3 daha** gibi bir düğmenin arkasına koyar.
    Kartın **≡** düğmesi düz listesini açar. Tek bir pencere mi arıyorsun?
-   **⌘F**'ye bas, adının bir parçasını yaz.
+   **⌘F**’ye bas, adının bir parçasını yaz.
 
 ![Liste görünümü: masaüstü başına bir satır, yanında küçük önizleme](images/tr/01-map-list.png)
 
-   Satır mı istiyorsun? **Liste** (**Görsel**'in yanında) her masaüstü için
+   Satır mı istiyorsun? **Liste** (**Görsel**’in yanında) her masaüstü için
    bir satır ve yanında küçük bir önizleme gösterir.
 3. Pencereni bul, kutusuna tıkla (ya da sağ tık › **Bu masaüstüne
    sabitle…**). Ayrıntısı sağdaki sütunda açılır. Henüz bir yere ait
@@ -80,8 +80,8 @@ Hiçbiri** (Options › Assign To → None). macOS uygulamayı kendi bir masaüs
    - **Bu pencere (anahtar)** — Deskmap pencere için kararlı bir anahtar
      bulur ve parantez içinde gösterir. Sırayla: pencerenin gösterdiği dosya
      (Önizleme, Pages, Word, Excel, TextEdit… — iki ayrı `main.pdf`
-     karışmaz); yoksa başlık değişirken hep aynı kalan parça (VS Code'un
-     proje klasörü, Terminal'in `kullanıcı@makine`'si, Safari'nin sekme
+     karışmaz); yoksa başlık değişirken hep aynı kalan parça (VS Code’un
+     proje klasörü, Terminal’in `kullanıcı@makine`’si, Safari’nin sekme
      grubu); başlık değişimi henüz görülmediyse temizlenmiş başlık (sayfa
      numarası, "Düzenlendi", okunmamış sayısı atılır). Panel şu an kaç açık
      pencerenin eşleştiğini yazar.
@@ -90,7 +90,7 @@ Hiçbiri** (Options › Assign To → None). macOS uygulamayı kendi bir masaüs
    Pencerenin kararlı anahtarı yoksa (başlığının her parçası değişiyor,
    örneğin sekme grubu olmayan Safari penceresi) ya da anahtar başka açık
    bir pencereye de uyuyorsa yalnız **bütün pencereler** sunulur.
-5. **Sabitle**'ye bas (ya da ⌘Return).
+5. **Sabitle**’ye bas (ya da ⌘Return).
 
 Sabitleme bu demek: yarın aynı dosya ya da projeyle açılan pencere, yeniden
 başlattıktan sonraki — hepsi aynı yere.
@@ -113,7 +113,7 @@ kutuya sağ tık › **Gönder**. Boş kartta *Boş · bir pencereyi buraya sür
 yazar; son kart **+ Masaüstü ekle** haritaya bir tane ekler.
 
 - Henüz var olmayan masaüstleri kesik çizgiyle çizilir. Masaüstü oluşturmaya
-  yalnızca **sen** izinlisin: Mission Control'ü aç, ekle; kart düz çizgiye
+  yalnızca **sen** izinlisin: Mission Control’ü aç, ekle; kart düz çizgiye
   döner.
 - Karta sağ tıkla: **Masaüstünü yeniden adlandır…**, **Adı kaldır** ya da
   **Masaüstünü sil**. Hâlâ penceresi olan bir masaüstünü silmek önce sorar ve
@@ -141,7 +141,7 @@ düzeni varsa beşinci döşeme **Özel** onu gösterir, tam adı satırın alt�
 yazar. Gerisi **Gelişmiş ▸**
 altında: başlık parçaları, üzerinde sürükleyerek alan seçilen ızgara, bütün
 hazır düzenler (%70/%30, üçte birler, çeyrekler, üst/alt yarı, orta),
-kenarlardan bırakılacak boşluk ve sabit boyut. Gelişmiş'i bir kez açarsan
+kenarlardan bırakılacak boşluk ve sabit boyut. Gelişmiş’i bir kez açarsan
 sonraki pencerede de açık kalır.
 
 ![Düzenler: tam, yarımlar, %70/%30, orta](images/tr/03-layout.png)
@@ -155,7 +155,7 @@ ya da kutuya sağ tık › **Serbest bırak** › 5, 15, 30… dakika. Süre bit
 Deskmap ona dokunmaz, sonra yerine koyar.
 
 Elle boyutlandırıp beğendiğin bir ölçü mü var? Sabit pencereye tıkla,
-**Gelişmiş**'i aç ve **Şu anki boyutu ve konumu kullan**'a bas: pencerenin şu
+**Gelişmiş**’i aç ve **Şu anki boyutu ve konumu kullan**’a bas: pencerenin şu
 anki yeri ve boyutu sabitlemenin düzeni olur. Ekran ve masaüstü değişmez.
 Vazgeçersen ⌘Z ile geri al.
 
@@ -188,16 +188,16 @@ anında geçiş yapar.
 - **Ayarlar › Profiller** hepsini listeler: **Kullan** geçer, **⋯** yeniden
   adlandırır, çoğaltır, dışa aktarır ya da siler; altta **Yeni boş profil** ve
   **İçe aktar…**. Yeni ya da çoğaltılan profil kendiliğinden geçerli olmaz:
-  **Kullan**'a bas.
+  **Kullan**’a bas.
 - Masaüstü adları onları veren profile aittir: yeni profil adsız başlar, bir
   profilde masaüstünü yeniden adlandırmak öbürünü hiç değiştirmez.
   Bkz. [Masaüstü adları ve monitörün](#9-masaüstü-adları-ve-monitörün).
-- Dışa aktarma `.deskmap.json` dosyası yazar — düzenini başka Mac'e
+- Dışa aktarma `.deskmap.json` dosyası yazar — düzenini başka Mac’e
   taşımanın ya da paylaşmanın yolu.
 - **Ayarlar › Yedekler**: Deskmap tüm profilleri, sabitlemeleri ve masaüstü
   adlarını kendiliğinden yedekler — son bir gün için saatte bir, son bir hafta
-  için günde bir, haftada bir de süresiz. Birinde **Geri getir**'e, sonra
-  **Şimdiki profillerin yerine koy**'a tıkla; şimdiki hâlin önce yedeklenir,
+  için günde bir, haftada bir de süresiz. Birinde **Geri getir**’e, sonra
+  **Şimdiki profillerin yerine koy**’a tıkla; şimdiki hâlin önce yedeklenir,
   haritanın alt çubuğunda *Geri al* çıkar (⌘Z). **Şimdi yedekle** hemen bir
   kopya alır.
 - **⋯ › Sadece laptop planını buraya kopyala** (Monitör bağlı planı) etkin
@@ -226,20 +226,20 @@ anında geçiş yapar.
   önce oraya bak.
 - Araç çubuğundaki **?** haritadaki her rengi ve rozeti açıklar.
 
-Menü çubuğu simgesine sağ tık öndeki pencere için **Olduğu yere sabitle**'yi,
-sabit bir pencere için serbest bırakma sürelerini, profilleri, Ayarlar'ı ve
+Menü çubuğu simgesine sağ tık öndeki pencere için **Olduğu yere sabitle**’yi,
+sabit bir pencere için serbest bırakma sürelerini, profilleri, Ayarlar’ı ve
 çıkışı da sunar. Sol tık haritayı açar.
 
 ## 9. Masaüstü adları ve monitörün
 
 Bir ad, "monitörde 2. masaüstü"ne değil, tek bir gerçek masaüstüne aittir.
-Masaüstünü taşı, Mission Control'de sırasını değiştir ya da laptop ekranına
+Masaüstünü taşı, Mission Control’de sırasını değiştir ya da laptop ekranına
 götür: ad onunla gider, ada bağlı sabitlemeler de.
 
 Her kurulumun — **Monitör bağlı** ve **Sadece laptop** — kendi *planı* var:
 hangi ad hangi ekranda, hangi sırada ve her ekranda kaç masaüstü olmalı. Planı
 sen yazmazsın; yaptıklarını izler: bir masaüstüne ad vermek, kartı sürüklemek,
-Deskmap'te ya da Mission Control'de masaüstü sıralamak ya da eklemek içinde
+Deskmap’te ya da Mission Control’de masaüstü sıralamak ya da eklemek içinde
 bulunduğun kurulumun planını günceller.
 
 Monitörü takınca ya da çıkarınca Deskmap yeni kurulumun planını uygular:
@@ -249,14 +249,14 @@ Monitörü takınca ya da çıkarınca Deskmap yeni kurulumun planını uygular:
 - **Adsız pencereler geri döner.** Monitördeki adsız bir masaüstünde duran
   pencereler laptopta kendi masaüstünde (eski masaüstü başına bir tane) bekler,
   monitörü yeniden takınca monitöre döner.
-- **Yalnız boş artıklar silinir.** Bu geçişin boşalttığı ya da macOS'un yolda
+- **Yalnız boş artıklar silinir.** Bu geçişin boşalttığı ya da macOS’un yolda
   oluşturduğu masaüstleri, üzerinde hiçbir şey yoksa ve planın ötesindeyse
   silinir. Penceresi olan masaüstleri, adlı masaüstleri ve senin kendi boş
   masaüstlerin kalır.
 - **Eksik masaüstleri oluşturulur**, plana kadar.
 - **Silinmiş masaüstü satırı çıkmaz.** Ekran değişikliği yüzünden kaybolan
-  masaüstü silme sayılmaz; satır yalnız *sen* Mission Control'de ya da
-  Deskmap'te bir masaüstünü silince çıkar.
+  masaüstü silme sayılmaz; satır yalnız *sen* Mission Control’de ya da
+  Deskmap’te bir masaüstünü silince çıkar.
 
 Bir pencere taşınamazsa olduğu yerde kalır, masaüstü korunur ve alt çubuk
 bunu söyler.
@@ -289,7 +289,7 @@ open "deskmap://reapply"        # her şeyi şimdi yerleştir
 open "deskmap://toggle"         # duraklat / sürdür
 ```
 
-Birini bir Shortcut'a koy, klavye kısayolu bağla; ya da macOS Focus
+Birini bir Shortcut’a koy, klavye kısayolu bağla; ya da macOS Focus
 otomasyonuna: "Çalışma odağı açılınca Masa profiline geç".
 
 ## 11. Bir şey olmuyorsa
@@ -299,7 +299,7 @@ otomasyonuna: "Çalışma odağı açılınca Masa profiline geç".
 | Pencere hiç kıpırdamıyor | Deskmap duraklatılmış (sol üst) ya da uygulama güncellemesinden sonra Erişilebilirlik izni düşmüş — yeniden ver. |
 | Pencere yanlış masaüstüne gidiyor | "Alanları en son kullanıma göre otomatik olarak yeniden düzenle" (Automatically rearrange Spaces) açık kalmış ya da uygulamanın Dock **Ata** (Assign To) ayarı **Hiçbiri** (None) değil. |
 | Sabitlemenin çipi soluk görünüyor | O pencereye daha özgül başka bir sabitleme önce uyuyor. Üzerine gel, hangisi olduğunu söyler. |
-| Turuncu **Masaüstü 5 yok** rozeti | O masaüstü yok; Mission Control'den masaüstü ekle. |
+| Turuncu **Masaüstü 5 yok** rozeti | O masaüstü yok; Mission Control’den masaüstü ekle. |
 | Bir pencere zıpladı, nedenini bilmiyorsun | Araç çubuğundaki **Son hareketler** her taşımayı ve hedefini listeler. |
 | Masaüstleri arası taşıma olmuyor ama boyutlar çalışıyor | Bu macOS sürümü uygulamanın masaüstü taşıma için kullandığı özel çağrıları vermedi. Ekran ve düzen çalışmaya devam eder. |
 

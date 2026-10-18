@@ -2,6 +2,8 @@
 /*
  * Deskmap website builder.  Usage:  node scripts/build-site.mjs [--strict]
  *                                   (make site / make site-serve)
+ * Env: SITE_URL (absolute site URL, metadata only), SITE_OUT (write the
+ * site somewhere other than website/_site, e.g. for parallel previews).
  *
  * No npm dependencies: Node 18+ and, for the Markdown docs, pandoc.
  * Output goes to website/_site/ (gitignored), which is deleted and rebuilt
@@ -10,9 +12,23 @@
  * is relative: write {{root}} in front of it. Never write href="/docs/".
  *
  * ── Source layout ──────────────────────────────────────────────────────────
- *   website/layout.html   one shared layout (head, OG, header nav, footer)
- *   website/assets/       copied to _site/assets/ (site.css, site.js,
- *                         docs.css, images/). Linked as {{root}}assets/...
+ *   website/layout.html   the cinematic layout of every normal page: shared
+ *                         head + header + <main> + footer; loads
+ *                         assets/cine.css and assets/cine.js
+ *   website/layout-legacy.html  the old "Cartographic" layout (site.css,
+ *                         site.js, IBM Plex/Fraunces fonts), ONLY for
+ *                         `layout: legacy` pages: classic/, tr/classic/,
+ *                         motion/, tr/motion/. Do not use it for new pages.
+ *   website/partials/     head.html ({{site_head}}: charset, title, meta, OG,
+ *                         hreflang, favicons, pre-paint theme script; used by
+ *                         all layouts), header.html ({{site_header}}) and
+ *                         footer.html ({{site_footer}}): the cinematic chrome,
+ *                         used by layout.html AND the bare home pages, so
+ *                         they cannot drift. A leading <!-- comment --> in a
+ *                         partial is stripped.
+ *   website/assets/       copied to _site/assets/ (cine.css, cine.js, home.*,
+ *                         legacy site.css/site.js/docs.*, motion.*, images/).
+ *                         Linked as {{root}}assets/...
  *   website/pages/        hand-written page bodies. pages/foo/index.html
  *                         becomes _site/foo/index.html (URL foo/); the path
  *                         is mirrored 1:1 unless front matter sets `out`.
@@ -52,12 +68,20 @@
  *                                             serves it at any depth, so links
  *                                             use BASE_PATH instead of ../)
  *   noindex: true                            (optional; adds robots noindex)
+ *   layout: bare                             (optional; see "Bare pages" below;
+ *                                             `legacy` = layout-legacy.html;
+ *                                             omitted = cinematic layout.html)
+ *   theme_color: #ffffff #000000             (optional; light and dark
+ *                                             <meta name="theme-color">;
+ *                                             default per layout, THEME_COLOR)
  *   ---
  *   <section class="page-head">...</section>   ← body HTML, placed in <main>
  *
  * ── Tokens ─────────────────────────────────────────────────────────────────
- * Usable in page bodies, Markdown output and layout.html. Unknown {{...}}
- * text is left untouched.
+ * Usable in page bodies, Markdown output, layouts and partials. Unknown
+ * {{...}} text is left untouched (but a known token is replaced anywhere,
+ * HTML comments included: don't write {{site_header}} in a comment).
+ *   {{site_head}} {{site_header}} {{site_footer}}   the partials (filled)
  *   {{root}}         relative prefix to the site root: "./", "../", "../../"
  *   {{version}}      contents of VERSION (e.g. 0.5.0)
  *   {{release_url}}  https://github.com/cnkndmr/Deskmap/releases/latest
@@ -70,6 +94,27 @@
  *   {{href.KEY}}     language-aware site-relative path from NAV_HREFS[lang]
  *                    (e.g. {{root}}{{href.download}} → ../tr/download/)
  *
+ * ── Bare pages (layout: bare) ─────────────────────────────────────────────
+ * For a page with its own design (the home page, pages/index.html). The
+ * body is the WHOLE <body> content: the page brings its own skip link,
+ * header, nav, <main> and footer, and its own styles and scripts via
+ * `css:` / `js:` (assets/<name>.css|js?v=VERSION). The build still writes
+ * the <head> essentials: website/partials/head.html (charset, viewport,
+ * title, description, robots, canonical, hreflang alternates, OG/Twitter
+ * tags, favicons, the pre-paint theme script that applies ?theme= or
+ * localStorage 'deskmap-theme' as data-theme on <html> and adds class "js").
+ * It loads no stylesheet or script by itself: the home pages list
+ * `css: cine, home` and `js: cine, home` and put {{site_header}} /
+ * {{site_footer}} in their body (theme toggle + menu come from cine.js).
+ * Everything else is the same as for normal pages: tokens are filled
+ * (the layout's own ones too: {{nav_items}} = the <li> nav links with
+ * aria-current, {{lang_switch}} = the EN/TR <a> pair, {{other_lang_href}},
+ * {{home_href}}), images are sized and themed (themeImages: the page's CSS
+ * must hide .shot-dark/.shot-light like cine.css does), the page goes in
+ * the sitemap unless noindex, and its links are checked. A theme toggle
+ * on a bare page must set data-theme on <html> and store the choice in
+ * localStorage 'deskmap-theme' (see cine.js) so it carries to other pages.
+ *
  * ── Languages ──────────────────────────────────────────────────────────────
  * EN pages live at the root, TR pages under tr/. Front matter `alt` names the
  * counterpart; the build then emits <link rel="alternate" hreflang> for both
@@ -77,15 +122,17 @@
  * the switch goes to the other language's home page. Give the TR page the
  * reverse `alt` (EN path, e.g. `alt: download/`). The site root itself is
  * written `alt: .` (so the TR home has `alt: .`, the EN home `alt: tr/`).
- * Every page has a Turkish twin: tr/ (animated home), tr/classic/ (static
- * home, noindex), tr/docs/ (docs landing), tr/download/, tr/compare/, and
+ * Every page has a Turkish twin: tr/ (home, bare), tr/motion/ (animated home,
+ * noindex), tr/classic/ (static home, noindex), tr/docs/ (docs landing),
+ * tr/download/, tr/compare/, and
  * the Markdown docs (DOC_PAGES). In layout/page bodies use {{href.KEY}} for
  * links that have a twin, so each language links within itself.
  *
  * ── Adding a page ──────────────────────────────────────────────────────────
  *   1. Create website/pages/<path>/index.html with the front matter above.
- *   2. Body = <section> blocks using the components in assets/site.css
- *      (see the component index at the top of that file).
+ *   2. Body = <section> blocks using the components in assets/cine.css
+ *      (see the component index at the top of that file). Start with a
+ *      section.page-hero; pages/download/index.html is the reference page.
  *   3. Prefix internal links/assets with {{root}}; run `make site`.
  *   The build fails on root-absolute href/src ("/...") and warns about
  *   relative links that do not resolve to a built file (--strict: fails).
@@ -99,7 +146,7 @@ import { fileURLToPath } from 'node:url';
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = path.join(REPO, 'website');
 const PAGES = path.join(WEB, 'pages');
-const OUT = path.join(WEB, '_site');
+const OUT = process.env.SITE_OUT ? path.resolve(process.env.SITE_OUT) : path.join(WEB, '_site'); // SITE_OUT: build elsewhere (parallel previews)
 const SHOTS = path.join(WEB, 'shots');
 const STRICT = process.argv.includes('--strict');
 
@@ -119,9 +166,9 @@ const GLOBALS = {
 /* Language-aware site-relative paths ({{href.KEY}}). */
 const NAV_HREFS = {
   en: { home: '', docs: 'docs/', guide: 'docs/guide/', reference: 'docs/reference/', architecture: 'docs/architecture/',
-        privacy: 'privacy/', download: 'download/', compare: 'compare/', changelog: 'changelog/', classic: 'classic/' },
+        privacy: 'privacy/', download: 'download/', compare: 'compare/', changelog: 'changelog/', classic: 'classic/', motion: 'motion/' },
   tr: { home: 'tr/', docs: 'tr/docs/', guide: 'tr/docs/kilavuz/', reference: 'tr/docs/reference/', architecture: 'tr/docs/architecture/',
-        privacy: 'tr/privacy/', download: 'tr/download/', compare: 'tr/compare/', changelog: 'tr/changelog/', classic: 'tr/classic/' },
+        privacy: 'tr/privacy/', download: 'tr/download/', compare: 'tr/compare/', changelog: 'tr/changelog/', classic: 'tr/classic/', motion: 'tr/motion/' },
 };
 const NAV_ORDER = ['home', 'docs', 'download', 'compare', 'changelog'];
 
@@ -132,6 +179,7 @@ const I18N = {
     nav_label: 'Main', brand_label: 'Deskmap home', lang_label: 'Language', skip: 'Skip to content',
     theme_dark: 'Switch to dark theme', theme_light: 'Switch to light theme',
     menu_open: 'Open menu', menu_close: 'Close menu', download_short: 'Download',
+    theme_label: 'Dark theme', foot_nav_label: 'Footer',
     foot_blurb: 'Every window on the right display, the right desktop, in the right layout. A free menu bar app for macOS by Can Kandemir.',
     foot_product: 'Product', foot_docs: 'Docs', foot_project: 'Project',
     foot_all_docs: 'All docs', foot_guide: 'User guide', foot_reference: 'Reference', foot_architecture: 'Architecture', foot_privacy: 'Privacy',
@@ -146,11 +194,12 @@ const I18N = {
     nav_label: 'Ana menü', brand_label: 'Deskmap ana sayfası', lang_label: 'Dil', skip: 'İçeriğe geç',
     theme_dark: 'Koyu temaya geç', theme_light: 'Açık temaya geç',
     menu_open: 'Menüyü aç', menu_close: 'Menüyü kapat', download_short: 'İndir',
+    theme_label: 'Koyu tema', foot_nav_label: 'Alt bilgi',
     foot_blurb: 'Her pencere doğru ekranda, doğru masaüstünde, doğru düzende. Can Kandemir’den macOS için ücretsiz bir menü çubuğu uygulaması.',
     foot_product: 'Ürün', foot_docs: 'Belgeler', foot_project: 'Proje',
     foot_all_docs: 'Tüm belgeler', foot_guide: 'Kullanım kılavuzu', foot_reference: 'Başvuru', foot_architecture: 'Mimari', foot_privacy: 'Gizlilik',
     foot_issue: 'Sorun bildir', foot_support: 'Projeyi destekle',
-    foot_license: 'MIT Lisansı · © {{year}} Can Kandemir · Hiç veri toplamaz',
+    foot_license: 'MIT Lisansı · © {{year}} Can Kandemir · Veri toplanmaz',
     foot_vibe: 'Claude Code ile vibe coding yöntemiyle yazıldı',
     other_lang_name: 'English', copy: 'Kopyala', copied: 'Kopyalandı', close: 'Kapat',
     zoom: 'Tam boyutta aç',
@@ -212,7 +261,32 @@ function walk(dir) {
 
 /* ───────────────────────── page rendering ───────────────────────── */
 
-const LAYOUT = fs.readFileSync(path.join(WEB, 'layout.html'), 'utf8');
+/* Layouts (front matter `layout:`):
+ *   (omitted)  website/layout.html         cinematic: cine.css + cine.js
+ *   legacy     website/layout-legacy.html  "Cartographic": site.css + site.js
+ *   bare       BARE_LAYOUT below           the page body is the whole <body>
+ * All three take their <head> essentials from website/partials/head.html
+ * ({{site_head}}); the cinematic header/footer partials are {{site_header}}
+ * and {{site_footer}} (layout.html and the bare home pages use them). */
+const readPartial = (n) => fs.readFileSync(path.join(WEB, 'partials', n + '.html'), 'utf8').replace(/^<!--[\s\S]*?-->\n/, '');
+const PARTIALS = { site_head: readPartial('head'), site_header: readPartial('header'), site_footer: readPartial('footer') };
+const BARE_LAYOUT = `<!doctype html>
+<!-- Bare page: head from website/partials/head.html, body from the page. -->
+<html lang="{{lang}}">
+<head>
+{{site_head}}{{extra_css}}</head>
+<body class="{{body_class}}">
+{{content}}
+</body>
+</html>
+`;
+const LAYOUTS = {
+  cine: fs.readFileSync(path.join(WEB, 'layout.html'), 'utf8'),
+  legacy: fs.readFileSync(path.join(WEB, 'layout-legacy.html'), 'utf8'),
+  bare: BARE_LAYOUT,
+};
+/* Default <meta name="theme-color"> (light, dark) per layout. */
+const THEME_COLOR = { cine: ['#ffffff', '#000000'], bare: ['#ffffff', '#000000'], legacy: ['#F3EEE3', '#0C1422'] }; // legacy: site.css --paper
 const built = []; // { outRel, lang, alt }
 
 /**
@@ -225,6 +299,10 @@ function renderPage(page) {
   for (const k of ['title', 'description']) if (!data[k]) throw new Error(`${source}: front matter needs "${k}"`);
   const lang = data.lang || 'en';
   if (!I18N[lang]) throw new Error(`${source}: lang must be en or tr`);
+  const layout = data.layout || 'cine';
+  if (!(layout in LAYOUTS) || layout === 'cine' && data.layout) throw new Error(`${source}: layout must be bare or legacy (or omitted)`);
+  const themeColor = (data.theme_color || '').split(/\s+/).filter(Boolean);
+  if (themeColor.length && themeColor.length !== 2) throw new Error(`${source}: theme_color needs two colours (light dark)`);
   const other = lang === 'en' ? 'tr' : 'en';
   const absolute = data.root === 'absolute';
   const root = absolute ? BASE_PATH : rootFor(outRel);
@@ -271,13 +349,17 @@ function renderPage(page) {
     canonical: SITE_URL + urlPath,
     robots: data.noindex === 'true' ? '<meta name="robots" content="noindex">\n' : '',
     alternates, extra_css: extraCss,
+    theme_light: esc(themeColor[0] || THEME_COLOR[layout][0]), theme_dark: esc(themeColor[1] || THEME_COLOR[layout][1]),
     body_class: esc(['lang-' + lang, data.body_class].filter(Boolean).join(' ')),
     home_href: root + NAV_HREFS[lang].home,
     nav_items: nav.join('\n'), lang_switch: langSwitch,
     other_lang: other, other_lang_href: otherHref,
   };
+  // Partials are filled first so their own tokens (and {{year}} inside I18N
+  // strings) resolve; then they are ordinary tokens for the layout and body.
+  for (const [k, v] of Object.entries(PARTIALS)) vars[k] = fillTokens(v, vars, lang);
   const body = fillTokens(themeImages(sizeImages(page.body)), vars, lang);
-  const html = fillTokens(LAYOUT, vars, lang).replace('{{content}}', () => body);
+  const html = fillTokens(LAYOUTS[layout], vars, lang).replace('{{content}}', () => body);
 
   const dest = path.join(OUT, outRel);
   fs.mkdirSync(path.dirname(dest), { recursive: true });
@@ -322,8 +404,10 @@ function renderHandwrittenPages() {
  * only the reader's language, each language has its own prev/next chain.
  * Turkish sources: pandoc reads gfm+attributes, so a heading may carry an
  * explicit id; TR pages keep the EN page's ids ("## Otomasyon (URL şeması)
- * {#automation-url-scheme}") so deep links and the EN/TR switch (site.js
- * carries the #hash over) land on the same section. Links in docs/tr/*.md:
+ * {#automation-url-scheme}") so deep links and the EN/TR switch (cine.js
+ * carries the #hash over) land on the same section; where the ids differ
+ * (guide and kılavuz) but the headings line up, linkAltHeadings() gives each
+ * heading a data-alt-id with its twin's id. Links in docs/tr/*.md:
  * write them relative to docs/tr/ (reference.md, ../kilavuz.md,
  * ../images/tr/x.png, ../../app/…) or copy the EN page's links verbatim; a
  * path missing under docs/tr/ is retried relative to the EN source. Links to
@@ -340,7 +424,7 @@ const DOC_PAGES = [
     description: 'Every rule, every setting, every failure mode of Deskmap: pins, modes, desktops, profiles, backups, automation, shortcuts, troubleshooting and limitations.' },
   { key: 'architecture', src: 'docs/architecture.md', url: 'docs/architecture/', lang: 'en', alt: 'tr/docs/architecture/', group: 'ref', title: 'Architecture', nav: 'Architecture',
     description: 'How Deskmap is put together: the main types, what happens during a sweep, the retry limits, the data files and how localization works.' },
-  { key: 'privacy', src: 'docs/privacy.md', url: 'privacy/', lang: 'en', alt: 'tr/privacy/', group: 'project', title: 'Privacy', nav: 'Privacy', siteNav: 'none' },
+  { key: 'privacy', src: 'docs/privacy.md', url: 'privacy/', lang: 'en', alt: 'tr/privacy/', group: 'project', title: 'Privacy', nav: 'Privacy', siteNav: 'docs' },
   { key: 'changelog', src: 'CHANGELOG.md', url: 'changelog/', lang: 'en', alt: 'tr/changelog/', group: 'project', title: 'Changelog', nav: 'Changelog', siteNav: 'changelog', tocDepth: 2,
     description: 'Every notable change to Deskmap, release by release: what was added, changed and fixed, and what is done but not released yet.' },
   /* Turkish pages. `base` = the EN page's key (drives changelog/privacy
@@ -349,8 +433,8 @@ const DOC_PAGES = [
   { key: 'tr_reference', base: 'reference', src: 'docs/tr/reference.md', url: 'tr/docs/reference/', lang: 'tr', alt: 'docs/reference/', group: 'ref', title: 'Başvuru', nav: 'Başvuru',
     description: 'Deskmap’in bütün kuralları, ayarları ve aksayabilecek her şeyi: sabitlemeler, planlar, masaüstleri, profiller, yedekler, otomasyon, kısayollar, sorun giderme ve sınırlar.' },
   { key: 'tr_architecture', base: 'architecture', src: 'docs/tr/architecture.md', url: 'tr/docs/architecture/', lang: 'tr', alt: 'docs/architecture/', group: 'ref', title: 'Mimari', nav: 'Mimari',
-    description: 'Deskmap nasıl kurulu: ana tipler, bir tarama sırasında neler olduğu, yeniden deneme sınırları, veri dosyaları ve yerelleştirmenin nasıl işlediği.' },
-  { key: 'tr_privacy', base: 'privacy', src: 'docs/tr/privacy.md', url: 'tr/privacy/', lang: 'tr', alt: 'privacy/', group: 'project', title: 'Gizlilik', nav: 'Gizlilik', siteNav: 'none' },
+    description: 'Deskmap’in iç yapısı: ana türler, bir tarama sırasında neler olduğu, yeniden deneme sınırları, veri dosyaları ve yerelleştirmenin nasıl işlediği.' },
+  { key: 'tr_privacy', base: 'privacy', src: 'docs/tr/privacy.md', url: 'tr/privacy/', lang: 'tr', alt: 'privacy/', group: 'project', title: 'Gizlilik', nav: 'Gizlilik', siteNav: 'docs' },
   { key: 'tr_changelog', base: 'changelog', src: 'docs/tr/CHANGELOG.md', url: 'tr/changelog/', lang: 'tr', alt: 'changelog/', group: 'project', title: 'Değişiklikler', nav: 'Değişiklikler', siteNav: 'changelog', tocDepth: 2,
     description: 'Deskmap’te öne çıkan her değişiklik, sürüm sürüm: neler eklendi, neler değişti, neler düzeltildi; bitmiş ama henüz yayımlanmamış olanlar da.' },
 ];
@@ -618,19 +702,19 @@ function docLabel(d, cur) {
 }
 
 function docsSidebar(cur, ui) {
-  const groups = DOC_GROUPS.map((g, gi) => {
+  const groups = DOC_GROUPS.map((g) => {
     // A page that exists in both languages is listed only in the reader's own;
     // the EN/TR switch leads to the other one.
     const links = DOC_PAGES.filter((d) => d.group === g && !(d.alt && d.lang !== cur.lang)).map((d) => {
       const here = d.key === cur.key ? ' aria-current="page"' : '';
       return `<li><a href="{{root}}${d.url}"${here}${d.lang !== cur.lang ? ` hreflang="${d.lang}"` : ''}>${docLabel(d, cur)}</a></li>`;
     }).join('');
-    return `<div class="docs-group"><p class="label"><b>0${gi + 1}</b> · ${esc(ui['g_' + g])}</p><ul>${links}</ul></div>`;
+    return `<div class="docs-group"><p class="label">${esc(ui['g_' + g])}</p><ul>${links}</ul></div>`;
   }).join('\n');
   return `<aside class="docs-side">
   <button class="docs-nav-toggle" type="button" aria-expanded="false" aria-controls="docs-nav"><span class="label">${esc(ui.docs)}</span><span class="cur">${esc(cur.nav)}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
   <nav class="docs-nav" id="docs-nav" aria-label="${esc(ui.doc_nav)}">
-    <a class="docs-home" href="{{root}}{{href.docs}}">← ${esc(ui.all_docs)}</a>
+    <a class="docs-home" href="{{root}}{{href.docs}}"><span aria-hidden="true">‹</span> ${esc(ui.all_docs)}</a>
 ${groups}
   </nav>
 </aside>`;
@@ -643,7 +727,7 @@ function pager(cur, ui) {
   const prev = i > 0 ? at(chain[i - 1]) : null;
   const next = i >= 0 && i < chain.length - 1 ? at(chain[i + 1]) : null;
   const card = (d, dir) => d
-    ? `<a class="pager-${dir}" href="{{root}}${d.url}" rel="${dir}"${d.lang !== cur.lang ? ` hreflang="${d.lang}"` : ''}><span class="label">${dir === 'prev' ? '← ' + esc(ui.prev) : esc(ui.next) + ' →'}</span><span class="pager-t">${docLabel(d, cur)}</span></a>`
+    ? `<a class="pager-${dir}" href="{{root}}${d.url}" rel="${dir}"${d.lang !== cur.lang ? ` hreflang="${d.lang}"` : ''}><span class="label">${dir === 'prev' ? '‹ ' + esc(ui.prev) : esc(ui.next) + ' ›'}</span><span class="pager-t">${docLabel(d, cur)}</span></a>`
     : '<span></span>';
   return prev || next ? `<nav class="pager" aria-label="${esc(ui.prev)} / ${esc(ui.next)}">${card(prev, 'prev')}${card(next, 'next')}</nav>` : '';
 }
@@ -655,6 +739,10 @@ function renderMarkdownDocs() {
     const ui = DOCS_UI[d.lang];
     const md = alertsToCallouts(fs.readFileSync(path.join(REPO, d.src), 'utf8'), d.lang);
     let html = pandoc(md, d.src);
+    // pandoc lowercases a Turkish İ to i + U+0307 in heading ids; drop the dot.
+    if (d.lang === 'tr') html = html.replace(/\u0307/g, '');
+    // Tables scroll inside a bordered region instead of the table itself.
+    html = html.replace(/<table>([\s\S]*?)<\/table>/g, (all) => `<div class="table-scroll" role="region" tabindex="0">${all}</div>`);
     const description = d.description || summarize(html) || `${d.title} — ${ui.fallback_description}`;
 
     html = html.replace(/<a href="#cb\d+-\d+"[^>]*><\/a>/g, ''); // pandoc line anchors
@@ -675,14 +763,14 @@ function renderMarkdownDocs() {
     }
     const date = lastChange(d.src);
     const meta = `<div class="doc-meta">
-  <a class="text-link" href="${GLOBALS.repo_url}/edit/main/${d.src}">${esc(ui.edit)}</a>
+  <a class="doc-edit" href="${GLOBALS.repo_url}/edit/main/${d.src}">${esc(ui.edit)}</a>
   <span>${esc(ui.source)} <a href="${GLOBALS.repo_url}/blob/main/${d.src}"><code>${d.src}</code></a></span>
-  ${date ? `<span>${esc(ui.updated)} <time datetime="${date}">${date}</time></span>` : ''}
+  ${date ? `<span>${esc(ui.updated)} <time datetime="${date}">${+date.slice(8, 10)} ${ui.months[+date.slice(5, 7) - 1]} ${date.slice(0, 4)}</time></span>` : ''}
 </div>`;
     const body = `<div class="docs-shell${baseKey(d) === 'changelog' ? ' docs-changelog' : ''}">
 ${docsSidebar(d, ui)}
 <div class="docs-main">
-  <p class="label doc-crumb"><a href="{{root}}{{href.docs}}"><b>§ ${esc(ui.docs)}</b></a> · ${esc(groupName(d))}</p>
+  <p class="doc-crumb"><a href="{{root}}{{href.docs}}">${esc(ui.docs)}</a><span class="sep" aria-hidden="true">›</span><span>${esc(groupName(d))}</span></p>
   <article class="prose doc">
 ${html}
   </article>
@@ -691,7 +779,7 @@ ${pager(d, ui)}
 ${meta}
   </footer>
 </div>
-${toc.length ? `<aside class="docs-toc"><nav aria-label="${esc(ui.on_this_page)}"><p class="label">${esc(ui.on_this_page)}</p>${tocList(toc)}<a class="toc-top" href="#main">↑ ${esc(ui.back_top)}</a></nav></aside>` : ''}
+${toc.length ? `<aside class="docs-toc"><nav aria-label="${esc(ui.on_this_page)}"><p class="label">${esc(ui.on_this_page)}</p>${tocList(toc)}<a class="toc-top" href="#main"><span aria-hidden="true">↑</span> ${esc(ui.back_top)}</a></nav></aside>` : ''}
 </div>`;
     pages.push({
       outRel: d.url + 'index.html', source: d.src, body,
@@ -701,7 +789,28 @@ ${toc.length ? `<aside class="docs-toc"><nav aria-label="${esc(ui.on_this_page)}
       },
     });
   }
+  linkAltHeadings(pages);
   return pages;
+}
+
+/**
+ * EN/TR twins whose heading ids differ (the guide and kılavuz) but whose
+ * heading structure matches: each heading gets data-alt-id, the id of the
+ * same heading on the other page, so the language switch (cine.js) can carry
+ * the reader's #section across.
+ */
+function linkAltHeadings(pages) {
+  const byUrl = new Map(pages.map((p) => [p.outRel.replace(/index\.html$/, ''), p]));
+  const heads = (body) => [...body.replace(/<details class="toc-inline">[\s\S]*?<\/details>/, '').matchAll(/<(h[2-4]) id="([^"]+)"/g)].map((m) => [m[1], m[2]]);
+  for (const p of pages) {
+    const twin = p.data.alt && byUrl.get(p.data.alt);
+    if (!twin) continue;
+    const a = heads(p.body), b = heads(twin.body);
+    if (a.length !== b.length || a.some(([t], i) => t !== b[i][0])) continue; // different structure (the EN privacy page has an extra Turkish summary): ids are shared anyway
+    const map = new Map(a.map(([, id], i) => [id, b[i][1]]).filter(([x, y]) => x !== y));
+    if (!map.size) continue;
+    p.body = p.body.replace(/<(h[2-4]) id="([^"]+)"/g, (all, t, id) => map.has(id) ? `${all} data-alt-id="${map.get(id)}"` : all);
+  }
 }
 
 /* ───────────────────────── sitemap.xml + robots.txt ───────────────────────── */
