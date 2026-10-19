@@ -301,7 +301,7 @@ otomasyonuna: "Çalışma odağı açılınca Masa profiline geç".
 | Sabitlemenin çipi soluk görünüyor | O pencereye daha özgül başka bir sabitleme önce uyuyor. Üzerine gel, hangisi olduğunu söyler. |
 | Turuncu **Masaüstü 5 yok** rozeti | O masaüstü yok; Mission Control’den masaüstü ekle. |
 | Bir pencere zıpladı, nedenini bilmiyorsun | Araç çubuğundaki **Son hareketler** her taşımayı ve hedefini listeler. |
-| Masaüstleri arası taşıma olmuyor ama boyutlar çalışıyor | Bu macOS sürümü uygulamanın masaüstü taşıma için kullandığı özel çağrıları vermedi. Ekran ve düzen çalışmaya devam eder. |
+| Masaüstleri arası taşıma olmuyor ama boyutlar çalışıyor | Pencerenin üstündeki turuncu kart nedenini söyler. macOS 15 ve 26.0–26.3’te masaüstü taşıma **Yine de dene**’ye basana kadar kapalıdır (orada henüz doğrulanmadı). Taşımalar art arda etkisiz kaldıysa **Yeniden dene** onları yeniden açar. Kartta düğme yoksa bu macOS, uygulamanın masaüstü taşıma için kullandığı çağrıları vermiyor. Ekran ve düzen her durumda çalışır. |
 
 Uzun sorun giderme, eşleştirmenin tam kuralları ve dosya biçimleri
 [README](../README.md) içinde.
