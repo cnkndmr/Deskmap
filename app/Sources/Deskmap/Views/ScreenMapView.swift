@@ -846,7 +846,7 @@ extension ScreenMapView {
     /// hiçbir modda hedefi olan kural uymuyor. Tam ekran ya da yeri
     /// bilinmeyen pencereler Deskmap'in hiç dokunmadığı pencerelerdir;
     /// listelenmez (sürüklenip taşınamasın, rozette sayılmasın).
-    static func unownedWindows(
+    nonisolated static func unownedWindows(
         _ windows: [Router.WindowSnapshot], rules: [Rule],
         sessionPins: [CGWindowID: Destination]
     ) -> [Router.WindowSnapshot] {

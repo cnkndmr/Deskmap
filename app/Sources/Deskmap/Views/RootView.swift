@@ -40,12 +40,12 @@ struct RootView: View {
     /// değil): 1710×1074 pt'lik ekranda ≈ 900×750. Alt/üst sınırlar küçük
     /// ekranda okunurluğu, büyük ekranda gereksiz büyümeyi önler; üst sınır
     /// her zaman ekranın kendisidir (taşma yok).
-    static let widthFraction: CGFloat = 0.53
-    static let heightFraction: CGFloat = 0.70
-    static let minWindowWidth: CGFloat = 660
-    static let maxWindowWidth: CGFloat = 1100
-    static let minWindowHeight: CGFloat = 480
-    static let maxWindowHeight: CGFloat = 900
+    nonisolated static let widthFraction: CGFloat = 0.53
+    nonisolated static let heightFraction: CGFloat = 0.70
+    nonisolated static let minWindowWidth: CGFloat = 660
+    nonisolated static let maxWindowWidth: CGFloat = 1100
+    nonisolated static let minWindowHeight: CGFloat = 480
+    nonisolated static let maxWindowHeight: CGFloat = 900
 
     /// Pencere genişliği (saf): ekranın oranı, sınırlar içinde, ekrandan
     /// geniş değil.
@@ -61,7 +61,7 @@ struct RootView: View {
     }
 
     /// Sağdaki ayrıntı sütununun genişliği.
-    static let inspectorWidth: CGFloat = 360
+    nonisolated static let inspectorWidth: CGFloat = 360
     /// Eski tip (hep görünen) kaydırma çubuğunun kapladığı genişlik (≈15 pt).
     static let scrollerGutter: CGFloat = 16
     /// Sütundaki sabit genişlikli öğelerin (ızgara, döşemeler) her koşulda
@@ -80,9 +80,9 @@ struct RootView: View {
         min(max(windowWidth * 0.32, 220), 300)
     }
     /// Alt panel açıkken bile haritaya kalan en az yükseklik.
-    static let minMapHeight: CGFloat = 260
+    nonisolated static let minMapHeight: CGFloat = 260
     /// Pencerenin ekranın kullanılabilir alanının altında bıraktığı boşluk.
-    static let screenMargin: CGFloat = 12
+    nonisolated static let screenMargin: CGFloat = 12
 
     /// Ölçülen yükseklikler: "top" (üst çubuklar), "bottom" (alt çubuk).
     /// Harita alanı bunlardan hesaplanır.

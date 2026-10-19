@@ -362,7 +362,7 @@ struct DesktopRow: View {
             let router = router, store = store, desktop = desktop
             Task {
                 if await router.removeDesktop(on: screenID, desktop: desktop) {
-                    remapCollapsed(Mode.allCases)
+                    _ = remapCollapsed(Mode.allCases)
                 } else {
                     store.report(L("Could not remove desktop %ld on %@", desktop, screenID))
                 }
