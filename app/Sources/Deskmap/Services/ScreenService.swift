@@ -218,6 +218,10 @@ final class ScreenService: ObservableObject {
     /// Onay bekleyen roller (`DisplayRoles.unconfirmed`): düzen uygulanmaz.
     var heldRoles: Set<String> { roles.unconfirmed(externalAssignment) }
 
+    /// Bağlı ve onay beklemeyen roller: sıralı yerlerin kullanılabildiği
+    /// ekranlar (`Routing.resolvePlace`, `Rule.place`).
+    var usableRoles: Set<String> { Set(screens.map(\.id)).subtracting(heldRoles) }
+
     private func screensChanged() {
         refresh()
         let now = Date()

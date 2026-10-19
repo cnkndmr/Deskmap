@@ -647,3 +647,24 @@
 "Monitor connected: Deskmap knows where each window belongs" = "Monitör bağlandı: Deskmap her pencerenin yerini biliyor";
 "Pinned windows go to their screen and desktop on their own" = "Sabitlenen pencereler kendi ekranına ve masaüstüne kendiliğinden gider";
 "A second monitor keeps its own role: Monitor 2" = "İkinci monitör kendi rolünü korur: 2. monitör";
+
+/* Sıralı yerler, soluk kartlar, yeni monitör (docs/bug-tables.md §D) */
+"Not connected · windows go here when the monitor is plugged in" = "Bağlı değil · monitör takılınca pencereler buraya gelir";
+"Add to the end" = "Sıranın sonuna ekle";
+"This monitor gets its own place after the others; no pinned window moves now." = "Bu monitör ötekilerden sonra kendi yerini alır; şimdi hiçbir sabitli pencere taşınmaz.";
+"Replace…" = "Yerine geç…";
+"This monitor takes the place and the whole layout of a monitor Deskmap knows." = "Bu monitör, Deskmap'in tanıdığı bir monitörün yerini ve bütün düzenini alır.";
+"Replace %@" = "%@ yerine geç";
+"Place %ld in the list of this pin: used when this monitor is connected and no earlier place is" = "Bu sabitlemenin listesindeki %ld. yer: bu monitör bağlıyken ve daha önceki bir yer bağlı değilken kullanılır";
+"fallback: none of its monitors is connected" = "yedek: monitörlerinden hiçbiri bağlı değil";
+"place %ld of %ld in its list" = "listesindeki %ld. yer (%ld yerden)";
+"Places" = "Yerler";
+"With monitors: the first place whose monitor is connected wins." = "Monitörlüyken: monitörü bağlı ilk yer kazanır.";
+"None of these monitors is connected: the window is on %@ for now (fallback)." = "Bu monitörlerin hiçbiri bağlı değil: pencere şimdilik %@ üzerinde (yedek).";
+"Laptop only: %@" = "Sadece laptop: %@";
+"Laptop only: no place" = "Sadece laptop: yer yok";
+"in use" = "kullanılıyor";
+"(not connected)" = "(bağlı değil)";
+"Move up" = "Yukarı taşı";
+"Move down" = "Aşağı taşı";
+"Remove this place" = "Bu yeri sil";

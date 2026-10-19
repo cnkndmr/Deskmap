@@ -55,8 +55,13 @@ struct WindowActions {
             windowID: window.id, bundleID: window.bundleID,
             appName: window.appName, title: window.title, document: window.document,
             context: mode == screens.mode ? router.routingContext : nil)
-        let name = match.flatMap { m in screens.screens.first { $0.id == m.destination.screen }?.name }
-        return Routing.explanation(for: match, screenName: name)
+        // Monitörlü canlı planda taramanın seçtiği yer (sıralı yer ya da yedek).
+        let resolved = mode == .docked && isLive
+            ? match?.rule.flatMap { MapPlaces.winner($0, mode: mode, live: true, usable: screens.usableRoles) }
+            : nil
+        let screenID = resolved?.destination.screen ?? match?.destination.screen
+        let name = screens.screens.first { $0.id == screenID }?.name
+        return Routing.explanation(for: match, screenName: name, resolved: resolved)
     }
 
     var rowHelp: String {
@@ -191,9 +196,9 @@ struct WindowActions {
                     to: Destination(screen: screen, desktop: desktop, layout: current.layout),
                     mode: mode)
                 ui.panel = nil
-            } else if !isLive {
-                // Diğer kurulumun haritası: pencere şimdi taşınmaz,
-                // o kurulum için pin taslağı açılır.
+            } else if !isLive || !screens.usableRoles.contains(screen) {
+                // Diğer kurulumun haritası ya da bağlı olmayan monitörün
+                // soluk kartı: pencere şimdi taşınmaz, pin taslağı açılır.
                 ui.panel = .pin(PinDraft(window: window, target: placement, followsWindow: false))
             } else if placement != window.placement,
                       window.fullscreen == nil, window.placement != nil {

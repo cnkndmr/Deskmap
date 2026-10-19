@@ -30,13 +30,19 @@ struct DisplayRoles: Codable, Equatable {
     /// değişmez); sonrasında hatırlanmayan monitörün rolü onay bekler
     /// (`unconfirmed`). Hepsini unutmak bunu da sıfırlar.
     var learnedOnce: Bool = false
+    /// Monitör (normalleştirilmiş UUID) → en son bağlıyken görülen masaüstü
+    /// sayısı. Bağlı olmayan monitörün soluk kartı bu kadar masaüstü çizer
+    /// (rolün planı yoksa). İsteğe bağlı alan; boşsa yazılmaz.
+    var lastDesktopCount: [String: Int] = [:]
 
     /// Bir rolde tutulan en çok UUID (eski masa monitörleri düşer).
     static let historyLimit = 8
 
     var isEmpty: Bool { remembered.isEmpty }
 
-    private enum CodingKeys: String, CodingKey { case remembered, fallbackToFirstExternal, learnedOnce }
+    private enum CodingKeys: String, CodingKey {
+        case remembered, fallbackToFirstExternal, learnedOnce, lastDesktopCount
+    }
 
     init(remembered: [String: [String]] = [:], fallbackToFirstExternal: Bool = true,
          learnedOnce: Bool? = nil) {
@@ -59,6 +65,65 @@ struct DisplayRoles: Codable, Equatable {
         fallbackToFirstExternal = (try? c.decodeIfPresent(Bool.self, forKey: .fallbackToFirstExternal)) ?? true
         // Alanı olmayan (bu sürümden önceki) kayıt: bir şey hatırlıyorsa öğrenilmiş sayılır.
         learnedOnce = (try? c.decodeIfPresent(Bool.self, forKey: .learnedOnce)) ?? !clean.isEmpty
+        let counts = (try? c.decodeIfPresent([String: Int].self, forKey: .lastDesktopCount)) ?? [:]
+        lastDesktopCount = Dictionary(
+            counts.filter { $0.value >= 1 }.map { (ScreenInfo.normalize($0.key), $0.value) },
+            uniquingKeysWith: { a, _ in a })
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(remembered, forKey: .remembered)
+        try c.encode(fallbackToFirstExternal, forKey: .fallbackToFirstExternal)
+        try c.encode(learnedOnce, forKey: .learnedOnce)
+        if !lastDesktopCount.isEmpty { try c.encode(lastDesktopCount, forKey: .lastDesktopCount) }
+    }
+
+    // MARK: - Masaüstü sayısı (soluk kart)
+
+    /// Rolde en son kullanılan monitörün son görülen masaüstü sayısı.
+    func lastDesktopCount(role: String) -> Int? {
+        remembered[role]?.first.flatMap { lastDesktopCount[$0] }
+    }
+
+    /// Bağlı, onaylı monitörlerin masaüstü sayıları öğrenilir (saf).
+    /// `counts`: rol → gerçek masaüstü sayısı.
+    func learningDesktopCounts(_ counts: [String: Int],
+                               assignment: [(role: String, uuid: String)]) -> DisplayRoles {
+        var copy = self
+        for (role, uuid) in assignment where Self.isExternalRole(role) && isConfirmed(role: role, uuid: uuid) {
+            guard let count = counts[role], count >= 1 else { continue }
+            copy.lastDesktopCount[ScreenInfo.normalize(uuid)] = count
+        }
+        return copy
+    }
+
+    /// Onay bekleyen yeni monitörün "Sıranın sonuna ekle" rolü (K6, saf):
+    /// hiçbir monitörün hatırlanmadığı ve bağlı onaylı bir monitörün
+    /// tutmadığı en küçük rol.
+    func nextFreeRole(connected: [(role: String, uuid: String)]) -> String {
+        let taken = Set(remembered.filter { !$0.value.isEmpty }.keys)
+            .union(connected.filter { isConfirmed(role: $0.role, uuid: $0.uuid) }.map(\.role))
+        var index = 1
+        while taken.contains(Self.externalRole(index)) { index += 1 }
+        return Self.externalRole(index)
+    }
+
+    /// Kart başlığı menüsünde seçilebilen monitörler (D3.4/K9, saf): bağlı
+    /// ve onaylı olanlar ile hatırlanan, şu an bağlı olmayanlar (rolündeki en
+    /// yeni UUID). Deskmap'in hiç tanımadığı (onay bekleyen) monitör yok.
+    /// Rol sırasında.
+    func knownMonitors(connected: [(role: String, uuid: String)]) -> [(role: String, uuid: String)] {
+        var result: [(role: String, uuid: String)] = connected.filter {
+            Self.isExternalRole($0.role) && isConfirmed(role: $0.role, uuid: $0.uuid)
+        }
+        let present = Set(connected.map { ScreenInfo.normalize($0.uuid) })
+        for (role, list) in remembered {
+            guard let uuid = list.first, !present.contains(uuid),
+                  !result.contains(where: { $0.role == role }) else { continue }
+            result.append((role: role, uuid: uuid))
+        }
+        return result.sorted { (Self.externalIndex(of: $0.role) ?? 0) < (Self.externalIndex(of: $1.role) ?? 0) }
     }
 
     // MARK: - Roller

@@ -87,6 +87,7 @@ final class AppModel {
     /// Otomatik yedek (`Backups/`); Shots modunda hiç yaratılmaz.
     let backups: BackupService?
     private var roleSync: [AnyCancellable] = []
+    private var desktopCountSync: AnyCancellable?
 
     private init() {
         store = Store()
@@ -97,11 +98,17 @@ final class AppModel {
         backups = BackupService(archive: BackupArchive(sourceDirectory: Store.directoryURL))
         BackupService.current = backups
         roleSync = Self.syncDisplayRoles(store: store, screens: screens)
+        // Bağlı monitörlerin masaüstü sayısı öğrenilir: monitör çıkınca
+        // soluk kartı o kadar masaüstü çizer.
+        desktopCountSync = router.$desktopCounts
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak store, weak screens] counts in
+                guard let store, let screens, !screens.isSettling, !counts.isEmpty else { return }
+                store.learnDesktopCounts(counts, assignment: screens.externalAssignment)
+            }
         // Yerleştirme (K7) bağlı ve onay beklemeyen rolleri bilir.
-        store.connectedRoles = { [weak screens] in
-            guard let screens else { return [] }
-            return Set(screens.screens.map(\.id)).subtracting(screens.heldRoles)
-        }
+        store.connectedRoles = { [weak screens] in screens?.usableRoles ?? [] }
     }
 
     /// Harici ekran rolleri iki yönlü: belgedeki kayıt (harita seçimi, yedek

@@ -91,6 +91,7 @@ struct RulePanel: View {
                     destination: store.rule(rule.id)?[mode] ?? destination, mode: mode,
                     setDestination: { store.setDestination($0, for: rule.id, mode: mode) })
                 BasicLayoutRow(layout: layoutBinding(destination))
+                if mode == .docked { PlacesList(rule: rule) }
             } else {
                 Text(L("Drag onto a desktop to give it a place in this plan."))
                     .font(.caption)
@@ -139,10 +140,16 @@ struct RulePanel: View {
     /// planda penceresi daha özgül bir kurala (ya da geçici pine) düşüyorsa
     /// bunu söyler, öbür planda ne zaman uygulanacağını.
     private var whyHere: (reason: String, note: String)? {
-        guard let destination = store.rule(rule.id)?[mode] ?? rule[mode],
+        let current = store.rule(rule.id) ?? rule
+        // Monitörlü canlı planda taramanın seçtiği yer (sıralı yer ya da yedek).
+        let resolved = mode == .docked && mode == screens.mode
+            ? MapPlaces.winner(current, mode: mode, live: true, usable: screens.usableRoles) : nil
+        guard let destination = current[mode],
               let reason = Routing.reason(
-                for: Routing.Match(destination: destination, ruleID: rule.id, rule: rule),
-                screenName: store.screens(for: mode).first { $0.id == destination.screen }?.name)
+                for: Routing.Match(destination: destination, ruleID: rule.id, rule: current),
+                screenName: store.screens(for: mode).first {
+                    $0.id == (resolved?.destination.screen ?? destination.screen) }?.name,
+                resolved: resolved)
         else { return nil }
         guard mode == screens.mode else {
             return (WhyHereBox.sentence(reason),
@@ -634,5 +641,113 @@ struct SaveCurrentLayoutRow: View {
             return L("Window now: %@ (the anchor sets the position)", current.label)
         }
         return L("Window now: %@", current.label)
+    }
+}
+
+// MARK: - Sıralı yerler (K3, docs/bug-tables.md §D)
+
+/// Pin panelinde monitörlü planın sıralı yer listesi: bağlı ilk yer
+/// kazanır. ↑ ↓ sırayı, × yeri değiştirir (geri alınabilir). Kazanan yer
+/// vurgulu, bağlı olmayanlar işaretli; listede bağlı yer yoksa pencerenin
+/// yedekte olduğu yazılır. Laptop yeri ayrı satırda.
+struct PlacesList: View {
+
+    let rule: Rule
+
+    @EnvironmentObject private var store: Store
+    @EnvironmentObject private var screens: ScreenService
+
+    var body: some View {
+        let current = store.rule(rule.id) ?? rule
+        let live = screens.mode == .docked
+        let model = MapPlaces.rows(current, live: live, usable: screens.usableRoles)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(L("Places"))
+                .font(.caption.weight(.semibold))
+            Text(L("With monitors: the first place whose monitor is connected wins."))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(model.rows) { row in
+                rowView(row, count: model.rows.count)
+            }
+            if let fallback = model.fallback {
+                Text(L("None of these monitors is connected: the window is on %@ for now (fallback).",
+                       placeText(fallback.destination)))
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Text(current.undocked.map { L("Laptop only: %@", placeText($0, mode: .undocked)) }
+                 ?? L("Laptop only: no place"))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .padding(.top, 2)
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.primary.opacity(0.04)))
+    }
+
+    private func rowView(_ row: MapPlaces.PlaceRow, count: Int) -> some View {
+        HStack(spacing: 6) {
+            Text("\(row.index + 1).")
+                .font(.caption.monospacedDigit().weight(.semibold))
+                .frame(width: 18, alignment: .trailing)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(placeText(row.destination))
+                    .font(.caption)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
+                if row.wins {
+                    Text(L("in use"))
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.green)
+                } else if !row.connected {
+                    Text(L("(not connected)"))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            Spacer(minLength: 4)
+            iconButton("chevron.up", help: L("Move up"), enabled: row.index > 0) {
+                store.movePlace(from: row.index, to: row.index - 1, for: rule.id, mode: .docked)
+            }
+            iconButton("chevron.down", help: L("Move down"), enabled: row.index < count - 1) {
+                store.movePlace(from: row.index, to: row.index + 1, for: rule.id, mode: .docked)
+            }
+            iconButton("xmark", help: L("Remove this place"), enabled: true) {
+                store.removePlace(at: row.index, for: rule.id, mode: .docked)
+            }
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, 4)
+        .background(RoundedRectangle(cornerRadius: 6)
+            .fill(row.wins ? Color.green.opacity(0.12) : Color.clear))
+    }
+
+    private func iconButton(_ symbol: String, help: String, enabled: Bool,
+                            action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: symbol)
+                .font(.system(size: 9, weight: .semibold))
+                .frame(width: 16, height: 16)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.borderless)
+        .disabled(!enabled)
+        .help(help)
+        .accessibilityLabel(help)
+    }
+
+    /// "2. monitör · LG UltraFine · Masaüstü 1 (Okuma)".
+    private func placeText(_ destination: Destination, mode: Mode = .docked) -> String {
+        let known = store.screens(for: mode).first { $0.id == destination.screen }
+        var parts = [DisplayRoles.displayName(role: destination.screen, name: known?.name)]
+        if let known, !known.isBuiltin { parts.append(known.name) }
+        let desktop = store.desktopName(screen: destination.screen, desktop: destination.desktop, mode: mode)
+            .map { L("Desktop %ld (%@)", destination.desktop, $0) } ?? L("Desktop %ld", destination.desktop)
+        parts.append(desktop)
+        return parts.joined(separator: " · ")
     }
 }

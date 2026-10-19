@@ -579,3 +579,139 @@ struct DockedPlacesStatusTests {
         #expect(status == [1: "1", 2: "2", 3: "fallback", 4: "untouched"])
     }
 }
+
+// MARK: - Arayüz kararları (MapPlaces, K6, K8, D3.4)
+
+@MainActor
+struct DockedPlacesMapTests {
+
+    private let safari = MultiMonitorDesk.rules[0]
+    private let notes = MultiMonitorDesk.rules[2]
+
+    private func known(_ id: String, _ name: String, builtin: Bool = false) -> KnownScreen {
+        KnownScreen(id: builtin ? "builtin" : id, name: name, aspect: 1.6)
+    }
+
+    /// K8: bağlı olmayan harici kartlar altta; öbür planda hepsi üstte.
+    @Test func k8_awayCardsGoBelow() {
+        let screens = [known("external", "Dell"), known("external-2", "LG"),
+                       known("builtin", "Laptop", builtin: true)]
+        let live = MapPlaces.cardRows(screens, connected: ["builtin", "external"], live: true)
+        #expect(live.main.map(\.id) == ["external", "builtin"])
+        #expect(live.away.map(\.id) == ["external-2"])
+        let plan = MapPlaces.cardRows(screens, connected: ["builtin"], live: false)
+        #expect(plan.away.isEmpty)
+        #expect(plan.main.count == 3)
+    }
+
+    /// K8: soluk kartın masaüstü sayısı: plan → son görülen → 1; yeri olan
+    /// pinler kadar.
+    @Test func k8_awayDesktopCount() {
+        #expect(MapPlaces.awayDesktopCount(planned: 4, lastSeen: 2, used: 1) == 4)
+        #expect(MapPlaces.awayDesktopCount(planned: 0, lastSeen: 2, used: 1) == 2)
+        #expect(MapPlaces.awayDesktopCount(planned: 0, lastSeen: nil, used: 0) == 1)
+        #expect(MapPlaces.awayDesktopCount(planned: 0, lastSeen: 2, used: 3) == 3)
+    }
+
+    @Test func lastDesktopCountIsLearnedForConfirmedMonitorsAndRoundTrips() throws {
+        var roles = DisplayRoles(remembered: ["external": ["DELL"], "external-2": ["LG"]])
+        roles = roles.learningDesktopCounts(["external": 4, "external-2": 2, "external-3": 5],
+                                            assignment: [("external", "DELL"), ("external-2", "LG"),
+                                                         ("external-3", "BENQ")])
+        #expect(roles.lastDesktopCount == ["DELL": 4, "LG": 2])   // BenQ onay bekliyor
+        #expect(roles.lastDesktopCount(role: "external-2") == 2)
+        let back = try JSONDecoder().decode(DisplayRoles.self, from: JSONEncoder().encode(roles))
+        #expect(back == roles)
+        let empty = String(decoding: try JSONEncoder().encode(DisplayRoles()), as: UTF8.self)
+        #expect(!empty.contains("lastDesktopCount"))
+    }
+
+    /// Kazanan yer: canlı planda bağlı ilk yer ya da yedek, öbür planda ilk yer.
+    @Test func winnerFollowsTheConnectedMonitors() {
+        #expect(MapPlaces.winner(safari, mode: .docked, live: true, usable: ["builtin", "external"])?
+            .destination == Destination(screen: "external", desktop: 2))
+        #expect(MapPlaces.winner(safari, mode: .docked, live: false, usable: [])?
+            .destination == Destination(screen: "external-2", desktop: 1))
+        #expect(MapPlaces.winner(notes, mode: .docked, live: true, usable: ["builtin", "external"])?
+            .choice == .fallback)
+    }
+
+    /// DesktopRow kapalı pin çipleri bütün yerleri görür: LG yokken Safari
+    /// Dell · 2'de; LG'nin soluk kartında "1 · Safari" hayalet çipi.
+    @Test func closedPinsAndGhostChipsUseEveryPlace() {
+        let rules = [safari, notes]
+        let usable: Set<String> = ["builtin", "external"]
+        #expect(MapPlaces.pinned(rules, mode: .docked, live: true, usable: usable,
+                                 screen: "external", desktop: 2).map(\.id) == ["safari", "notes"])
+        #expect(MapPlaces.pinned(rules, mode: .docked, live: true, usable: usable,
+                                 screen: "external-2", desktop: 1).isEmpty)
+        let ghosts = MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable,
+                                      screen: "external-2", desktop: 1)
+        #expect(ghosts.map(\.label) == ["1 · Safari"])
+        #expect(MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable,
+                                 screen: "external-3", desktop: 2).map(\.label) == ["1 · Notes"])
+        // Bağlı kartta hayalet çip yok.
+        #expect(MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable,
+                                 screen: "external", desktop: 2).isEmpty)
+        // Öbür planda ilk yer normal çip, sonrakiler hayalet.
+        #expect(MapPlaces.ghosts(rules, mode: .docked, live: false, usable: [],
+                                 screen: "external", desktop: 2).map(\.label) == ["2 · Safari"])
+        // Laptop planında hayalet yok.
+        #expect(MapPlaces.ghosts(rules, mode: .undocked, live: true, usable: ["builtin"],
+                                 screen: "builtin", desktop: 1).isEmpty)
+    }
+
+    /// Yan panel: sıra, bağlı mı, kazanan mı; yedek notu.
+    @Test func inspectorRows() {
+        let both = MapPlaces.rows(safari, live: true, usable: ["builtin", "external", "external-2"])
+        #expect(both.rows.map(\.wins) == [true, false])
+        #expect(both.rows.map(\.connected) == [true, true])
+        #expect(both.fallback == nil)
+        let dell = MapPlaces.rows(safari, live: true, usable: ["builtin", "external"])
+        #expect(dell.rows.map(\.wins) == [false, true])
+        #expect(dell.rows.map(\.connected) == [false, true])
+        let onlyLG = MapPlaces.rows(notes, live: true, usable: ["builtin", "external-2"])
+        #expect(onlyLG.rows.map(\.wins) == [false])
+        #expect(onlyLG.fallback?.destination.screen == "external-2")
+        let plan = MapPlaces.rows(safari, live: false, usable: [])
+        #expect(plan.rows.allSatisfy { !$0.wins && !$0.connected })
+    }
+
+    /// "Neden burada": listede kaçıncı yer ya da yedek.
+    @Test func whyHereNamesThePlace() {
+        let match = Routing.Match(destination: safari.docked!, ruleID: safari.id, rule: safari)
+        let second = Routing.ResolvedPlace(destination: Destination(screen: "external", desktop: 2),
+                                           choice: .place(1))
+        let text = Routing.reason(for: match, screenName: "Dell", resolved: second) ?? ""
+        #expect(text.contains(L("place %ld of %ld in its list", 2, 2)))
+        #expect(text.contains(L("%@ · Desktop %ld", DisplayRoles.displayName(role: "external", name: "Dell"), 2)))
+        let fallback = Routing.ResolvedPlace(destination: Destination(screen: "external", desktop: 1),
+                                             choice: .fallback)
+        #expect((Routing.reason(for: match, screenName: "Dell", resolved: fallback) ?? "")
+            .contains(L("fallback: none of its monitors is connected")))
+        // Tek yerli pin: ek yok.
+        let mail = MultiMonitorDesk.rules[1]
+        let plain = Routing.reason(for: Routing.Match(destination: mail.docked!, ruleID: mail.id, rule: mail),
+                                   screenName: "Dell",
+                                   resolved: Routing.ResolvedPlace(destination: mail.docked!, choice: .place(0)))
+        #expect(!(plain ?? "").contains(" · " + L("place %ld of %ld in its list", 1, 1)))
+    }
+
+    /// K6 "Sıranın sonuna ekle": hatırlanmayan ve bağlı onaylı monitörün
+    /// tutmadığı ilk rol.
+    @Test func d2_2_addToTheEndRole() {
+        let roles = DisplayRoles(remembered: ["external": ["DELL"], "external-2": ["LG"], "external-3": ["SAMSUNG"]])
+        #expect(roles.nextFreeRole(connected: [("external", "DELL"), ("external-2", "BENQ")]) == "external-4")
+        let gap = DisplayRoles(remembered: ["external": ["DELL"], "external-3": ["SAMSUNG"]])
+        #expect(gap.nextFreeRole(connected: [("external", "DELL"), ("external-2", "BENQ")]) == "external-2")
+    }
+
+    /// D3.4/K9: kart menüsünde yalnız tanınan monitörler (bağlı onaylılar ve
+    /// hatırlanan, bağlı olmayanlar); onay bekleyen yeni monitör yok.
+    @Test func d3_4_menuListsOnlyKnownMonitors() {
+        let roles = DisplayRoles(remembered: ["external": ["DELL"], "external-2": ["LG"], "external-3": ["SAMSUNG"]])
+        let menu = roles.knownMonitors(connected: [("external", "DELL"), ("external-4", "BENQ")])
+        #expect(menu.map(\.uuid) == ["DELL", "LG", "SAMSUNG"])
+        #expect(menu.map(\.role) == ["external", "external-2", "external-3"])
+    }
+}

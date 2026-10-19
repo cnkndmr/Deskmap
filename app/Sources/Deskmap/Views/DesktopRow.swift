@@ -136,7 +136,7 @@ struct DesktopRow: View {
                 action: { openPanel(for: window) })
         }
         let closed: [DesktopPreview.Item] = orphanRules.compactMap { rule in
-            guard let destination = rule[mode] else { return nil }
+            guard let destination = winner(rule) else { return nil }
             let look = ui.searchLook(appName: rule.appName, title: rule.title)
             return DesktopPreview.Item(
                 id: "r\(rule.id)", bundleID: rule.bundleID,
@@ -186,10 +186,10 @@ struct DesktopRow: View {
     /// modda ayrıca penceresi olduğu hâlde başka kurala yenilen (gölgede)
     /// pinler, yoksa haritada hiç görünmezlerdi.
     private var orphanRules: [Rule] {
-        store.document.rules.filter { rule in
-            guard let destination = rule[mode],
-                  destination.screen == screen.id, destination.desktop == desktop
-            else { return false }
+        // Kazanan yer (canlı planda taramanın seçtiği sıralı yer ya da
+        // yedek, öbür planda ilk yer) burası olan pinler.
+        MapPlaces.pinned(store.document.rules, mode: mode, live: isLive, usable: usable,
+                         screen: screen.id, desktop: desktop).filter { rule in
             guard isLive else { return true }
             if shadowed[rule.id] != nil { return true }
             return !ui.windows.contains {
@@ -200,6 +200,44 @@ struct DesktopRow: View {
 
     var body: some View {
         if asCard { card } else { row }
+    }
+
+    /// Sıralı yerlerin kullanılabildiği roller (canlı planda bağlı ve
+    /// onaylı ekranlar; öbür planda hiçbiri).
+    private var usable: Set<String> { isLive ? screens.usableRoles : [] }
+
+    private func winner(_ rule: Rule) -> Destination? {
+        MapPlaces.winner(rule, mode: mode, live: isLive, usable: usable)?.destination
+    }
+
+    /// Bu masaüstündeki hayalet çipler: pinlerin şu an kullanılmayan yerleri.
+    private var ghostPins: [MapPlaces.Ghost] {
+        MapPlaces.ghosts(store.document.rules, mode: mode, live: isLive, usable: usable,
+                         screen: screen.id, desktop: desktop)
+    }
+
+    /// Kesik çerçeveli, sıra numaralı çipler; tıklama pinin panelini açar.
+    @ViewBuilder private var ghostChips: some View {
+        let ghosts = ghostPins
+        if !ghosts.isEmpty {
+            FlowLayout(spacing: 4) {
+                ForEach(ghosts) { ghost in
+                    Button { ui.toggle(.rule(ghost.rule.id)) } label: {
+                        Text(ghost.label)
+                            .font(.caption2)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .overlay(Capsule().strokeBorder(Color.secondary.opacity(0.7),
+                                                            style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(L("Place %ld in the list of this pin: used when this monitor is connected and no earlier place is", ghost.order))
+                }
+            }
+        }
     }
 
     /// Satırın / kart başlığının tutamağı: ≡ simgesi, ad (ya da ad alanı).
@@ -250,7 +288,7 @@ struct DesktopRow: View {
             }
 
             // Sondaki boşluk yok: satırlar kartın sağ kenarına da 8 pt kalır.
-            if groups.isEmpty {
+            if groups.isEmpty && ghostPins.isEmpty {
                 Text(exists ? L("empty") : L("doesn't exist yet"))
                     .font(.caption)
                     .foregroundStyle(.quaternary)
@@ -261,6 +299,7 @@ struct DesktopRow: View {
                     ForEach(groups) { group in
                         groupView(group)
                     }
+                    ghostChips
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -785,6 +824,8 @@ extension DesktopRow {
                     }
                 }
             }
+            // Pinlerin bu masaüstündeki, şu an kullanılmayan yerleri.
+            ghostChips
         }
         .padding(8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -828,7 +869,7 @@ extension DesktopRow {
         guard isLive else {
             return orphanRules.filter { rule in ui.windows.contains { rule.matches($0) } }
                 .compactMap { rule -> CardScreen.Item? in
-                    guard let destination = rule[mode] else { return nil }
+                    guard let destination = winner(rule) else { return nil }
                     let look = ui.searchLook(appName: rule.appName, title: rule.title)
                     let why = Routing.explanation(
                         for: Routing.Match(destination: destination, ruleID: rule.id, rule: rule),

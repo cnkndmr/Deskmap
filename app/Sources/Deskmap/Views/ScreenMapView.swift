@@ -27,21 +27,44 @@ struct ScreenMapView: View {
         // Ekranlar arası masaüstü sürüklemesi hedef ekranın satır sayısını ister.
         let counts = Dictionary(shown.map { ($0.id, tileCount(for: $0)) },
                                 uniquingKeysWith: { first, _ in first })
-        VStack(spacing: 12) {
-            ForEach(shown) { screen in
-                ScreenCard(
-                    screen: screen,
-                    mode: mode,
-                    isLive: isLive,
-                    isConnected: screens.screens.contains { $0.id == screen.id },
-                    tileCount: counts[screen.id] ?? 1,
-                    realCount: realCount(for: screen),
-                    tileCounts: counts,
-                    shadowed: shadowed)
+        // K8: canlı monitörlü planda bağlı olmayan monitörler altta, dar
+        // ve soluk kartlarda; takılınca üste çıkar.
+        let cards = MapPlaces.cardRows(shown, connected: Set(screens.screens.map(\.id)),
+                                       live: isLive && mode == .docked)
+        VStack(alignment: .leading, spacing: 12) {
+            ForEach(cards.main) { screen in
+                card(screen, counts: counts, shadowed: shadowed)
             }
-
+            if !cards.away.isEmpty {
+                Text(L("Not connected · windows go here when the monitor is plugged in"))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 4)
+                FlowLayout(spacing: 12) {
+                    ForEach(cards.away) { screen in
+                        card(screen, counts: counts, shadowed: shadowed)
+                            .frame(width: Self.awayCardWidth)
+                    }
+                }
+            }
         }
         .environment(\.mapTileCounts, counts)
+    }
+
+    /// Bağlı olmayan monitörün dar kartının genişliği.
+    static let awayCardWidth: CGFloat = 340
+
+    private func card(_ screen: KnownScreen, counts: [String: Int],
+                      shadowed: [String: String]) -> some View {
+        ScreenCard(
+            screen: screen,
+            mode: mode,
+            isLive: isLive,
+            isConnected: screens.screens.contains { $0.id == screen.id },
+            tileCount: counts[screen.id] ?? 1,
+            realCount: realCount(for: screen),
+            tileCounts: counts,
+            shadowed: shadowed)
     }
 
     /// Bağlı ekrandaki masaüstü sayısı; etkin olmayan modda o moda
@@ -70,6 +93,14 @@ struct ScreenMapView: View {
             : 0
         let real = realCount(for: screen) ?? 0
         let planned = store.document.plannedDesktops(mode: mode, screen: screen.id)
+        if isLive, mode == .docked, !screen.isBuiltin,
+           !screens.screens.contains(where: { $0.id == screen.id }) {
+            // Bağlı olmayan monitör: planı, yoksa son görülen sayısı, yoksa 1.
+            return MapPlaces.awayDesktopCount(
+                planned: planned,
+                lastSeen: store.document.displayRoles.lastDesktopCount(role: screen.id),
+                used: max(used, session))
+        }
         return max(real, used, live, session, planned, 1)
     }
 
@@ -178,8 +209,17 @@ private struct ScreenCard: View {
                         .lineLimit(1)
                 }
                 if !isConnected {
+                    if !screen.isBuiltin {
+                        // Model adı: soluk kartta hangi monitörün beklediği.
+                        Text(screen.name)
+                            .fontWeight(.regular)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
                     Text(L("not connected"))
                         .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .fixedSize()
                 } else if isHeld {
                     Text(L("new monitor · layout on hold"))
                         .foregroundStyle(.orange)
@@ -191,15 +231,60 @@ private struct ScreenCard: View {
             .foregroundStyle(.secondary)
             .padding(.bottom, 4)
 
+            if isHeld { heldActions }
+
             if ui.visualMap { grid } else { rows }
         }
         .padding(10)
+        .opacity(isAway ? 0.7 : 1)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color(nsColor: .controlBackgroundColor).opacity(0.6)))
+                .fill(Color(nsColor: .controlBackgroundColor).opacity(isAway ? 0.3 : 0.6)))
         .overlay(
             RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(.quaternary, lineWidth: 1))
+                .strokeBorder(Color.secondary.opacity(isAway ? 0.6 : 0.25),
+                              style: StrokeStyle(lineWidth: 1, dash: isAway ? [5, 4] : [])))
+    }
+
+    /// Bağlı olmayan harici monitörün kartı (canlı monitörlü planda): soluk,
+    /// kesik çizgili; pencere bırakmak o monitörün yerini sıranın başına yazar.
+    private var isAway: Bool {
+        isLive && mode == .docked && !isConnected && !screen.isBuiltin
+    }
+
+    /// K6: onay bekleyen yeni monitörün kartında iki seçim: sıranın sonuna
+    /// ekle (hiçbir pin taşınmaz) ya da tanınan bir monitörün yerine geç
+    /// (onun düzeni bu monitöre uygulanır). İkisi de önce sorar.
+    @ViewBuilder private var heldActions: some View {
+        let current = screens.connectedExternals
+        let pairs = current.map { (role: $0.role, uuid: $0.display.uuid) }
+        let roles = store.document.displayRoles
+        let known = roles.knownMonitors(connected: pairs)
+        HStack(spacing: 8) {
+            Button(L("Add to the end")) {
+                pendingRole = roles.nextFreeRole(connected: pairs)
+            }
+            .help(L("This monitor gets its own place after the others; no pinned window moves now."))
+            if !known.isEmpty {
+                Menu(L("Replace…")) {
+                    ForEach(known, id: \.role) { monitor in
+                        Button(L("Replace %@", monitorLabel(monitor))) { pendingRole = monitor.role }
+                    }
+                }
+                .fixedSize()
+                .help(L("This monitor takes the place and the whole layout of a monitor Deskmap knows."))
+            }
+        }
+        .controlSize(.small)
+        .padding(.bottom, 4)
+    }
+
+    /// Menüdeki ad: rol ve model adı ("2. monitör · LG UltraFine").
+    private func monitorLabel(_ monitor: (role: String, uuid: String)) -> String {
+        let name = screens.connectedExternals.first { $0.display.uuid == monitor.uuid }?.display.name
+            ?? store.document.screens.first { $0.id == monitor.role }?.name
+        return name.map { "\(DisplayRoles.roleLabel(monitor.role)) · \($0)" }
+            ?? DisplayRoles.roleLabel(monitor.role)
     }
 
     /// Harici kartın adı rolüdür ("Ekstra monitör", "2. monitör"), model
@@ -212,7 +297,7 @@ private struct ScreenCard: View {
     /// uygulanmıyor) ve tek harici monitörde de menü var: rolünü seç
     /// ya da bu monitörü unut (`deskmap screen-role DISPLAY ROLE|--forget`).
     private var showsMonitorPicker: Bool {
-        isLive && isConnected && !screen.isBuiltin
+        isLive && mode == .docked && !screen.isBuiltin
     }
 
     /// Bu kartın rolü onay bekliyor (`DisplayRoles.unconfirmed`).
@@ -222,9 +307,19 @@ private struct ScreenCard: View {
 
     @ViewBuilder private var monitorPicker: some View {
         let current = screens.connectedExternals
-        let labels = DisplayRoles.labels(current.map(\.display))
-        let here = current.first { $0.role == screen.id }?.display.uuid
         let pairs = current.map { (role: $0.role, uuid: $0.display.uuid) }
+        // Yalnız Deskmap'in tanıdığı monitörler (D3.4/K9): bağlı ve onaylı
+        // olanlar ile hatırlanan, şu an bağlı olmayanlar.
+        let known = store.document.displayRoles.knownMonitors(connected: pairs)
+        var labels = DisplayRoles.labels(current.map(\.display))
+        let _ = known.forEach { monitor in
+            if labels[monitor.uuid] == nil {
+                labels[monitor.uuid] = store.document.screens.first { $0.id == monitor.role }?.name
+                    ?? DisplayRoles.roleLabel(monitor.role)
+            }
+        }
+        let here = current.first { $0.role == screen.id }?.display.uuid
+            ?? known.first { $0.role == screen.id }?.uuid
         Menu {
             if isHeld {
                 Section(L("New monitor: its layout waits for your choice")) {
@@ -232,16 +327,16 @@ private struct ScreenCard: View {
                         Button(L("Use as %@", DisplayRoles.roleLabel(role))) { pendingRole = role }
                     }
                 }
-            } else if screen.id != "external" && current.count > 1 {
-                ForEach(DisplayRoles.positional(current.map(\.display)), id: \.uuid) { display in
+            } else if known.count > 1 {
+                ForEach(known, id: \.uuid) { monitor in
                     Button {
-                        guard display.uuid != here else { return }
-                        pendingSwap = display.uuid
+                        guard monitor.uuid != here else { return }
+                        pendingSwap = monitor.uuid
                     } label: {
-                        if display.uuid == here {
-                            Label(labels[display.uuid] ?? display.name, systemImage: "checkmark")
+                        if monitor.uuid == here {
+                            Label(labels[monitor.uuid] ?? monitor.uuid, systemImage: "checkmark")
                         } else {
-                            Text(labels[display.uuid] ?? display.name)
+                            Text(labels[monitor.uuid] ?? monitor.uuid)
                         }
                     }
                 }
@@ -261,8 +356,7 @@ private struct ScreenCard: View {
             get: { pendingSwap != nil }, set: { if !$0 { pendingSwap = nil } })) {
             Button(L("Swap")) {
                 if let uuid = pendingSwap {
-                    store.chooseDisplay(uuid, for: screen.id,
-                                        current: current.map { (role: $0.role, uuid: $0.display.uuid) })
+                    store.chooseDisplay(uuid, for: screen.id, current: pairs)
                 }
                 pendingSwap = nil
             }

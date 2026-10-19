@@ -250,15 +250,21 @@ enum Routing {
     /// Pencere satırının ipucu (saf): hangi kural (ya da oturum pini) hangi
     /// hedefe gönderiyor. Yeni pencere-başı durum tutulmaz; seçim her
     /// seferinde `select` ile yeniden yapılır. Eşleşme yoksa nil.
-    static func explanation(for match: Match?, screenName: String?) -> String? {
-        reason(for: match, screenName: screenName).map { L("Why here: %@", $0) }
+    static func explanation(for match: Match?, screenName: String?,
+                            resolved: ResolvedPlace? = nil) -> String? {
+        reason(for: match, screenName: screenName, resolved: resolved).map { L("Why here: %@", $0) }
     }
 
     /// Açıklamanın "Neden burada:" öneki olmadan gövdesi (saf; ayrıntı
     /// sütunundaki "Neden burada?" kutusu kendi başlığıyla gösterir).
-    static func reason(for match: Match?, screenName: String?) -> String? {
+    /// `resolved`: monitörlü planda taramanın kullandığı yer (sıralı
+    /// yerlerden biri ya da yedek); verilirse hedef o yerdir ve listede
+    /// kaçıncı yer olduğu ya da yedek olduğu eklenir. Laptop planında
+    /// verilmez. `screenName`: o yerin ekranının adı.
+    static func reason(for match: Match?, screenName: String?,
+                       resolved: ResolvedPlace? = nil) -> String? {
         guard let match else { return nil }
-        let destination = match.destination
+        let destination = resolved?.destination ?? match.destination
         let target = L("%@ · Desktop %ld",
                        DisplayRoles.displayName(role: destination.screen, name: screenName),
                        destination.desktop)
@@ -269,7 +275,16 @@ enum Routing {
         let name = ([rule.appName.isEmpty ? rule.bundleID : rule.appName]
                     + (rule.path != nil ? [rule.title] : rule.tokens))
             .joined(separator: " · ")
-        return L("pin \"%@\" → %@ (%@)", name, target, layout)
+        let sentence = L("pin \"%@\" → %@ (%@)", name, target, layout)
+        let count = rule.places(.docked).count
+        switch resolved?.choice {
+        case .fallback?:
+            return sentence + " · " + L("fallback: none of its monitors is connected")
+        case .place(let index)? where count > 1:
+            return sentence + " · " + L("place %ld of %ld in its list", index + 1, count)
+        default:
+            return sentence
+        }
     }
 
     // MARK: - Düzen denemeleri
