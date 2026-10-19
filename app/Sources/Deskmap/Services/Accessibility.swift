@@ -771,7 +771,8 @@ enum AX {
     private typealias PostEventRecordFn =
         @convention(c) (UnsafeMutablePointer<ProcessSerialNumber>, UnsafeMutablePointer<UInt8>) -> CGError
 
-    private static let skyLight = dlopen(
+    // nonisolated(unsafe): dlopen tutamacı bir kez açılır, yalnız okunur.
+    nonisolated(unsafe) private static let skyLight = dlopen(
         "/System/Library/PrivateFrameworks/SkyLight.framework/Versions/A/SkyLight", RTLD_NOW)
     private static let setFrontProcess: SetFrontProcessFn? = {
         guard let skyLight, let pointer = dlsym(skyLight, "_SLPSSetFrontProcessWithOptions")
