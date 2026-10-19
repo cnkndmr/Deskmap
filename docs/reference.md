@@ -264,6 +264,8 @@ monitor (`external-2`, …) is not connected goes to `external`, same desktop
 number and layout, and returns to its own monitor when that is plugged in
 again. Off: the pin is skipped and the window stays where macOS puts it. A
 pin on `external` while only another monitor is connected is skipped.
+`scripts/hooktest/multimon.sh` checks the macOS side with two virtual displays
+of the same model (UUIDs, unplug / replug, identical serial numbers).
 
 ### Desktops
 

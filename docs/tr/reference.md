@@ -276,6 +276,8 @@ rolleri › Unut** soldan sağa sıraya döndürür.
 numarasına ve düzene gider; monitör yeniden takılınca kendi yerine döner.
 Kapalıysa sabitleme atlanır, pencere macOS’un koyduğu yerde kalır. Yalnız
 başka bir monitör bağlıyken `external` sabitlemesi atlanır.
+`scripts/hooktest/multimon.sh` macOS tarafını aynı model iki sanal ekranla
+denetler (UUID’ler, çıkar / yeniden tak, aynı seri numarası).
 
 ### Masaüstleri {#desktops}
 
