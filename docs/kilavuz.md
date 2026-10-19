@@ -169,10 +169,10 @@ işaretlidir; öteki ne zaman geçerli olacağını yazar.
 - **Monitör bağlı** — en az bir harici ekran takılı.
 - **Sadece laptop** — yalnızca dahili ekran.
 
-İki harici monitörle haritada her biri için bir kart görünür (**Monitör 1**,
-**Monitör 2**). Her monitör, Sistem Ayarları › Ekranlar’da nereye konursa
-konsun kendi kartında kalır; ikisi ters düştüyse kart başlığına tıklayıp öteki
-monitörü seç. Monitör 2 takılı değilken pencereleri Monitör 1’de bekler
+İki harici monitörle haritada her biri için bir kart görünür (**Ekstra
+monitör**, **2. monitör**). Her monitör, Sistem Ayarları › Ekranlar’da nereye konursa
+konsun kendi kartında kalır; ikisi ters düştüyse 2. monitör kartının başlığına tıkla, öteki
+monitörü seç ve onayla. 2. monitör takılı değilken pencereleri Ekstra monitörde bekler
 (Ayarlar › Genel › **İkinci monitör yokken**).
 
 Birini kur, geç, diğerini kur. Monitörü taktığında ya da çıkardığında

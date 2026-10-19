@@ -220,7 +220,7 @@ private struct GeneralSettings: View {
                     .labelsHidden()
             }
             SettingRow(title: L("Monitor roles"),
-                       detail: L("Each monitor keeps its role (Monitor 1, Monitor 2) wherever it is placed. Forget: roles follow the left-to-right order again.")) {
+                       detail: L("Each monitor keeps its role (Extra monitor, Monitor 2) wherever it is placed. Forget: roles follow the left-to-right order again.")) {
                 Button(L("Forget")) { store.forgetDisplayRoles() }
                     .disabled(store.document.displayRoles.remembered.isEmpty)
             }

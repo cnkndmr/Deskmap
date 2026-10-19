@@ -204,8 +204,9 @@ struct DisplayRoles: Codable, Equatable {
         return result
     }
 
-    /// Kart başlığındaki rol adı: "Monitör 1", "Monitör 2" …
+    /// Kart başlığındaki rol adı: "Ekstra monitör", "2. monitör" …
     static func roleLabel(_ role: String) -> String {
-        L("Monitor %ld", externalIndex(of: role) ?? 1)
+        let index = externalIndex(of: role) ?? 1
+        return index == 1 ? L("Extra monitor") : L("Monitor %ld", index)
     }
 }

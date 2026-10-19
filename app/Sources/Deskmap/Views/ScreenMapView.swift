@@ -139,6 +139,8 @@ private struct ScreenCard: View {
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var screens: ScreenService
+    /// Menüde seçilen, onay bekleyen monitör (UUID).
+    @State private var pendingSwap: String?
 
     /// Bu ekrandaki tam ekran space'ler, `afterDesktop` → soldan sağa.
     private var fullscreenSpaces: [Int: [FullscreenSpace]] {
@@ -158,14 +160,9 @@ private struct ScreenCard: View {
                 if showsMonitorPicker {
                     monitorPicker
                 } else {
-                    Text(screen.name)
+                    Text(screen.isBuiltin ? screen.name : DisplayRoles.roleLabel(screen.id))
                         .lineLimit(1)
-                }
-                if showsRoleLabel {
-                    Text(DisplayRoles.roleLabel(screen.id))
-                        .fontWeight(.regular)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
+                        .help(screen.isBuiltin ? "" : screen.name)
                 }
                 if ui.visualMap {
                     Text(L("· %ld desktops", realCount ?? tileCount))
@@ -193,18 +190,14 @@ private struct ScreenCard: View {
                 .strokeBorder(.quaternary, lineWidth: 1))
     }
 
-    /// Birden çok harici ekran biliniyorsa kart rolünü de söyler
-    /// ("Monitör 2"): kurallar role bağlı, ad tek başına yetmez.
-    private var showsRoleLabel: Bool {
-        !screen.isBuiltin && store.document.screens.filter { !$0.isBuiltin }.count > 1
-    }
-
-    /// İki ve daha çok harici ekran bağlıyken harici kartın başlığı bir
-    /// menüdür: bu rolde hangi monitör duruyor. Seçim kalıcıdır (monitör
-    /// rolünü korur), gerekirse öteki monitörle yer değiştirir; pencereler
-    /// hemen yeniden yerleşir.
+    /// Harici kartın adı rolüdür ("Ekstra monitör", "2. monitör"), model
+    /// adı değil (Can'ın isteği). İki ya da daha çok harici monitör bağlıyken
+    /// ikinci ve sonraki kartların başlığı bir menüdür: bu kart hangi monitör.
+    /// Seçim kalıcıdır ve öteki monitörle yer değiştirir; kurallar, adlar ve
+    /// planlar rolle gittiği için önce onay istenir.
     private var showsMonitorPicker: Bool {
-        isLive && isConnected && !screen.isBuiltin && screens.connectedExternals.count > 1
+        isLive && isConnected && !screen.isBuiltin && screen.id != "external"
+            && screens.connectedExternals.count > 1
     }
 
     @ViewBuilder private var monitorPicker: some View {
@@ -214,8 +207,8 @@ private struct ScreenCard: View {
         Menu {
             ForEach(DisplayRoles.positional(current.map(\.display)), id: \.uuid) { display in
                 Button {
-                    store.chooseDisplay(display.uuid, for: screen.id,
-                                        current: current.map { (role: $0.role, uuid: $0.display.uuid) })
+                    guard display.uuid != here else { return }
+                    pendingSwap = display.uuid
                 } label: {
                     if display.uuid == here {
                         Label(labels[display.uuid] ?? display.name, systemImage: "checkmark")
@@ -225,11 +218,25 @@ private struct ScreenCard: View {
                 }
             }
         } label: {
-            Text(here.flatMap { labels[$0] } ?? screen.name)
+            Text(DisplayRoles.roleLabel(screen.id))
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
         .help(L("Which monitor this card stands for. The choice is remembered."))
+        .alert(L("Swap the monitors?"), isPresented: Binding(
+            get: { pendingSwap != nil }, set: { if !$0 { pendingSwap = nil } })) {
+            Button(L("Swap")) {
+                if let uuid = pendingSwap {
+                    store.chooseDisplay(uuid, for: screen.id,
+                                        current: current.map { (role: $0.role, uuid: $0.display.uuid) })
+                }
+                pendingSwap = nil
+            }
+            Button(L("Cancel"), role: .cancel) { pendingSwap = nil }
+        } message: {
+            Text(L("%@ becomes the %@. Pinned windows, desktop names and desktop plans of the two monitors trade places now.",
+                   pendingSwap.flatMap { labels[$0] } ?? "", DisplayRoles.roleLabel(screen.id)))
+        }
     }
 
     /// Görsel görünüm: masaüstü kartları ızgarada, sonda "+ Masaüstü ekle";

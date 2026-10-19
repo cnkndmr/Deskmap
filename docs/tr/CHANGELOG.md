@@ -8,11 +8,11 @@ numarası `VERSION` dosyasından gelir.
 
 ### Eklenenler {#added}
 
-- **İkinci harici monitör.** Her harici monitör rolünü (*Monitör 1*,
-  *Monitör 2*, …) soldan sağa konumuyla değil ekran UUID’siyle korur: ekranların
+- **İkinci harici monitör.** Her harici monitör rolünü (*Ekstra monitör*,
+  *2. monitör*, …) soldan sağa konumuyla değil ekran UUID’siyle korur: ekranların
   yerini değiştirmek, onları başka sırayla takmak, sola eklenen sanal ekran ya
   da aynı model iki monitör artık sabitlemeleri öteki monitöre kaydırmaz. İki ya
-  da daha çok monitör bağlıyken kart başlığı onları yer değiştiren bir menüdür;
+  da daha çok monitör bağlıyken ikinci kartın başlığı onları (onayla) yer değiştiren bir menüdür;
   `deskmap screen-role`, `deskmap screen-role --forget` ve `screen-role`,
   `screen-role-forget` URL komutları aynısını yapar. Yeni ayar **İkinci monitör
   yokken** (açık): takılı olmayan `external-2` sabitlemeleri `external`’da bekler,

@@ -165,11 +165,11 @@ now**; the other one says when it applies.
 - **Monitor connected** — at least one external display is attached.
 - **Laptop only** — just the built-in screen.
 
-With two external monitors the map shows a card for each (**Monitor 1**,
+With two external monitors the map shows a card for each (**Extra monitor**,
 **Monitor 2**). Each monitor keeps its card wherever you place it in System
-Settings › Displays; if the two are the wrong way round, click the card title
-and pick the other monitor. While Monitor 2 is unplugged its windows wait on
-Monitor 1 (Settings › General › **Second monitor missing**).
+Settings › Displays; if the two are the wrong way round, click the title of
+the Monitor 2 card, pick the other monitor and confirm. While Monitor 2 is
+unplugged its windows wait on the Extra monitor (Settings › General › **Second monitor missing**).
 
 Set up one, switch, set up the other. When you plug the monitor in or pull
 it out, the app waits a couple of seconds for the displays to settle and

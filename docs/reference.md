@@ -244,7 +244,7 @@ unplugged, Deskmap waits for the displays to settle (2.5 s, at most
 10 s) and then places every pinned window again.
 
 Pins name a display role: `builtin`, `external`, `external-2`, … (on the map:
-*Monitor 1*, *Monitor 2*, …). Each external monitor keeps the role it first got,
+*Extra monitor*, *Monitor 2*, …; model names are not shown). Each external monitor keeps the role it first got,
 remembered by its macOS display UUID: rearranging displays, plugging them in a
 different order or adding a virtual display on the left no longer moves pins
 to the other monitor. A monitor Deskmap has not seen takes the lowest free
@@ -254,8 +254,9 @@ roles were given before. Two monitors of the same model are told apart by
 their UUIDs (macOS derives them from the serial number); the map adds
 *(left)* / *(right)* to identical names.
 
-With two or more external monitors connected, the card title is a menu: pick
-which monitor the card stands for; the two swap and windows move at once.
+With two or more external monitors connected, the title of the second (and
+later) card is a menu: pick which monitor the card stands for. After a
+confirmation the two swap, with their pins, desktop names and plans.
 `deskmap screen-role` does the same from the terminal. Settings › General ›
 **Monitor roles › Forget** returns to left-to-right order.
 

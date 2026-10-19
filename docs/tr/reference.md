@@ -257,7 +257,7 @@ Deskmap ekranların yatışmasını bekler (2,5 sn, en çok 10 sn) ve sonra büt
 sabit pencereleri yeniden yerleştirir.
 
 Sabitlemeler bir ekran rolünü gösterir: `builtin`, `external`, `external-2`, …
-(haritada *Monitör 1*, *Monitör 2*, …). Her harici monitör ilk aldığı rolü
+(haritada *Ekstra monitör*, *2. monitör*, …; model adları gösterilmez). Her harici monitör ilk aldığı rolü
 korur; rol macOS’un ekran UUID’siyle hatırlanır: ekranların yerini değiştirmek,
 onları başka sırayla takmak ya da sola sanal ekran eklemek artık sabitlemeleri
 öteki monitöre kaydırmaz. Deskmap’in görmediği bir monitör en küçük boş rolü
@@ -266,8 +266,9 @@ duranlar dikey konuma göre, alttaki önce, sonra UUID’ye göre); roller önce
 de böyle veriliyordu. Aynı model iki monitör UUID’leriyle ayrılır (macOS onları
 seri numarasından türetir); harita aynı adlara *(sol)* / *(sağ)* ekler.
 
-İki ya da daha çok harici monitör bağlıyken kart başlığı bir menüdür: kartın
-hangi monitör olduğunu seç; ikisi yer değiştirir ve pencereler hemen taşınır.
+İki ya da daha çok harici monitör bağlıyken ikinci (ve sonraki) kartın başlığı
+bir menüdür: kartın hangi monitör olduğunu seç. Onaydan sonra ikisi
+sabitlemeleri, masaüstü adları ve planlarıyla yer değiştirir.
 Terminalde aynısını `deskmap screen-role` yapar. Ayarlar › Genel › **Monitör
 rolleri › Unut** soldan sağa sıraya döndürür.
 
@@ -527,9 +528,9 @@ deskmap desktop-move external 1 3          # 1. masaüstü 3. masaüstü olur
 deskmap desktops [--json]                  # adlar, canlı yerleri, her kurulumun planı
 deskmap name external 2 "Nova Ek"          # şu an 2. masaüstü olan masaüstüne ad ver
 deskmap screens                            # roller, UUID başı, "role kept" / "role by position"
-deskmap screen-role LG 2                   # bu monitör artık Monitör 2 (yer değiştirir)
+deskmap screen-role LG 2                   # bu monitör artık 2. monitör (yer değiştirir)
 deskmap screen-role --forget               # roller yeniden soldan sağa
-deskmap screen-fallback off                # bağlı olmayan Monitör 2 sabitlemeleri atlanır
+deskmap screen-fallback off                # bağlı olmayan 2. monitör sabitlemeleri atlanır
 deskmap backups [--json]                   # otomatik yedekler, en yenisi başta
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12

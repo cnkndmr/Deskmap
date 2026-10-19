@@ -9,11 +9,11 @@ number comes from the `VERSION` file.
 ### Added
 
 - **Second external monitor.** Each external monitor keeps its role
-  (*Monitor 1*, *Monitor 2*, …) by its display UUID instead of its left-to-right
+  (*Extra monitor*, *Monitor 2*, …) by its display UUID instead of its left-to-right
   position: rearranging displays, plugging them in another order, a virtual
   display on the left or two monitors of the same model no longer move pins to
-  the other monitor. With two or more connected, the card title is a menu to
-  swap them; `deskmap screen-role`, `deskmap screen-role --forget` and the URL
+  the other monitor. With two or more connected, the second card's title is a menu to
+  swap them (with confirmation); `deskmap screen-role`, `deskmap screen-role --forget` and the URL
   commands `screen-role`, `screen-role-forget` do the same. New setting
   **Second monitor missing** (on): pins on an unplugged `external-2` wait on
   `external` and go back when it returns; `deskmap screen-fallback on|off`.
