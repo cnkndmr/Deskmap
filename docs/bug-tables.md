@@ -130,14 +130,30 @@ open chat; forks add " (fork)"), and title tokens match as substrings.
 
 | Operation \ State | Main window ("Claude") | New session window, first seconds | Session window with its own rule | Fork of a session window | Window with a temporary pin |
 | --- | --- | --- | --- | --- | --- |
-| Open / first sweep | OK `mostSpecificRuleTakesOver` | BUG `newWindowWithTransientTitleTakesMainWindowRule` → FIX `transientTitleIsHeld` | OK | BUG `forkWindowSharesOriginalRule` → FIX `exactOwnerKeepsRule` | OK `sessionPinBeatsEveryRule` |
-| Title becomes longer, contains the token | BUG `mainWindowTokenMatchesLongerTitles` → FIX `exactOwnerKeepsRule` | — | — | — | — |
-| Title changes to something else | BUG `titleChangeMovesWindowToAnotherRule` → FIX `bindingSurvivesTitleChange` | FIX: not bound yet, routed by its new name | BUG `renamedSessionFallsToAppWideRule` → FIX `bindingSurvivesTitleChange` | — | — |
-| Pin removed | — | — | — | — | BUG `unpinFallsBackToAppWideRule` → FIX `unpinnedWindowStays` |
+| Open / first sweep | OK `mostSpecificRuleTakesOver` | BUG `newWindowWithTransientTitleWaits` → FIX `transientTitleIsHeld` | OK | BUG `forkWindowDoesNotShareOriginalRule` → FIX `exactOwnerKeepsRule` | OK `sessionPinBeatsEveryRule` |
+| Title becomes longer, contains the token | BUG `mainWindowTokenSkipsLongerTitlesWhileOwned` → FIX `exactOwnerKeepsRule` | — | — | — | — |
+| Title changes to something else | BUG `titleChangeKeepsWindowOnItsRule` → FIX `bindingSurvivesTitleChange` | FIX: not bound yet, routed by its new name | BUG `renamedSessionKeepsItsRule` → FIX `bindingSurvivesTitleChange` | — | — |
+| Pin removed | — | — | — | — | BUG `unpinLeavesWindowInPlace` → FIX `unpinnedWindowStays` |
 | A more specific rule starts to match | OK `moreSpecificRuleTakesOver` | OK | OK (upgrade) `moreSpecificRuleUpgradesBinding` | OK | OK |
 | Rule deleted | OK `deletedRuleReleasesWindow` | OK | BUG (map unpin deletes the rule; same as B1) → FIX `deletedRuleLeavesWindowInPlace` | OK | OK |
 | Rule edited in place (tokens change) | FIX: binding dropped, chosen by the new tokens `editedRuleRebindsByNewTokens` | — | FIX (same) | — | — |
 | Window closed | OK: binding pruned `bindingsPrunedWithWindows` | OK | OK | OK | OK |
+
+On `gece/1910-deskmap-e` each bug cell is one test in `WindowDriftBugTests` that
+pins both layers: the stateless `Routing.select` (no context) still reproduces
+the drift (diagnosis, marked `// teşhis`) and the real Router fixes it. The
+real Router runs on fake screens and windows (`RouterHarness`,
+`Router.sweepSelection`: the sweep's own inputs, `Router.select` and merge;
+no AX, no window moves); `WindowDriftFixTests` and `RouterSelectionTests` use it
+too. Renamed: `unpinFallsBackToAppWideRule` → `unpinLeavesWindowInPlace`,
+`newWindowWithTransientTitleTakesMainWindowRule` → `newWindowWithTransientTitleWaits`,
+`mainWindowTokenMatchesLongerTitles` → `mainWindowTokenSkipsLongerTitlesWhileOwned`,
+`forkWindowSharesOriginalRule` → `forkWindowDoesNotShareOriginalRule`,
+`titleChangeMovesWindowToAnotherRule` → `titleChangeKeepsWindowOnItsRule`,
+`renamedSessionFallsToAppWideRule` → `renamedSessionKeepsItsRule`. No
+`withKnownIssue` is left in the suite. Group moves (`GroupMovePlan.make`) and
+the map's shadow list (`ScreenMapView.shadows`) now take the Router's binding
+(`router.context(for:)`): `groupMoveMovesBoundRule`, `shadowsFollowBinding`.
 
 ## Decisions (for the maintainer)
 

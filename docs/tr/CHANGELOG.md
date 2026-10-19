@@ -141,6 +141,10 @@ numarası `VERSION` dosyasından gelir.
 
 ### Düzeltilenler {#fixed}
 
+- **Uygulama grubunu taşımak ve haritadaki gölgede kalan pinler pencerenin
+  bağını izliyor.** Pencere başlığı değişse de onu yerleştiren kuralda
+  kalır; *Grubu gönder* artık yeni başlığın uyduğu kuralı değil o kuralı
+  taşır, harita da bağlı kuralı yenik göstermez.
 - **`make concurrency-check` uyarıları yeniden sayıyor.** Derleyici çıktısını
   renklendirdiği için uyarı deseni hiçbir satıra uymuyor, sayı hep 0
   çıkıyordu.

@@ -126,14 +126,31 @@ gösterebilir; fork " (fork)" ekler) ve başlık parçaları alt dizi olarak eş
 
 | İşlem \ Durum | Ana pencere ("Claude") | Yeni oturum penceresi, ilk saniyeler | Kendi kuralı olan oturum penceresi | Oturum penceresinin fork'u | Geçici pinli pencere |
 | --- | --- | --- | --- | --- | --- |
-| Açılış / ilk tarama | OK `mostSpecificRuleTakesOver` | HATA `newWindowWithTransientTitleTakesMainWindowRule` → DÜZELTME `transientTitleIsHeld` | OK | HATA `forkWindowSharesOriginalRule` → DÜZELTME `exactOwnerKeepsRule` | OK `sessionPinBeatsEveryRule` |
-| Başlık uzar, parçayı içerir | HATA `mainWindowTokenMatchesLongerTitles` → DÜZELTME `exactOwnerKeepsRule` | — | — | — | — |
-| Başlık başka bir şeye döner | HATA `titleChangeMovesWindowToAnotherRule` → DÜZELTME `bindingSurvivesTitleChange` | DÜZELTME: henüz bağlı değil, yeni adıyla yönlenir | HATA `renamedSessionFallsToAppWideRule` → DÜZELTME `bindingSurvivesTitleChange` | — | — |
-| Pin kaldırıldı | — | — | — | — | HATA `unpinFallsBackToAppWideRule` → DÜZELTME `unpinnedWindowStays` |
+| Açılış / ilk tarama | OK `mostSpecificRuleTakesOver` | HATA `newWindowWithTransientTitleWaits` → DÜZELTME `transientTitleIsHeld` | OK | HATA `forkWindowDoesNotShareOriginalRule` → DÜZELTME `exactOwnerKeepsRule` | OK `sessionPinBeatsEveryRule` |
+| Başlık uzar, parçayı içerir | HATA `mainWindowTokenSkipsLongerTitlesWhileOwned` → DÜZELTME `exactOwnerKeepsRule` | — | — | — | — |
+| Başlık başka bir şeye döner | HATA `titleChangeKeepsWindowOnItsRule` → DÜZELTME `bindingSurvivesTitleChange` | DÜZELTME: henüz bağlı değil, yeni adıyla yönlenir | HATA `renamedSessionKeepsItsRule` → DÜZELTME `bindingSurvivesTitleChange` | — | — |
+| Pin kaldırıldı | — | — | — | — | HATA `unpinLeavesWindowInPlace` → DÜZELTME `unpinnedWindowStays` |
 | Daha özgül bir kural uymaya başlar | OK `moreSpecificRuleTakesOver` | OK | OK (yükseltme) `moreSpecificRuleUpgradesBinding` | OK | OK |
 | Kural silindi | OK `deletedRuleReleasesWindow` | OK | HATA (haritada pin kaldırma kuralı siler; B1 ile aynı) → DÜZELTME `deletedRuleLeavesWindowInPlace` | OK | OK |
 | Kural yerinde düzenlendi (parçalar değişti) | DÜZELTME: bağ düşer, yeni parçalara göre seçilir `editedRuleRebindsByNewTokens` | — | DÜZELTME (aynı) | — | — |
 | Pencere kapandı | OK: bağ budanır `bindingsPrunedWithWindows` | OK | OK | OK | OK |
+
+`gece/1910-deskmap-e`'de her hata hücresi `WindowDriftBugTests`'te iki katmanı
+birden sabitleyen tek test: durumsuz `Routing.select` (bağlamsız) kaymayı
+hâlâ yeniden üretir (teşhis, `// teşhis` işaretli), gerçek Router düzeltir.
+Gerçek Router sahte ekran ve pencerelerle koşar (`RouterHarness`,
+`Router.sweepSelection`: taramanın kendi girdileri, `Router.select` ve
+birleştirme; AX yok, pencere taşınmaz); `WindowDriftFixTests` ve
+`RouterSelectionTests` de bunu kullanır. Yeni adlar:
+`unpinFallsBackToAppWideRule` → `unpinLeavesWindowInPlace`,
+`newWindowWithTransientTitleTakesMainWindowRule` → `newWindowWithTransientTitleWaits`,
+`mainWindowTokenMatchesLongerTitles` → `mainWindowTokenSkipsLongerTitlesWhileOwned`,
+`forkWindowSharesOriginalRule` → `forkWindowDoesNotShareOriginalRule`,
+`titleChangeMovesWindowToAnotherRule` → `titleChangeKeepsWindowOnItsRule`,
+`renamedSessionFallsToAppWideRule` → `renamedSessionKeepsItsRule`. Takımda
+`withKnownIssue` kalmadı. Grup taşıma (`GroupMovePlan.make`) ve haritanın gölge
+listesi (`ScreenMapView.shadows`) artık Router'ın bağını alıyor
+(`router.context(for:)`): `groupMoveMovesBoundRule`, `shadowsFollowBinding`.
 
 ## Kararlar (geliştirici için)
 

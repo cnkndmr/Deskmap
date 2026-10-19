@@ -133,6 +133,11 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- **Moving an app group and the map's shadowed pins follow the window's
+  binding.** A window keeps the rule that placed it even after its title
+  changes; *Send group to* now moves that rule instead of the one the new
+  title happens to match, and the map no longer shows the bound rule as
+  losing to it.
 - **`make concurrency-check` counts warnings again.** The compiler colors its
   output, so the warning pattern never matched and the count was always 0.
 - **Links in the Turkish docs and changelogs** that pointed to wrong relative

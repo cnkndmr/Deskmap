@@ -298,6 +298,7 @@ logged per sweep. Window titles are logged as `.private`.
 | `DocumentCodableTests` | `rules.json` v1/v2/v3 decoding, destination defaults, skipped broken rules, newer-version detection |
 | `DocumentOperationsTests` | Desktop mapping and its inverse, desktop reordering, pin/unpin, profiles, import/export |
 | `RoutingTests` | `Routing.select` and layout retry accounting |
+| `RouterSelectionTests`, `WindowDriftBugTests`, `WindowDriftFixTests` | The real Router's sweep selection and merge on fake screens and windows (`RouterHarness`, `Router.sweepSelection`): sticky bindings, generic-title grace, exact title owners, unpin, paused/settling routing; group moves and the shadow list with the Router's binding |
 | `EngineHelperTests` | Backoff decision, AX timeouts, window server filters, move retries and cooldown, live-window merge, pause safety, settle cap, external display order, space types, `Router.placement` |
 | `ChangeHistoryTests` | Multi-step undo/redo, discarded redo branch and its undo, return to a row, 50-entry limit, noise vs. untracked changes, companion entries |
 | `MapLogicTests` | Shadowed pins, missing-desktop badge |

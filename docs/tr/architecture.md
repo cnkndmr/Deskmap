@@ -314,6 +314,7 @@ Pencere başlıkları `.private` olarak yazılır.
 | `DocumentCodableTests` | `rules.json` v1/v2/v3 çözümleme, hedef varsayılanları, atlanan bozuk kurallar, daha yeni sürümü algılama |
 | `DocumentOperationsTests` | Masaüstü eşlemesi ve tersi, masaüstlerini yeniden sıralama, sabitleme/sabitlemeyi kaldırma, profiller, içe/dışa aktarma |
 | `RoutingTests` | `Routing.select` ve düzen denemelerinin sayımı |
+| `RouterSelectionTests`, `WindowDriftBugTests`, `WindowDriftFixTests` | Gerçek Router'ın tarama seçimi ve birleştirmesi, sahte ekran ve pencerelerle (`RouterHarness`, `Router.sweepSelection`): yapışkan bağlar, genel başlık beklemesi, tam başlık sahipleri, pin kaldırma, duraklatılmış/yatışan yönlendirme; Router'ın bağıyla grup taşıma ve gölge listesi |
 | `EngineHelperTests` | Geri çekilme kararı, AX zaman aşımları, pencere sunucusu süzgeçleri, taşıma denemeleri ve bekleme süresi, canlı pencere birleştirme, duraklatma güvenliği, yatışma üst sınırı, harici ekran sırası, Alan türleri, `Router.placement` |
 | `ChangeHistoryTests` | Çok adımlı geri al/yinele, atılan yineleme dalı ve onun geri alınması, bir satıra dönme, 50 kayıt sınırı, gürültü ile izlenmeyen değişiklikler, eşlik eden kayıtlar |
 | `MapLogicTests` | Gölgede kalan sabitlemeler, eksik masaüstü rozeti |
