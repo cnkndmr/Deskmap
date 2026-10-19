@@ -138,6 +138,7 @@ private struct ScreenCard: View {
 
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var store: Store
+    @EnvironmentObject private var screens: ScreenService
 
     /// Bu ekrandaki tam ekran space'ler, `afterDesktop` → soldan sağa.
     private var fullscreenSpaces: [Int: [FullscreenSpace]] {
@@ -154,8 +155,18 @@ private struct ScreenCard: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: screen.isBuiltin ? "laptopcomputer" : "display")
-                Text(screen.name)
-                    .lineLimit(1)
+                if showsMonitorPicker {
+                    monitorPicker
+                } else {
+                    Text(screen.name)
+                        .lineLimit(1)
+                }
+                if showsRoleLabel {
+                    Text(DisplayRoles.roleLabel(screen.id))
+                        .fontWeight(.regular)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
                 if ui.visualMap {
                     Text(L("· %ld desktops", realCount ?? tileCount))
                         .fontWeight(.regular)
@@ -180,6 +191,45 @@ private struct ScreenCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(.quaternary, lineWidth: 1))
+    }
+
+    /// Birden çok harici ekran biliniyorsa kart rolünü de söyler
+    /// ("Monitör 2"): kurallar role bağlı, ad tek başına yetmez.
+    private var showsRoleLabel: Bool {
+        !screen.isBuiltin && store.document.screens.filter { !$0.isBuiltin }.count > 1
+    }
+
+    /// İki ve daha çok harici ekran bağlıyken harici kartın başlığı bir
+    /// menüdür: bu rolde hangi monitör duruyor. Seçim kalıcıdır (monitör
+    /// rolünü korur), gerekirse öteki monitörle yer değiştirir; pencereler
+    /// hemen yeniden yerleşir.
+    private var showsMonitorPicker: Bool {
+        isLive && isConnected && !screen.isBuiltin && screens.connectedExternals.count > 1
+    }
+
+    @ViewBuilder private var monitorPicker: some View {
+        let current = screens.connectedExternals
+        let labels = DisplayRoles.labels(current.map(\.display))
+        let here = current.first { $0.role == screen.id }?.display.uuid
+        Menu {
+            ForEach(DisplayRoles.positional(current.map(\.display)), id: \.uuid) { display in
+                Button {
+                    store.chooseDisplay(display.uuid, for: screen.id,
+                                        current: current.map { (role: $0.role, uuid: $0.display.uuid) })
+                } label: {
+                    if display.uuid == here {
+                        Label(labels[display.uuid] ?? display.name, systemImage: "checkmark")
+                    } else {
+                        Text(labels[display.uuid] ?? display.name)
+                    }
+                }
+            }
+        } label: {
+            Text(here.flatMap { labels[$0] } ?? screen.name)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(L("Which monitor this card stands for. The choice is remembered."))
     }
 
     /// Görsel görünüm: masaüstü kartları ızgarada, sonda "+ Masaüstü ekle";

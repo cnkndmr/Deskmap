@@ -35,6 +35,10 @@ import Foundation
 ///     deskmap://profile-set?json=<profil>&activate=1  profili ada göre ekle/güncelle
 ///     deskmap://plan-desktops/<ekran>/<n>?mode=docked|undocked  ekranda n masaüstü olsun
 ///     deskmap://desktop-name/<ekran>/<n>?name=<ad>[&mode=]  masaüstüne ad ver (boş ad siler)
+///     deskmap://screen-role/<monitör>/<rol>  bağlı monitörü (UUID ya da şu anki
+///                                    rolü) bir harici role ver; gerekirse yer değiştirir
+///     deskmap://screen-role-forget   hatırlanan monitör rollerini unut (konum sırası)
+///     deskmap://screen-fallback/<on|off>  ikinci monitör yokken ilk harici monitör
 ///     deskmap://backup-now           otomatik yedeği şimdi çalıştır
 ///     deskmap://backup-restore/<kimlik>  yedeği geri yükle (önce şimdiki hâli
 ///                                    pre-restore katmanına yedekler; geri alınabilir)
@@ -73,6 +77,9 @@ enum URLCommand: Equatable {
     case moveDesktop(screen: String, from: Int, to: Int, mode: Mode?)
     case saveLayout(rule: String, window: CGWindowID?)
     case nameDesktop(screen: String, desktop: Int, name: String, mode: Mode? = nil)
+    case screenRole(display: String, role: String)
+    case forgetScreenRoles
+    case screenFallback(Bool)
     case backupNow
     case restoreBackup(id: String)
 
@@ -214,6 +221,18 @@ enum URLCommand: Equatable {
                 mode = parsed
             }
             return .planDesktops(screen: parts[0].lowercased(), count: count, mode: mode)
+        case "screen-role":
+            guard parts.count == 2, DisplayRoles.isExternalRole(parts[1].lowercased()) else { return nil }
+            return .screenRole(display: parts[0], role: parts[1].lowercased())
+        case "screen-role-forget":
+            return .forgetScreenRoles
+        case "screen-fallback":
+            guard parts.count == 1 else { return nil }
+            switch parts[0].lowercased() {
+            case "on", "1", "true":   return .screenFallback(true)
+            case "off", "0", "false": return .screenFallback(false)
+            default:                  return nil
+            }
         case "reapply":      return .reapply
         case "pause":        return .pause
         case "resume":       return .resume
@@ -265,6 +284,20 @@ enum URLCommands {
     nonisolated static func requestID(_ url: URL) -> String? {
         URLComponents(url: url, resolvingAgainstBaseURL: false)?
             .queryItems?.first { $0.name == "req" }?.value
+    }
+
+    /// Komuttaki monitör: şu anki rolü (`external-2`) ya da UUID'si (en az 4
+    /// karakterlik baş, büyük/küçük harf ve süslü parantez fark etmez); tek
+    /// eşleşme gerekir (saf).
+    nonisolated static func connectedDisplay(
+        _ text: String, in current: [(role: String, display: DisplayRoles.Display)]
+    ) -> String? {
+        let lowered = text.lowercased()
+        if let hit = current.first(where: { $0.role == lowered }) { return hit.display.uuid }
+        let key = ScreenInfo.normalize(text)
+        guard key.count >= 4 else { return nil }
+        let hits = current.filter { ScreenInfo.normalize($0.display.uuid).hasPrefix(key) }
+        return hits.count == 1 ? hits[0].display.uuid : nil
     }
 
     static func run(_ command: URLCommand, store: Store, router: Router) {
@@ -358,6 +391,24 @@ enum URLCommands {
             store.upsertProfile(profile, activate: activate)
         case .planDesktops(let screen, let count, let mode):
             planDesktops(screen: screen, count: count, mode: mode, store: store, router: router)
+        case .screenRole(let display, let role):
+            let current = AppModel.shared.screens.connectedExternals
+            guard let uuid = Self.connectedDisplay(display, in: current) else {
+                store.report(L("No connected monitor matches %@", display))
+                return
+            }
+            // Bir monitör ancak bağlı monitör sayısı kadar rolden birini alır:
+            // "Monitör 3"e verilen tek monitör Monitör 1'i boş bırakırdı.
+            guard let index = DisplayRoles.externalIndex(of: role), index <= current.count else {
+                store.report(L("Only %ld monitors are connected", current.count))
+                return
+            }
+            store.chooseDisplay(uuid, for: role,
+                                current: current.map { (role: $0.role, uuid: $0.display.uuid) })
+        case .forgetScreenRoles:
+            store.forgetDisplayRoles()
+        case .screenFallback(let on):
+            store.setDisplayFallback(on)
         case .nameDesktop(let screen, let desktop, let name, let mode):
             let target = mode ?? AppModel.shared.screens.mode
             if !store.setDesktopName(name, screen: screen, desktop: desktop, mode: target) {

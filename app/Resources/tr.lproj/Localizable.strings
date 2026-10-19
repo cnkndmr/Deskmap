@@ -604,3 +604,16 @@
 "Could not close %ld windows" = "%ld pencere kapatılamadı";
 "Support Deskmap" = "Deskmap'i destekle";
 "Opens PayPal in your browser" = "PayPal'ı tarayıcıda açar";
+
+/* Harici ekran rolleri */
+"Monitor %ld" = "Monitör %ld";
+"%@ (left)" = "%@ (sol)";
+"%@ (right)" = "%@ (sağ)";
+"Which monitor this card stands for. The choice is remembered." = "Bu kartın hangi monitör olduğu. Seçim hatırlanır.";
+"Second monitor missing" = "İkinci monitör yokken";
+"Windows whose rule names another external monitor go to the first external monitor, same desktop number, until it is back. Off: they stay where macOS puts them." = "Kuralı başka bir harici monitörü gösteren pencereler, o monitör geri gelene dek ilk harici monitöre, aynı masaüstü numarasına gider. Kapalıysa macOS'un koyduğu yerde kalırlar.";
+"Monitor roles" = "Monitör rolleri";
+"Each monitor keeps its role (Monitor 1, Monitor 2) wherever it is placed. Forget: roles follow the left-to-right order again." = "Her monitör nereye konursa konsun rolünü (Monitör 1, Monitör 2) korur. Unut: roller yeniden soldan sağa sıraya göre verilir.";
+"Forget" = "Unut";
+"No connected monitor matches %@" = "%@ ile eşleşen bağlı monitör yok";
+"Only %ld monitors are connected" = "Yalnız %ld monitör bağlı";

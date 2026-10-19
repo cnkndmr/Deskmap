@@ -15,6 +15,8 @@ final class StatusFile {
             let id: String
             let name: String
             let builtin: Bool
+            /// macOS ekran UUID'si (rol seçimi `deskmap screen-role` için).
+            let uuid: String
             let frame: [Double]
             let visible: [Double]
             let desktops: Int?
@@ -66,6 +68,8 @@ final class StatusFile {
         let names: [Name]
         /// Kurulum → ekran → girdiler (ad kimliği ya da "").
         let plans: DesktopPlans
+        /// Hatırlanan harici ekran rolleri ve eksik ekran seçeneği.
+        let displayRoles: DisplayRoles
     }
     struct Name: Codable {
         let id: String
@@ -110,7 +114,7 @@ final class StatusFile {
             planned[mode.rawValue] = store.document.plannedDesktops(mode: mode, screen: screen.id)
         }
         return Snapshot.Screen(id: screen.id, name: screen.name, builtin: screen.isBuiltin,
-                               frame: frame, visible: visible,
+                               uuid: screen.uuid, frame: frame, visible: visible,
                                desktops: router.desktopCounts[screen.id], planned: planned)
     }
 
@@ -167,7 +171,8 @@ final class StatusFile {
             desktopNames: store.document.desktopNames(for: screens.mode, live: store.live),
             deletedDesktops: store.document.ghostDesktops,
             names: Self.names(store.document, live: store.live),
-            plans: store.document.plans)
+            plans: store.document.plans,
+            displayRoles: store.document.displayRoles)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

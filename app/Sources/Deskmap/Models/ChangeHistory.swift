@@ -174,6 +174,7 @@ struct ChangeHistory {
         var a = a, b = b
         a.enabled = b.enabled
         a.screens = b.screens
+        a.displayRoles = b.displayRoles
         a.syncActiveProfile()
         b.syncActiveProfile()
         if a == b { return true }

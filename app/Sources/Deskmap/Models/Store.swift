@@ -236,6 +236,7 @@ final class Store: ObservableObject {
         var result = MigrationV6.migrate(source, evidence: evidence)
         result.document.enabled = document.enabled
         result.document.screens = document.screens
+        result.document.displayRoles = document.displayRoles
         result.document.droppedRuleCount = 0
         let before = document
         migrationPending = false
@@ -296,6 +297,7 @@ final class Store: ObservableObject {
                 var provisional = MigrationV6.migrate(decoded, evidence: nil).document
                 provisional.enabled = document.enabled
                 provisional.screens = document.screens
+                provisional.displayRoles = document.displayRoles
                 document = provisional
             }
             upgradeUndone = true
@@ -366,6 +368,7 @@ final class Store: ObservableObject {
         restored.droppedRuleCount = 0
         restored.enabled = document.enabled
         restored.screens = document.screens
+        restored.displayRoles = document.displayRoles
         if restored.needsNameMigration {
             recording(L("Backup restored")) {
                 beginMigrationIfNeeded(restored, fromRestore: true)
@@ -456,6 +459,7 @@ final class Store: ObservableObject {
         var restored = move.document
         restored.enabled = document.enabled
         restored.screens = document.screens
+        restored.displayRoles = document.displayRoles
         restored.refreshNameCaches(live: live)
         pausingHistory {
             if restored != document { document = restored }
@@ -469,6 +473,36 @@ final class Store: ObservableObject {
         body(&copy)
         copy.refreshNameCaches(live: live)
         if copy != document { document = copy }
+    }
+
+    // MARK: - Harici ekran rolleri
+
+    /// Bağlı harici ekranların rollerini öğrenir (geçmişe girmez: aygıt
+    /// bilgisi, kural değil). Yalnız değiştiyse yazar.
+    func learnDisplayRoles(_ assignment: [(role: String, uuid: String)]) {
+        let learned = document.displayRoles.learning(assignment)
+        guard learned != document.displayRoles else { return }
+        document.displayRoles = learned
+    }
+
+    /// Kullanıcı bir monitörü bir role verdi (harita menüsü, `deskmap
+    /// screen-role`): gerekirse öteki monitörle yer değiştirir.
+    func chooseDisplay(_ uuid: String, for role: String,
+                       current: [(role: String, uuid: String)]) {
+        let chosen = document.displayRoles.choosing(uuid, for: role, current: current)
+        guard chosen != document.displayRoles else { return }
+        document.displayRoles = chosen
+    }
+
+    /// Hatırlanan rolleri unutur: roller yeniden konum sırasından gelir.
+    func forgetDisplayRoles() {
+        guard !document.displayRoles.remembered.isEmpty else { return }
+        document.displayRoles.remembered = [:]
+    }
+
+    func setDisplayFallback(_ on: Bool) {
+        guard document.displayRoles.fallbackToFirstExternal != on else { return }
+        document.displayRoles.fallbackToFirstExternal = on
     }
 
     // MARK: - Kurallar
