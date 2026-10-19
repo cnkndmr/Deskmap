@@ -207,7 +207,9 @@ final class Router: ObservableObject {
     private static let maxPlannedCreations = 8
     /// Masaüstü taşımasının doğrulanmış durumu; devre kesici açıksa
     /// (`degraded`) taşıma durur, ekran ve düzen sürer.
-    @Published private(set) var moveHealth = MoveHealth()
+    /// Doğrulanmamış macOS'ta (`MoveSupport.unverified`) kullanıcı "Yine de
+    /// dene" diyene kadar taşıma bekletilir (`held`).
+    @Published private(set) var moveHealth = MoveHealth(held: Router.holdsMovesAtLaunch)
     /// Yönlendirme nesli: kural, ekran, duraklatma ya da oturum pini
     /// değişince artar. Arka planda süren tarama her yan etkiden
     /// (`AX.setFrame`, `sky.move`) önce nesline bakar; eskimişse durur (P0-2).
@@ -338,7 +340,9 @@ final class Router: ObservableObject {
         let sky = SkyLight.shared
         Log.skylight.notice("""
             SkyLight \(sky.canRead ? "available" : "unavailable", privacy: .public); \
-            desktop move path: \(sky.movePath, privacy: .public)
+            desktop move path: \(sky.movePath, privacy: .public); \
+            support: \(String(describing: sky.moveSupport), privacy: .public)\
+            \(self.moveHealth.state == .held ? " (held until the user tries)" : "", privacy: .public)
             """)
         loadSessionPins()
         loadDesktopState()
@@ -649,10 +653,20 @@ final class Router: ObservableObject {
     /// Düşük moddan çıkış: devre kesici kapanır, bütün pencereler yeniden
     /// yerleştirilir (taşımalar yeniden doğrulanır).
     func retryMoves() {
+        if moveHealth.state == .held {
+            UserDefaults.standard.set(true, forKey: MoveSupport.allowUnverifiedKey)
+            Log.skylight.notice("Desktop moves enabled by user on an unverified macOS")
+        } else {
+            Log.skylight.notice("Desktop moves re-enabled by user")
+        }
         moveHealth.reset()
         pendingMoves = [:]
-        Log.skylight.notice("Desktop moves re-enabled by user")
         reapplyAll()
+    }
+
+    nonisolated private static var holdsMovesAtLaunch: Bool {
+        SkyLight.shared.moveSupport == .unverified
+            && !UserDefaults.standard.bool(forKey: MoveSupport.allowUnverifiedKey)
     }
 
     /// Bir taşıma çağrısının sonucunu kaydeder: hemen doğrulandıysa ya da
@@ -679,7 +693,7 @@ final class Router: ObservableObject {
                 Desktop moves could not be verified \(MoveHealth.failureLimit) times in a row; \
                 reduced mode (path: \(SkyLight.shared.movePath, privacy: .public))
                 """)
-        case .unknown:
+        case .unknown, .held:
             break
         }
     }

@@ -819,6 +819,11 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   taşıması bir sonraki taramada denetlenir; taşımalar art arda etkisiz
   kalırsa Deskmap düşük moda geçer (yalnız ekran ve düzen, masaüstü taşıma
   kapalı) ve **Yeniden dene** düğmeli bir kart gösterir.
+- **Doğrulanmamış sürümlerde masaüstü taşıma kapalı başlar.** macOS 15.x ve
+  macOS 26.0–26.3’te masaüstü taşıma doğrulanmadı; bu yüzden baştan kapalıdır
+  ve bir kart bunu söyler, ekran ve düzen yine uygulanır. **Yine de dene**
+  taşımayı açar (hatırlanır); taşımalar sonra da etkisiz kalırsa yukarıdaki
+  düşük mod devreye girer.
 - **Durum bilinmiyorsa dokunulmaz.** macOS bir pencerenin hangi masaüstünde
   olduğunu söylemezse pencere yalnız listelenir: ne taşınır ne
   boyutlandırılır.

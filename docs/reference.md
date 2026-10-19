@@ -788,6 +788,11 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   update can break them. Every desktop move is checked on the next scan; if
   moves keep having no effect, Deskmap switches to a reduced mode (display and
   layout only, desktop moves off) and shows a card with a **Try Again** button.
+- **Desktop moves start off where they are unverified.** On macOS 15.x and
+  macOS 26.0–26.3 desktop moves have not been verified, so they are off from
+  the start and a card says so; display and layout still apply. **Try Anyway**
+  turns them on (remembered); if they then keep having no effect, the reduced
+  mode above takes over.
 - **Unknown state means hands off.** If macOS doesn't say which desktop a
   window is on, the window is only listed: it is neither moved nor resized.
 - **Desktops are added through Mission Control.** macOS has no public way

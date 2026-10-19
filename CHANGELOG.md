@@ -8,6 +8,12 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Desktop moves off on unverified macOS versions.** On macOS 15.x and
+  26.0–26.3, where moving windows between desktops has not been verified,
+  desktop moves start off and the main window shows a card saying so (display
+  and layout still apply). **Try Anyway** turns them on and is remembered; the
+  circuit breaker still watches every move (`Services/MoveSupport.swift`).
+
 - **Open a workspace at once.** A desktop with closed pinned windows shows
   **Open N** next to its name (list and visual view); one click opens them
   all, each routed to its pinned place. Every app group gets a button at the

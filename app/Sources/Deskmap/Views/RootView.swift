@@ -224,9 +224,11 @@ struct RootView: View {
                     if !permission.isTrusted {
                         PermissionCard()
                     }
-                    if permission.isTrusted
-                        && (!SkyLight.shared.canMove || router.moveHealth.state == .degraded) {
-                        ReducedModeCard(canMove: SkyLight.shared.canMove) { router.retryMoves() }
+                    if permission.isTrusted,
+                       let reason = ReducedModeCard.Reason.current(
+                           canMove: SkyLight.shared.canMove, health: router.moveHealth.state,
+                           version: MoveSupport.versionLabel(ProcessInfo.processInfo.operatingSystemVersion)) {
+                        ReducedModeCard(reason: reason) { router.retryMoves() }
                     }
                     if let report = store.migrationReport {
                         MigrationReportCard(

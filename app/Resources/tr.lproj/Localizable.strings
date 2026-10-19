@@ -215,6 +215,9 @@
 "Moves to other desktops did not take effect several times in a row, so they were stopped. Windows are still placed on the right display and in the right layout." = "Başka masaüstüne taşımalar art arda birkaç kez etkisiz kaldı, bu yüzden durduruldu. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir.";
 "Moving windows between desktops is not available on this macOS. Windows are still placed on the right display and in the right layout." = "Bu macOS'ta pencereleri masaüstleri arasında taşımak mümkün değil. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir.";
 "Try Again" = "Yeniden dene";
+"Try Anyway" = "Yine de dene";
+"Desktop moves are off on this macOS" = "Bu macOS'ta masaüstü taşıma kapalı";
+"Moving windows between desktops has not been verified on macOS %@. Windows are still placed on the right display and in the right layout. If you try it and moves do not take effect, Deskmap turns them off again." = "Pencereleri masaüstleri arasında taşımak macOS %@ üzerinde doğrulanmadı. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir. Denersen ve taşımalar etkisiz kalırsa Deskmap onları yeniden kapatır.";
 
 /* Menü çubuğu simgesi durumları */
 "Deskmap: Ready" = "Deskmap: Hazır";

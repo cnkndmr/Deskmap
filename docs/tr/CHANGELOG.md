@@ -8,6 +8,13 @@ numarası `VERSION` dosyasından gelir.
 
 ### Eklenenler {#added}
 
+- **Doğrulanmamış macOS sürümlerinde masaüstü taşıma kapalı.** Pencereleri
+  masaüstleri arasında taşımanın doğrulanmadığı macOS 15.x ve 26.0–26.3’te
+  masaüstü taşıma kapalı başlar ve ana pencerede bunu söyleyen bir kart
+  görünür (ekran ve düzen yine uygulanır). **Yine de dene** taşımayı açar ve
+  hatırlanır; devre kesici her taşımayı izlemeye devam eder
+  (`Services/MoveSupport.swift`).
+
 - **Bir çalışma alanını tek seferde aç.** Kapalı sabit pencereleri olan bir
   masaüstünün adının yanında **N aç** görünür (liste ve görsel görünümde);
   tek tık hepsini açar, her biri kendi sabit yerine gider. Her uygulama
