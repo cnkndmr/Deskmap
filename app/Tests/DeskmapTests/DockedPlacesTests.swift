@@ -701,6 +701,42 @@ struct DockedPlacesMapTests {
         #expect(!(plain ?? "").contains(" · " + L("place %ld of %ld in its list", 1, 1)))
     }
 
+    /// Soluk kartlar monitör kimliğinden: onay bekleyen yeni monitör rolü
+    /// geçici tutsa da rolün kalıcı sahibi kendi kartını alır.
+    @Test func awayCardsComeFromMonitorsNotRoles() {
+        let screens = [known("external", "BenQ"), known("external-2", "LG"),
+                       known("builtin", "Laptop", builtin: true)]
+        let roles = DisplayRoles(remembered: ["external": ["HOME"], "external-2": ["LG"]])
+        // Yalnız onay bekleyen BenQ takılı, "external" rolünde.
+        let connected: [(role: String, uuid: String)] = [("external", "BENQ")]
+        let cards = MapPlaces.awayCards(known: screens, monitors: roles.knownMonitors(connected: connected),
+                                        connectedUUIDs: ["BENQ"], connectedRoles: ["builtin", "external"],
+                                        names: ["HOME": "Acme 27Q"])
+        #expect(cards.map(\.id) == ["HOME", "LG"])
+        #expect(cards[0].screen.name == "Acme 27Q")
+        #expect(cards[0].sharesRole)
+        #expect(!cards[1].sharesRole)
+        // Hiçbir monitörü hatırlanmayan, takılı olmayan eski rol kartı da var.
+        let legacy = MapPlaces.awayCards(known: [known("external-3", "Old")], monitors: [],
+                                         connectedUUIDs: [], connectedRoles: ["builtin"], names: [:])
+        #expect(legacy.map(\.id) == ["external-3"])
+        // Takılı monitörün soluk kartı yok.
+        let plugged = MapPlaces.awayCards(known: screens, monitors: roles.knownMonitors(connected: [("external", "HOME")]),
+                                          connectedUUIDs: ["HOME"], connectedRoles: ["builtin", "external"],
+                                          names: [:])
+        #expect(plugged.map(\.id) == ["LG"])
+    }
+
+    @Test func monitorNamesAreLearnedForConfirmedMonitors() throws {
+        let roles = DisplayRoles(remembered: ["external": ["DELL"]])
+            .learningDesktopCounts(["external": 3, "external-2": 2],
+                                   assignment: [("external", "DELL"), ("external-2", "BENQ")],
+                                   names: ["DELL": "Dell U2723", "BENQ": "BenQ PD"])
+        #expect(roles.monitorNames == ["DELL": "Dell U2723"])
+        let back = try JSONDecoder().decode(DisplayRoles.self, from: JSONEncoder().encode(roles))
+        #expect(back.monitorNames == roles.monitorNames)
+    }
+
     /// K6 "Sıranın sonuna ekle": hatırlanmayan ve bağlı onaylı monitörün
     /// tutmadığı ilk rol.
     @Test func d2_2_addToTheEndRole() {

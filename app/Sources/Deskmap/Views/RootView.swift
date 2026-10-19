@@ -261,6 +261,8 @@ struct RootView: View {
                         FirstStepsCard()
                     }
                     ScreenMapView(mode: mode)
+                    Color.clear.frame(height: 1)
+                        .id(WindowAnchor(id: MapPlaces.mapEndAnchorID))
                 }
                 .padding(14)
                 .background(EnclosingScrollViewReader { ui.autoScroll.scrollView = $0 })

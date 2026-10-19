@@ -12,6 +12,8 @@ enum MapPlaces {
     /// Bağlı olmayan kartlar sırasının kaydırma çapası (`RevealRequest`
     /// bununla o sıraya kaydırır; gerçek pencere kimliğiyle çakışmaz).
     static let awayAnchorID = CGWindowID.max
+    /// Haritanın en altının çapası (kareler ve testler en alta kaydırır).
+    static let mapEndAnchorID = CGWindowID.max - 1
 
     /// Canlı monitörlü planda bağlı kartlar üstte (eski sırasıyla), bağlı
     /// olmayan harici kartlar altta ayrı sırada. Öbür planda hepsi
@@ -22,6 +24,45 @@ enum MapPlaces {
         let away = screens.filter { !$0.isBuiltin && !connected.contains($0.id) }
         let main = screens.filter { $0.isBuiltin || connected.contains($0.id) }
         return (main, away)
+    }
+
+    /// Takılı olmayan bir monitörün soluk kartı. Kart role göre çizilir
+    /// (pinler role bağlı) ama monitör kimliğinden üretilir: onay bekleyen
+    /// yeni monitör rolü geçici tutsa da rolün kalıcı sahibi kendi kartını
+    /// alır (`sharesRole`).
+    struct AwayCard: Identifiable, Equatable {
+        let screen: KnownScreen
+        /// Monitörün UUID'si; hiç öğrenilmemiş eski rol kartında nil.
+        let uuid: String?
+        /// Rol şu an takılı (onay bekleyen) başka bir ekranda: bu kart
+        /// bırakma hedefi olmaz, masaüstü sayısı kendi kaydından gelir.
+        let sharesRole: Bool
+        var id: String { uuid ?? screen.id }
+    }
+
+    /// Soluk kartlar (saf): rolde hatırlanan, takılı olmayan her monitör
+    /// (`DisplayRoles.knownMonitors`) ve hiçbir monitörü hatırlanmayan,
+    /// takılı olmayan eski rol kartları. Rol sırasında.
+    static func awayCards(known: [KnownScreen], monitors: [(role: String, uuid: String)],
+                          connectedUUIDs: Set<String>, connectedRoles: Set<String>,
+                          names: [String: String]) -> [AwayCard] {
+        let present = Set(connectedUUIDs.map(ScreenInfo.normalize))
+        var cards: [AwayCard] = monitors.compactMap { monitor in
+            let key = ScreenInfo.normalize(monitor.uuid)
+            guard !present.contains(key) else { return nil }
+            let base = known.first { $0.id == monitor.role }
+            var screen = base ?? KnownScreen(id: monitor.role, name: DisplayRoles.roleLabel(monitor.role),
+                                             aspect: 1.6)
+            if let name = names[key] { screen.name = name }
+            return AwayCard(screen: screen, uuid: key, sharesRole: connectedRoles.contains(monitor.role))
+        }
+        for screen in known where !screen.isBuiltin && !connectedRoles.contains(screen.id)
+            && !monitors.contains(where: { $0.role == screen.id }) {
+            cards.append(AwayCard(screen: screen, uuid: nil, sharesRole: false))
+        }
+        return cards.sorted {
+            (DisplayRoles.externalIndex(of: $0.screen.id) ?? 0) < (DisplayRoles.externalIndex(of: $1.screen.id) ?? 0)
+        }
     }
 
     /// Bağlı olmayan monitörün kartındaki masaüstü sayısı: rolün planı,

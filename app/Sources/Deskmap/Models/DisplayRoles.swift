@@ -34,6 +34,10 @@ struct DisplayRoles: Codable, Equatable {
     /// sayısı. Bağlı olmayan monitörün soluk kartı bu kadar masaüstü çizer
     /// (rolün planı yoksa). İsteğe bağlı alan; boşsa yazılmaz.
     var lastDesktopCount: [String: Int] = [:]
+    /// Monitör (normalleştirilmiş UUID) → model adı; takılı değilken soluk
+    /// kartında gösterilir (rolün adı o sırada başka monitörün olabilir).
+    /// İsteğe bağlı alan; boşsa yazılmaz.
+    var monitorNames: [String: String] = [:]
 
     /// Bir rolde tutulan en çok UUID (eski masa monitörleri düşer).
     static let historyLimit = 8
@@ -41,7 +45,7 @@ struct DisplayRoles: Codable, Equatable {
     var isEmpty: Bool { remembered.isEmpty }
 
     private enum CodingKeys: String, CodingKey {
-        case remembered, fallbackToFirstExternal, learnedOnce, lastDesktopCount
+        case remembered, fallbackToFirstExternal, learnedOnce, lastDesktopCount, monitorNames
     }
 
     init(remembered: [String: [String]] = [:], fallbackToFirstExternal: Bool = true,
@@ -69,6 +73,10 @@ struct DisplayRoles: Codable, Equatable {
         lastDesktopCount = Dictionary(
             counts.filter { $0.value >= 1 }.map { (ScreenInfo.normalize($0.key), $0.value) },
             uniquingKeysWith: { a, _ in a })
+        let names = (try? c.decodeIfPresent([String: String].self, forKey: .monitorNames)) ?? [:]
+        monitorNames = Dictionary(
+            names.filter { !$0.value.isEmpty }.map { (ScreenInfo.normalize($0.key), $0.value) },
+            uniquingKeysWith: { a, _ in a })
     }
 
     func encode(to encoder: Encoder) throws {
@@ -77,6 +85,7 @@ struct DisplayRoles: Codable, Equatable {
         try c.encode(fallbackToFirstExternal, forKey: .fallbackToFirstExternal)
         try c.encode(learnedOnce, forKey: .learnedOnce)
         if !lastDesktopCount.isEmpty { try c.encode(lastDesktopCount, forKey: .lastDesktopCount) }
+        if !monitorNames.isEmpty { try c.encode(monitorNames, forKey: .monitorNames) }
     }
 
     // MARK: - Masaüstü sayısı (soluk kart)
@@ -88,12 +97,16 @@ struct DisplayRoles: Codable, Equatable {
 
     /// Bağlı, onaylı monitörlerin masaüstü sayıları öğrenilir (saf).
     /// `counts`: rol → gerçek masaüstü sayısı.
+    /// `names`: UUID → model adı (bağlı monitörlerin).
     func learningDesktopCounts(_ counts: [String: Int],
-                               assignment: [(role: String, uuid: String)]) -> DisplayRoles {
+                               assignment: [(role: String, uuid: String)],
+                               names: [String: String] = [:]) -> DisplayRoles {
         var copy = self
         for (role, uuid) in assignment where Self.isExternalRole(role) && isConfirmed(role: role, uuid: uuid) {
+            let key = ScreenInfo.normalize(uuid)
+            if let name = names[uuid] ?? names[key], !name.isEmpty { copy.monitorNames[key] = name }
             guard let count = counts[role], count >= 1 else { continue }
-            copy.lastDesktopCount[ScreenInfo.normalize(uuid)] = count
+            copy.lastDesktopCount[key] = count
         }
         return copy
     }

@@ -497,8 +497,10 @@ final class Store: ObservableObject {
     /// Kullanıcı bir monitörü bir role verdi (harita menüsü, `deskmap
     /// screen-role`): gerekirse öteki monitörle yer değiştirir.
     /// Bağlı monitörlerin masaüstü sayıları (soluk kart için) öğrenilir.
-    func learnDesktopCounts(_ counts: [String: Int], assignment: [(role: String, uuid: String)]) {
-        let learned = document.displayRoles.learningDesktopCounts(counts, assignment: assignment)
+    func learnDesktopCounts(_ counts: [String: Int], assignment: [(role: String, uuid: String)],
+                            names: [String: String] = [:]) {
+        let learned = document.displayRoles.learningDesktopCounts(counts, assignment: assignment,
+                                                                  names: names)
         guard learned != document.displayRoles else { return }
         document.displayRoles = learned
     }

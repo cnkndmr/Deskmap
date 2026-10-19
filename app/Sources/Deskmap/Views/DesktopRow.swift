@@ -71,6 +71,11 @@ struct DesktopRow: View {
     let labelWidth: CGFloat
     /// Görsel görünümün kartı olarak çizilir.
     var asCard = false
+    /// Takılı olmayan monitörün soluk kartında (hayalet çipler rolün kalıcı
+    /// sahibine göre; rol şu an takılı bir ekranda olsa da).
+    var onAwayCard = false
+    /// Bırakma hedefi olur mu (rolü takılı başka ekranda olan soluk kart olmaz).
+    var acceptsDrops = true
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
@@ -105,7 +110,9 @@ struct DesktopRow: View {
 
     /// Bu masaüstündeki canlı pencereler (yalnızca şu anki modda).
     private var windows: [Router.WindowSnapshot] {
-        guard isLive else { return [] }
+        // Soluk kartta canlı pencere yok: monitör takılı değil (rolü takılı
+        // başka bir ekranda olsa da o ekranın penceresi bu kartın değil).
+        guard isLive, !onAwayCard else { return [] }
         return ui.windows.filter { $0.placement == placement }
     }
 
@@ -213,7 +220,7 @@ struct DesktopRow: View {
     /// Bu masaüstündeki hayalet çipler: pinlerin şu an kullanılmayan yerleri.
     private var ghostPins: [MapPlaces.Ghost] {
         MapPlaces.ghosts(store.document.rules, mode: mode, live: isLive, usable: usable,
-                         connected: isLive ? Set(screens.screens.map(\.id)) : [],
+                         connected: isLive && !onAwayCard ? Set(screens.screens.map(\.id)) : [],
                          screen: screen.id, desktop: desktop)
     }
 
@@ -318,7 +325,7 @@ struct DesktopRow: View {
                     isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
                     style: StrokeStyle(lineWidth: 1, dash: exists ? [] : [4, 3])))
         .opacity(isBeingDragged ? 0.4 : 1)
-        .dropTarget(target)
+        .dropTarget(target, enabled: acceptsDrops)
         .contextMenu { desktopMenu }
     }
 
@@ -840,7 +847,7 @@ extension DesktopRow {
                     isTargeted ? Color.accentColor : Color.primary.opacity(0.1),
                     style: StrokeStyle(lineWidth: isTargeted ? 2 : 1, dash: exists ? [] : [4, 3])))
         .opacity(isBeingDragged ? 0.4 : 1)
-        .dropTarget(target)
+        .dropTarget(target, enabled: acceptsDrops)
         // Satırdaki gibi: kutuların ve çiplerin kendi menüsü öncelikli.
         .contextMenu { desktopMenu }
     }
@@ -924,6 +931,7 @@ struct GhostRow: View {
     let canAdd: Bool
     /// Görsel görünümde ızgaranın son kartı ("+ Masaüstü ekle").
     var asCard = false
+    var acceptsDrops = true
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
@@ -975,7 +983,7 @@ struct GhostRow: View {
                 .strokeBorder(
                     isTargeted ? Color.accentColor : Color.primary.opacity(0.08),
                     style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-        .dropTarget(target)
+        .dropTarget(target, enabled: acceptsDrops)
         .opacity(ui.drag == nil ? 0.7 : 1)
         .contentShape(Rectangle())
         .onTapGesture {

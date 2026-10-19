@@ -29,13 +29,23 @@ struct ScreenMapView: View {
                                 uniquingKeysWith: { first, _ in first })
         // K8: canlı monitörlü planda bağlı olmayan monitörler altta, dar
         // ve soluk kartlarda; takılınca üste çıkar.
-        let cards = MapPlaces.cardRows(shown, connected: Set(screens.screens.map(\.id)),
+        let connectedRoles = Set(screens.screens.map(\.id))
+        let cards = MapPlaces.cardRows(shown, connected: connectedRoles,
                                        live: isLive && mode == .docked)
+        // Soluk kartlar monitör kimliğinden: rolü onay bekleyen yeni monitörde
+        // olan, takılı olmayan monitör de kendi kartını alır.
+        let pairs = screens.connectedExternals.map { (role: $0.role, uuid: $0.display.uuid) }
+        let roles = store.document.displayRoles
+        let away = isLive && mode == .docked
+            ? MapPlaces.awayCards(known: shown, monitors: roles.knownMonitors(connected: pairs),
+                                  connectedUUIDs: Set(pairs.map(\.uuid)), connectedRoles: connectedRoles,
+                                  names: roles.monitorNames)
+            : []
         VStack(alignment: .leading, spacing: 12) {
             ForEach(cards.main) { screen in
                 card(screen, counts: counts, shadowed: shadowed)
             }
-            if !cards.away.isEmpty {
+            if !away.isEmpty {
                 Text(L("Not connected · windows go here when the monitor is plugged in"))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
@@ -47,13 +57,36 @@ struct ScreenMapView: View {
                                                        maximum: Self.awayCardWidth + 60),
                                              spacing: 12, alignment: .top)],
                           alignment: .leading, spacing: 12) {
-                    ForEach(cards.away) { screen in
-                        card(screen, counts: counts, shadowed: shadowed)
+                    ForEach(away) { item in
+                        awayCard(item, counts: counts, shadowed: shadowed)
                     }
                 }
             }
         }
         .environment(\.mapTileCounts, counts)
+    }
+
+    private func awayCard(_ item: MapPlaces.AwayCard, counts: [String: Int],
+                          shadowed: [String: String]) -> some View {
+        // Rolü takılı başka ekrandaysa masaüstü sayısı monitörün kendi kaydından.
+        let count = item.sharesRole
+            ? MapPlaces.awayDesktopCount(
+                planned: store.document.plannedDesktops(mode: mode, screen: item.screen.id),
+                lastSeen: item.uuid.flatMap { store.document.displayRoles.lastDesktopCount[$0] },
+                used: store.document.rules.flatMap { $0.places(mode) }
+                    .filter { $0.screen == item.screen.id }.map(\.desktop).max() ?? 0)
+            : counts[item.screen.id] ?? 1
+        return ScreenCard(
+            screen: item.screen,
+            mode: mode,
+            isLive: isLive,
+            isConnected: false,
+            tileCount: count,
+            realCount: nil,
+            tileCounts: counts,
+            shadowed: shadowed,
+            awayUUID: item.uuid,
+            sharesRole: item.sharesRole)
     }
 
     /// Bağlı olmayan monitörün dar kartının genişliği.
@@ -176,6 +209,10 @@ private struct ScreenCard: View {
     let tileCounts: [String: Int]
     /// Gölgede kalan kural → onu geçen kural (ScreenMapView.shadows).
     let shadowed: [String: String]
+    /// Soluk kartın monitörü (UUID); bağlı kartta nil.
+    var awayUUID: String? = nil
+    /// Soluk kartın rolü şu an takılı (onay bekleyen) başka bir ekranda.
+    var sharesRole = false
 
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var store: Store
@@ -187,7 +224,8 @@ private struct ScreenCard: View {
 
     /// Bu ekrandaki tam ekran space'ler, `afterDesktop` → soldan sağa.
     private var fullscreenSpaces: [Int: [FullscreenSpace]] {
-        guard isLive else { return [:] }
+        // Soluk kartta tam ekran space yok (rolü takılı başka ekranda olsa da).
+        guard isLive, !isAway else { return [:] }
         return FullscreenSpace.grouped(ui.windows, screen: screen.id, rowCount: tileCount)
     }
 
@@ -324,7 +362,7 @@ private struct ScreenCard: View {
                     ?? DisplayRoles.roleLabel(monitor.role)
             }
         }
-        let here = current.first { $0.role == screen.id }?.display.uuid
+        let here = awayUUID ?? current.first { $0.role == screen.id }?.display.uuid
             ?? known.first { $0.role == screen.id }?.uuid
         Menu {
             if isHeld {
@@ -415,7 +453,7 @@ private struct ScreenCard: View {
             exists: realCount.map { desktop <= $0 } ?? true,
             realCount: realCount,
             rowCount: tileCount, tileCounts: tileCounts, shadowed: shadowed,
-            labelWidth: labelWidth, asCard: asCard)
+            labelWidth: labelWidth, asCard: asCard, onAwayCard: isAway, acceptsDrops: !sharesRole)
     }
 
     /// Liste görünümü: masaüstü başına satır, tam ekran space'ler gerçek sırasında.
@@ -432,7 +470,7 @@ private struct ScreenCard: View {
                               canRestore: isLive && isConnected, labelWidth: labelWidth)
         }
         GhostRow(screen: screen, desktop: tileCount + 1, mode: mode,
-                 isLive: isLive, canAdd: !isLive || isConnected)
+                 isLive: isLive, canAdd: !isLive || isConnected, acceptsDrops: !sharesRole)
     }
 }
 

@@ -24,6 +24,9 @@ enum Shots {
         /// `--scenario crowded`: kalabalık demo dünyası ve görsel harita
         /// kareleri (`g…`); nil = mağaza/kılavuz kareleri.
         var scenario: String? = nil
+        /// `--visible-height N`: ekranın kullanılabilir yüksekliği (pt);
+        /// küçük pencere kareleri için. nil = 1074.
+        var visibleHeight: CGFloat? = nil
     }
 
     /// `--shots <dizin>` (zorunlu, yoksa nil döner ve normal uygulama açılır)
@@ -47,7 +50,12 @@ enum Shots {
         if let index = arguments.firstIndex(of: "--scenario"), arguments.indices.contains(index + 1) {
             scenario = arguments[index + 1]
         }
-        return Options(directory: directory, only: only, scenario: scenario)
+        var visibleHeight: CGFloat?
+        if let index = arguments.firstIndex(of: "--visible-height"), arguments.indices.contains(index + 1),
+           let value = Double(arguments[index + 1]), value >= 400 {
+            visibleHeight = value
+        }
+        return Options(directory: directory, only: only, scenario: scenario, visibleHeight: visibleHeight)
     }
 
     /// Bu kare `--only` süzgeciyle üretilmeli mi (saf).
@@ -78,6 +86,10 @@ enum Shots {
             // Evdeki monitör hatırlanıyor, bağlı olan başka bir ekran: rolü
             // onay bekler (docs/bug-tables.md A′).
             document.displayRoles = DisplayRoles(remembered: ["external": ["HOME-MONITOR"]])
+            // Takılı olmayan ev monitörü kendi soluk kartını alır (rolü şu an
+            // onay bekleyen ekranda).
+            document.displayRoles.monitorNames = ["HOME-MONITOR": "Acme 27Q"]
+            document.displayRoles.lastDesktopCount = ["HOME-MONITOR": 2]
         }
         let store = Store(demo: document)
         let screens = ScreenService(demo: world.screens)
@@ -94,7 +106,8 @@ enum Shots {
         // içeriğe göre yeniden ölçülür (açık panel pencereyi uzatır).
         // Demo dizisi (GIF): pencere boyu 826 pt; altyazı çubuğuyla birlikte
         // bu Mac'in ekranına (1074 pt) sığar, yoksa AppKit pencereyi kırpar.
-        let visible = sequence ? CGSize(width: 1710, height: 1180) : CGSize(width: 1710, height: 1074)
+        let visible = sequence ? CGSize(width: 1710, height: 1180)
+            : CGSize(width: 1710, height: options.visibleHeight ?? 1074)
         let room = WindowRoom(height: visible.height - RootView.screenMargin, visible: visible)
         let size = NSSize(width: RootView.totalWidth(visibleWidth: room.visible.width),
                           height: RootView.preferredHeight(visibleHeight: room.visible.height))
@@ -217,6 +230,13 @@ enum Shots {
             }
             capture("m4-away-monitor-list")
             ui.visualMap = true
+            // m4b — haritanın en altı: son kartın alt kenarı alt çubuğun
+            // üstünde kalmalı (alt boşluk).
+            for seq in 5...6 {
+                ui.reveal = RevealRequest(window: MapPlaces.mapEndAnchorID, seq: seq)
+                pump(0.4)
+            }
+            capture("m4b-map-bottom")
             // m5 — Mail'in pin paneli: sıralı yerler, kullanılan yer vurgulu.
             ui.panel = .rule(DemoData.awayMailRuleID)
             capture("m5-places-panel")
@@ -228,6 +248,15 @@ enum Shots {
             // m3 — hatırlanmayan monitör: kartta "düzen bekliyor", başlıkta
             // menü, "Sıranın sonuna ekle" ve "Yerine geç…" (K6).
             capture("m3-held-monitor")
+            // m3b — evdeki monitör takılı değil, rolü onay bekleyen ekranda:
+            // yine kendi soluk kartı var (monitör kimliğinden).
+            ui.desktopCounts = fixedDesktopCounts
+            pump(0.3)
+            for seq in 1...2 {
+                ui.reveal = RevealRequest(window: MapPlaces.awayAnchorID, seq: seq)
+                pump(0.4)
+            }
+            capture("m3b-held-monitor-away-card")
             window.orderOut(nil)
             exit(0)
         }

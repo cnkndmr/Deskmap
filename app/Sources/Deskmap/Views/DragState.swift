@@ -42,15 +42,17 @@ enum DragItem: Equatable {
 }
 
 extension View {
-    /// Görünümü bırakma hedefi olarak kaydeder.
-    func dropTarget(_ target: DropTarget) -> some View {
+    /// Görünümü bırakma hedefi olarak kaydeder. `enabled` false ise
+    /// kaydetmez (aynı hedefi taşıyan ikinci kart, ör. rolü onay bekleyen
+    /// monitörde olan soluk kart).
+    func dropTarget(_ target: DropTarget, enabled: Bool = true) -> some View {
         background(
             GeometryReader { geometry in
                 Color.clear.preference(
                     key: DropTargetPreference.self,
-                    value: [DropTargetFrame(
+                    value: enabled ? [DropTargetFrame(
                         target: target,
-                        frame: geometry.frame(in: .named(MapSpace.name)))])
+                        frame: geometry.frame(in: .named(MapSpace.name)))] : [])
             })
     }
 }

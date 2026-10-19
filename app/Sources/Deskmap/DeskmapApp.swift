@@ -105,7 +105,9 @@ final class AppModel {
             .receive(on: DispatchQueue.main)
             .sink { [weak store, weak screens] counts in
                 guard let store, let screens, !screens.isSettling, !counts.isEmpty else { return }
-                store.learnDesktopCounts(counts, assignment: screens.externalAssignment)
+                let names = Dictionary(screens.connectedExternals.map { ($0.display.uuid, $0.display.name) },
+                                       uniquingKeysWith: { a, _ in a })
+                store.learnDesktopCounts(counts, assignment: screens.externalAssignment, names: names)
             }
         // Yerleştirme (K7) bağlı ve onay beklemeyen rolleri bilir.
         store.connectedRoles = { [weak screens] in screens?.usableRoles ?? [] }
