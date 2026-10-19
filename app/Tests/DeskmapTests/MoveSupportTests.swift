@@ -52,6 +52,14 @@ struct MoveSupportTests {
         #expect(health.state == .degraded)
     }
 
+    @Test func statusFileReportsDesktopMoves() {
+        #expect(StatusFile.desktopMoves(canMove: true, health: .unknown) == "on")
+        #expect(StatusFile.desktopMoves(canMove: true, health: .working) == "on")
+        #expect(StatusFile.desktopMoves(canMove: true, health: .held) == "held")
+        #expect(StatusFile.desktopMoves(canMove: true, health: .degraded) == "reduced")
+        #expect(StatusFile.desktopMoves(canMove: false, health: .working) == "unavailable")
+    }
+
     @Test func cardReasonFollowsCapabilityAndHealth() {
         typealias Reason = ReducedModeCard.Reason
         #expect(Reason.current(canMove: false, health: .working, version: "15.3") == .unavailable)

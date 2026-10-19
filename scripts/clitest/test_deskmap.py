@@ -267,6 +267,15 @@ class ReportTests(unittest.TestCase):
         self.assertIsNone(dm.target_rect(st, "external", dm.parse_layout("full")))
 
 
+class StatusTextTests(unittest.TestCase):
+
+    def test_desktop_moves_line_only_when_off(self):
+        self.assertIsNone(dm.desktop_moves_text("on"))
+        self.assertIsNone(dm.desktop_moves_text(None))   # older app
+        for state in ("held", "reduced", "unavailable"):
+            self.assertIn("desktop moves OFF", dm.desktop_moves_text(state))
+
+
 class ExposureTests(unittest.TestCase):
 
     def test_nested_windows_can_both_be_covered(self):

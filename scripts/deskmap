@@ -277,12 +277,25 @@ def where(w):
     return f"{w['screen']}/{w['desktop']}"
 
 
+def desktop_moves_text(state):
+    """status.json `desktopMoves` → one line, or None when moves are on (or the
+    app is older and does not report it)."""
+    return {
+        "held": "desktop moves OFF: not verified on this macOS (Try Anyway in the app turns them on)",
+        "reduced": "desktop moves OFF: reduced mode, moves did not take effect (Try Again in the app)",
+        "unavailable": "desktop moves OFF: not available on this macOS",
+    }.get(state)
+
+
 def show_status(args):
     s = fresh_status()
     if args.json:
         print(json.dumps(s, indent=2, ensure_ascii=False)); return
     state = "routing" if s["enabled"] else "PAUSED"
     print(f"Deskmap pid {s['pid']}  {state}  mode {s['mode']}  profile {s.get('profile') or '-'}")
+    moves = desktop_moves_text(s.get("desktopMoves"))
+    if moves:
+        print(f"  {moves}")
     for sc in s["screens"]:
         n = sum(1 for w in s["windows"] if w.get("screen") == sc["id"])
         print(f"  {sc['id']:<11} {sc['name']:<28} {n} window(s)")

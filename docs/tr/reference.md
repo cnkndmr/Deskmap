@@ -562,7 +562,10 @@ yerleştirmenin duraklatılıp duraklatılmadığı ve son hata. `desktopNames`�
 (ekran rolü → numara → ad, şu anki düzen) yanında `names` (`id`, `name`,
 `space`, `screen`, `desktop`: masaüstünün şu an nerede olduğu, `planned`:
 kurulum → `screen/n`) ve `plans` (kurulum → ekran rolü → ad kimlikleri
-listesi, adsız masaüstü için `""`) alanlarını da içerir.
+listesi, adsız masaüstü için `""`) alanlarını da içerir. `desktopMoves`
+masaüstü taşımanın açık olup olmadığını söyler: `on`, `held` (doğrulanmamış
+macOS, **Yine de dene**’ye kadar kapalı), `reduced` (düşük mod) ya da
+`unavailable`; taşıma kapalıysa `deskmap status` bunu bir satırla yazar.
 
 ### Ekran değişikliği kancaları (`hooks.json`) {#screen-change-hooks-hooksjson}
 

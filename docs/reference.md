@@ -536,7 +536,9 @@ routing is paused, and the last error. Besides `desktopNames` (display role →
 number → name, the current layout) it has `names` (`id`, `name`, `space`,
 `screen`, `desktop`: where the desktop is now, `planned`: setup → `screen/n`)
 and `plans` (setup → display role → list of name ids, `""` for an unnamed
-desktop).
+desktop). `desktopMoves` says whether desktop moves are on: `on`, `held`
+(unverified macOS, off until **Try Anyway**), `reduced` (reduced mode) or
+`unavailable`; `deskmap status` prints a line when they are off.
 
 ### Screen change hooks (`hooks.json`)
 

@@ -52,6 +52,10 @@ final class StatusFile {
         let profile: String?
         let profiles: [String]
         let lastError: String?
+        /// Masaüstü taşıma: "on", "held" (doğrulanmamış macOS, kullanıcı
+        /// "Yine de dene" demedi), "reduced" (devre kesici açık) ya da
+        /// "unavailable" (bu macOS'ta taşıma yolu yok).
+        let desktopMoves: String
         let primaryHeight: Double?
         let screens: [Screen]
         let windows: [Window]
@@ -92,6 +96,7 @@ final class StatusFile {
             router.$sessionPins.map { _ in () }.eraseToAnyPublisher(),
             store.$document.map { _ in () }.eraseToAnyPublisher(),
             store.$lastError.map { _ in () }.eraseToAnyPublisher(),
+            router.$moveHealth.removeDuplicates().map { _ in () }.eraseToAnyPublisher(),
             screens.$screens.map { _ in () }.eraseToAnyPublisher(),
         ]
         Publishers.MergeMany(changes)
@@ -112,6 +117,16 @@ final class StatusFile {
         return Snapshot.Screen(id: screen.id, name: screen.name, builtin: screen.isBuiltin,
                                frame: frame, visible: visible,
                                desktops: router.desktopCounts[screen.id], planned: planned)
+    }
+
+    /// `desktopMoves` alanı (saf).
+    nonisolated static func desktopMoves(canMove: Bool, health: MoveHealth.State) -> String {
+        guard canMove else { return "unavailable" }
+        switch health {
+        case .unknown, .working: return "on"
+        case .held: return "held"
+        case .degraded: return "reduced"
+        }
     }
 
     /// Adların durum dosyası kaydı (saf).
@@ -142,6 +157,8 @@ final class StatusFile {
             profile: store.document.activeProfile?.name,
             profiles: store.profiles.map(\.name),
             lastError: store.lastError,
+            desktopMoves: Self.desktopMoves(canMove: SkyLight.shared.canMove,
+                                            health: router.moveHealth.state),
             primaryHeight: primaryHeight,
             screens: screens.screens.map(screenEntry),
             windows: router.windows.map { window -> Snapshot.Window in
