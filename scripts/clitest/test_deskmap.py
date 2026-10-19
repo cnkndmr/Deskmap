@@ -316,5 +316,52 @@ class ExposureTests(unittest.TestCase):
         self.assertEqual(dm.exposure_issues(status(ws), rules), [])
 
 
+class ScreenRoleTest(unittest.TestCase):
+    """`screen-role` and `screens` with a fake app (send/fresh_status replaced)."""
+
+    STATUS = {"screens": [
+        {"id": "builtin", "name": "Built-in", "builtin": True, "uuid": "B0000000",
+         "frame": [0, 0, 1710, 1112]},
+        {"id": "external", "name": "Pebble", "builtin": False, "uuid": "PEBBLE-0002",
+         "frame": [1710, 0, 1920, 1080]}],
+        "displayRoles": {"remembered": {"external": ["DELL-0001"]}},
+        "heldRoles": ["external"]}
+
+    def setUp(self):
+        self.sent = []
+        self._send, self._fresh = dm.send, dm.fresh_status
+        dm.send = lambda command, **q: (self.sent.append(command), self.STATUS)[1]
+        dm.fresh_status = lambda: self.STATUS
+
+    def tearDown(self):
+        dm.send, dm.fresh_status = self._send, self._fresh
+
+    def run_cli(self, fn, **args):
+        out = io.StringIO()
+        from contextlib import redirect_stdout
+        with redirect_stdout(out):
+            fn(type("Args", (), {"json": False, "display": None, "role": None,
+                                 "forget": False, **args})())
+        return out.getvalue()
+
+    def test_forget_alone_forgets_every_monitor(self):
+        self.run_cli(dm.screen_role, forget=True)
+        self.assertEqual(self.sent, ["screen-role-forget"])
+
+    def test_forget_one_monitor_by_name(self):
+        out = self.run_cli(dm.screen_role, display="pebble", forget=True)
+        self.assertEqual(self.sent, ["screen-role-forget/PEBBLE-0002"])
+        self.assertIn("waits for a choice", out)
+
+    def test_confirming_a_held_monitor_sends_its_role(self):
+        self.run_cli(dm.screen_role, display="pebble", role="2")
+        self.assertEqual(self.sent, ["screen-role/PEBBLE-0002/external-2"])
+
+    def test_held_role_is_shown_with_how_to_confirm(self):
+        out = self.run_cli(dm.show_screens)
+        self.assertIn("role on hold", out)
+        self.assertIn("deskmap screen-role PEBBLE-00 external", out)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -190,6 +190,16 @@ final class ScreenService: ObservableObject {
         }
     }
 
+    /// Rolü öğrenilecek ve onaylanacak harici ekranlar: test ekranı
+    /// ("Deskmap Test Display") hiç öğrenilmez, onay da beklemez.
+    var externalAssignment: [(role: String, uuid: String)] {
+        screens.filter { !$0.isBuiltin && $0.name != Store.testDisplayName }
+            .map { (role: $0.id, uuid: $0.uuid) }
+    }
+
+    /// Onay bekleyen roller (`DisplayRoles.unconfirmed`): düzen uygulanmaz.
+    var heldRoles: Set<String> { roles.unconfirmed(externalAssignment) }
+
     private func screensChanged() {
         refresh()
         let now = Date()

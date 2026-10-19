@@ -617,6 +617,14 @@
 "%@ (left)" = "%@ (sol)";
 "%@ (right)" = "%@ (sağ)";
 "Which monitor this card stands for. The choice is remembered." = "Bu kartın hangi monitör olduğu. Seçim hatırlanır.";
+"new monitor · layout on hold" = "yeni monitör · düzen bekliyor";
+"Deskmap does not know this monitor yet, so the layout of this role is not applied to it. Choose its role in the menu on the left." = "Deskmap bu monitörü henüz tanımıyor; bu rolün düzeni ona uygulanmıyor. Rolünü soldaki menüden seç.";
+"New monitor: its layout waits for your choice" = "Yeni monitör: düzeni senin seçimini bekliyor";
+"Use as %@" = "%@ olarak kullan";
+"Forget This Monitor" = "Bu monitörü unut";
+"Its role then waits for a choice and its layout is not applied." = "Sonra rolü seçim bekler, düzeni uygulanmaz.";
+"Use this monitor as %@?" = "Bu monitör %@ olsun mu?";
+"%@ is remembered as the %@. Pinned windows, desktop names and the desktop plan of the %@ are applied to it now." = "%1$@ %2$@ olarak hatırlanır. %3$@ için sabit pencereler, masaüstü adları ve masaüstü planı şimdi ona uygulanır.";
 "Second monitor missing" = "İkinci monitör yokken";
 "Windows whose rule names another external monitor go to the first external monitor, same desktop number, until it is back. Off: they stay where macOS puts them." = "Kuralı başka bir harici monitörü gösteren pencereler, o monitör geri gelene dek ilk harici monitöre, aynı masaüstü numarasına gider. Kapalıysa macOS'un koyduğu yerde kalırlar.";
 "Monitor roles" = "Monitör rolleri";

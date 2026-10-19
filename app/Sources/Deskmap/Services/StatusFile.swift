@@ -74,6 +74,9 @@ final class StatusFile {
         let plans: DesktopPlans
         /// Hatırlanan harici ekran rolleri ve eksik ekran seçeneği.
         let displayRoles: DisplayRoles
+        /// Onay bekleyen roller: monitör bu rolde hatırlanmıyor, düzen
+        /// uygulanmıyor (`deskmap screen-role` ile onaylanır).
+        let heldRoles: [String]
     }
     struct Name: Codable {
         let id: String
@@ -189,7 +192,8 @@ final class StatusFile {
             deletedDesktops: store.document.ghostDesktops,
             names: Self.names(store.document, live: store.live),
             plans: store.document.plans,
-            displayRoles: store.document.displayRoles)
+            displayRoles: store.document.displayRoles,
+            heldRoles: screens.heldRoles.sorted())
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

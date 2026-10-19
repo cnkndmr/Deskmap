@@ -38,6 +38,8 @@ import Foundation
 ///     deskmap://screen-role/<monitör>/<rol>  bağlı monitörü (UUID ya da şu anki
 ///                                    rolü) bir harici role ver; gerekirse yer değiştirir
 ///     deskmap://screen-role-forget   hatırlanan monitör rollerini unut (konum sırası)
+///     deskmap://screen-role-forget/<monitör>  yalnız bu monitörü unut (bağlıysa rolü
+///                                    onay bekler, düzen ona uygulanmaz)
 ///     deskmap://screen-fallback/<on|off>  ikinci monitör yokken ilk harici monitör
 ///     deskmap://backup-now           otomatik yedeği şimdi çalıştır
 ///     deskmap://backup-restore/<kimlik>  yedeği geri yükle (önce şimdiki hâli
@@ -79,6 +81,7 @@ enum URLCommand: Equatable {
     case nameDesktop(screen: String, desktop: Int, name: String, mode: Mode? = nil)
     case screenRole(display: String, role: String)
     case forgetScreenRoles
+    case forgetScreen(display: String)
     case screenFallback(Bool)
     case backupNow
     case restoreBackup(id: String)
@@ -225,7 +228,11 @@ enum URLCommand: Equatable {
             guard parts.count == 2, DisplayRoles.isExternalRole(parts[1].lowercased()) else { return nil }
             return .screenRole(display: parts[0], role: parts[1].lowercased())
         case "screen-role-forget":
-            return .forgetScreenRoles
+            switch parts.count {
+            case 0: return .forgetScreenRoles
+            case 1: return .forgetScreen(display: parts[0])
+            default: return nil
+            }
         case "screen-fallback":
             guard parts.count == 1 else { return nil }
             switch parts[0].lowercased() {
@@ -397,16 +404,25 @@ enum URLCommands {
                 store.report(L("No connected monitor matches %@", display))
                 return
             }
-            // Bir monitör ancak bağlı monitör sayısı kadar rolden birini alır:
+            // Bir monitör ancak bağlı monitör sayısı (artı bağlı olmayan
+            // hatırlanan monitörlerin rolleri) kadar rolden birini alır:
             // "Monitör 3"e verilen tek monitör Monitör 1'i boş bırakırdı.
-            guard let index = DisplayRoles.externalIndex(of: role), index <= current.count else {
+            let pairs = current.map { (role: $0.role, uuid: $0.display.uuid) }
+            let choosable = store.document.displayRoles.choosableRoles(connected: pairs)
+            guard choosable.contains(role) else {
                 store.report(L("Only %ld monitors are connected", current.count))
                 return
             }
-            store.chooseDisplay(uuid, for: role,
-                                current: current.map { (role: $0.role, uuid: $0.display.uuid) })
+            store.chooseDisplay(uuid, for: role, current: pairs)
         case .forgetScreenRoles:
             store.forgetDisplayRoles()
+        case .forgetScreen(let display):
+            let current = AppModel.shared.screens.connectedExternals
+            guard let uuid = Self.connectedDisplay(display, in: current) else {
+                store.report(L("No connected monitor matches %@", display))
+                return
+            }
+            store.forgetDisplay(uuid)
         case .screenFallback(let on):
             store.setDisplayFallback(on)
         case .nameDesktop(let screen, let desktop, let name, let mode):

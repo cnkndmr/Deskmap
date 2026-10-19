@@ -24,17 +24,24 @@ struct DisplayRoles: Codable, Equatable {
     /// harici ekrana (`external`), aynı masaüstü numarasına gider. Kapalıysa
     /// pencereye dokunulmaz (eski davranış).
     var fallbackToFirstExternal: Bool = true
+    /// Bir kez öğrenildi (ilk bağlanış geride). Öncesinde bağlı monitörler
+    /// konum sırasıyla kendiliğinden öğrenilir (yükseltmede davranış
+    /// değişmez); sonrasında hatırlanmayan monitörün rolü onay bekler
+    /// (`unconfirmed`). Hepsini unutmak bunu da sıfırlar.
+    var learnedOnce: Bool = false
 
     /// Bir rolde tutulan en çok UUID (eski masa monitörleri düşer).
     static let historyLimit = 8
 
     var isEmpty: Bool { remembered.isEmpty }
 
-    private enum CodingKeys: String, CodingKey { case remembered, fallbackToFirstExternal }
+    private enum CodingKeys: String, CodingKey { case remembered, fallbackToFirstExternal, learnedOnce }
 
-    init(remembered: [String: [String]] = [:], fallbackToFirstExternal: Bool = true) {
+    init(remembered: [String: [String]] = [:], fallbackToFirstExternal: Bool = true,
+         learnedOnce: Bool? = nil) {
         self.remembered = remembered
         self.fallbackToFirstExternal = fallbackToFirstExternal
+        self.learnedOnce = learnedOnce ?? !remembered.isEmpty
     }
 
     init(from decoder: Decoder) throws {
@@ -49,6 +56,8 @@ struct DisplayRoles: Codable, Equatable {
         }
         remembered = clean
         fallbackToFirstExternal = (try? c.decodeIfPresent(Bool.self, forKey: .fallbackToFirstExternal)) ?? true
+        // Alanı olmayan (bu sürümden önceki) kayıt: bir şey hatırlıyorsa öğrenilmiş sayılır.
+        learnedOnce = (try? c.decodeIfPresent(Bool.self, forKey: .learnedOnce)) ?? !clean.isEmpty
     }
 
     // MARK: - Roller
@@ -124,12 +133,62 @@ struct DisplayRoles: Codable, Equatable {
     /// Bağlı ekranların rolleri öğrenilir: her UUID kendi rolünün önüne
     /// geçer, başka rollerden silinir. Bağlı olmayan monitörlerin kayıtları
     /// kalır (yalnız sınırı aşan en eski düşer).
+    ///
+    /// İlk bağlanıştan sonra yalnız onaylı eşler öğrenilir (en yeni öne
+    /// geçer): hatırlanmayan bir monitörün konumdan aldığı rol, ya da
+    /// hatırlanan bir monitörün başka bir rolde kalması (aynı rolde iki
+    /// hatırlanan bağlı) kendiliğinden kalıcı olmaz; kullanıcı seçer.
     func learning(_ assignment: [(role: String, uuid: String)]) -> DisplayRoles {
         var copy = self
-        for (role, uuid) in assignment where Self.isExternalRole(role) {
+        let externals = assignment.filter { Self.isExternalRole($0.role) }
+        for (role, uuid) in externals where isConfirmed(role: role, uuid: uuid) {
             copy.bind(ScreenInfo.normalize(uuid), to: role)
         }
+        if !externals.isEmpty { copy.learnedOnce = true }
         return copy
+    }
+
+    // MARK: - Onay (A3/A4)
+
+    /// Bu monitörün bu roldeki yeri onaylı mı: ilk bağlanıştan önce her şey
+    /// onaylı; sonra yalnız monitör bu rolde hatırlanıyorsa.
+    func isConfirmed(role: String, uuid: String) -> Bool {
+        !learnedOnce || self.role(of: uuid) == role
+    }
+
+    /// Onay bekleyen roller (saf): rolü tutan monitör o rolde
+    /// hatırlanmıyor. Bu rollerin düzeni (plan, pinler, adlar) monitöre
+    /// uygulanmaz, rol bağlı değilmiş gibi bekler; kullanıcı haritadaki
+    /// kart menüsünden ya da `deskmap screen-role` ile seçince uygulanır.
+    /// Böylece kendiliğinden rol değişimi (yeni ya da unutulmuş monitör,
+    /// tek kalan sanal ekran, aynı rolde iki hatırlanan) bütün düzeni sormadan
+    /// öbür ekrana taşımaz.
+    func unconfirmed(_ assignment: [(role: String, uuid: String)]) -> Set<String> {
+        Set(assignment.filter { Self.isExternalRole($0.role) && !isConfirmed(role: $0.role, uuid: $0.uuid) }
+            .map(\.role))
+    }
+
+    /// Tek bir monitörü unutur. Öteki kayıtlar ve `learnedOnce` kalır: bağlıysa
+    /// rolü yeniden onay bekler (hepsini unutmak `DisplayRoles()` ile sıfırlar).
+    func forgetting(_ uuid: String) -> DisplayRoles {
+        let key = ScreenInfo.normalize(uuid)
+        var copy = self
+        for role in copy.remembered.keys {
+            copy.remembered[role]?.removeAll { $0 == key }
+            if copy.remembered[role]?.isEmpty == true { copy.remembered[role] = nil }
+        }
+        return copy
+    }
+
+    /// Menüde ve `screen-role`'de bir monitöre verilebilecek roller (saf):
+    /// bağlı monitör sayısı kadar rol, artı bağlı olmayan monitörlerin
+    /// hatırlanan rolleri kadar fazlası. Tek kalan sanal ekran böylece
+    /// "Ekstra monitör"ü boş bırakıp "2. monitör" olabilir; boşluk büyümez.
+    func choosableRoles(connected: [(role: String, uuid: String)]) -> [String] {
+        let connectedUUIDs = Set(connected.map { ScreenInfo.normalize($0.uuid) })
+        let away = remembered.values.filter { !$0.contains(where: connectedUUIDs.contains) }.count
+        let count = connected.count + away
+        return count == 0 ? [] : (1...count).map(Self.externalRole)
     }
 
     private mutating func bind(_ uuid: String, to role: String) {
@@ -165,6 +224,7 @@ struct DisplayRoles: Codable, Equatable {
             }
         }
         copy.bind(key, to: role)
+        copy.learnedOnce = true
         return copy
     }
 

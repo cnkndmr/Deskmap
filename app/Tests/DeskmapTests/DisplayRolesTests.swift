@@ -25,6 +25,12 @@ struct DisplayRolesTests {
         memory.learning(memory.assign(list).map { (role: $0.role, uuid: $0.display.uuid) })
     }
 
+    /// Tek bağlı monitörü kullanıcı bir role verdi (kart menüsü).
+    private func chosen(_ d: Display, _ role: String, _ memory: DisplayRoles) -> DisplayRoles {
+        memory.choosing(d.uuid, for: role,
+                        current: memory.assign([d]).map { (role: $0.role, uuid: $0.display.uuid) })
+    }
+
     private func moved(_ d: Display, x: CGFloat) -> Display {
         Display(uuid: d.uuid, minX: x, minY: d.minY, name: d.name)
     }
@@ -78,11 +84,14 @@ struct DisplayRolesTests {
 
     // MARK: Masa değişimi (ofiste her masada başka monitör)
 
+    /// Yeni monitör eksik rolün yerine oturur, ama rolü onay bekler
+    /// (A4, docs/bug-tables.md): kendiliğinden öğrenilmez, seçilince hatırlanır.
     @Test func newMonitorTakesTheMissingRoleAndIsRemembered() {
         var memory = learned([dell])
         let desk = Display(uuid: "OFFICE-7", minX: 0, minY: 1112, name: "DELL U2720Q")
         #expect(roles([desk], memory) == ["OFFICE-7": "external"])
-        memory = learned([desk], memory)
+        #expect(learned([desk], memory) == memory)
+        memory = chosen(desk, "external", memory)
         #expect(memory.remembered["external"] == ["OFFICE-7", "DELL-0001"])
         // Evde Dell yine external.
         #expect(roles([dell], memory) == ["DELL-0001": "external"])
@@ -91,7 +100,7 @@ struct DisplayRolesTests {
     @Test func twoRememberedForTheSameRoleMostRecentWins() {
         var memory = learned([dell])
         let desk = Display(uuid: "OFFICE-7", minX: 0, minY: 1112, name: "Other")
-        memory = learned([desk], memory)  // external: [OFFICE-7, DELL]
+        memory = chosen(desk, "external", memory)  // external: [OFFICE-7, DELL]
         let both = roles([dell, desk], memory)
         #expect(both == ["OFFICE-7": "external", "DELL-0001": "external-2"])
     }
@@ -99,7 +108,7 @@ struct DisplayRolesTests {
     @Test func historyIsCapped() {
         var memory = DisplayRoles()
         for i in 0..<12 {
-            memory = learned([Display(uuid: "D\(i)", minX: 0, minY: 0, name: "M")], memory)
+            memory = chosen(Display(uuid: "D\(i)", minX: 0, minY: 0, name: "M"), "external", memory)
         }
         #expect(memory.remembered["external"]?.count == DisplayRoles.historyLimit)
         #expect(memory.remembered["external"]?.first == "D11")

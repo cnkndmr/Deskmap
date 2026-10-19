@@ -67,9 +67,17 @@ enum Shots {
 
         let crowded = options.scenario == "crowded"
         let twoMonitors = options.scenario == "two-monitors"
+        let heldMonitor = options.scenario == "held-monitor"
         let world = crowded ? DemoData.crowded() : twoMonitors ? DemoData.twoMonitors() : DemoData.make()
-        let store = Store(demo: world.document)
+        var document = world.document
+        if heldMonitor {
+            // Evdeki monitör hatırlanıyor, bağlı olan başka bir ekran: rolü
+            // onay bekler (docs/bug-tables.md A′).
+            document.displayRoles = DisplayRoles(remembered: ["external": ["HOME-MONITOR"]])
+        }
+        let store = Store(demo: document)
         let screens = ScreenService(demo: world.screens)
+        screens.roles = document.displayRoles
         let router = Router(store: store, screens: screens, demoWindows: world.windows)
         let permission = AccessibilityPermission(demoTrusted: true)
         let ui = UIState()
@@ -171,6 +179,13 @@ enum Shots {
                 }
             }
             extra.orderOut(nil)
+        }
+
+        if heldMonitor {
+            // m3 — hatırlanmayan monitör: kartta "düzen bekliyor", başlıkta menü.
+            capture("m3-held-monitor")
+            window.orderOut(nil)
+            exit(0)
         }
 
         if twoMonitors {

@@ -141,6 +141,8 @@ private struct ScreenCard: View {
     @EnvironmentObject private var screens: ScreenService
     /// Menüde seçilen, onay bekleyen monitör (UUID).
     @State private var pendingSwap: String?
+    /// Onay bekleyen monitöre verilecek rol (onay penceresi açık).
+    @State private var pendingRole: String?
 
     /// Bu ekrandaki tam ekran space'ler, `afterDesktop` → soldan sağa.
     private var fullscreenSpaces: [Int: [FullscreenSpace]] {
@@ -173,6 +175,11 @@ private struct ScreenCard: View {
                 if !isConnected {
                     Text(L("not connected"))
                         .foregroundStyle(.tertiary)
+                } else if isHeld {
+                    Text(L("new monitor · layout on hold"))
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                        .help(L("Deskmap does not know this monitor yet, so the layout of this role is not applied to it. Choose its role in the menu on the left."))
                 }
             }
             .font(.caption.weight(.semibold))
@@ -195,27 +202,49 @@ private struct ScreenCard: View {
     /// ikinci ve sonraki kartların başlığı bir menüdür: bu kart hangi monitör.
     /// Seçim kalıcıdır ve öteki monitörle yer değiştirir; kurallar, adlar ve
     /// planlar rolle gittiği için önce onay istenir.
+    ///
+    /// Hatırlanmayan monitörün kartında (rolü onay bekliyor, düzen
+    /// uygulanmıyor) ve tek harici monitörde de menü var: rolünü seç
+    /// ya da bu monitörü unut (`deskmap screen-role DISPLAY ROLE|--forget`).
     private var showsMonitorPicker: Bool {
-        isLive && isConnected && !screen.isBuiltin && screen.id != "external"
-            && screens.connectedExternals.count > 1
+        isLive && isConnected && !screen.isBuiltin
+    }
+
+    /// Bu kartın rolü onay bekliyor (`DisplayRoles.unconfirmed`).
+    private var isHeld: Bool {
+        isLive && isConnected && screens.heldRoles.contains(screen.id)
     }
 
     @ViewBuilder private var monitorPicker: some View {
         let current = screens.connectedExternals
         let labels = DisplayRoles.labels(current.map(\.display))
         let here = current.first { $0.role == screen.id }?.display.uuid
+        let pairs = current.map { (role: $0.role, uuid: $0.display.uuid) }
         Menu {
-            ForEach(DisplayRoles.positional(current.map(\.display)), id: \.uuid) { display in
-                Button {
-                    guard display.uuid != here else { return }
-                    pendingSwap = display.uuid
-                } label: {
-                    if display.uuid == here {
-                        Label(labels[display.uuid] ?? display.name, systemImage: "checkmark")
-                    } else {
-                        Text(labels[display.uuid] ?? display.name)
+            if isHeld {
+                Section(L("New monitor: its layout waits for your choice")) {
+                    ForEach(store.document.displayRoles.choosableRoles(connected: pairs), id: \.self) { role in
+                        Button(L("Use as %@", DisplayRoles.roleLabel(role))) { pendingRole = role }
                     }
                 }
+            } else if screen.id != "external" && current.count > 1 {
+                ForEach(DisplayRoles.positional(current.map(\.display)), id: \.uuid) { display in
+                    Button {
+                        guard display.uuid != here else { return }
+                        pendingSwap = display.uuid
+                    } label: {
+                        if display.uuid == here {
+                            Label(labels[display.uuid] ?? display.name, systemImage: "checkmark")
+                        } else {
+                            Text(labels[display.uuid] ?? display.name)
+                        }
+                    }
+                }
+            }
+            if !isHeld, let here {
+                Divider()
+                Button(L("Forget This Monitor")) { store.forgetDisplay(here) }
+                    .help(L("Its role then waits for a choice and its layout is not applied."))
             }
         } label: {
             Text(DisplayRoles.roleLabel(screen.id))
@@ -236,6 +265,20 @@ private struct ScreenCard: View {
         } message: {
             Text(L("%@ becomes the %@. Pinned windows, desktop names and desktop plans of the two monitors trade places now.",
                    pendingSwap.flatMap { labels[$0] } ?? "", DisplayRoles.roleLabel(screen.id)))
+        }
+        .alert(L("Use this monitor as %@?", pendingRole.map(DisplayRoles.roleLabel) ?? ""), isPresented: Binding(
+            get: { pendingRole != nil }, set: { if !$0 { pendingRole = nil } })) {
+            Button(L("Use")) {
+                if let role = pendingRole, let here {
+                    store.chooseDisplay(here, for: role, current: pairs)
+                }
+                pendingRole = nil
+            }
+            Button(L("Cancel"), role: .cancel) { pendingRole = nil }
+        } message: {
+            Text(L("%@ is remembered as the %@. Pinned windows, desktop names and the desktop plan of the %@ are applied to it now.",
+                   here.flatMap { labels[$0] } ?? "", pendingRole.map(DisplayRoles.roleLabel) ?? "",
+                   pendingRole.map(DisplayRoles.roleLabel) ?? ""))
         }
     }
 

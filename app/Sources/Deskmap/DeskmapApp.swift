@@ -112,9 +112,7 @@ final class AppModel {
             screens.settled.prepend(())
                 .sink { [weak store, weak screens] in
                     guard let store, let screens, !screens.isSettling else { return }
-                    store.learnDisplayRoles(screens.screens
-                        .filter { !$0.isBuiltin && $0.name != Store.testDisplayName }
-                        .map { (role: $0.id, uuid: $0.uuid) })
+                    store.learnDisplayRoles(screens.externalAssignment)
                 },
         ]
     }

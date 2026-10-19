@@ -53,7 +53,10 @@ COMMANDS:
   layouts                          layout names
   screen-role DISPLAY ROLE | screen-role --forget   give a connected monitor (current role,
                                    UUID start or name) a role: external = 1, external-2 = 2 …;
-                                   it keeps that role wherever it is placed (swaps if taken)
+                                   it keeps that role wherever it is placed (swaps if taken).
+                                   A monitor Deskmap does not remember waits "on hold" (its
+                                   layout is not applied) until it is given a role here
+  screen-role DISPLAY --forget     forget one monitor: its role waits on hold again
   screen-fallback on|off           rule's monitor (external-2 …) missing: first external / leave
   move W SCREEN [N] | pin W SCREEN [N] | unpin W            one window
   free W 15m|2h|lock|end           let a pinned window move freely for a while, until
@@ -332,10 +335,13 @@ def show_screens(args):
     if args.json:
         print(json.dumps(s["screens"], indent=2, ensure_ascii=False)); return
     remembered = (s.get("displayRoles") or {}).get("remembered") or {}
+    held = set(s.get("heldRoles") or [])
     for sc in s["screens"]:
         x, y, w, h = sc["frame"]
         uuid = sc.get("uuid", "")
         kept = "" if sc["builtin"] else (
+            f"  role on hold: layout not applied (confirm: deskmap screen-role {uuid[:8]} {sc['id']})"
+            if sc["id"] in held else
             "  role kept" if uuid in remembered.get(sc["id"], []) else "  role by position")
         print(f"{sc['id']:<11} {sc['name']:<28} {int(w)}x{int(h)} at {int(x)},{int(y)}"
               f"  {uuid[:8]}{kept}")
@@ -1099,11 +1105,11 @@ def role_name(text):
 
 
 def screen_role(args):
-    if args.forget:
+    if args.forget and not args.display:
         send("screen-role-forget"); print("monitor roles forgotten: roles follow left-to-right order")
         return
-    if not args.display or not args.role:
-        die("screen-role needs DISPLAY ROLE (or --forget)")
+    if not args.display or (not args.role and not args.forget):
+        die("screen-role needs DISPLAY ROLE (or DISPLAY --forget, or --forget)")
     status = fresh_status()
     externals = [sc for sc in status["screens"] if not sc["builtin"]]
     text = args.display.lower()
@@ -1113,6 +1119,10 @@ def screen_role(args):
     if len(hits) != 1:
         die(f"'{args.display}' matches {len(hits)} connected monitors: "
             + ", ".join(f"{sc['id']} ({sc['name']}, {sc.get('uuid', '')[:8]})" for sc in externals))
+    if args.forget:
+        s = send(f"screen-role-forget/{hits[0]['uuid']}")
+        print(f"{hits[0]['name']} forgotten: its role waits for a choice, its layout is not applied")
+        return
     role = role_name(args.role)
     s = send(f"screen-role/{hits[0]['uuid']}/{role}")
     for sc in s["screens"]:

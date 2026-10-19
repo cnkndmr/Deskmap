@@ -428,6 +428,19 @@ final class Router: ObservableObject {
             .sink { [weak self] _ in self?.applyPlanNow(reason: "profile switch") }
             .store(in: &cancellables)
 
+        // Onay bekleyen bir monitör rolü onaylandı (kart menüsü, `deskmap
+        // screen-role`): o rolün planı ve kuralları şimdi uygulanır. Rol
+        // ataması değiştiyse (takas) yatışma zaten geçiş başlatır; aynı kaldıysa
+        // (yalnız onay) ekran bildirimi gelmez, plan buradan uygulanır.
+        store.$document
+            .map(\.displayRoles)
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.followHeldRoles() }
+            .store(in: &cancellables)
+        lastHeldRoles = screens.heldRoles
+
         // @Published willSet'te yayar: tarama bir sonraki turda, yeni kurallar
         // yazıldıktan sonra başlasın (yoksa eski kural listesini okurdu).
         store.$document
@@ -1665,8 +1678,22 @@ final class Router: ObservableObject {
         return now.timeIntervalSince(transition.startedAt) < 60
     }
 
+    /// Son bakılan onay bekleyen roller (onaylanınca plan uygulanır).
+    private var lastHeldRoles: Set<String> = []
+
+    private func followHeldRoles() {
+        let held = screens.heldRoles
+        let released = lastHeldRoles.subtracting(held)
+        lastHeldRoles = held
+        guard !released.isEmpty, !screens.isSettling else { return }
+        Log.screens.notice("Monitor role confirmed: \(released.sorted().joined(separator: ", "), privacy: .public); applying its plan")
+        applyPlanNow(reason: "monitor role confirmed")
+        reapplyAll()
+    }
+
     /// Ekranlar yatıştı: geçiş planı uygular.
     private func handleSettled() {
+        lastHeldRoles = screens.heldRoles
         if transition == nil { beginTransition(reason: "display") }
         Task { await runTransition() }
     }
@@ -1780,7 +1807,11 @@ final class Router: ObservableObject {
             newSpaces: extras.newSpaces, compactBeyondPlan: true, otherNamed: otherNamed,
             pending: pending, pinned: pinnedDesktops(mode: mode),
             allowRemovals: true, allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
-        let plan = PlanApply.compute(input)
+        let held = screens.heldRoles
+        if !held.isEmpty {
+            Log.screens.notice("Plan held for unconfirmed monitor role(s): \(held.sorted().joined(separator: ", "), privacy: .public)")
+        }
+        let plan = PlanApply.compute(PlanApply.holding(input, roles: held))
         logPlan(plan, live: live.spaces, mode: mode, reason: current.reason)
         if !input.allowMoves {
             planStatus = PlanStatus(message: L("Plan could not be applied: moving windows is off"),
@@ -1862,7 +1893,7 @@ final class Router: ObservableObject {
         if let last = lastCleanupAt, Date().timeIntervalSince(last) < Self.cleanupThrottle { return }
         let contents = lastContents.mapValues { $0.map(\.id) }
         let removable = PlanApply.cleanupRemovals(
-            live: spaces, contents: contents, plans: store.document.plans[mode], named: allNamedSpaces(),
+            live: PlanApply.holding(live: spaces, roles: screens.heldRoles), contents: contents, plans: store.document.plans[mode], named: allNamedSpaces(),
             pending: Self.pendingQueue(store.document.pendingRemovals, mode: mode).all,
             pinned: pinnedDesktops(mode: mode))
         guard !removable.isEmpty else { return }
@@ -1923,7 +1954,7 @@ final class Router: ObservableObject {
             return
         }
         let decisions = PlanApply.cleanupPlan(
-            live: live.spaces, contents: fresh.contents.mapValues { $0.map(\.id) },
+            live: PlanApply.holding(live: live.spaces, roles: screens.heldRoles), contents: fresh.contents.mapValues { $0.map(\.id) },
             plans: store.document.plans[mode], named: allNamedSpaces(),
             pending: Self.pendingQueue(store.document.pendingRemovals, mode: mode).all,
             pinned: pinnedDesktops(mode: mode))
@@ -2011,7 +2042,7 @@ final class Router: ObservableObject {
             pinned: pinnedDesktops(mode: mode),
             allowRemovals: allowRemovals,
             allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
-        let plan = PlanApply.compute(input)
+        let plan = PlanApply.compute(PlanApply.holding(input, roles: screens.heldRoles))
         guard !plan.isEmpty else { return }
         logPlan(plan, live: live.spaces, mode: mode, reason: reason)
         let outcome = await execute(plan, expected: live.spaces, refs: refs,
@@ -2431,6 +2462,7 @@ final class Router: ObservableObject {
             name.space.map { (name.id, $0) } }, uniquingKeysWith: { a, _ in a })
         let holdNames = store.migrationPending || store.upgradeUndone
         let displayFallback = store.document.displayRoles.fallbackToFirstExternal
+        let heldRoles = screens.heldRoles
         let bindings = self.bindings
         let firstSeen = self.firstSeen
         let initial = !sweptAny
@@ -2447,7 +2479,7 @@ final class Router: ObservableObject {
                                      refusedSizes: refusedSizes,
                                      lastAttempts: lastAttempts, movesAllowed: movesAllowed,
                                      nameSpaces: nameSpaces, holdNames: holdNames,
-                                     displayFallback: displayFallback,
+                                     displayFallback: displayFallback, heldRoles: heldRoles,
                                      bindings: bindings, firstSeen: firstSeen, initial: initial,
                                      token: token)
             Task { @MainActor in
@@ -2657,7 +2689,7 @@ final class Router: ObservableObject {
         attempts: [String: Int], refusedSizes: [String: CGSize],
         lastAttempts: [String: Date], movesAllowed: Bool,
         nameSpaces: [String: UInt64] = [:], holdNames: Bool = false,
-        displayFallback: Bool = false,
+        displayFallback: Bool = false, heldRoles: Set<String> = [],
         bindings: [CGWindowID: Routing.Binding] = [:], firstSeen: [CGWindowID: Date] = [:],
         initial: Bool = false,
         token: RoutingGeneration.Token
@@ -2770,9 +2802,13 @@ final class Router: ObservableObject {
             guard let destination = Self.resolveTarget(match.destination, nameSpaces: nameSpaces,
                                                        holdNames: holdNames, displays: displays,
                                                        screens: screens,
-                                                       displayFallback: displayFallback) else { continue }
+                                                       displayFallback: displayFallback,
+                                                       heldRoles: heldRoles) else { continue }
 
-            guard let screen = screens.first(where: { $0.id == destination.screen })
+            // Onay bekleyen rolün ekranına kural uygulanmaz (A3/A4): düzen
+            // kullanıcı monitörü seçene dek bekler.
+            guard !heldRoles.contains(destination.screen),
+                  let screen = screens.first(where: { $0.id == destination.screen })
             else { continue }
 
             let state = windowState(window)
@@ -3036,7 +3072,8 @@ final class Router: ObservableObject {
     nonisolated static func resolveTarget(_ destination: Destination, nameSpaces: [String: UInt64],
                                           holdNames: Bool, displays: [SkyLight.DisplaySpaces],
                                           screens: [ScreenInfo],
-                                          displayFallback: Bool = false) -> Destination? {
+                                          displayFallback: Bool = false,
+                                          heldRoles: Set<String> = []) -> Destination? {
         guard let nameID = destination.nameID else {
             // Kuralın harici ekranı bağlı değilse ilk harici ekran (seçenek
             // açıksa); anahtar çözülmüş hedefe bağlı olduğu için ekran geri
@@ -3044,7 +3081,8 @@ final class Router: ObservableObject {
             // Yedek de yoksa hedef olduğu gibi döner; bağlı olmayan ekran
             // taramada atlanır (pencereye dokunulmaz).
             guard let screen = DisplayRoles.effectiveScreen(
-                destination.screen, connected: Set(screens.map(\.id)), fallback: displayFallback),
+                destination.screen, connected: Set(screens.map(\.id)).subtracting(heldRoles),
+                fallback: displayFallback),
                   screen != destination.screen
             else { return destination }
             var resolved = destination

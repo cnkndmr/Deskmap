@@ -494,10 +494,21 @@ final class Store: ObservableObject {
         document.displayRoles = chosen
     }
 
-    /// Hatırlanan rolleri unutur: roller yeniden konum sırasından gelir.
+    /// Hatırlanan rolleri unutur: roller yeniden konum sırasından gelir ve
+    /// ilk bağlanıştaki gibi kendiliğinden öğrenilir.
     func forgetDisplayRoles() {
-        guard !document.displayRoles.remembered.isEmpty else { return }
+        guard !document.displayRoles.remembered.isEmpty || document.displayRoles.learnedOnce
+        else { return }
         document.displayRoles.remembered = [:]
+        document.displayRoles.learnedOnce = false
+    }
+
+    /// Tek bir monitörü unutur (harita kart menüsü, `deskmap screen-role
+    /// DISPLAY --forget`): bağlıysa rolü onay bekler, düzen ona uygulanmaz.
+    func forgetDisplay(_ uuid: String) {
+        let forgotten = document.displayRoles.forgetting(uuid)
+        guard forgotten != document.displayRoles else { return }
+        document.displayRoles = forgotten
     }
 
     func setDisplayFallback(_ on: Bool) {
