@@ -45,6 +45,7 @@ background queue
 | `Routing` | `Services/Routing.swift` | Saf yardımcılar: `select` bir pencerenin hedefini seçer (hem motor hem arayüz kullanır); ayrıca düzen ve taşıma denemelerinin sayımı. |
 | `AX` | `Services/Accessibility.swift` | Pencereleri listeleme, çerçeveler, `setFrame`, yanıt vermeyen uygulamalar için geri çekilme (backoff). `AccessibilityPermission` güven durumunu yoklar. |
 | `SkyLight` | `Services/SkyLight.swift` | Özel Spaces API’si: ekran başına masaüstleri, bir pencerenin Alan’ları, bir pencereyi bir Alan’a taşıma. |
+| `MoveHealth` / `MoveSupport` | `Services/MoveHealth.swift`, `Services/MoveSupport.swift` | Saf: her masaüstü taşıması sonraki taramada denetlenir, art arda başarısızlık devre kesiciyi açar (düşük mod); taşımanın doğrulanmadığı macOS sürümlerinde (15.x, 26.0–26.3) kullanıcı **Yine de dene** diyene kadar taşıma bekletilir. |
 | `ScreenService` | `Services/ScreenService.swift` | Rolleriyle birlikte bağlı ekranlar; ekranlar yeniden düzenlenirken `isSettling`. |
 | `WindowEvents` | `Services/WindowEvents.swift` | Uygulama başına AX gözlemcileri ve çalışma alanı (workspace) bildirimleri; bir tarama tetikleyen sinyal yayımlar. |
 | `URLCommand` / `URLCommands` | `Services/URLCommands.swift` | `deskmap://` URL’leri için saf ayrıştırıcı ve onları çalıştıran kod. |

@@ -44,6 +44,7 @@ background queue
 | `Routing` | `Services/Routing.swift` | Pure helpers: `select` picks a window's target (used by both the engine and the UI), plus layout and move retry accounting. |
 | `AX` | `Services/Accessibility.swift` | Window enumeration, frames, `setFrame`, backoff for unresponsive apps. `AccessibilityPermission` polls the trust state. |
 | `SkyLight` | `Services/SkyLight.swift` | Private Spaces API: desktops per display, spaces of a window, moving a window to a space. |
+| `MoveHealth` / `MoveSupport` | `Services/MoveHealth.swift`, `Services/MoveSupport.swift` | Pure: each desktop move is checked on the next sweep and repeated failures open a circuit breaker (reduced mode); on macOS versions where moves are not verified (15.x, 26.0–26.3) moves are held until the user chooses **Try Anyway**. |
 | `ScreenService` | `Services/ScreenService.swift` | Connected displays with roles; `isSettling` while displays are being rearranged. |
 | `WindowEvents` | `Services/WindowEvents.swift` | AX observers per app and workspace notifications; publishes a signal that triggers a sweep. |
 | `URLCommand` / `URLCommands` | `Services/URLCommands.swift` | Pure parser for `deskmap://` URLs and the code that runs them. |
