@@ -167,7 +167,7 @@ struct WindowRow: View {
     /// "Gönder" hedefleri (saf): haritanın sırasıyla ekranlar, her biri
     /// haritadaki satır sayısı kadar masaüstü (en az 1; hedef daha ilerideyse
     /// o da listelenir), şu anki hedef işaretli.
-    static func sendTargets(screens: [KnownScreen], tileCounts: [String: Int],
+    nonisolated static func sendTargets(screens: [KnownScreen], tileCounts: [String: Int],
                             current: Destination?) -> [SendTargetScreen] {
         screens.map { screen in
             var count = max(tileCounts[screen.id] ?? 1, 1)
@@ -185,7 +185,7 @@ struct WindowRow: View {
     /// masaüstüne bırakmak taslak açar; canlı kurulumda yalnız başka bir
     /// masaüstüne ve tam ekran/yersiz olmayan pencere taşınır; tepsi hiçbir
     /// şey yapmaz.
-    static func unpinnedDropActs(_ target: DropTarget, window: Router.WindowSnapshot,
+    nonisolated static func unpinnedDropActs(_ target: DropTarget, window: Router.WindowSnapshot,
                                  isLive: Bool) -> Bool {
         guard case .desktop(let screen, let desktop) = target else { return false }
         if !isLive { return true }
