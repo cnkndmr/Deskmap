@@ -66,7 +66,8 @@ enum Shots {
         isRunning = true
 
         let crowded = options.scenario == "crowded"
-        let world = crowded ? DemoData.crowded() : DemoData.make()
+        let twoMonitors = options.scenario == "two-monitors"
+        let world = crowded ? DemoData.crowded() : twoMonitors ? DemoData.twoMonitors() : DemoData.make()
         let store = Store(demo: world.document)
         let screens = ScreenService(demo: world.screens)
         let router = Router(store: store, screens: screens, demoWindows: world.windows)
@@ -118,7 +119,8 @@ enum Shots {
         // Gerçek makinenin SkyLight verisi bizim uydurma ekran UUID'lerimizle
         // hiç eşleşmez; "eksik masaüstü" rozetini sergilemek için ekran
         // başına gerçek masaüstü sayısını burada elle sabitliyoruz.
-        let fixedDesktopCounts = crowded ? DemoData.crowdedDesktopCounts : ["builtin": 4, "external": 3]
+        let fixedDesktopCounts = crowded ? DemoData.crowdedDesktopCounts
+            : twoMonitors ? ["builtin": 4, "external": 3, "external-2": 2] : ["builtin": 4, "external": 3]
 
         func capture(_ name: String) {
             guard shouldCapture(name, options: options) else { return }
@@ -169,6 +171,15 @@ enum Shots {
                 }
             }
             extra.orderOut(nil)
+        }
+
+        if twoMonitors {
+            // m1 — iki harici monitör: kart başlığı menüsü, (sol)/(sağ), Monitör 2.
+            capture("m1-two-monitors")
+            ui.visualMap = false
+            capture("m1-two-monitors-list")
+            window.orderOut(nil)
+            exit(0)
         }
 
         if crowded {

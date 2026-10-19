@@ -171,6 +171,53 @@ enum DemoData {
             frame: CGRect(x: 140, y: 120, width: 860, height: 610), isMinimized: false)
     }
 
+    // MARK: - İki harici monitör (`--scenario two-monitors`)
+
+    /// Aynı model iki harici monitör (ad aynı, UUID ayrı) + laptop: kart
+    /// başlığı monitör menüsü, "(sol)/(sağ)" ve "Monitör 2" etiketi görünsün.
+    /// Mail ve Terminal kuralları ikinci monitörde. Kişisel veri yok.
+    static func twoMonitors() -> World {
+        let base = make()
+        let left = ScreenInfo(
+            id: "external", uuid: "DEMO-EXTERNAL-SCREEN-0003", name: "LG HDR 4K",
+            isBuiltin: false, frame: CGRect(x: -1920, y: -1080, width: 1920, height: 1080),
+            visibleFrame: CGRect(x: -1920, y: -1080, width: 1920, height: 1055))
+        let right = ScreenInfo(
+            id: "external-2", uuid: "DEMO-EXTERNAL-SCREEN-0004", name: "LG HDR 4K",
+            isBuiltin: false, frame: CGRect(x: 1512, y: -1080, width: 1920, height: 1080),
+            visibleFrame: CGRect(x: 1512, y: -1080, width: 1920, height: 1055))
+        var document = base.document
+        document.screens = [builtinScreen.known, left.known, right.known]
+        func moveToSecond(_ rules: [Rule]) -> [Rule] {
+            rules.map { rule in
+                var rule = rule
+                if ["com.apple.mail", "com.apple.Terminal"].contains(rule.bundleID),
+                   var docked = rule.docked {
+                    docked.screen = "external-2"
+                    docked.desktop = 1
+                    rule.docked = docked
+                }
+                return rule
+            }
+        }
+        document.rules = moveToSecond(document.rules)
+        document.profiles = document.profiles.map { profile in
+            var profile = profile
+            if profile.id == document.activeProfileID { profile.rules = document.rules }
+            return profile
+        }
+        document.displayRoles = DisplayRoles(remembered: [
+            "external": [left.uuid], "external-2": [right.uuid]])
+        let windows = base.windows.map { window -> Router.WindowSnapshot in
+            guard ["com.apple.mail", "com.apple.Terminal"].contains(window.bundleID) else { return window }
+            return Router.WindowSnapshot(
+                id: window.id, pid: window.pid, appName: window.appName, bundleID: window.bundleID,
+                title: window.title, placement: Router.Placement(screen: "external-2", desktop: 1),
+                frame: window.frame, isMinimized: window.isMinimized)
+        }
+        return World(document: document, screens: [builtinScreen, left, right], windows: windows)
+    }
+
     // MARK: - Kalabalık senaryo (`--scenario crowded`)
 
     /// Görsel haritanın gerçek kullanımdaki hâli: laptop + harici ekran,
