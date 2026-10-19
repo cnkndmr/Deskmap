@@ -33,7 +33,14 @@ number comes from the `VERSION` file.
   versions read it) and the rest in a new optional `dockedNext` field
   (schema 6 unchanged). Layout files take `docked: [external-2/1, external/2]`;
   `status.json` windows carry `place` (`"1"`, `"2"` …, `"fallback"`,
-  `"untouched"`). Design table: `docs/bug-tables.md` §D.
+  `"untouched"`). Design table: `docs/bug-tables.md` §D. On the map, a monitor
+  that is not plugged in is a faded, dashed card below the others (model
+  name, *not connected*, its last desktop count) with dashed chips for the
+  pins that wait for it; dropping a window there gives it a place. The pin
+  panel lists the places (↑ ↓ ×, the one in use highlighted, fallback note)
+  and *Why here?* names the place that won. A new monitor's card offers
+  **Add to the end** and **Replace…**; the card title menu lists only
+  monitors Deskmap has seen.
 - **Second external monitor.** Each external monitor keeps its role
   (*Extra monitor*, *Monitor 2*, …) by its display UUID instead of its left-to-right
   position: rearranging displays, plugging them in another order, a virtual

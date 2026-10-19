@@ -34,7 +34,13 @@ numarası `VERSION` dosyasından gelir.
   yeni, isteğe bağlı `dockedNext` alanında (şema 6 değişmedi). Düzen dosyaları
   `docked: [external-2/1, external/2]` kabul eder; `status.json` pencereleri
   `place` taşır (`"1"`, `"2"` …, `"fallback"`, `"untouched"`). Tasarım tablosu:
-  `docs/tr/bug-tables.md` §D.
+  `docs/tr/bug-tables.md` §D. Haritada takılı olmayan monitör ötekilerin altında
+  soluk, kesik çizgili bir karttır (model adı, *bağlı değil*, son görülen
+  masaüstü sayısı); onu bekleyen sabitlemeler kesik çerçeveli çiplerde durur,
+  oraya pencere bırakmak ona yer verir. Sabitleme paneli yerleri listeler (↑ ↓ ×,
+  kullanılan vurgulu, yedek notu), *Neden burada?* kazanan yeri söyler. Yeni
+  monitörün kartında **Sıranın sonuna ekle** ve **Yerine geç…** var; kart başlığı
+  menüsü yalnız Deskmap'in gördüğü monitörleri listeler.
 - **İkinci harici monitör.** Her harici monitör rolünü (*Ekstra monitör*,
   *2. monitör*, …) soldan sağa konumuyla değil ekran UUID’siyle korur: ekranların
   yerini değiştirmek, onları başka sırayla takmak, sola eklenen sanal ekran ya

@@ -173,6 +173,28 @@ with them). Drag a window to another monitor and its old place is kept: when
 that monitor is unplugged, the window goes back there. A window with no place
 on any connected monitor goes to the first one in order (Extra monitor first).
 
+A monitor Deskmap knows but that is not plugged in stays on the map as a
+faded, dashed card below the others, with its model name and *not connected*.
+Dashed chips such as *1 · Release notes* show the pins that go there when it
+is plugged in (the number is the place in the pin's list). Drop a window on a
+faded card to give it a place there; that place goes first.
+
+![A monitor that is not plugged in: faded card below, dashed chips for the pins that wait for it](images/en/m4-away-monitor.png)
+
+Click a pin to see its **Places**: the list in order, the one in use in green,
+the others marked *(not connected)*. ↑ and ↓ change the order, × removes a
+place (⌘Z undoes). If none of them is connected the panel says the window is on
+the fallback monitor for now. *Why here?* says which place won.
+
+![The pin panel: places in order, the one in use highlighted](images/en/m5-places-panel.png)
+
+A monitor Deskmap has never seen waits: its card says *new monitor · layout on
+hold* and nothing moves to it. **Add to the end** gives it its own place after
+the others; **Replace…** lets it take the place, and the whole layout, of a
+monitor Deskmap knows. Both ask first.
+
+![A new monitor waits: Add to the end or Replace…](images/en/m3-held-monitor.png)
+
 Set up one, switch, set up the other. When you plug the monitor in or pull
 it out, the app waits a couple of seconds for the displays to settle and
 then puts every pinned window where that plan says.

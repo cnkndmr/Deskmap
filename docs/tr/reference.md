@@ -266,9 +266,14 @@ duranlar dikey konuma göre, alttaki önce, sonra UUID’ye göre); roller önce
 de böyle veriliyordu. Aynı model iki monitör UUID’leriyle ayrılır (macOS onları
 seri numarasından türetir); harita aynı adlara *(sol)* / *(sağ)* ekler.
 
-İki ya da daha çok harici monitör bağlıyken ikinci (ve sonraki) kartın başlığı
-bir menüdür: kartın hangi monitör olduğunu seç. Onaydan sonra ikisi
-sabitlemeleri, masaüstü adları ve planlarıyla yer değiştirir.
+Her harici kartın başlığı, Deskmap'in gördüğü monitörleri (bağlı olanlar ve
+hatırlanan, takılı olmayanlar; yeni monitör asla) listeleyen bir menüdür:
+kartın hangi monitör olduğunu seç. Onaydan sonra ikisi sabitlemeleri, masaüstü
+adları ve planlarıyla yer değiştirir; bu soluk kartta da olur ve o monitör
+takılınca geçerli olur. Takılı olmayan monitör ötekilerin altında soluk, kesik
+çizgili bir kart olarak çizilir: model adı, *bağlı değil* ve planının masaüstü
+sayısı (yoksa son görülen sayı, o da yoksa 1); kesik çerçeveli çipler (*1 ·
+Safari*) oraya gidecek sabitlemeleri gösterir.
 Terminalde aynısını `deskmap screen-role` yapar. Ayarlar › Genel › **Monitör
 rolleri › Unut** soldan sağa sıraya döndürür.
 
@@ -276,7 +281,9 @@ rolleri › Unut** soldan sağa sıraya döndürür.
 aldığı rolde hatırlanmayan bir ekran (ofisteki yeni monitör, monitör sökülünce
 tek kalan sanal ekran, unuttuğun bir monitör) *beklemede*dir: kartında *yeni
 monitör · düzen bekliyor* yazar, ona plan uygulanmaz, sabitleme ya da kural
-yönlendirilmez; Ekstra monitör düzeni oraya kendiliğinden gitmez. Kart başlığı
+yönlendirilmez; Ekstra monitör düzeni oraya kendiliğinden gitmez. Kartında
+**Sıranın sonuna ekle** (ötekilerden sonra kendi yeri, hiçbir şey taşınmaz) ve
+**Yerine geç…** (tanınan bir monitörün yeri ve bütün düzeni) vardır; başlık
 menüsü *Ekstra monitör olarak kullan*, *2. monitör olarak kullan* … sunar;
 onaydan sonra seçim hatırlanır ve düzen hemen uygulanır (`deskmap screen-role
 EKRAN ROL` aynısını yapar). Aynı menüdeki *Bu monitörü unut* tek monitörü

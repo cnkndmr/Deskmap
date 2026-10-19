@@ -178,6 +178,28 @@ monitörü seç ve onayla (düzenleri de onlarla yer değiştirir). Bir pencerey
 monitöre sürüklediğinde eski yeri saklanır: o monitör çıkınca pencere oraya döner. Bağlı
 hiçbir monitörde yeri olmayan pencere sıradaki ilk monitöre gider (önce Ekstra monitör).
 
+Deskmap'in tanıdığı ama takılı olmayan monitör haritada ötekilerin altında soluk, kesik
+çizgili bir kart olarak kalır; başlığında model adı ve *bağlı değil* yazar. *1 · Release
+notes* gibi kesik çerçeveli çipler, o monitör takılınca oraya gidecek sabitlemeleri
+gösterir (sayı, sabitlemenin listesindeki sırası). Soluk karta bir pencere bırakırsan
+orada yeri olur; o yer listenin başına geçer.
+
+![Takılı olmayan monitör: altta soluk kart, onu bekleyen sabitlemeler kesik çerçeveli çiplerde](images/tr/m4-away-monitor.png)
+
+Bir sabitlemeye tıkla, **Yerler** listesini gör: sırasıyla yerler, kullanılan yeşil, ötekiler
+*(bağlı değil)* işaretli. ↑ ve ↓ sırayı değiştirir, × yeri siler (⌘Z geri alır). Hiçbiri bağlı
+değilse panel pencerenin şimdilik yedek monitörde olduğunu yazar. *Neden burada?* hangi
+yerin kazandığını söyler.
+
+![Sabitleme paneli: sırasıyla yerler, kullanılan vurgulu](images/tr/m5-places-panel.png)
+
+Deskmap'in hiç görmediği monitör bekler: kartında *yeni monitör · düzen bekliyor* yazar,
+ona hiçbir şey taşınmaz. **Sıranın sonuna ekle** ona ötekilerden sonra kendi yerini verir;
+**Yerine geç…** tanınan bir monitörün yerini ve bütün düzenini almasını sağlar. İkisi de
+önce sorar.
+
+![Yeni monitör bekler: Sıranın sonuna ekle ya da Yerine geç…](images/tr/m3-held-monitor.png)
+
 Birini kur, geç, diğerini kur. Monitörü taktığında ya da çıkardığında
 uygulama ekranların yatışmasını birkaç saniye bekler, sonra o planın dediği
 yere her sabit pencereyi yerleştirir.

@@ -254,9 +254,15 @@ roles were given before. Two monitors of the same model are told apart by
 their UUIDs (macOS derives them from the serial number); the map adds
 *(left)* / *(right)* to identical names.
 
-With two or more external monitors connected, the title of the second (and
-later) card is a menu: pick which monitor the card stands for. After a
-confirmation the two swap, with their pins, desktop names and plans.
+The title of every external card is a menu that lists the monitors Deskmap
+has seen (connected ones and remembered ones that are not plugged in, never a
+new monitor): pick which monitor the card stands for. After a confirmation
+the two swap, with their pins, desktop names and plans; this works on a
+faded card too and takes effect when that monitor is plugged in. A monitor
+that is not plugged in is drawn below the others as a faded, dashed card with
+its model name, *not connected* and the desktop count of its plan (else the
+last count seen, else 1); dashed chips (*1 · Safari*) show the pins that go
+there.
 `deskmap screen-role` does the same from the terminal. Settings › General ›
 **Monitor roles › Forget** returns to left-to-right order.
 
@@ -265,7 +271,9 @@ learned, a display that is not remembered in the role it gets (a new office
 monitor, a virtual display left alone after the monitor is unplugged, a
 monitor you forgot) is *on hold*: its card says *new monitor · layout on hold*,
 no plan is applied to it and no pin or rule is routed to it, so the Extra
-monitor layout does not move there by itself. Its card title menu offers
+monitor layout does not move there by itself. Its card offers **Add to the
+end** (its own place after the others, nothing moves) and **Replace…** (the
+place and whole layout of a monitor Deskmap knows); its title menu offers
 *Use as Extra monitor*, *Use as Monitor 2* …; after a confirmation the choice is
 remembered and the layout is applied at once (`deskmap screen-role DISPLAY
 ROLE` does the same). *Forget This Monitor* in the same menu forgets one
