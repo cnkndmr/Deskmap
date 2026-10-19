@@ -762,13 +762,15 @@ make dist               # dağıtılabilir paket (aşağıya bak)
 make clean              # build/ ve app/.build/ klasörlerini sil
 ```
 
-Testler (`app/Tests/DeskmapTests`, 10 grupta 122 test) yalnız saf mantığı
+Testler (`app/Tests/DeskmapTests`, 600 kadar test; tam sayıyı `make test`
+yazar) yalnız saf mantığı
 kapsar: kural eşleştirme (Türkçe İ/ı büyük/küçük harf kuralları dahil) ve
 başlık bölme, düzenler ve koordinatlar, `rules.json` şema göçleri,
 sabitlemeler ve profiller üzerindeki belge işlemleri, içe/dışa aktarma, hedef
 seçimi, yeniden deneme ve geri çekilme yardımcıları, geri almanın
-geçerliliği, harita mantığı ve yerelleştirme tutarlılığı. Diske ya da gerçek
-pencerelere hiç dokunmazlar.
+geçerliliği, harita mantığı ve yerelleştirme tutarlılığı. Gerçek pencerelere
+hiç dokunmazlar; dosya yazan testler (yedekler, göçler) geçici
+bir klasör kullanır.
 
 Swift dosyalarına dokunan her commit’ten önce derleyip test eden pre-commit
 kancasını açmak için:

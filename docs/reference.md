@@ -734,12 +734,13 @@ make dist               # distributable package (see below)
 make clean              # delete build/ and app/.build/
 ```
 
-The tests (`app/Tests/DeskmapTests`, 122 tests in 10 suites) cover pure
-logic only: rule matching (including Turkish İ/ı case rules) and title
+The tests (`app/Tests/DeskmapTests`, about 600 tests; `make test` prints the
+exact count) cover pure logic only: rule matching (including Turkish İ/ı case rules) and title
 splitting, layouts and coordinates, `rules.json` schema migrations, document
 operations on pins and profiles, import/export, target selection, retry and
 backoff helpers, undo validity, map logic, and localization consistency.
-They never touch the disk or real windows.
+They never touch real windows; tests that write files (backups,
+migrations) use a temporary folder.
 
 Enable the pre-commit hook to build and test before every commit that
 touches Swift files:
