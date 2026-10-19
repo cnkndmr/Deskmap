@@ -276,11 +276,14 @@ every monitor after Settings › *Forget*) is learned without asking.
 list of places, at most one per display role: `docked` in `rules.json` is
 the first, `dockedNext` the rest. On every sweep the first place whose
 monitor is connected (and not on hold) wins; a desktop-name place counts
-where that desktop is now. Dropping a pinned window on another monitor puts
-the new place first and keeps the old one below it; dropping it on the same
-monitor changes that monitor's place. So when Monitor 2 is unplugged, a
-window that was moved there goes back to its earlier place on the Extra
-monitor. If none of the places is connected, the window goes to the first
+where that desktop is now. Dropping a pinned window replaces its place on that
+monitor and keeps the others: on a monitor that is not connected (a faded
+card) the new place goes first; on a connected monitor it goes just before
+the first place whose monitor is connected (last if none is), so it never
+jumps ahead of a monitor that is unplugged right now. Moving Safari inside
+the Extra monitor while Monitor 2 is away keeps Monitor 2 first. When
+Monitor 2 is unplugged, a window that was moved there goes back to its
+earlier place on the Extra monitor. If none of the places is connected, the window goes to the first
 connected monitor in role order (Extra monitor, Monitor 2, …), on the desktop
 number of its first place (the last desktop if that monitor has fewer). A pin
 with only a laptop place is not touched while a monitor is connected, and

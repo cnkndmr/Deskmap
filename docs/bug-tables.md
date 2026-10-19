@@ -225,13 +225,15 @@ Deskmap does not move the window.
 | D3.4 | — | card menu | only monitors Deskmap has seen (map turn, not tested here) |
 | D3.5 | after D3.1 | unplug Dell | Safari LG · 2, Mail LG · 3 |
 | D4.1 | Dell + LG | drop Safari on LG · 2 | `LG · 2`, `Dell · 2` (same monitor: replaced) |
-| D4.2 | Dell + LG | drop Safari on Dell · 3 | `Dell · 3`, `LG · 1` (other monitor: first, Dell's old place gone) |
+| D4.2 | Dell + LG | drop Safari on Dell · 3 | `Dell · 3`, `LG · 1` (before the first connected place, LG · 1; Dell's old place gone) |
 | D4.3 | Dell | drop Safari on Samsung · 1 (not connected) | `Samsung · 1`, `LG · 1`, `Dell · 2`; Safari stays on Dell · 2 |
 | D4.4 | Dell | ↑ on `Dell · 2` | `Dell · 2`, `LG · 1` |
 | D4.5 | Dell | × on `Dell · 2` | `LG · 1` → fallback Dell · 1 |
 | D4.6 | Dell | × on Mail's only place | empty list, Mail untouched |
 | D4.7 | laptop only | drop Music on Laptop · 2 | laptop place changes, no monitor list |
 | D4.8 | Dell | drop Music on Dell · 1 | `Dell · 1`; laptop place stays Laptop · 3 |
+| D4.9 | Dell | drop Safari on Dell · 3 | `LG · 1`, `Dell · 3` (a connected monitor's place goes just before the first connected place: it does not jump ahead of LG); plug LG → Safari LG · 1 |
+| D4.10 | Dell, Safari only `LG · 1` (on fallback) | drop Safari on Dell · 3 | `LG · 1`, `Dell · 3` (no connected place: added last) |
 | D5.1 | Dell + LG | first place is desktop "Reading" on LG | Safari goes to "Reading" |
 | D5.2 | D5.1, "Reading" moved to Dell | — | Safari follows it to Dell |
 | D5.3 | D5.1 | unplug LG | next place, Dell · 2; a name with no known place alone holds the window |

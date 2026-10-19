@@ -287,10 +287,13 @@ unutur (`deskmap screen-role EKRAN --forget`). İlk monitör (ve Ayarlar ›
 listesi vardır, ekran rolü başına en çok bir yer: `rules.json`’daki `docked`
 ilk yer, `dockedNext` sonrakiler. Her taramada monitörü bağlı (ve onay
 beklemeyen) ilk yer kazanır; masaüstü adına bağlı yer, o masaüstünün şu anki
-yerinde sayılır. Sabitlenmiş pencereyi başka bir monitöre bırakmak yeni yeri
-başa koyar, eski yer altında kalır; aynı monitöre bırakmak o monitördeki yeri
-değiştirir. Böylece 2. monitör çıkınca oraya taşınan pencere Ekstra
-monitördeki eski yerine döner. Yerlerin hiçbiri bağlı değilse pencere rol
+yerinde sayılır. Sabitlenmiş pencereyi bırakmak o monitördeki yerini
+değiştirir, ötekiler kalır: bağlı olmayan monitöre (soluk kart) bırakılan yer
+başa geçer; bağlı monitöre bırakılan yer, monitörü bağlı ilk yerin hemen önüne
+girer (hiçbiri yoksa sona), yani şu an takılı olmayan bir monitörün önüne
+geçmez. 2. monitör yokken Safari’yi Ekstra monitör içinde taşımak 2. monitörü
+önde bırakır. 2. monitör çıkınca oraya taşınan pencere Ekstra monitördeki eski
+yerine döner. Yerlerin hiçbiri bağlı değilse pencere rol
 sırasında (Ekstra monitör, 2. monitör, …) bağlı ilk monitöre, ilk yerinin
 masaüstü numarasıyla gider (monitörde o kadar masaüstü yoksa son masaüstü).
 Yalnız laptop yeri olan sabitlemeye monitör bağlıyken dokunulmaz; bağlı tek

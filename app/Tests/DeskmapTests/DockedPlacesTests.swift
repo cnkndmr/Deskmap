@@ -62,6 +62,7 @@ final class MultiMonitorDesk {
         document.rules = rules
         store = Store(demo: document)
         sync = AppModel.syncDisplayRoles(store: store, screens: screens)
+        store.connectedRoles = { [screens] in Set(screens.screens.map(\.id)).subtracting(screens.heldRoles) }
     }
 
     /// Yalnız bu monitörler bağlı (laptop hep); ekranlar hemen yatışır.
@@ -386,6 +387,30 @@ struct DockedPlacesEditTests {
         #expect(desk.places("music") == ["external · 1"])
         #expect(desk.place("music") == "Dell · 1")
         #expect(desk.store.document.rule("music")?.undocked == Destination(screen: "builtin", desktop: 3))
+    }
+
+    /// Yalnız Dell bağlıyken Dell içinde sürüklemek LG'nin önceliğini
+    /// bozmaz: LG takılınca Safari yine LG'ye gider.
+    @Test func d4_9_sameMonitorDragKeepsDisconnectedPriority() {
+        let desk = MultiMonitorDesk()
+        desk.connect(["Dell"])
+        desk.store.setDestination(Destination(screen: "external", desktop: 3), for: "safari", mode: .docked)
+        #expect(desk.places("safari") == ["external-2 · 1", "external · 3"])
+        #expect(desk.place("safari") == "Dell · 3")
+        desk.connect(["Dell", "LG"])
+        #expect(desk.place("safari") == "LG · 1")
+    }
+
+    /// Yedekteyken (listede bağlı yer yok) bağlı monitöre bırakmak yeni yeri
+    /// sona ekler: bağlı olmayan, daha öncelikli LG'nin önüne geçmez.
+    @Test func d4_10_dropWhileOnFallbackGoesLast() {
+        let desk = MultiMonitorDesk()
+        desk.connect(["Dell"])
+        desk.store.removePlace(at: 1, for: "safari", mode: .docked)
+        #expect(desk.resolved("safari")?.choice == .fallback)
+        desk.store.setDestination(Destination(screen: "external", desktop: 3), for: "safari", mode: .docked)
+        #expect(desk.places("safari") == ["external-2 · 1", "external · 3"])
+        #expect(desk.place("safari") == "Dell · 3")
     }
 
     /// Bu kurulumda pini kaldırmak bütün sıralı listeyi siler.

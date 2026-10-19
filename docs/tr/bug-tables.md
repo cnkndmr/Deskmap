@@ -221,13 +221,15 @@ monitör yeri yok, laptop `Laptop · 3`. "Dokunulmaz": Deskmap pencereyi taşım
 | D3.4 | — | kart menüsü | yalnız Deskmap’in gördüğü monitörler (harita turu, burada test yok) |
 | D3.5 | D3.1 sonrası | Dell’i çıkar | Safari LG · 2, Mail LG · 3 |
 | D4.1 | Dell + LG | Safari’yi LG · 2’ye bırak | `LG · 2`, `Dell · 2` (aynı monitör: değişir) |
-| D4.2 | Dell + LG | Safari’yi Dell · 3’e bırak | `Dell · 3`, `LG · 1` (başka monitör: başa, Dell’deki eski yer gider) |
+| D4.2 | Dell + LG | Safari’yi Dell · 3’e bırak | `Dell · 3`, `LG · 1` (bağlı ilk yerin, LG · 1’in önüne; Dell’deki eski yer gider) |
 | D4.3 | Dell | Safari’yi Samsung · 1’e bırak (bağlı değil) | `Samsung · 1`, `LG · 1`, `Dell · 2`; Safari Dell · 2’de kalır |
 | D4.4 | Dell | `Dell · 2`’de ↑ | `Dell · 2`, `LG · 1` |
 | D4.5 | Dell | `Dell · 2`’de × | `LG · 1` → yedek Dell · 1 |
 | D4.6 | Dell | Mail’in tek yerinde × | boş liste, Mail dokunulmaz |
 | D4.7 | yalnız laptop | Müzik’i Laptop · 2’ye bırak | laptop yeri değişir, monitör listesi yok |
 | D4.8 | Dell | Müzik’i Dell · 1’e bırak | `Dell · 1`; laptop yeri Laptop · 3 kalır |
+| D4.9 | Dell | Safari’yi Dell · 3’e bırak | `LG · 1`, `Dell · 3` (bağlı monitörün yeri bağlı ilk yerin hemen önüne girer: LG’nin önüne geçmez); LG takılınca Safari LG · 1 |
+| D4.10 | Dell, Safari’nin yalnız `LG · 1` yeri var (yedekte) | Safari’yi Dell · 3’e bırak | `LG · 1`, `Dell · 3` (bağlı yer yok: sona eklenir) |
 | D5.1 | Dell + LG | ilk yer LG’deki "Okuma" masaüstü | Safari "Okuma"ya gider |
 | D5.2 | D5.1, "Okuma" Dell’e taşındı | — | Safari onu Dell’e izler |
 | D5.3 | D5.1 | LG’yi çıkar | sıradaki yer, Dell · 2; yalnız yeri bilinmeyen bir ad varsa pencere tutulur |

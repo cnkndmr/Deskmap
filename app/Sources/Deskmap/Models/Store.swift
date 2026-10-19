@@ -65,6 +65,10 @@ final class Store: ObservableObject {
     /// Bağlı ekranların canlı masaüstü sırası (Router her kararlı taramada
     /// verir). Etkin kurulumda satır adları ve ad hedeflerinin yeri buradan.
     @Published private(set) var live: LiveDesktops?
+    /// Bağlı ve onay beklemeyen ekran rolleri (`AppModel` ScreenService'ten
+    /// bağlar). Yerleştirmede sıralı yerin nereye gireceğini belirler (K7);
+    /// bağlanmamışsa (önizleme, test) hiçbir ekran bağlı sayılmaz.
+    var connectedRoles: () -> Set<String> = { [] }
 
     /// Şema 5 dosyası okundu, adlar henüz taşınmadı (§A.8 aşama 1): belge
     /// geçici şema 6 hâlidir, diske yazılmaz; Router ilk kararlı taramada
@@ -540,7 +544,8 @@ final class Store: ObservableObject {
     /// Düzen adımları buradan geçer; geri alma kaydı bırakmaz.
     func setDestination(_ destination: Destination?, for id: String, mode: Mode) {
         let live = live
-        document.setDestination(destination, for: id, mode: mode, live: live)
+        document.setDestination(destination, for: id, mode: mode, live: live,
+                                     connected: connectedRoles())
     }
 
     /// Sürükleyip bırakma ile hedef değişimi: `setDestination` gibi, ama
@@ -548,7 +553,8 @@ final class Store: ObservableObject {
     func moveRule(_ id: String, to destination: Destination, mode: Mode) {
         let live = live
         recording(L("Pin moved")) {
-            document.setDestination(destination, for: id, mode: mode, live: live)
+            document.setDestination(destination, for: id, mode: mode, live: live,
+                                     connected: connectedRoles())
         }
     }
 
@@ -571,11 +577,13 @@ final class Store: ObservableObject {
         let live = live
         guard let existing = document.rules.first(where: { $0.sameKey(as: draft) }),
               existing[mode] != nil else {
-            return document.pin(draft, destination: destination, mode: mode, live: live)
+            return document.pin(draft, destination: destination, mode: mode, live: live,
+                                connected: connectedRoles())
         }
         var id = existing.id
         recording(L("Pin updated")) {
-            id = document.pin(draft, destination: destination, mode: mode, live: live)
+            id = document.pin(draft, destination: destination, mode: mode, live: live,
+                                connected: connectedRoles())
         }
         return id
     }
@@ -585,9 +593,11 @@ final class Store: ObservableObject {
                  companion: (() -> Void)? = nil) {
         guard !items.isEmpty else { return }
         let live = live
+        let connected = connectedRoles()
         recording(L("Windows pinned"), companion: companion) {
             for item in items {
-                document.pin(item.rule, destination: item.destination, mode: mode, live: live)
+                document.pin(item.rule, destination: item.destination, mode: mode, live: live,
+                             connected: connected)
             }
         }
     }
@@ -598,9 +608,11 @@ final class Store: ObservableObject {
                    undoingSessionPins: (() -> Void)? = nil) {
         guard !moves.isEmpty || undoingSessionPins != nil else { return }
         let live = live
+        let connected = connectedRoles()
         recording(L("Group moved"), companion: undoingSessionPins) {
             for move in moves {
-                document.setDestination(move.destination, for: move.id, mode: mode, live: live)
+                document.setDestination(move.destination, for: move.id, mode: mode, live: live,
+                                         connected: connected)
             }
         }
     }

@@ -25,8 +25,9 @@ numarası `VERSION` dosyasından gelir.
   eşleştirme, `check` raporu); CLI değişince pre-commit kancası da koşar.
 - **Birden çok monitörde sıralı yerler.** Monitör bağlı kurulumda bir
   sabitlemenin monitör başına bir yerden oluşan sıralı bir listesi vardır:
-  sabitlenmiş pencereyi başka bir monitöre bırakınca yeni yer başa geçer, eski
-  yer altında kalır. Monitörü bağlı ilk yer kazanır; böylece 2. monitör
+  sabitlenmiş pencereyi başka bir monitöre bırakınca eski yeri yenisinin
+  altında kalır; bağlı monitördeki yer, şu an takılı olmayan bir monitörün
+  önüne geçmez. Monitörü bağlı ilk yer kazanır; böylece 2. monitör
   çıkınca pencereleri eski yerlerine döner. Hiçbiri bağlı değilse pencere rol
   sırasında bağlı ilk monitöre, ilk yerinin masaüstü numarasıyla gider.
   `rules.json` ilk yeri `docked`’ta tutar (eski sürümler onu okur), kalanları

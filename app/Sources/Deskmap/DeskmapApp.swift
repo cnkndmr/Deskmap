@@ -97,6 +97,11 @@ final class AppModel {
         backups = BackupService(archive: BackupArchive(sourceDirectory: Store.directoryURL))
         BackupService.current = backups
         roleSync = Self.syncDisplayRoles(store: store, screens: screens)
+        // Yerleştirme (K7) bağlı ve onay beklemeyen rolleri bilir.
+        store.connectedRoles = { [weak screens] in
+            guard let screens else { return [] }
+            return Set(screens.screens.map(\.id)).subtracting(screens.heldRoles)
+        }
     }
 
     /// Harici ekran rolleri iki yönlü: belgedeki kayıt (harita seçimi, yedek

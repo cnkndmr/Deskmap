@@ -25,8 +25,8 @@ number comes from the `VERSION` file.
   `check` report); the pre-commit hook runs them when the CLI changes.
 - **Ordered places for several monitors.** In the monitor-connected setup a
   pin keeps an ordered list of places, one per monitor: drop a pinned window
-  on another monitor and the new place goes first, the old one stays below
-  it. The first place whose monitor is connected wins, so unplugging Monitor 2
+  on another monitor and its old place stays below the new one; a place on a
+  connected monitor never jumps ahead of one that is unplugged right now. The first place whose monitor is connected wins, so unplugging Monitor 2
   sends its windows back to where they were. With none connected, the window
   goes to the first connected monitor in role order, on the desktop number of
   its first place. `rules.json` keeps the first place in `docked` (older

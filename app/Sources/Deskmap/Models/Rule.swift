@@ -453,13 +453,23 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         if mapped != places(mode) { setPlaces(mapped, mode: mode) }
     }
 
-    /// Kullanıcı pencereyi bu yere koydu (K7): aynı ekranda bir yeri varsa o
-    /// yer değişir, başka ekrandaysa yeni yer başa geçer; bir ekranın en çok
-    /// bir yeri olur. Laptop modunda tek yer değişir.
-    mutating func place(_ destination: Destination, mode: Mode) {
+    /// Kullanıcı pencereyi bu yere koydu (K7). Hedef ekranın eski yeri
+    /// çıkar (ekran başına en çok bir yer). Hedef ekran bağlı değilse (soluk
+    /// karta bırakma) yeni yer başa geçer. Bağlıysa monitörü bağlı ilk yerin
+    /// hemen önüne girer, bağlı yer yoksa sona: bağlı olmayan, daha öncelikli
+    /// monitörlerin önüne geçmez (yalnız Dell bağlıyken Dell içinde sürüklemek
+    /// LG'nin önceliğini bozmaz). `connected`: bağlı ve onay beklemeyen
+    /// roller. Laptop modunda tek yer değişir.
+    mutating func place(_ destination: Destination, mode: Mode, connected: Set<String>) {
         guard mode == .docked else { undocked = destination; return }
-        setPlaces([destination] + places(.docked).filter { $0.screen != destination.screen },
-                  mode: .docked)
+        var list = places(.docked).filter { $0.screen != destination.screen }
+        if connected.contains(destination.screen) {
+            let index = list.firstIndex { connected.contains($0.screen) } ?? list.count
+            list.insert(destination, at: index)
+        } else {
+            list.insert(destination, at: 0)
+        }
+        setPlaces(list, mode: .docked)
     }
 
     /// `index`'teki yeri siler (yan panel ×); ilk yer silinirse sıradaki

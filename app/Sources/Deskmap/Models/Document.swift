@@ -531,17 +531,17 @@ struct Document: Codable, Equatable {
 
     /// Bir kuralın verilen moddaki hedefini değiştirir (nil = atanmamış;
     /// monitörlü modda bütün sıralı liste silinir). Monitörlü modda yeni yer
-    /// K7'ye göre yazılır: aynı ekrandaki yer değişir, başka ekrana konan
-    /// yer başa geçer ve eski yer sırada kalır (`Rule.place`).
+    /// K7'ye göre yazılır (`Rule.place`; `connected`: bağlı ve onay
+    /// beklemeyen roller).
     /// Hedef adlı bir masaüstüyse ad hedefi olur (`normalizedTarget`); yeni
     /// bir ada bağlanan kuralın öbür kurulumda hedefi yoksa orada da o ada
     /// bağlanır (N2).
     mutating func setDestination(_ destination: Destination?, for id: String, mode: Mode,
-                                 live: LiveDesktops? = nil) {
+                                 live: LiveDesktops? = nil, connected: Set<String> = []) {
         guard var rule = rule(id) else { return }
         let old = rule[mode]
         let new = destination.map { normalizedTarget($0, mode: mode, live: live) }
-        if let new { rule.place(new, mode: mode) } else { rule.setPlaces([], mode: mode) }
+        if let new { rule.place(new, mode: mode, connected: connected) } else { rule.setPlaces([], mode: mode) }
         if let nameID = new?.nameID, nameID != old?.nameID { rule = pinnedToNameInOtherSetup(rule, mode: mode) }
         update(rule)
     }
@@ -576,13 +576,13 @@ struct Document: Codable, Equatable {
     /// döner.
     @discardableResult
     mutating func pin(_ draft: Rule, destination: Destination, mode: Mode,
-                      live: LiveDesktops? = nil) -> String {
+                      live: LiveDesktops? = nil, connected: Set<String> = []) -> String {
         if let existing = rules.first(where: { $0.sameKey(as: draft) }) {
-            setDestination(destination, for: existing.id, mode: mode, live: live)
+            setDestination(destination, for: existing.id, mode: mode, live: live, connected: connected)
             return existing.id
         }
         var rule = draft
-        rule.place(normalizedTarget(destination, mode: mode, live: live), mode: mode)
+        rule.place(normalizedTarget(destination, mode: mode, live: live), mode: mode, connected: connected)
         rule = pinnedToNameInOtherSetup(rule, mode: mode)
         rules.append(rule)
         return rule.id
