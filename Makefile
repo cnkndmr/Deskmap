@@ -99,9 +99,13 @@ concurrency-check:
 	@swift build --package-path app -c debug --scratch-path app/.build/strict \
 	    -Xswiftc -strict-concurrency=complete > app/.build/strict.log 2>&1 \
 	    || { cat app/.build/strict.log; exit 1; }
-	@grep -E ': warning: ' app/.build/strict.log | sort -u \
-	    || echo "No strict concurrency warnings."
-	@echo "Warning count: $$(grep -E ': warning: ' app/.build/strict.log | sort -u | wc -l | tr -d ' ')"
+	@# Derleyici renkli yazar ("\033[1;33mwarning:"); renk kodları ayıklanmadan
+	@# ': warning: ' deseni hiçbir satıra uymaz ve sayı hep 0 çıkar.
+	@sed -E 's/\x1b\[[0-9;]*m//g' app/.build/strict.log | grep -E '^/.*: warning: ' | sort -u \
+	    > app/.build/strict-warnings.txt || true
+	@if [ -s app/.build/strict-warnings.txt ]; then cat app/.build/strict-warnings.txt; \
+	    else echo "No strict concurrency warnings."; fi
+	@echo "Warning count: $$(wc -l < app/.build/strict-warnings.txt | tr -d ' ')"
 
 dist:
 	@./scripts/make-dist.sh
