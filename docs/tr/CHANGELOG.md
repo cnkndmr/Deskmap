@@ -30,6 +30,16 @@ numarası `VERSION` dosyasından gelir.
   isteğe bağlı `displayRoles` alanı eklendi (şema 6 değişmedi; eski sürümler onu
   yok sayar ve konum sırasına döner). `status.json` ekranları `uuid` taşır
   (`Models/DisplayRoles.swift`).
+- **Deskmap’in hatırlamadığı monitör bekler.** İlk monitör öğrenildikten sonra
+  rolünde hatırlanmayan ekran (yeni monitör, tek kalan sanal ekran, unutulan
+  monitör ya da aynı rolde hatırlanan iki monitörden eskisi) beklemededir: ona
+  plan, sabitleme ya da kural uygulanmaz, orada artık temizliği yapılmaz; Ekstra
+  monitör düzeni kendiliğinden taşınmaz. Kartında *yeni monitör · düzen
+  bekliyor* ve bir menü görünür (*Ekstra monitör / 2. monitör … olarak kullan*,
+  onaylı; hatırlananlarda *Bu monitörü unut*). `deskmap screen-role EKRAN
+  --forget` ve `deskmap://screen-role-forget/<monitör>` tek monitörü unutur;
+  `deskmap screens` *role on hold* gösterir; `status.json`’a `heldRoles`,
+  `displayRoles`’a `learnedOnce` eklendi (docs/tr/bug-tables.md, A′ tablosu).
 
 - **Bir çalışma alanını tek seferde aç.** Kapalı sabit pencereleri olan bir
   masaüstünün adının yanında **N aç** görünür (liste ve görsel görünümde);

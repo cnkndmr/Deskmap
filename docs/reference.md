@@ -260,6 +260,18 @@ confirmation the two swap, with their pins, desktop names and plans.
 `deskmap screen-role` does the same from the terminal. Settings › General ›
 **Monitor roles › Forget** returns to left-to-right order.
 
+**A monitor Deskmap does not remember waits.** Once a monitor has been
+learned, a display that is not remembered in the role it gets (a new office
+monitor, a virtual display left alone after the monitor is unplugged, a
+monitor you forgot) is *on hold*: its card says *new monitor · layout on hold*,
+no plan is applied to it and no pin or rule is routed to it, so the Extra
+monitor layout does not move there by itself. Its card title menu offers
+*Use as Extra monitor*, *Use as Monitor 2* …; after a confirmation the choice is
+remembered and the layout is applied at once (`deskmap screen-role DISPLAY
+ROLE` does the same). *Forget This Monitor* in the same menu forgets one
+monitor (`deskmap screen-role DISPLAY --forget`). The very first monitor (and
+every monitor after Settings › *Forget*) is learned without asking.
+
 **Second monitor missing** (Settings › General, on by default): a pin whose
 monitor (`external-2`, …) is not connected goes to `external`, same desktop
 number and layout, and returns to its own monitor when that is plugged in
@@ -466,6 +478,7 @@ running, macOS starts it first.
 | `deskmap://quit` | Quit Deskmap (the way scripts and tests close it; never kill the process) |
 | `deskmap://screen-role/<monitor>/<role>` | Give a connected monitor (its current role or the start of its UUID) an external role; it keeps it from now on. A monitor already in that role swaps with it. Roles up to the number of connected monitors |
 | `deskmap://screen-role-forget` | Forget remembered monitor roles (left-to-right order again) |
+| `deskmap://screen-role-forget/<monitor>` | Forget one connected monitor: its role waits on hold, its layout is not applied |
 | `deskmap://screen-fallback/<on\|off>` | Second monitor missing: use the first external monitor (on) or leave the window (off) |
 | `deskmap://backup-now` | Run the automatic backup now |
 | `deskmap://backup-restore/<id>` | Restore a backup by id (e.g. `daily-2026-10-12`); see [Backups](#backups) |
@@ -509,6 +522,7 @@ deskmap name external 2 "Nova Ek"          # name the desktop that is desktop 2 
 deskmap screens                            # roles, UUID start, "role kept" / "role by position"
 deskmap screen-role LG 2                   # this monitor is Monitor 2 from now on (swaps)
 deskmap screen-role --forget               # roles follow left-to-right order again
+deskmap screen-role Pebble --forget         # forget this monitor only: its role waits
 deskmap screen-fallback off                # pins on a missing monitor 2 are skipped
 deskmap backups [--json]                   # automatic backups, newest first
 deskmap backup-now

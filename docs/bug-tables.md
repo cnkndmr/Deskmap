@@ -53,6 +53,61 @@ branch carries it over unchanged and fixes it on top.
 
 Open decisions (proposal branch): see "Decisions" at the end.
 
+On `gece/1910-deskmap-d` the bug tests above are rewritten on `DisplayRoles`
+(table A′): `virtualLeftOfMonitorStealsExternalRole` →
+`virtualLeftOfMonitorDoesNotStealExternalRole`, `roleSwapMigratesWholeLayoutWithoutConsent` →
+`automaticRoleChangeIsHeldUntilConfirmed` + `menuChoiceIsConfirmedAndApplied`,
+`loneVirtualDisplayTakesMonitorPlan` → `loneUnknownDisplayDoesNotTakeMonitorPlan`. No
+`withKnownIssue` is left in `PrimaryExternalBugTests`.
+
+## A′. Primary external monitor on the combined branch (`gece/1910-deskmap-d`)
+
+The combined branch takes the second-monitor model (`DisplayRoles`: roles kept
+by display UUID) instead of phase 1's single `primaryExternalUUID`. Roles no
+longer slide by position, but two cells of table A stayed open there:
+**A3** (a role change that Deskmap made by itself still let `PlanApply` move the
+whole `external` layout to the other display; the confirmation only covered a
+swap picked on the card) and **A4** (a lone display Deskmap did not remember
+took the `external` role and its plan, with no menu to say otherwise). This
+branch closes both with one rule:
+
+> **A role held by a display that is not remembered in that role waits.**
+> It is treated as not connected: no plan is applied to it (no moves to it or
+> from it, no desktops opened or removed there, no leftover cleanup), and no
+> rule or pin is routed to it (nor falls back to it). Its card says *new
+> monitor · layout on hold* and its title menu offers *Use as Extra monitor /
+> Monitor 2 …*; after a confirmation the choice is remembered and the plan is
+> applied at once. `deskmap screen-role DISPLAY ROLE` does the same.
+
+Before the first monitor was ever learned (fresh install, upgrade from a
+version without `displayRoles`, or after Settings › *Forget*) nothing waits:
+roles come from left-to-right order and are learned, as before.
+`displayRoles.learnedOnce` records that this first step is behind
+(older files: set when something is remembered). The test display
+("Deskmap Test Display") never waits.
+
+Tests: `PrimaryExternalBugTests`, `PrimaryExternalServiceTests`,
+`DisplayRolesTests`, `scripts/clitest` (`ScreenRoleTest`).
+
+| Operation \ State | Nothing learned yet | Remembered monitor alone | Remembered monitor + unknown display | Remembered monitor away, unknown display alone | Two remembered for one role, both connected | One monitor forgotten, connected |
+| --- | --- | --- | --- | --- | --- | --- |
+| Plug in, displays settle | OK: position order, learned `firstConnectionIsNotHeld` | OK `virtualRightOfMonitorKeepsMonitorExternal` | OK: unknown gets `external-2`, on hold `virtualLeftOfMonitorDoesNotStealExternalRole` | FIX: gets `external`, on hold, not learned `loneUnknownDisplayDoesNotTakeMonitorPlan`, `loneVirtualIsHeldUntilChosen` | FIX: the older one drops to `external-2`, on hold `automaticRoleChangeIsHeldUntilConfirmed` | FIX: on hold, not learned again `forgettingOneMonitorPutsItOnHold` |
+| Rearrange (virtual display to the left) | OK (learned after first settle) | — | OK `virtualLeftOfMonitorDoesNotStealExternalRole` | — | OK | — |
+| Apply plan (transition, *Apply plan now*) | OK `correctRolesNeedNoWork` | OK | FIX: held role left out `holdingKeepsOtherRoles` | FIX: no desktops, moves or rebinds `loneUnknownDisplayDoesNotTakeMonitorPlan` | FIX: monitor's named desktops stay `automaticRoleChangeIsHeldUntilConfirmed` (without the gate: `withoutTheGateTheWholeLayoutWouldMove`) | FIX (same) |
+| Pins and rules | OK | OK | FIX: no rule or fallback to the held role `heldRoleIsNotAFallbackTarget` | FIX (same) | FIX (same) | FIX (same) |
+| Leftover cleanup | OK | OK | FIX `cleanupLeavesHeldDisplayAlone` | FIX (same) | FIX (same) | FIX (same) |
+| Card menu: *Use as …* (confirmation) | — | — | FIX: remembered, plan applied `loneVirtualIsHeldUntilChosen` | FIX: *Extra monitor* `loneUnknownDisplayConfirmedAsExtraMonitor` or *Monitor 2* (Extra monitor stays empty) `loneUnknownDisplayCanBecomeMonitor2` | FIX `menuChoiceIsConfirmedAndApplied` | FIX (same) |
+| Card menu: swap with the other monitor (confirmation) | — | — | OK `choosingTheOtherMonitorSwapsRoles` | — | OK | — |
+| Card menu: *Forget This Monitor* | — | FIX: new; role waits `forgetOneHoldsForgetAllStartsOver` | FIX (same) | — | FIX (same) | — |
+| Settings › *Forget* (all) | OK | OK: starts over, learned again `forgetOneHoldsForgetAllStartsOver` | OK | OK | OK | OK |
+| `deskmap screen-role DISPLAY ROLE` / `DISPLAY --forget` / `--forget` | OK | OK | FIX: same as the menu `ScreenRoleTest`, `forgetOneURLParses` | FIX: `ROLE` may be beyond the connected count when a remembered monitor is away (`choosableRoles`) | FIX | FIX |
+| `deskmap screens` | OK | OK *role kept* | FIX: *role on hold* with the command to confirm `test_held_role_is_shown_with_how_to_confirm` | FIX (same) | FIX (same) | FIX (same) |
+| Older file (no `learnedOnce`) | OK `olderFileWithoutFlag` | OK | OK | OK | OK | OK |
+
+Not tested here (needs a real display): the alert texts on screen, that
+`applyPlanNow` after a confirmation runs once (not twice with the settle
+transition of a swap), and an actual unplug/plug of the wide monitor.
+
 ## B. Window drift (Claude windows)
 
 Selection is stateless: every sweep `Routing.select` matches each window by its
@@ -93,6 +148,17 @@ A. Primary external monitor
 2. Switching the remembered monitor moves the whole layout: confirm first
    (proposal) or switch silently?
 3. Card names: "Extra monitor" / "Monitor 2" / "Monitor 3" (proposal).
+
+A′. Combined branch (`gece/1910-deskmap-d`)
+1. A display not remembered in its role waits (no plan, no rules) until it is
+   chosen on its card or with `deskmap screen-role` (proposal), instead of
+   taking the layout at once.
+2. A new office monitor therefore asks once (*Use as Extra monitor*) before the
+   Extra monitor layout goes there; after that it is remembered. Acceptable, or
+   should a lone display with nothing else connected take `external` without
+   asking (only virtual displays wait)? macOS gives no reliable "virtual" flag.
+3. *Forget This Monitor* on a card forgets one monitor (its role waits again);
+   Settings › *Forget* forgets all and starts over (learned again by position).
 
 B. Window drift
 1. Sticky binding lives for the window's lifetime (proposal); a strictly more

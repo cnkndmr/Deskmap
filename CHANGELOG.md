@@ -30,6 +30,17 @@ number comes from the `VERSION` file.
   `rules.json` gets an optional `displayRoles` field (schema 6 unchanged;
   older versions ignore it and fall back to position order). `status.json`
   screens carry their `uuid` (`Models/DisplayRoles.swift`).
+- **A monitor Deskmap does not remember waits.** After the first monitor has
+  been learned, a display that is not remembered in its role (new monitor,
+  virtual display left alone, forgotten monitor, or the older of two monitors
+  remembered for the same role) is on hold: no plan, pin or rule is applied to
+  it and no leftover cleanup runs there, so the Extra monitor layout no longer
+  moves by itself. Its card shows *new monitor · layout on hold* and a menu
+  (*Use as Extra monitor / Monitor 2 …*, with confirmation; *Forget This
+  Monitor* on remembered ones). `deskmap screen-role DISPLAY --forget` and
+  `deskmap://screen-role-forget/<monitor>` forget one monitor; `deskmap
+  screens` shows *role on hold*; `status.json` gets `heldRoles`;
+  `displayRoles.learnedOnce` is new (docs/bug-tables.md, table A′).
 
 - **Open a workspace at once.** A desktop with closed pinned windows shows
   **Open N** next to its name (list and visual view); one click opens them

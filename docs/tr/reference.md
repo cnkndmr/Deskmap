@@ -272,6 +272,17 @@ sabitlemeleri, masaüstü adları ve planlarıyla yer değiştirir.
 Terminalde aynısını `deskmap screen-role` yapar. Ayarlar › Genel › **Monitör
 rolleri › Unut** soldan sağa sıraya döndürür.
 
+**Deskmap’in hatırlamadığı monitör bekler.** Bir monitör öğrenildikten sonra,
+aldığı rolde hatırlanmayan bir ekran (ofisteki yeni monitör, monitör sökülünce
+tek kalan sanal ekran, unuttuğun bir monitör) *beklemede*dir: kartında *yeni
+monitör · düzen bekliyor* yazar, ona plan uygulanmaz, sabitleme ya da kural
+yönlendirilmez; Ekstra monitör düzeni oraya kendiliğinden gitmez. Kart başlığı
+menüsü *Ekstra monitör olarak kullan*, *2. monitör olarak kullan* … sunar;
+onaydan sonra seçim hatırlanır ve düzen hemen uygulanır (`deskmap screen-role
+EKRAN ROL` aynısını yapar). Aynı menüdeki *Bu monitörü unut* tek monitörü
+unutur (`deskmap screen-role EKRAN --forget`). İlk monitör (ve Ayarlar ›
+*Unut*’tan sonra her monitör) sormadan öğrenilir.
+
 **İkinci monitör yokken** (Ayarlar › Genel, varsayılan açık): monitörü
 (`external-2`, …) bağlı olmayan sabitleme `external`’a, aynı masaüstü
 numarasına ve düzene gider; monitör yeniden takılınca kendi yerine döner.
@@ -490,6 +501,7 @@ Hammerspoon, Keyboard Maestro ya da bir terminal onu yönetebilir. Uygulama
 | `deskmap://quit` | Deskmap’ten çık (betiklerin ve testlerin onu kapatma yolu; süreci asla öldürme) |
 | `deskmap://screen-role/<monitör>/<rol>` | Bağlı bir monitöre (şu anki rolü ya da UUID’sinin başı) bir harici rol ver; bundan sonra onu korur. O roldeki monitörle yer değiştirir. Rol, bağlı monitör sayısını aşamaz |
 | `deskmap://screen-role-forget` | Hatırlanan monitör rollerini unut (yeniden soldan sağa) |
+| `deskmap://screen-role-forget/<monitör>` | Bağlı tek bir monitörü unut: rolü beklemeye geçer, düzeni uygulanmaz |
 | `deskmap://screen-fallback/<on\|off>` | İkinci monitör yokken: ilk harici monitörü kullan (on) ya da pencereyi bırak (off) |
 | `deskmap://backup-now` | Otomatik yedeklemeyi şimdi çalıştır |
 | `deskmap://backup-restore/<id>` | Bir yedeği kimliğiyle geri getir (örn. `daily-2026-10-12`); bkz. [Yedekler](#backups) |
@@ -533,6 +545,7 @@ deskmap name external 2 "Nova Ek"          # şu an 2. masaüstü olan masaüst�
 deskmap screens                            # roller, UUID başı, "role kept" / "role by position"
 deskmap screen-role LG 2                   # bu monitör artık 2. monitör (yer değiştirir)
 deskmap screen-role --forget               # roller yeniden soldan sağa
+deskmap screen-role Pebble --forget         # yalnız bu monitörü unut: rolü bekler
 deskmap screen-fallback off                # bağlı olmayan 2. monitör sabitlemeleri atlanır
 deskmap backups [--json]                   # otomatik yedekler, en yenisi başta
 deskmap backup-now
