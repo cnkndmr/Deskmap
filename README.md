@@ -18,6 +18,18 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/cnkndmr/Deskmap/releases/latest">
+    <img src="https://img.shields.io/badge/Download-latest%20release-0A84FF?style=for-the-badge&logo=apple&logoColor=white" alt="Download the latest release">
+  </a>
+</p>
+
+Or install from the command line with Homebrew:
+
+```sh
+brew install --cask cnkndmr/tap/deskmap
+```
+
+<p align="center">
   <a href="https://www.youtube.com/watch?v=NUnXxh5U25Y">
     <img src="https://img.youtube.com/vi/NUnXxh5U25Y/hqdefault.jpg" width="360" alt="Radiohead: Everything In Its Right Place (YouTube)">
   </a>
