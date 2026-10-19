@@ -69,6 +69,13 @@ numarası `VERSION` dosyasından gelir.
   bir değişiklik yineleme dalını atar; alt çubukta çıkan uyarıdaki Geri al onu
   geri getirir. Geçici sabitleme adımları yalnız geri alınabilir
   (`Models/ChangeHistory.swift`).
+- **Otomatik yedekler**: uygulama bütün profilleri, sabitlemeleri ve masaüstü
+  adlarını `Application Support/Deskmap/Backups/` altına saatlik (24 saat
+  saklanır), günlük (7 gün saklanır) ve haftalık (sonsuza dek saklanır) olarak
+  yedekler. **Ayarlar › Yedekler**’den (profil panelindeki **Yedekler…** ile de)
+  ya da `deskmap backups` / `deskmap backup-restore <id>` ile geri getir;
+  şimdiki hâl önce yedeklenir ve geri getirme geri alınabilir. Dışarıdaki
+  `profile-backup.sh` betiğinin yerini alır.
 
 ### Değişenler {#changed}
 
@@ -170,16 +177,6 @@ numarası `VERSION` dosyasından gelir.
   göstermiyor (bu, onları silinen masaüstü satırına çeviriyor, sabitlemelerini
   ve öteki kurulumdaki karşılıklarını da beraberinde götürüyordu); masaüstü
   hâlâ duran bir ad hiçbir zaman silinmiş sayılmaz.
-
-### Eklenenler {#added-1}
-
-- **Otomatik yedekler**: uygulama bütün profilleri, sabitlemeleri ve masaüstü
-  adlarını `Application Support/Deskmap/Backups/` altına saatlik (24 saat
-  saklanır), günlük (7 gün saklanır) ve haftalık (sonsuza dek saklanır) olarak
-  yedekler. **Ayarlar › Yedekler**’den (profil panelindeki **Yedekler…** ile de)
-  ya da `deskmap backups` / `deskmap backup-restore <id>` ile geri getir;
-  şimdiki hâl önce yedeklenir ve geri getirme geri alınabilir. Dışarıdaki
-  `profile-backup.sh` betiğinin yerini alır.
 
 ## [0.5.0] — 2026-09-30
 

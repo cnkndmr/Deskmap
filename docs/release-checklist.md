@@ -19,10 +19,8 @@ finished until the Homebrew tap points at it (step 8).
       `git status` is clean, `git log --oneline v0.5.0..main` reads as the
       changelog does.
 - [ ] `CHANGELOG.md` `[Unreleased]` and `docs/tr/CHANGELOG.md` `[Unreleased]`
-      say the same things. Both currently have **two `### Added` / `###
-      Eklenenler` sections** (the second holds *Automatic backups*): merge them
-      into one before cutting the section, and keep Keep-a-Changelog order
-      (Added, Changed, Removed, Fixed).
+      say the same things, each subsection appears once, and the order is
+      Keep-a-Changelog's (Added, Changed, Removed, Fixed).
 - [ ] `make test`, `make cli-test`, `make concurrency-check` (report only) and
       `make check` green on the release machine. CI (`.github/workflows/ci.yml`)
       green on `main`.
@@ -235,10 +233,8 @@ göstermeden (7. adım) sürüm bitmiş sayılmaz.
 - [ ] `main` çıkacak her şeyi içeriyor: gece dalları birleşmiş, `git status`
       temiz, `git log --oneline v0.5.0..main` değişiklik günlüğüyle örtüşüyor.
 - [ ] `CHANGELOG.md` ve `docs/tr/CHANGELOG.md` `[Unreleased]` bölümleri aynı
-      şeyi söylüyor. İkisinde de şu an **iki `### Added` / `### Eklenenler`
-      bölümü var** (ikincisi *Otomatik yedekler*): bölümü kesmeden önce tek
-      bölümde birleştir, Keep-a-Changelog sırasını koru (Added, Changed,
-      Removed, Fixed).
+      şeyi söylüyor, her alt bölüm bir kez geçiyor, sıra Keep-a-Changelog'un
+      sırası (Added, Changed, Removed, Fixed).
 - [ ] `make test`, `make cli-test`, `make concurrency-check` (yalnız rapor) ve
       `make check` sürüm makinesinde yeşil. CI (`.github/workflows/ci.yml`)
       `main`'de yeşil.

@@ -67,6 +67,12 @@ number comes from the `VERSION` file.
   A new change after undo drops the redo branch with a footer notice whose
   Undo brings it back. Temporary-pin steps are undo-only
   (`Models/ChangeHistory.swift`).
+- **Automatic backups**: the app backs up all profiles, pins and desktop
+  names hourly (kept 24 hours), daily (kept 7 days) and weekly (kept
+  forever) under `Application Support/Deskmap/Backups/`. Restore from
+  **Settings › Backups** (also **Backups…** in the profile panel) or with `deskmap backups` /
+  `deskmap backup-restore <id>`; the current state is backed up first and the
+  restore can be undone. Replaces the external `profile-backup.sh` script.
 
 ### Changed
 
@@ -162,15 +168,6 @@ number comes from the `VERSION` file.
   look deleted (which turned them into deleted-desktop rows and took their pins
   and their other-setup counterparts along), and a name whose desktop still
   exists is never treated as deleted.
-
-### Added
-
-- **Automatic backups**: the app backs up all profiles, pins and desktop
-  names hourly (kept 24 hours), daily (kept 7 days) and weekly (kept
-  forever) under `Application Support/Deskmap/Backups/`. Restore from
-  **Settings › Backups** (also **Backups…** in the profile panel) or with `deskmap backups` /
-  `deskmap backup-restore <id>`; the current state is backed up first and the
-  restore can be undone. Replaces the external `profile-backup.sh` script.
 
 ## [0.5.0] — 2026-09-30
 
