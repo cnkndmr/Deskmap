@@ -595,7 +595,8 @@ struct SetupDifferenceTray: View {
             return Routing.select(
                 rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
                 windowID: id, bundleID: window.bundleID, appName: window.appName,
-                title: window.title, document: window.document) != nil
+                title: window.title, document: window.document,
+                context: router.context(for: mode)) != nil
         }
     }
 

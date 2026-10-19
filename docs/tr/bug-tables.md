@@ -77,7 +77,8 @@ gösterebilir; fork " (fork)" ekler) ve başlık parçaları alt dizi olarak eş
 | Başlık başka bir şeye döner | HATA `titleChangeMovesWindowToAnotherRule` → DÜZELTME `bindingSurvivesTitleChange` | DÜZELTME: henüz bağlı değil, yeni adıyla yönlenir | HATA `renamedSessionFallsToAppWideRule` → DÜZELTME `bindingSurvivesTitleChange` | — | — |
 | Pin kaldırıldı | — | — | — | — | HATA `unpinFallsBackToAppWideRule` → DÜZELTME `unpinnedWindowStays` |
 | Daha özgül bir kural uymaya başlar | OK `moreSpecificRuleTakesOver` | OK | OK (yükseltme) `moreSpecificRuleUpgradesBinding` | OK | OK |
-| Kural silindi | OK `deletedRuleReleasesWindow` | OK | OK `deletedRuleDropsBinding` | OK | OK |
+| Kural silindi | OK `deletedRuleReleasesWindow` | OK | HATA (haritada pin kaldırma kuralı siler; B1 ile aynı) → DÜZELTME `deletedRuleLeavesWindowInPlace` | OK | OK |
+| Kural yerinde düzenlendi (parçalar değişti) | DÜZELTME: bağ düşer, yeni parçalara göre seçilir `editedRuleRebindsByNewTokens` | — | DÜZELTME (aynı) | — | — |
 | Pencere kapandı | OK: bağ budanır `bindingsPrunedWithWindows` | OK | OK | OK | OK |
 
 ## Kararlar (geliştirici için)

@@ -172,7 +172,8 @@ struct RootView: View {
         let pinned = Routing.select(
             rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
             windowID: id, bundleID: window.bundleID, appName: window.appName,
-            title: window.title, document: window.document) != nil
+            title: window.title, document: window.document,
+            context: mode == screens.mode ? router.routingContext : nil) != nil
         if pinned { return L("Pinned: dropping it updates the saved desktop.") }
         return mode == screens.mode
             ? L("Not pinned: dropping it moves the window once; nothing is saved.")
@@ -511,7 +512,8 @@ struct RootView: View {
         let rule: Rule? = Routing.select(
             rules: store.document.rules, sessionPins: [:], mode: mode,
             windowID: window.id, bundleID: window.bundleID,
-            appName: window.appName, title: window.title, document: window.document)?.rule
+            appName: window.appName, title: window.title, document: window.document,
+                context: router.context(for: mode))?.rule
         ui.panel = UIState.openingPanel(for: window, sessionPinned: sessionPinned,
                                         ruleID: rule?.id)
         ui.panelSourceWindowID = sessionPinned || rule == nil ? nil : window.id

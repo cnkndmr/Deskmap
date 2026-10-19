@@ -8,6 +8,9 @@ import Testing
 /// yeniden yapılıyor (`Routing.select`, durumsuz); başlık oynadığında ya da
 /// oturum pini kalktığında pencere başka kurala düşüp taşınıyor. Bilinen
 /// hatalar `withKnownIssue` ile işaretli; gerçek pencere taşınmaz.
+/// Bu dosya durumsuz katmanı (`context` verilmeyen `select`) sabitler;
+/// bilinen hatalar o katmanda kalır. Düzeltme bağlamlı seçimde:
+/// `WindowDriftFixTests`.
 struct WindowDriftBugTests {
 
     private let bundle = "com.anthropic.claudefordesktop"

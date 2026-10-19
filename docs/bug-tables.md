@@ -80,7 +80,8 @@ open chat; forks add " (fork)"), and title tokens match as substrings.
 | Title changes to something else | BUG `titleChangeMovesWindowToAnotherRule` → FIX `bindingSurvivesTitleChange` | FIX: not bound yet, routed by its new name | BUG `renamedSessionFallsToAppWideRule` → FIX `bindingSurvivesTitleChange` | — | — |
 | Pin removed | — | — | — | — | BUG `unpinFallsBackToAppWideRule` → FIX `unpinnedWindowStays` |
 | A more specific rule starts to match | OK `moreSpecificRuleTakesOver` | OK | OK (upgrade) `moreSpecificRuleUpgradesBinding` | OK | OK |
-| Rule deleted | OK `deletedRuleReleasesWindow` | OK | OK `deletedRuleDropsBinding` | OK | OK |
+| Rule deleted | OK `deletedRuleReleasesWindow` | OK | BUG (map unpin deletes the rule; same as B1) → FIX `deletedRuleLeavesWindowInPlace` | OK | OK |
+| Rule edited in place (tokens change) | FIX: binding dropped, chosen by the new tokens `editedRuleRebindsByNewTokens` | — | FIX (same) | — | — |
 | Window closed | OK: binding pruned `bindingsPrunedWithWindows` | OK | OK | OK | OK |
 
 ## Decisions (for the maintainer)

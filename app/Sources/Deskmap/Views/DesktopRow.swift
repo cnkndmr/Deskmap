@@ -120,7 +120,8 @@ struct DesktopRow: View {
             let match = Routing.select(
                 rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
                 windowID: window.id, bundleID: window.bundleID, appName: window.appName,
-                title: window.title, document: window.document)
+                title: window.title, document: window.document,
+                context: router.context(for: mode))
             let current = window.currentLayout(screens: screens.screens) ?? .center
             let layout = match.map { $0.destination.layout.isDesktopOnly ? current : $0.destination.layout }
                 ?? current
@@ -167,7 +168,8 @@ struct DesktopRow: View {
         let rule = Routing.select(
             rules: store.document.rules, sessionPins: [:], mode: mode,
             windowID: window.id, bundleID: window.bundleID, appName: window.appName,
-            title: window.title, document: window.document)?.rule
+            title: window.title, document: window.document,
+                context: router.context(for: mode))?.rule
         guard let panel = UIState.openingPanel(for: window, sessionPinned: sessionPinned,
                                                ruleID: rule?.id) else { return }
         ui.selection = []
@@ -709,7 +711,8 @@ struct DesktopRow: View {
     private func isPinned(_ window: Router.WindowSnapshot) -> Bool {
         Routing.select(rules: store.document.rules, sessionPins: router.sessionPins,
                        mode: mode, windowID: window.id, bundleID: window.bundleID,
-                       appName: window.appName, title: window.title, document: window.document) != nil
+                       appName: window.appName, title: window.title, document: window.document,
+                context: router.context(for: mode)) != nil
     }
 }
 
@@ -845,7 +848,8 @@ extension DesktopRow {
             let match = Routing.select(
                 rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
                 windowID: window.id, bundleID: window.bundleID, appName: window.appName,
-                title: window.title, document: window.document)
+                title: window.title, document: window.document,
+                context: router.context(for: mode))
             let current = window.currentLayout(screens: screens.screens) ?? .full
             let layout = match.map { $0.destination.layout.isDesktopOnly ? current : $0.destination.layout }
                 ?? current

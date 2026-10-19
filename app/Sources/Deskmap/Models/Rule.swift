@@ -522,6 +522,25 @@ extension Rule {
                 document: document)
     }
 
+    /// Yapışkan bağın kural parmak izi: parçalar (küçük harf, sırasız) ve yol.
+    var bindingKey: String {
+        loweredTokens.sorted().joined(separator: "\u{1F}") + "\u{1E}" + (path ?? "")
+    }
+
+    /// Uygulama uyuyor mu (başlığa bakmadan).
+    func matchesApp(bundleID windowBundle: String, appName windowApp: String) -> Bool {
+        bundleID.isEmpty ? appName.caseInsensitiveCompare(windowApp) == .orderedSame
+            : bundleID == windowBundle
+    }
+
+    /// Tek parçalı kural ve pencerenin bütün başlığı o parça (büyük/küçük
+    /// harf duyarsız, baş/son boşluk atılır).
+    func isExactTitle(of windowBundle: String, appName windowApp: String, title: String) -> Bool {
+        guard tokens.count == 1, path == nil, matchesApp(bundleID: windowBundle, appName: windowApp)
+        else { return false }
+        return title.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == loweredTokens[0]
+    }
+
     /// Anlık görüntüdeki pencereye uyuyor mu (başlık ve belge yolu).
     func matches(_ window: Router.WindowSnapshot) -> Bool {
         matches(bundleID: window.bundleID, appName: window.appName, title: window.title,

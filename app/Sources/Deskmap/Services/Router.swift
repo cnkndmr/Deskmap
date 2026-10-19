@@ -275,6 +275,22 @@ final class Router: ObservableObject {
     /// taşırsa, başka bir kural aynı hedefe çıksa da yerinden oynatılmaz.
     /// Hedef değişip geri dönerse (A→B→A) yeniden verilir (B7).
     private var applied: [CGWindowID: AppliedEntry] = [:]
+    /// Pencere başına yapışkan kural bağı (docs/bug-tables.md §B): başlık
+    /// değişse de pencere kapanana kadar sürer. Diske yazılmaz.
+    private var bindings: [CGWindowID: Routing.Binding] = [:]
+    /// Tarama sürerken verilen bağlar (pin kaldırma); sonuç gelince
+    /// taramanın eski bağlarının üstüne yazılır.
+    private var bindingOverrides: [CGWindowID: Routing.Binding] = [:]
+    /// Pencerenin ilk görüldüğü an (genel başlık beklemesi için). İlk
+    /// taramada görülenler beklemez.
+    private var firstSeen: [CGWindowID: Date] = [:]
+    private var sweptAny = false
+    /// Son taramanın seçim durumu; arayüz "Neden burada?" için aynısını kullanır.
+    @Published private(set) var routingContext = Routing.Context()
+    /// Arayüzün seçimi için bağlam: yalnız canlı modda (öbür modda bağ yok).
+    func context(for mode: Mode) -> Routing.Context? {
+        mode == screens.mode ? routingContext : nil
+    }
     /// Pencere başına "bu nesilden eski düzen kayıtları geçersiz" sınırı:
     /// tarama sürerken unutulan pencerenin eski kaydı sonuçla geri gelmesin.
     private var appliedFloor: [CGWindowID: UInt64] = [:]
@@ -725,6 +741,14 @@ final class Router: ObservableObject {
 
     func unpinSession(_ windowID: CGWindowID) {
         guard sessionPins.removeValue(forKey: windowID) != nil else { return }
+        // Pini kalkan pencere yerinde kalır: genel kural onu geri çekmez.
+        if let window = windows.first(where: { $0.id == windowID }) {
+            let binding = Routing.bindingAfterUnpin(
+                rules: store.document.rules, mode: screens.mode, bundleID: window.bundleID,
+                appName: window.appName, title: window.title, document: window.document)
+            bindings[windowID] = binding
+            bindingOverrides[windowID] = binding
+        }
         sessionRecords[windowID] = nil
         sessionMisses[windowID] = nil
         forgetApplied(for: windowID)
@@ -759,7 +783,7 @@ final class Router: ObservableObject {
                   let match = Routing.select(
                     rules: store.document.rules, sessionPins: sessionPins, mode: screens.mode,
                     windowID: id, bundleID: window.bundleID, appName: window.appName,
-                    title: window.title, document: window.document)
+                    title: window.title, document: window.document, context: routingContext)
             else { continue }
             freeMoves[id] = end
             freeTargets[id] = FreeGrant(ruleID: match.ruleID, destination: match.destination,
@@ -2407,6 +2431,9 @@ final class Router: ObservableObject {
             name.space.map { (name.id, $0) } }, uniquingKeysWith: { a, _ in a })
         let holdNames = store.migrationPending || store.upgradeUndone
         let displayFallback = store.document.displayRoles.fallbackToFirstExternal
+        let bindings = self.bindings
+        let firstSeen = self.firstSeen
+        let initial = !sweptAny
         let token = generation.token()
         isSweeping = true
         sweepRequested = false
@@ -2420,7 +2447,9 @@ final class Router: ObservableObject {
                                      refusedSizes: refusedSizes,
                                      lastAttempts: lastAttempts, movesAllowed: movesAllowed,
                                      nameSpaces: nameSpaces, holdNames: holdNames,
-                                     displayFallback: displayFallback, token: token)
+                                     displayFallback: displayFallback,
+                                     bindings: bindings, firstSeen: firstSeen, initial: initial,
+                                     token: token)
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
@@ -2459,6 +2488,24 @@ final class Router: ObservableObject {
                     self.refusedSizes = self.refusedSizes.filter { isLive($0.key) }
                 }
                 self.refusedSizes.merge(outcome.refusedSizes) { $1 }
+                // Yönlendirme kapalıyken (duraklama, yatışma) kural listesi boş
+                // geçer: bağlar o taramadan alınmaz, yoksa hepsi düşerdi.
+                var bindings = (routing ? outcome.context.bindings : self.bindings)
+                    .merging(self.bindingOverrides) { $1 }
+                self.bindingOverrides = [:]
+                // Listede olmayan ama yaşayan (ör. geçici olarak masaüstüsüz)
+                // pencereler ilk görülme anını korur, dönünce yeniden beklemez.
+                var firstSeen = self.firstSeen.merging(outcome.firstSeen) { old, _ in old }
+                if !live.isEmpty {
+                    bindings = Routing.prunedBindings(bindings, alive: Set(live.keys))
+                    firstSeen = firstSeen.filter { live[$0.key] != nil }
+                }
+                self.bindings = bindings
+                self.firstSeen = firstSeen
+                self.sweptAny = true
+                var context = outcome.context
+                context.bindings = bindings
+                if context != self.routingContext { self.routingContext = context }
                 self.applied = applied
                 self.attempts = attempts
                 self.lastAttempts = lastAttempts
@@ -2504,6 +2551,8 @@ final class Router: ObservableObject {
                 }
                 if outcome.needsFollowUp || outcome.stale || self.sweepRequested {
                     self.scheduleFollowUp(after: outcome.needsFollowUp ? 200 : 20)
+                } else if let held = outcome.heldUntil {
+                    self.scheduleFollowUp(after: UInt64(max(0.05, held + 0.05) * 1000))
                 }
                 var status = self.status
                 status.routedWindows = outcome.routed
@@ -2550,6 +2599,11 @@ final class Router: ObservableObject {
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
         /// yeniden dene.
         var needsFollowUp = false
+        /// Taramanın seçim durumu (bağlar güncel) ve ilk görülme anları.
+        var context = Routing.Context()
+        var firstSeen: [CGWindowID: Date] = [:]
+        /// En erken bekleme bitişine kalan süre (sn); bekleyen yoksa nil.
+        var heldUntil: TimeInterval?
     }
 
     /// Bir pencerenin taramada bir kez okunan durumu; anlık görüntü,
@@ -2603,7 +2657,10 @@ final class Router: ObservableObject {
         attempts: [String: Int], refusedSizes: [String: CGSize],
         lastAttempts: [String: Date], movesAllowed: Bool,
         nameSpaces: [String: UInt64] = [:], holdNames: Bool = false,
-        displayFallback: Bool = false, token: RoutingGeneration.Token
+        displayFallback: Bool = false,
+        bindings: [CGWindowID: Routing.Binding] = [:], firstSeen: [CGWindowID: Date] = [:],
+        initial: Bool = false,
+        token: RoutingGeneration.Token
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts, lastAttempts: lastAttempts)
         let sky = SkyLight.shared
@@ -2677,14 +2734,34 @@ final class Router: ObservableObject {
         }
 
         let now = Date()
+        // Seçim durumu (§B): yapışkan bağlar, genel başlıklı yeni pencereler
+        // ve tam başlık sahipleri.
+        var context = Routing.Context(bindings: bindings)
+        for window in listed {
+            let seen = firstSeen[window.id] ?? (initial ? .distantPast : now)
+            outcome.firstSeen[window.id] = seen
+            if Routing.isHeld(title: window.title, appName: window.appName, firstSeen: seen, now: now,
+                              titleRules: Routing.hasTitleRule(rules, bundleID: window.bundleID,
+                                                               appName: window.appName)) {
+                context.held.insert(window.id)
+                // Bekleme bitince bir tarama daha (başlık değişmese de).
+                let due = seen.addingTimeInterval(Routing.genericTitleGrace).timeIntervalSince(now)
+                outcome.heldUntil = min(outcome.heldUntil ?? due, due)
+            }
+        }
+        context.exactOwned = Routing.exactOwners(
+            rules: rules,
+            windows: listed.filter { !context.held.contains($0.id) }
+                .map { ($0.bundleID, $0.appName, $0.title) })
         windowLoop: for window in listed {
-            // Arayüzle aynı seçim: oturum pini, yoksa bu modda hedefi olan
-            // en özgül eşleşen kural.
-            guard let match = Routing.select(
+            // Arayüzle aynı seçim: oturum pini, yoksa bağlı kural, yoksa bu
+            // modda hedefi olan en özgül eşleşen kural.
+            let resolved = Routing.resolve(
                 rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
                 bundleID: window.bundleID, appName: window.appName, title: window.title,
-                document: documents[window.id])
-            else { continue }
+                document: documents[window.id], context: context)
+            context.bindings[window.id] = resolved.binding
+            guard let match = resolved.match else { continue }
             // Serbest hareket izni olan pencereye dokunulmaz (izin geçerliliği
             // taramadan önce ana aktörde denetlenir: `validateFreeMoves`).
             if free.contains(window.id) { continue }
@@ -2856,6 +2933,7 @@ final class Router: ObservableObject {
                 outcome.lastAttempts[moveKey] = nil
             }
         }
+        outcome.context = context
         return outcome
     }
 

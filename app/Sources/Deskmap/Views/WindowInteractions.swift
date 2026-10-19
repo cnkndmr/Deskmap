@@ -22,7 +22,8 @@ struct WindowActions {
     var pinnedRule: Rule? {
         Routing.select(rules: store.document.rules, sessionPins: [:], mode: mode,
                        windowID: window.id, bundleID: window.bundleID,
-                       appName: window.appName, title: window.title, document: window.document)?.rule
+                       appName: window.appName, title: window.title, document: window.document,
+                       context: isLive ? router.routingContext : nil)?.rule
     }
 
     /// Bu pencerenin kimliğine bağlı oturum pini (kalıcı kuraldan önce gelir).
@@ -52,7 +53,8 @@ struct WindowActions {
         let match = Routing.select(
             rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
             windowID: window.id, bundleID: window.bundleID,
-            appName: window.appName, title: window.title, document: window.document)
+            appName: window.appName, title: window.title, document: window.document,
+            context: mode == screens.mode ? router.routingContext : nil)
         let name = match.flatMap { m in screens.screens.first { $0.id == m.destination.screen }?.name }
         return Routing.explanation(for: match, screenName: name)
     }
