@@ -13,6 +13,11 @@ number comes from the `VERSION` file.
   desktop moves start off and the main window shows a card saying so (display
   and layout still apply). **Try Anyway** turns them on and is remembered; the
   circuit breaker still watches every move (`Services/MoveSupport.swift`).
+  `status.json` reports the state as `desktopMoves` and `deskmap status`
+  prints a line when moves are off.
+- **CLI unit tests.** `make cli-test` runs offline tests of the `deskmap`
+  command line tool (layout parsing, layout files, merging, matching, the
+  `check` report); the pre-commit hook runs them when the CLI changes.
 
 - **Open a workspace at once.** A desktop with closed pinned windows shows
   **Open N** next to its name (list and visual view); one click opens them
@@ -104,6 +109,11 @@ number comes from the `VERSION` file.
   gone).
 
 ### Fixed
+
+- **`make concurrency-check` counts warnings again.** The compiler colors its
+  output, so the warning pattern never matched and the count was always 0.
+- **Links in the Turkish docs and changelogs** that pointed to wrong relative
+  paths on GitHub.
 
 - **Desktop names no longer get lost through the other setup's plan.** Removing
   a laptop desktop row from the setup that is not active used to drop the

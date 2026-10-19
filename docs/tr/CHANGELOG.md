@@ -13,7 +13,11 @@ numarası `VERSION` dosyasından gelir.
   masaüstü taşıma kapalı başlar ve ana pencerede bunu söyleyen bir kart
   görünür (ekran ve düzen yine uygulanır). **Yine de dene** taşımayı açar ve
   hatırlanır; devre kesici her taşımayı izlemeye devam eder
-  (`Services/MoveSupport.swift`).
+  (`Services/MoveSupport.swift`). `status.json` durumu `desktopMoves` olarak
+  yazar, taşıma kapalıysa `deskmap status` bunu bir satırla söyler.
+- **CLI birim testleri.** `make cli-test`, `deskmap` komut satırı aracının
+  çevrimdışı testlerini koşar (düzen ayrıştırma, düzen dosyaları, birleştirme,
+  eşleştirme, `check` raporu); CLI değişince pre-commit kancası da koşar.
 
 - **Bir çalışma alanını tek seferde aç.** Kapalı sabit pencereleri olan bir
   masaüstünün adının yanında **N aç** görünür (liste ve görsel görünümde);
@@ -114,6 +118,12 @@ numarası `VERSION` dosyasından gelir.
   kaldırıldı).
 
 ### Düzeltilenler {#fixed}
+
+- **`make concurrency-check` uyarıları yeniden sayıyor.** Derleyici çıktısını
+  renklendirdiği için uyarı deseni hiçbir satıra uymuyor, sayı hep 0
+  çıkıyordu.
+- **Türkçe belgelerde ve değişiklik günlüklerinde** GitHub’da yanlış göreli
+  yola giden bağlantılar.
 
 - **Masaüstü adları artık öteki kurulumun planı yüzünden kaybolmuyor.** Etkin
   olmayan kurulumdan bir laptop masaüstü satırını silmek, etkin kurulumun aynı
