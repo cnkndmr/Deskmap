@@ -8,6 +8,19 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Second external monitor.** Each external monitor keeps its role
+  (*Monitor 1*, *Monitor 2*, …) by its display UUID instead of its left-to-right
+  position: rearranging displays, plugging them in another order, a virtual
+  display on the left or two monitors of the same model no longer move pins to
+  the other monitor. With two or more connected, the card title is a menu to
+  swap them; `deskmap screen-role`, `deskmap screen-role --forget` and the URL
+  commands `screen-role`, `screen-role-forget` do the same. New setting
+  **Second monitor missing** (on): pins on an unplugged `external-2` wait on
+  `external` and go back when it returns; `deskmap screen-fallback on|off`.
+  `rules.json` gets an optional `displayRoles` field (schema 6 unchanged;
+  older versions ignore it and fall back to position order). `status.json`
+  screens carry their `uuid` (`Models/DisplayRoles.swift`).
+
 - **Open a workspace at once.** A desktop with closed pinned windows shows
   **Open N** next to its name (list and visual view); one click opens them
   all, each routed to its pinned place. Every app group gets a button at the

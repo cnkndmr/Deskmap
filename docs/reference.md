@@ -243,10 +243,27 @@ pressing its pin) opens a pin for that setup and does not move the window. When 
 unplugged, Deskmap waits for the displays to settle (2.5 s, at most
 10 s) and then places every pinned window again.
 
-Displays are identified by role, not by serial number: `builtin`, `external`,
-`external-2`, … External displays are numbered left to right; displays stacked
-in the same column are ordered by vertical position (the lower one first),
-then by UUID. A pin whose display isn't connected is skipped.
+Pins name a display role: `builtin`, `external`, `external-2`, … (on the map:
+*Monitor 1*, *Monitor 2*, …). Each external monitor keeps the role it first got,
+remembered by its macOS display UUID: rearranging displays, plugging them in a
+different order or adding a virtual display on the left no longer moves pins
+to the other monitor. A monitor Deskmap has not seen takes the lowest free
+role; displays without a remembered role are numbered left to right (stacked
+ones by vertical position, the lower first, then by UUID), which is also how
+roles were given before. Two monitors of the same model are told apart by
+their UUIDs (macOS derives them from the serial number); the map adds
+*(left)* / *(right)* to identical names.
+
+With two or more external monitors connected, the card title is a menu: pick
+which monitor the card stands for; the two swap and windows move at once.
+`deskmap screen-role` does the same from the terminal. Settings › General ›
+**Monitor roles › Forget** returns to left-to-right order.
+
+**Second monitor missing** (Settings › General, on by default): a pin whose
+monitor (`external-2`, …) is not connected goes to `external`, same desktop
+number and layout, and returns to its own monitor when that is plugged in
+again. Off: the pin is skipped and the window stays where macOS puts it. A
+pin on `external` while only another monitor is connected is skipped.
 
 ### Desktops
 
@@ -444,6 +461,9 @@ running, macOS starts it first.
 | `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Make a display have *count* desktops |
 | `deskmap://desktop-name/<screen>/<n>?name=<name>` | Name a desktop (empty name removes it). The name belongs to that desktop: it follows it when it is reordered or moved, also to the other display, and in plug/unplug. A name already used in the profile is refused |
 | `deskmap://quit` | Quit Deskmap (the way scripts and tests close it; never kill the process) |
+| `deskmap://screen-role/<monitor>/<role>` | Give a connected monitor (its current role or the start of its UUID) an external role; it keeps it from now on. A monitor already in that role swaps with it. Roles up to the number of connected monitors |
+| `deskmap://screen-role-forget` | Forget remembered monitor roles (left-to-right order again) |
+| `deskmap://screen-fallback/<on\|off>` | Second monitor missing: use the first external monitor (on) or leave the window (off) |
 | `deskmap://backup-now` | Run the automatic backup now |
 | `deskmap://backup-restore/<id>` | Restore a backup by id (e.g. `daily-2026-10-12`); see [Backups](#backups) |
 
@@ -480,6 +500,10 @@ deskmap export ~/office.deskmap.json [--profile Office]
 deskmap desktop-move external 1 3          # desktop 1 becomes desktop 3
 deskmap desktops [--json]                  # names with their live place, the plan of each setup
 deskmap name external 2 "Nova Ek"          # name the desktop that is desktop 2 now
+deskmap screens                            # roles, UUID start, "role kept" / "role by position"
+deskmap screen-role LG 2                   # this monitor is Monitor 2 from now on (swaps)
+deskmap screen-role --forget               # roles follow left-to-right order again
+deskmap screen-fallback off                # pins on a missing monitor 2 are skipped
 deskmap backups [--json]                   # automatic backups, newest first
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12
@@ -638,10 +662,11 @@ can't stall the others. It is picked up again automatically once it responds.
 
 ### External display roles swapped
 
-If two external displays share the same left edge, their roles (`external`,
-`external-2`) are ordered by vertical position (the lower display first).
-After an update that changed this order, drag the affected pins once; the
-order stays the same afterwards.
+Since remembered roles, a monitor keeps its role. If the roles are the wrong
+way round (for example the first time two monitors were seen together, when
+roles still come from left-to-right order), open the map and pick the right
+monitor in the card title menu, or run `deskmap screen-role <monitor> 1`.
+Settings › General › **Monitor roles › Forget** starts over.
 
 ### Reading the log
 
@@ -797,8 +822,9 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   document name in the title can only be pinned app-wide or with temporary
   pins.
 - **Full-screen windows** are left alone.
-- **Two setups only**: monitor connected / laptop only. External displays are
-  identified by position (left to right), not by model or serial number.
+- **Two setups only**: monitor connected / laptop only. With one or several
+  external monitors the setup is the same; a pin on a missing monitor follows
+  **Second monitor missing**.
 - **Not instant.** Placement happens on window events. A light check every
   5 seconds catches what events miss (a full scan only when something
   changed, plus one every two minutes); title changes are grouped for a
