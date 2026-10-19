@@ -40,10 +40,15 @@ struct ScreenMapView: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
                     .padding(.top, 4)
-                FlowLayout(spacing: 12) {
+                    .id(WindowAnchor(id: MapPlaces.awayAnchorID))
+                // Izgara: kart yüksekliği satır içeriğiyle ölçülür (FlowLayout
+                // ideal boyla ölçüp kartı kısa sayıyordu).
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: Self.awayCardWidth,
+                                                       maximum: Self.awayCardWidth + 60),
+                                             spacing: 12, alignment: .top)],
+                          alignment: .leading, spacing: 12) {
                     ForEach(cards.away) { screen in
                         card(screen, counts: counts, shadowed: shadowed)
-                            .frame(width: Self.awayCardWidth)
                     }
                 }
             }
@@ -52,7 +57,7 @@ struct ScreenMapView: View {
     }
 
     /// Bağlı olmayan monitörün dar kartının genişliği.
-    static let awayCardWidth: CGFloat = 340
+    static let awayCardWidth: CGFloat = 420
 
     private func card(_ screen: KnownScreen, counts: [String: Int],
                       shadowed: [String: String]) -> some View {
@@ -202,6 +207,13 @@ private struct ScreenCard: View {
                         .lineLimit(1)
                         .help(screen.isBuiltin ? "" : screen.name)
                 }
+                if !isConnected && !screen.isBuiltin {
+                    // Model adı: soluk kartta hangi monitörün beklediği.
+                    Text(screen.name)
+                        .fontWeight(.regular)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
                 if ui.visualMap {
                     Text(L("· %ld desktops", realCount ?? tileCount))
                         .fontWeight(.regular)
@@ -209,13 +221,6 @@ private struct ScreenCard: View {
                         .lineLimit(1)
                 }
                 if !isConnected {
-                    if !screen.isBuiltin {
-                        // Model adı: soluk kartta hangi monitörün beklediği.
-                        Text(screen.name)
-                            .fontWeight(.regular)
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                    }
                     Text(L("not connected"))
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
@@ -233,7 +238,8 @@ private struct ScreenCard: View {
 
             if isHeld { heldActions }
 
-            if ui.visualMap { grid } else { rows }
+            // Bağlı olmayan monitörün dar kartı her görünümde kısa satırlarla.
+            if ui.visualMap && !isAway { grid } else { rows }
         }
         .padding(10)
         .opacity(isAway ? 0.7 : 1)

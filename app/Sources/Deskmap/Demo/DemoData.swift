@@ -218,6 +218,47 @@ enum DemoData {
         return World(document: document, screens: [builtinScreen, left, right], windows: windows)
     }
 
+    // MARK: - Takılı olmayan monitör (`--scenario away-monitor`)
+
+    /// Mail'in sabitlemesi (yerleri 2. monitör, sonra Ekstra monitör); pin
+    /// panelinin yer listesi karesi bunu açar.
+    static let awayMailRuleID = "demo-rule-mail-places"
+
+    /// İki monitörden 2. monitör takılı değil: haritanın altında dar, soluk
+    /// kart (son görülen 2 masaüstü), Mail'in 2. monitördeki yeri hayalet
+    /// çip, pencere Ekstra monitördeki ikinci yerinde. Terminal'in yalnız 2.
+    /// monitörde yeri var: yedekle Ekstra monitörde. Uydurma veri.
+    static func awayMonitor() -> World {
+        let two = twoMonitors()
+        var document = two.document
+        let away = two.screens.first { $0.id == "external-2" }!
+        document.rules = document.rules.map { rule in
+            var rule = rule
+            if rule.bundleID == "com.apple.mail", rule.docked?.screen == "external-2" {
+                rule.id = awayMailRuleID
+                rule.dockedNext = [Destination(screen: "external", desktop: 2, layout: .leftHalf)]
+            }
+            return rule
+        }
+        document.profiles = document.profiles.map { profile in
+            var profile = profile
+            if profile.id == document.activeProfileID { profile.rules = document.rules }
+            return profile
+        }
+        document.displayRoles.lastDesktopCount = [ScreenInfo.normalize(away.uuid): 2]
+        let windows = two.windows.map { window -> Router.WindowSnapshot in
+            guard window.placement?.screen == "external-2" else { return window }
+            // Mail ikinci yerine (Ekstra monitör 2), Terminal yedekle Ekstra monitör 1.
+            let desktop = window.bundleID == "com.apple.mail" ? 2 : 1
+            return Router.WindowSnapshot(
+                id: window.id, pid: window.pid, appName: window.appName, bundleID: window.bundleID,
+                title: window.title, placement: Router.Placement(screen: "external", desktop: desktop),
+                frame: window.frame, isMinimized: window.isMinimized)
+        }
+        return World(document: document, screens: two.screens.filter { $0.id != "external-2" },
+                     windows: windows)
+    }
+
     // MARK: - Kalabalık senaryo (`--scenario crowded`)
 
     /// Görsel haritanın gerçek kullanımdaki hâli: laptop + harici ekran,

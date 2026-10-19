@@ -213,6 +213,7 @@ struct DesktopRow: View {
     /// Bu masaüstündeki hayalet çipler: pinlerin şu an kullanılmayan yerleri.
     private var ghostPins: [MapPlaces.Ghost] {
         MapPlaces.ghosts(store.document.rules, mode: mode, live: isLive, usable: usable,
+                         connected: isLive ? Set(screens.screens.map(\.id)) : [],
                          screen: screen.id, desktop: desktop)
     }
 

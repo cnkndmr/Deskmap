@@ -28,6 +28,8 @@ for lang in en tr; do
   mkdir -p "$out"
   "$APP" --shots "$out" -AppleLanguages "($lang)" -AppleInterfaceStyle Dark 2>/dev/null
   "$APP" --shots "$out" --scenario crowded -AppleLanguages "($lang)" -AppleInterfaceStyle Dark 2>/dev/null
+  "$APP" --shots "$out" --scenario away-monitor -AppleLanguages "($lang)" -AppleInterfaceStyle Dark 2>/dev/null
+  "$APP" --shots "$out" --scenario held-monitor -AppleLanguages "($lang)" -AppleInterfaceStyle Dark 2>/dev/null
   for f in docs/images/"$lang"/*.png; do
     name=$(basename "$f" .png)
     src=$(source_name "$name")

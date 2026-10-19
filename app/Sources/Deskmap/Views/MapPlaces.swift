@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 /// Haritanın sıralı yerlerle ilgili saf kararları (docs/bug-tables.md §D):
@@ -7,6 +8,10 @@ import Foundation
 enum MapPlaces {
 
     // MARK: - Kartlar (K8)
+
+    /// Bağlı olmayan kartlar sırasının kaydırma çapası (`RevealRequest`
+    /// bununla o sıraya kaydırır; gerçek pencere kimliğiyle çakışmaz).
+    static let awayAnchorID = CGWindowID.max
 
     /// Canlı monitörlü planda bağlı kartlar üstte (eski sırasıyla), bağlı
     /// olmayan harici kartlar altta ayrı sırada. Öbür planda hepsi
@@ -65,12 +70,15 @@ enum MapPlaces {
         var label: String { "\(order) · \(rule.isAppWide ? rule.appName : rule.title)" }
     }
 
-    /// Bu masaüstündeki hayalet çipler: kazanan olmayan ve ekranı bu an
-    /// kullanılmayan (bağlı değil ya da öbür plan) yerler. Yalnız
-    /// monitörlü plan (laptopun tek yeri var).
+    /// Bu masaüstündeki hayalet çipler: kazanan olmayan yerler, yalnız
+    /// takılı olmayan monitörün kartında (canlı planda) ya da öbür planda.
+    /// Takılı ama onay bekleyen monitörün kartında yok: orada pencereler
+    /// zaten görünür, düzen onayı bekler. Yalnız monitörlü plan.
+    /// `connected`: canlı planda takılı bütün roller (onay bekleyenler dahil).
     static func ghosts(_ rules: [Rule], mode: Mode, live: Bool, usable: Set<String>,
-                       screen: String, desktop: Int) -> [Ghost] {
-        guard mode == .docked, !usable.contains(screen) else { return [] }
+                       connected: Set<String>, screen: String, desktop: Int) -> [Ghost] {
+        guard mode == .docked, !usable.contains(screen), !(live && connected.contains(screen))
+        else { return [] }
         return rules.flatMap { rule -> [Ghost] in
             let places = rule.places(.docked)
             guard places.count > 1 || live else { return [] }

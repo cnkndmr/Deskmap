@@ -645,19 +645,23 @@ struct DockedPlacesMapTests {
                                  screen: "external", desktop: 2).map(\.id) == ["safari", "notes"])
         #expect(MapPlaces.pinned(rules, mode: .docked, live: true, usable: usable,
                                  screen: "external-2", desktop: 1).isEmpty)
-        let ghosts = MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable,
+        let ghosts = MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable, connected: usable,
                                       screen: "external-2", desktop: 1)
         #expect(ghosts.map(\.label) == ["1 · Safari"])
-        #expect(MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable,
+        #expect(MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable, connected: usable,
                                  screen: "external-3", desktop: 2).map(\.label) == ["1 · Notes"])
         // Bağlı kartta hayalet çip yok.
-        #expect(MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable,
+        #expect(MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable, connected: usable,
                                  screen: "external", desktop: 2).isEmpty)
         // Öbür planda ilk yer normal çip, sonrakiler hayalet.
-        #expect(MapPlaces.ghosts(rules, mode: .docked, live: false, usable: [],
+        #expect(MapPlaces.ghosts(rules, mode: .docked, live: false, usable: [], connected: [],
                                  screen: "external", desktop: 2).map(\.label) == ["2 · Safari"])
+        // Takılı ama onay bekleyen monitörün kartında hayalet yok.
+        #expect(MapPlaces.ghosts(rules, mode: .docked, live: true, usable: usable,
+                                 connected: usable.union(["external-2"]),
+                                 screen: "external-2", desktop: 1).isEmpty)
         // Laptop planında hayalet yok.
-        #expect(MapPlaces.ghosts(rules, mode: .undocked, live: true, usable: ["builtin"],
+        #expect(MapPlaces.ghosts(rules, mode: .undocked, live: true, usable: ["builtin"], connected: ["builtin"],
                                  screen: "builtin", desktop: 1).isEmpty)
     }
 

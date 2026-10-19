@@ -69,7 +69,9 @@ enum Shots {
         let twoMonitors = options.scenario == "two-monitors"
         let heldMonitor = options.scenario == "held-monitor"
         let sequence = options.scenario == "demo"
+        let awayMonitor = options.scenario == "away-monitor"
         let world = crowded ? DemoData.crowded() : twoMonitors ? DemoData.twoMonitors()
+            : awayMonitor ? DemoData.awayMonitor()
             : sequence ? DemoData.demoSequence() : DemoData.make()
         var document = world.document
         if heldMonitor {
@@ -195,8 +197,36 @@ enum Shots {
             extra.orderOut(nil)
         }
 
+        if awayMonitor {
+            // m4 — takılı olmayan 2. monitör: altta dar, soluk kart; Mail'in
+            // oradaki yeri hayalet çip; Terminal yedekle Ekstra monitörde.
+            // Harita soluk kart sırasına kaydırılır (karenin altında kalmasın).
+            // Masaüstü sayıları kaydırmadan önce: sonra gelirse içerik uzar,
+            // kaydırma eski yerde kalır. İki kez: ilki yerleşimden önce gelebilir.
+            ui.desktopCounts = fixedDesktopCounts
+            pump(0.3)
+            for seq in 1...2 {
+                ui.reveal = RevealRequest(window: MapPlaces.awayAnchorID, seq: seq)
+                pump(0.4)
+            }
+            capture("m4-away-monitor")
+            ui.visualMap = false
+            for seq in 3...4 {
+                ui.reveal = RevealRequest(window: MapPlaces.awayAnchorID, seq: seq)
+                pump(0.4)
+            }
+            capture("m4-away-monitor-list")
+            ui.visualMap = true
+            // m5 — Mail'in pin paneli: sıralı yerler, kullanılan yer vurgulu.
+            ui.panel = .rule(DemoData.awayMailRuleID)
+            capture("m5-places-panel")
+            window.orderOut(nil)
+            exit(0)
+        }
+
         if heldMonitor {
-            // m3 — hatırlanmayan monitör: kartta "düzen bekliyor", başlıkta menü.
+            // m3 — hatırlanmayan monitör: kartta "düzen bekliyor", başlıkta
+            // menü, "Sıranın sonuna ekle" ve "Yerine geç…" (K6).
             capture("m3-held-monitor")
             window.orderOut(nil)
             exit(0)
