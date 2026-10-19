@@ -45,9 +45,11 @@ is signed the same way (see *Upgrading*).
   it and no cleanup runs there. Its card says *new monitor · layout on hold*
   and offers *Use as Extra monitor / Monitor 2 …* (asks first) and *Forget This
   Monitor* on remembered ones.
-- **Second monitor missing** (Settings › General, on by default): pins on an
-  unplugged `external-2` wait on `external` and go back when it returns.
-  `deskmap screen-fallback on|off`.
+- **Ordered places for several monitors**: drop a pinned window on another
+  monitor and its old place is kept below the new one; the first place whose
+  monitor is connected wins, so unplugging Monitor 2 sends its windows back.
+  With none connected, the first connected monitor in role order takes the
+  window. Layout files take `docked: [external-2/1, external/2]`.
 - **Send a desktop to another display** from its context menu; drag desktops
   across displays on the map.
 
@@ -130,12 +132,12 @@ is signed the same way (see *Upgrading*).
 - **`deskmap` CLI** (`scripts/deskmap`): `status`, `screens`, `desktops`,
   `rules`, `apply` / `check` / `undo` with layout files, `dump`, profile
   rename/export, desktop reorder, `save-layout`, `free`, `screen-role`,
-  `screen-fallback`, `backups`, `backup-restore`, `hooks`. `deskmap --help`
+  `backups`, `backup-restore`, `hooks`. `deskmap --help`
   carries an arrangement guide for agents. `make cli-test` runs its offline
   unit tests.
 - **`status.json`** (names, plans, screens with `uuid`, `heldRoles`,
   `desktopMoves`, free-move state) and **URL commands** (`deskmap://pin`,
-  `profile-set`, `plan-desktops`, `free`, `screen-role`, `screen-fallback`,
+  `profile-set`, `plan-desktops`, `free`, `screen-role`,
   `quit`, …). `DESKMAP_DATA_DIR` points the app at another data folder.
 - **Screen change hooks** (`hooks.json`): run a command when displays are
   connected, removed or change; waits for mouse release, times out commands.
@@ -218,7 +220,6 @@ ignore it).
 
 | Setting | Where | Default | What it does |
 |---|---|---|---|
-| Second monitor missing | Settings › General, `deskmap screen-fallback` | on | pins of an unplugged second monitor wait on the first |
 | Try Anyway (desktop moves) | card in the main window, `status.json` `desktopMoves` | off on macOS 15.x and 26.0–26.3, on elsewhere | turns desktop moves on; remembered |
 | Backups | Settings › Backups | on, automatic | hourly / daily / weekly copies, restore |
 | Monitor roles | second monitor card menu, `deskmap screen-role` | learned from the first monitor | which physical monitor is *Extra monitor* / *Monitor 2* |

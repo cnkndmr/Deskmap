@@ -168,8 +168,10 @@ now**; the other one says when it applies.
 With two external monitors the map shows a card for each (**Extra monitor**,
 **Monitor 2**). Each monitor keeps its card wherever you place it in System
 Settings › Displays; if the two are the wrong way round, click the title of
-the Monitor 2 card, pick the other monitor and confirm. While Monitor 2 is
-unplugged its windows wait on the Extra monitor (Settings › General › **Second monitor missing**).
+the Monitor 2 card, pick the other monitor and confirm (their layouts swap
+with them). Drag a window to another monitor and its old place is kept: when
+that monitor is unplugged, the window goes back there. A window with no place
+on any connected monitor goes to the first one in order (Extra monitor first).
 
 Set up one, switch, set up the other. When you plug the monitor in or pull
 it out, the app waits a couple of seconds for the displays to settle and

@@ -1,10 +1,11 @@
-# Hata tabloları: ana harici monitör, pencere kayması, haritada gösterme
+# Hata tabloları: ana harici monitör, pencere kayması, haritada gösterme, sıralı yerler
 
 Üç açık hata, her biri işlem × durum tablosu olarak. Her hücrede hatayı
 yeniden üreten testin adı var (`app/Tests/DeskmapTests/`). `main`'de hatalı
 hücreler `withKnownIssue` ile işaretli; takım yeşil kalır, her bilinen hata
 test çıktısında listelenir. Bu testler gerçek pencere taşımaz: ekranlar,
-masaüstüleri ve pencereler sahte.
+masaüstüleri ve pencereler sahte. D bölümü hata değil: sıralı yerler
+tasarımının işlem × durum tablosu.
 
 Gösterim: **OK** beklendiği gibi · **HATA** yeniden üretildi · **DÜZELTME**
 öneri dalında (`gece/1910-deskmap-b-oneri`) düzeltildi, `main`'de değil.
@@ -185,6 +186,68 @@ yok.
 satıra kayarak değil, atlayarak gider. Izgara kutusu kimliğini `.offset`'ten
 sonra taşıdığı için kaydırma hedefi kutunun kendisi değil masaüstü kartının sol
 üstü; kart yine görünür alanda kalıyor, dokunulmadı.
+
+## D. Birden çok monitörde sıralı yerler
+
+Hata değil: sıralı yerlerin (`Rule.docked` + `dockedNext`,
+`Routing.resolvePlace`) tasarım tablosu. Her satır
+`app/Tests/DeskmapTests/DockedPlacesTests.swift`’te (`d1_1_…` = D1.1 satırı) ya da
+`scripts/clitest/test_deskmap.py`’de (`DockedListTests`) bir test.
+
+Örnek masa: rol sırası 1. Dell, 2. LG, 3. Samsung (Samsung’da 2 masaüstü);
+dahili ekran hep var. Safari: `LG · 1`, `Dell · 2`, laptop `Laptop · 1`. Mail:
+`Dell · 3`, laptop `Laptop · 2`. Notlar: `Samsung · 2`, laptop yeri yok. Müzik:
+monitör yeri yok, laptop `Laptop · 3`. "Dokunulmaz": Deskmap pencereyi taşımaz.
+
+| Satır | Durum | İşlem | Beklenen |
+| --- | --- | --- | --- |
+| D1.1 | yalnız laptop | — | Safari Laptop · 1, Mail Laptop · 2, Müzik Laptop · 3, Notlar dokunulmaz |
+| D1.2 | yalnız laptop | Dell’i tak | Safari Dell · 2, Mail Dell · 3, Notlar Dell · 2 (yedek), Müzik dokunulmaz |
+| D1.3 | Dell | LG’yi tak | Safari LG · 1, Mail Dell · 3, Notlar Dell · 2 |
+| D1.4 | Dell + LG | Samsung’u tak | Notlar Samsung · 2, ötekiler yerinde |
+| D1.5 | üçü | LG’yi çıkar | Safari Dell · 2’ye döner |
+| D1.6 | Dell + LG | Dell’i çıkar | Safari LG · 1, Mail LG · 3 (yedek), Notlar LG · 2 |
+| D1.7 | LG | Dell’i geri tak | Mail Dell · 3’e döner, Safari LG · 1’de kalır |
+| D1.8 | Dell + LG | hepsini çıkar | laptop yerleri; Notlar dokunulmaz |
+| D1.9 | Dell + LG | Sistem Ayarları’nda LG’yi Dell’in soluna al | hiçbir şey taşınmaz (roller UUID’ye bağlı) |
+| D1.10 | yalnız Samsung | — | Mail Samsung · 2 (3. masaüstü yok → son), Safari Samsung · 1 (ilk yerin numarası) |
+| D2.1 | Dell | tanınmayan BenQ’yu tak | BenQ onay bekler, ona bir şey gitmez |
+| D2.2 | D2.1 sonrası | BenQ’yu sıranın sonuna ekle (4. monitör) | kimse taşınmaz; BenQ yedek sırasında |
+| D2.3 | D2.1 sonrası | BenQ LG’nin yerine geçer | Safari BenQ · 1 (LG’nin düzeni) |
+| D2.4 | yalnız BenQ (onay bekliyor) | — | hiçbir şey taşınmaz, laptop yerleri kullanılmaz |
+| D3.1 | Dell + LG | Dell kartında LG’yi seç | roller ve düzenler yer değiştirir: Mail LG · 3, Safari Dell · 1; sabitleme kaybolmaz |
+| D3.2 | D3.1 sonrası | geri değiştir | önceki gibi |
+| D3.3 | Dell | LG kartında (bağlı değil) Samsung’u seç | sıra Dell, Samsung, LG; Samsung takılınca Safari Samsung · 1 |
+| D3.4 | — | kart menüsü | yalnız Deskmap’in gördüğü monitörler (harita turu, burada test yok) |
+| D3.5 | D3.1 sonrası | Dell’i çıkar | Safari LG · 2, Mail LG · 3 |
+| D4.1 | Dell + LG | Safari’yi LG · 2’ye bırak | `LG · 2`, `Dell · 2` (aynı monitör: değişir) |
+| D4.2 | Dell + LG | Safari’yi Dell · 3’e bırak | `Dell · 3`, `LG · 1` (başka monitör: başa, Dell’deki eski yer gider) |
+| D4.3 | Dell | Safari’yi Samsung · 1’e bırak (bağlı değil) | `Samsung · 1`, `LG · 1`, `Dell · 2`; Safari Dell · 2’de kalır |
+| D4.4 | Dell | `Dell · 2`’de ↑ | `Dell · 2`, `LG · 1` |
+| D4.5 | Dell | `Dell · 2`’de × | `LG · 1` → yedek Dell · 1 |
+| D4.6 | Dell | Mail’in tek yerinde × | boş liste, Mail dokunulmaz |
+| D4.7 | yalnız laptop | Müzik’i Laptop · 2’ye bırak | laptop yeri değişir, monitör listesi yok |
+| D4.8 | Dell | Müzik’i Dell · 1’e bırak | `Dell · 1`; laptop yeri Laptop · 3 kalır |
+| D5.1 | Dell + LG | ilk yer LG’deki "Okuma" masaüstü | Safari "Okuma"ya gider |
+| D5.2 | D5.1, "Okuma" Dell’e taşındı | — | Safari onu Dell’e izler |
+| D5.3 | D5.1 | LG’yi çıkar | sıradaki yer, Dell · 2; yalnız yeri bilinmeyen bir ad varsa pencere tutulur |
+| D5.4 | Dell + LG | profil değiştir | her profil kendi listesini tutar |
+| D5.5 | Dell + LG | LG’yi unut | LG onay bekler; yerleri silinmez, atlanır: Safari Dell · 2 |
+| D5.6 | D5.5 sonrası | LG’yi yeniden onayla | Safari LG · 1 |
+| D5.7 | — | profili çoğalt | aynı sıra, yeni kural kimlikleri |
+| D6.1 | Safari, iki yer | kaydet | `docked` = LG · 1, `dockedNext` = [Dell · 2] |
+| D6.2 | 0.5.0 dosyası | aç | tek yerli listeler, aynı davranış |
+| D6.3 | D6.1 dosyası | eski sürümle aç | yalnız `docked`’ı okur |
+| D6.4 | eski sürüm D6.1’i kaydetti | aç | `dockedNext` düşmüş: tek yer |
+| D6.5 | yedek / gidiş dönüş | — | listeler ve roller korunur |
+| D7.1 | düzen dosyası `docked: [external-2/1, external/2]` | `deskmap apply` | iki yerli liste |
+| D7.2 | düzen dosyası `docked: external/2` | `deskmap apply` | tek yer (eskisi gibi) |
+| D7.3 | — | `deskmap dump` / `rules` | liste sırasıyla |
+| D7.4 | — | `status.json` | pencerede `place`: `"1"`, `"2"` …, `"fallback"` ya da `"untouched"` |
+
+Ayrıca: masaüstü silmek o ekrandaki her yeri kaydırır; silinen ikinci yer
+sırasıyla hayalet masaüstüne gider ve geri gelince yine ikinci yer olur; ilk
+yerin masaüstü silinince sıradaki yer ilk olur.
 
 ## Kararlar (geliştirici için)
 

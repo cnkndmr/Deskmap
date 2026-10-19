@@ -23,16 +23,26 @@ number comes from the `VERSION` file.
 - **CLI unit tests.** `make cli-test` runs offline tests of the `deskmap`
   command line tool (layout parsing, layout files, merging, matching, the
   `check` report); the pre-commit hook runs them when the CLI changes.
+- **Ordered places for several monitors.** In the monitor-connected setup a
+  pin keeps an ordered list of places, one per monitor: drop a pinned window
+  on another monitor and the new place goes first, the old one stays below
+  it. The first place whose monitor is connected wins, so unplugging Monitor 2
+  sends its windows back to where they were. With none connected, the window
+  goes to the first connected monitor in role order, on the desktop number of
+  its first place. `rules.json` keeps the first place in `docked` (older
+  versions read it) and the rest in a new optional `dockedNext` field
+  (schema 6 unchanged). Layout files take `docked: [external-2/1, external/2]`;
+  `status.json` windows carry `place` (`"1"`, `"2"` …, `"fallback"`,
+  `"untouched"`). Design table: `docs/bug-tables.md` §D.
 - **Second external monitor.** Each external monitor keeps its role
   (*Extra monitor*, *Monitor 2*, …) by its display UUID instead of its left-to-right
   position: rearranging displays, plugging them in another order, a virtual
   display on the left or two monitors of the same model no longer move pins to
   the other monitor. With two or more connected, the second card's title is a menu to
   swap them (with confirmation); `deskmap screen-role`, `deskmap screen-role --forget` and the URL
-  commands `screen-role`, `screen-role-forget` do the same. New setting
-  **Second monitor missing** (on): pins on an unplugged `external-2` wait on
-  `external` and go back when it returns; `deskmap screen-fallback on|off`.
-  `rules.json` gets an optional `displayRoles` field (schema 6 unchanged;
+  commands `screen-role`, `screen-role-forget` do the same. Swapping two
+  monitors swaps their layouts; a card that is not connected can be swapped
+  too. `rules.json` gets an optional `displayRoles` field (schema 6 unchanged;
   older versions ignore it and fall back to position order). `status.json`
   screens carry their `uuid` (`Models/DisplayRoles.swift`).
 - **A monitor Deskmap does not remember waits.** After the first monitor has

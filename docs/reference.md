@@ -272,11 +272,23 @@ ROLE` does the same). *Forget This Monitor* in the same menu forgets one
 monitor (`deskmap screen-role DISPLAY --forget`). The very first monitor (and
 every monitor after Settings › *Forget*) is learned without asking.
 
-**Second monitor missing** (Settings › General, on by default): a pin whose
-monitor (`external-2`, …) is not connected goes to `external`, same desktop
-number and layout, and returns to its own monitor when that is plugged in
-again. Off: the pin is skipped and the window stays where macOS puts it. A
-pin on `external` while only another monitor is connected is skipped.
+**Ordered places.** In the monitor-connected setup a pin keeps an ordered
+list of places, at most one per display role: `docked` in `rules.json` is
+the first, `dockedNext` the rest. On every sweep the first place whose
+monitor is connected (and not on hold) wins; a desktop-name place counts
+where that desktop is now. Dropping a pinned window on another monitor puts
+the new place first and keeps the old one below it; dropping it on the same
+monitor changes that monitor's place. So when Monitor 2 is unplugged, a
+window that was moved there goes back to its earlier place on the Extra
+monitor. If none of the places is connected, the window goes to the first
+connected monitor in role order (Extra monitor, Monitor 2, …), on the desktop
+number of its first place (the last desktop if that monitor has fewer). A pin
+with only a laptop place is not touched while a monitor is connected, and
+nothing is moved while the only connected monitor is on hold. **Unpin** in
+this setup removes the whole list. Swapping two monitors on the card title
+menu swaps their layouts with them: no pin is lost. Older versions read only
+`docked` and keep working with the first place; saving the file with an older
+version drops `dockedNext`. Tables: [docs/bug-tables.md §D](bug-tables.md).
 `scripts/hooktest/multimon.sh` checks the macOS side with two virtual displays
 of the same model (UUIDs, unplug / replug, identical serial numbers).
 
@@ -479,7 +491,6 @@ running, macOS starts it first.
 | `deskmap://screen-role/<monitor>/<role>` | Give a connected monitor (its current role or the start of its UUID) an external role; it keeps it from now on. A monitor already in that role swaps with it. Roles up to the number of connected monitors |
 | `deskmap://screen-role-forget` | Forget remembered monitor roles (left-to-right order again) |
 | `deskmap://screen-role-forget/<monitor>` | Forget one connected monitor: its role waits on hold, its layout is not applied |
-| `deskmap://screen-fallback/<on\|off>` | Second monitor missing: use the first external monitor (on) or leave the window (off) |
 | `deskmap://backup-now` | Run the automatic backup now |
 | `deskmap://backup-restore/<id>` | Restore a backup by id (e.g. `daily-2026-10-12`); see [Backups](#backups) |
 
@@ -523,7 +534,6 @@ deskmap screens                            # roles, UUID start, "role kept" / "r
 deskmap screen-role LG 2                   # this monitor is Monitor 2 from now on (swaps)
 deskmap screen-role --forget               # roles follow left-to-right order again
 deskmap screen-role Pebble --forget         # forget this monitor only: its role waits
-deskmap screen-fallback off                # pins on a missing monitor 2 are skipped
 deskmap backups [--json]                   # automatic backups, newest first
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12
@@ -549,6 +559,8 @@ windows:
     title: Orion-Makale        # title fragment(s), optional
     docked: external/1 left-half   # screen/desktop layout
     undocked: builtin/1 full
+  - app: Safari
+    docked: [external-2/1, external/2]   # ordered: first connected wins
   - app: cmux
     docked: {screen: external, desktop: 2, layout: center-two-thirds}
     launch: true                   # open it if no window is open
@@ -580,7 +592,10 @@ routing is paused, and the last error. Besides `desktopNames` (display role →
 number → name, the current layout) it has `names` (`id`, `name`, `space`,
 `screen`, `desktop`: where the desktop is now, `planned`: setup → `screen/n`)
 and `plans` (setup → display role → list of name ids, `""` for an unnamed
-desktop). `desktopMoves` says whether desktop moves are on: `on`, `held`
+desktop). Each window's `place` says which of its pin's places was used in
+the last sweep: `"1"`, `"2"` … (ordered places), `"fallback"` (none
+connected, role order) or `"untouched"` (pinned, but left alone); `deskmap
+windows` shows it as `place=`. `desktopMoves` says whether desktop moves are on: `on`, `held`
 (unverified macOS, off until **Try Anyway**), `reduced` (reduced mode) or
 `unavailable`; `deskmap status` prints a line when they are off.
 
@@ -858,8 +873,10 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   pins.
 - **Full-screen windows** are left alone.
 - **Two setups only**: monitor connected / laptop only. With one or several
-  external monitors the setup is the same; a pin on a missing monitor follows
-  **Second monitor missing**.
+  external monitors the setup is the same; a pin's ordered places decide
+  where it goes for each set of connected monitors (one place per monitor,
+  so the same monitor cannot use a different desktop depending on which other
+  monitors are connected).
 - **Not instant.** Placement happens on window events. A light check every
   5 seconds catches what events miss (a full scan only when something
   changed, plus one every two minutes); title changes are grouped for a

@@ -1,10 +1,11 @@
-# Bug tables: primary external monitor, window drift, map reveal
+# Bug tables: primary external monitor, window drift, map reveal, ordered places
 
 Three open bugs, each written as an operation × state table. Every cell names
 the test that reproduces it (`app/Tests/DeskmapTests/`). On `main` the bug
 cells are marked `withKnownIssue`; the suite stays green and each known issue
 is listed in the test output. Nothing in these tests moves a real window:
-screens, desktops and windows are fake.
+screens, desktops and windows are fake. Section D is not a bug: it is the
+operation × state table of the ordered places design.
 
 Legend: **OK** works as intended · **BUG** reproduced · **FIX** fixed on the
 proposal branch (`gece/1910-deskmap-b-oneri`), not on `main`.
@@ -188,6 +189,69 @@ gone now.
 map jumps to the row instead of sliding. A grid box carries its id after
 `.offset`, so the scroll target is the desktop card's top left, not the box
 itself; the card is still in view, left as is.
+
+## D. Ordered places for several monitors
+
+Not a bug: the design table for ordered places (`Rule.docked` + `dockedNext`,
+`Routing.resolvePlace`). Every row is a test in
+`app/Tests/DeskmapTests/DockedPlacesTests.swift` (`d1_1_…` = row D1.1) or
+`scripts/clitest/test_deskmap.py` (`DockedListTests`).
+
+Example desk: role order 1. Dell, 2. LG, 3. Samsung (Samsung has 2 desktops);
+the built-in display is always there. Safari: `LG · 1`, `Dell · 2`, laptop
+`Laptop · 1`. Mail: `Dell · 3`, laptop `Laptop · 2`. Notes: `Samsung · 2`, no
+laptop place. Music: no monitor place, laptop `Laptop · 3`. "Untouched" means
+Deskmap does not move the window.
+
+| Row | State | Operation | Expected |
+| --- | --- | --- | --- |
+| D1.1 | laptop only | — | Safari Laptop · 1, Mail Laptop · 2, Music Laptop · 3, Notes untouched |
+| D1.2 | laptop only | plug Dell | Safari Dell · 2, Mail Dell · 3, Notes Dell · 2 (fallback), Music untouched |
+| D1.3 | Dell | plug LG | Safari LG · 1, Mail Dell · 3, Notes Dell · 2 |
+| D1.4 | Dell + LG | plug Samsung | Notes Samsung · 2, the others stay |
+| D1.5 | all three | unplug LG | Safari back to Dell · 2 |
+| D1.6 | Dell + LG | unplug Dell | Safari LG · 1, Mail LG · 3 (fallback), Notes LG · 2 |
+| D1.7 | LG | plug Dell again | Mail back to Dell · 3, Safari stays on LG · 1 |
+| D1.8 | Dell + LG | unplug all | laptop places; Notes untouched |
+| D1.9 | Dell + LG | move LG left of Dell in System Settings | nothing moves (roles follow the UUID) |
+| D1.10 | Samsung only | — | Mail Samsung · 2 (desktop 3 missing → last), Safari Samsung · 1 (number of the first place) |
+| D2.1 | Dell | plug an unknown BenQ | BenQ on hold, nothing goes there |
+| D2.2 | after D2.1 | add BenQ to the end (Monitor 4) | nothing moves; BenQ is in the fallback order |
+| D2.3 | after D2.1 | BenQ takes LG's place | Safari BenQ · 1 (LG's layout) |
+| D2.4 | only BenQ (on hold) | — | nothing moves, laptop places are not used |
+| D3.1 | Dell + LG | Dell card: choose LG | roles and layouts swap: Mail LG · 3, Safari Dell · 1; no pin lost |
+| D3.2 | after D3.1 | swap back | as before |
+| D3.3 | Dell | LG card (not connected): choose Samsung | order Dell, Samsung, LG; plug Samsung → Safari Samsung · 1 |
+| D3.4 | — | card menu | only monitors Deskmap has seen (map turn, not tested here) |
+| D3.5 | after D3.1 | unplug Dell | Safari LG · 2, Mail LG · 3 |
+| D4.1 | Dell + LG | drop Safari on LG · 2 | `LG · 2`, `Dell · 2` (same monitor: replaced) |
+| D4.2 | Dell + LG | drop Safari on Dell · 3 | `Dell · 3`, `LG · 1` (other monitor: first, Dell's old place gone) |
+| D4.3 | Dell | drop Safari on Samsung · 1 (not connected) | `Samsung · 1`, `LG · 1`, `Dell · 2`; Safari stays on Dell · 2 |
+| D4.4 | Dell | ↑ on `Dell · 2` | `Dell · 2`, `LG · 1` |
+| D4.5 | Dell | × on `Dell · 2` | `LG · 1` → fallback Dell · 1 |
+| D4.6 | Dell | × on Mail's only place | empty list, Mail untouched |
+| D4.7 | laptop only | drop Music on Laptop · 2 | laptop place changes, no monitor list |
+| D4.8 | Dell | drop Music on Dell · 1 | `Dell · 1`; laptop place stays Laptop · 3 |
+| D5.1 | Dell + LG | first place is desktop "Reading" on LG | Safari goes to "Reading" |
+| D5.2 | D5.1, "Reading" moved to Dell | — | Safari follows it to Dell |
+| D5.3 | D5.1 | unplug LG | next place, Dell · 2; a name with no known place alone holds the window |
+| D5.4 | Dell + LG | switch profile | each profile keeps its own lists |
+| D5.5 | Dell + LG | forget LG | LG on hold; its places are kept but skipped: Safari Dell · 2 |
+| D5.6 | after D5.5 | confirm LG again | Safari LG · 1 |
+| D5.7 | — | duplicate the profile | same order, new rule ids |
+| D6.1 | Safari, two places | save | `docked` = LG · 1, `dockedNext` = [Dell · 2] |
+| D6.2 | 0.5.0 file | open | one-place lists, same behaviour |
+| D6.3 | D6.1 file | open with an older version | it reads `docked` only |
+| D6.4 | older version saved D6.1 | open | `dockedNext` dropped: one place |
+| D6.5 | backup / round trip | — | lists and roles kept |
+| D7.1 | layout file `docked: [external-2/1, external/2]` | `deskmap apply` | two-place list |
+| D7.2 | layout file `docked: external/2` | `deskmap apply` | one place (as before) |
+| D7.3 | — | `deskmap dump` / `rules` | the list in order |
+| D7.4 | — | `status.json` | window `place`: `"1"`, `"2"` …, `"fallback"` or `"untouched"` |
+
+Also covered: deleting a desktop shifts every place on that display, a deleted
+second place goes to the ghost desktop with its position and comes back as the
+second place; deleting the first place's desktop makes the next place first.
 
 ## Decisions (for the maintainer)
 

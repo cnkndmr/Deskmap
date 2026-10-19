@@ -136,10 +136,12 @@ the lowest free roles in position order (`minX`, then `minY`, then UUID).
 Without any memory this is the old positional order. `AppModel` keeps both
 sides in step: the document's `displayRoles` goes to `ScreenService.roles`,
 and every settled display list is learned back into the document (not while
-settling, never the test display). `Router.resolveTarget` sends a pin whose
-`external-N` is missing to `external` when `fallbackToFirstExternal` is on;
-the applied key uses the resolved target, so the pin is placed again when its
-monitor returns. The built-in display is always `builtin`.
+settling, never the test display). A docked pin has ordered places
+(`Rule.docked` + `dockedNext`); `Routing.resolvePlace` (wrapped by
+`Router.resolvePlaces`) picks the first place on a connected display that is
+not on hold, else the first connected external in role order with the first
+place's desktop number. The applied key uses the resolved target, so the pin
+is placed again when its monitor returns. The built-in display is always `builtin`.
 
 ### Moving windows between desktops
 

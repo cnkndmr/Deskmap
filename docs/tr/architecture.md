@@ -140,9 +140,11 @@ hatırlanıyorsa en son kullanılan kazanır); kalanlar konum sırasıyla (`minX
 sonra `minY`, sonra UUID) en küçük boş rollere oturur. Hiç kayıt yoksa bu eski
 konum sırasıdır. `AppModel` iki yanı eşit tutar: belgedeki `displayRoles`
 `ScreenService.roles`’a gider, yatışmış her ekran listesi belgeye öğretilir
-(yatışırken değil, test ekranı hiç). `Router.resolveTarget`,
-`fallbackToFirstExternal` açıkken bağlı olmayan `external-N` sabitlemesini
-`external`’a gönderir; uygulanan anahtar çözülmüş hedefe bağlı olduğu için
+(yatışırken değil, test ekranı hiç). Monitörlü sabitlemenin sıralı yerleri
+vardır (`Rule.docked` + `dockedNext`); `Routing.resolvePlace`
+(`Router.resolvePlaces` sarar) bağlı ve onay beklemeyen bir ekrandaki ilk
+yeri, yoksa rol sırasında bağlı ilk harici ekranı ilk yerin masaüstü
+numarasıyla seçer. Uygulanan anahtar çözülmüş hedefe bağlı olduğu için
 monitör geri gelince sabitleme yeniden yerleşir. Dahili ekran her zaman
 `builtin`’dir.
 

@@ -46,9 +46,11 @@ aynı biçimde imzalandığı sürece geçerli kalır (bkz. *Yükseltme*).
   orada temizlik yapılmaz. Kartında *yeni monitör · düzen bekliyor* yazar;
   menüde *Ekstra monitör / 2. monitör … olarak kullan* (onaylı), hatırlananlarda
   *Bu monitörü unut* vardır.
-- **İkinci monitör yokken** (Ayarlar › Genel, açık): takılı olmayan
-  `external-2` sabitlemeleri `external`'da bekler, monitör dönünce geri gider.
-  `deskmap screen-fallback on|off`.
+- **Birden çok monitörde sıralı yerler**: sabitlenmiş pencereyi başka bir
+  monitöre bırakınca eski yeri yenisinin altında saklanır; monitörü bağlı ilk
+  yer kazanır, böylece 2. monitör çıkınca pencereleri geri döner. Hiçbiri bağlı
+  değilse pencereyi rol sırasında bağlı ilk monitör alır. Düzen dosyaları
+  `docked: [external-2/1, external/2]` kabul eder.
 - **Masaüstünü başka ekrana gönder**, bağlam menüsünden; haritada masaüstleri
   ekranlar arasında sürüklenir.
 
@@ -136,13 +138,13 @@ aynı biçimde imzalandığı sürece geçerli kalır (bkz. *Yükseltme*).
 - **`deskmap` CLI** (`scripts/deskmap`): `status`, `screens`, `desktops`,
   `rules`, düzen dosyalarıyla `apply` / `check` / `undo`, `dump`, profil
   yeniden adlandırma/dışa aktarma, masaüstü sıralama, `save-layout`, `free`,
-  `screen-role`, `screen-fallback`, `backups`, `backup-restore`, `hooks`.
+  `screen-role`, `backups`, `backup-restore`, `hooks`.
   `deskmap --help` ajanlar için yerleştirme rehberi taşır. `make cli-test`
   çevrimdışı birim testlerini koşar.
 - **`status.json`** (adlar, planlar, `uuid`'li ekranlar, `heldRoles`,
   `desktopMoves`, serbest hareket durumu) ve **URL komutları**
   (`deskmap://pin`, `profile-set`, `plan-desktops`, `free`, `screen-role`,
-  `screen-fallback`, `quit`, …). `DESKMAP_DATA_DIR` uygulamayı başka veri
+  `quit`, …). `DESKMAP_DATA_DIR` uygulamayı başka veri
   klasörüne yönlendirir.
 - **Ekran değişim kancaları** (`hooks.json`): ekran takılınca, çıkarılınca ya
   da değişince komut çalıştırır; fare bırakılmasını bekler, komutlara zaman
@@ -226,7 +228,6 @@ sayar).
 
 | Ayar | Nerede | Varsayılan | Ne yapar |
 |---|---|---|---|
-| İkinci monitör yokken | Ayarlar › Genel, `deskmap screen-fallback` | açık | takılı olmayan ikinci monitörün sabitlemeleri birincide bekler |
 | Yine de dene (masaüstü taşıma) | ana penceredeki kart, `status.json` `desktopMoves` | macOS 15.x ve 26.0–26.3'te kapalı, diğerlerinde açık | masaüstü taşımayı açar; hatırlanır |
 | Yedekler | Ayarlar › Yedekler | açık, otomatik | saatlik / günlük / haftalık kopya, geri yükleme |
 | Monitör rolleri | ikinci monitör kartının menüsü, `deskmap screen-role` | ilk monitörden öğrenilir | hangi fiziksel monitör *Ekstra monitör* / *2. monitör* |

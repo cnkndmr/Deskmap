@@ -283,11 +283,22 @@ EKRAN ROL` aynısını yapar). Aynı menüdeki *Bu monitörü unut* tek monitör
 unutur (`deskmap screen-role EKRAN --forget`). İlk monitör (ve Ayarlar ›
 *Unut*’tan sonra her monitör) sormadan öğrenilir.
 
-**İkinci monitör yokken** (Ayarlar › Genel, varsayılan açık): monitörü
-(`external-2`, …) bağlı olmayan sabitleme `external`’a, aynı masaüstü
-numarasına ve düzene gider; monitör yeniden takılınca kendi yerine döner.
-Kapalıysa sabitleme atlanır, pencere macOS’un koyduğu yerde kalır. Yalnız
-başka bir monitör bağlıyken `external` sabitlemesi atlanır.
+**Sıralı yerler.** Monitör bağlı kurulumda bir sabitlemenin sıralı bir yer
+listesi vardır, ekran rolü başına en çok bir yer: `rules.json`’daki `docked`
+ilk yer, `dockedNext` sonrakiler. Her taramada monitörü bağlı (ve onay
+beklemeyen) ilk yer kazanır; masaüstü adına bağlı yer, o masaüstünün şu anki
+yerinde sayılır. Sabitlenmiş pencereyi başka bir monitöre bırakmak yeni yeri
+başa koyar, eski yer altında kalır; aynı monitöre bırakmak o monitördeki yeri
+değiştirir. Böylece 2. monitör çıkınca oraya taşınan pencere Ekstra
+monitördeki eski yerine döner. Yerlerin hiçbiri bağlı değilse pencere rol
+sırasında (Ekstra monitör, 2. monitör, …) bağlı ilk monitöre, ilk yerinin
+masaüstü numarasıyla gider (monitörde o kadar masaüstü yoksa son masaüstü).
+Yalnız laptop yeri olan sabitlemeye monitör bağlıyken dokunulmaz; bağlı tek
+monitör onay bekliyorsa hiçbir pencere taşınmaz. Bu kurulumda **Sabitlemeyi
+kaldır** bütün listeyi siler. Kart başlığı menüsünde iki monitörün yerini
+değiştirmek düzenlerini de değiştirir: hiçbir sabitleme kaybolmaz. Eski
+sürümler yalnız `docked`’ı okur ve ilk yerle çalışmayı sürdürür; dosyayı eski
+sürümle kaydetmek `dockedNext`’i düşürür. Tablolar: [docs/tr/bug-tables.md §D](bug-tables.md).
 `scripts/hooktest/multimon.sh` macOS tarafını aynı model iki sanal ekranla
 denetler (UUID’ler, çıkar / yeniden tak, aynı seri numarası).
 
@@ -502,7 +513,6 @@ Hammerspoon, Keyboard Maestro ya da bir terminal onu yönetebilir. Uygulama
 | `deskmap://screen-role/<monitör>/<rol>` | Bağlı bir monitöre (şu anki rolü ya da UUID’sinin başı) bir harici rol ver; bundan sonra onu korur. O roldeki monitörle yer değiştirir. Rol, bağlı monitör sayısını aşamaz |
 | `deskmap://screen-role-forget` | Hatırlanan monitör rollerini unut (yeniden soldan sağa) |
 | `deskmap://screen-role-forget/<monitör>` | Bağlı tek bir monitörü unut: rolü beklemeye geçer, düzeni uygulanmaz |
-| `deskmap://screen-fallback/<on\|off>` | İkinci monitör yokken: ilk harici monitörü kullan (on) ya da pencereyi bırak (off) |
 | `deskmap://backup-now` | Otomatik yedeklemeyi şimdi çalıştır |
 | `deskmap://backup-restore/<id>` | Bir yedeği kimliğiyle geri getir (örn. `daily-2026-10-12`); bkz. [Yedekler](#backups) |
 
@@ -546,7 +556,6 @@ deskmap screens                            # roller, UUID başı, "role kept" / 
 deskmap screen-role LG 2                   # bu monitör artık 2. monitör (yer değiştirir)
 deskmap screen-role --forget               # roller yeniden soldan sağa
 deskmap screen-role Pebble --forget         # yalnız bu monitörü unut: rolü bekler
-deskmap screen-fallback off                # bağlı olmayan 2. monitör sabitlemeleri atlanır
 deskmap backups [--json]                   # otomatik yedekler, en yenisi başta
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12
@@ -572,6 +581,8 @@ windows:
     title: Orion-Makale        # başlık parça(lar)ı, isteğe bağlı
     docked: external/1 left-half   # ekran/masaüstü düzeni
     undocked: builtin/1 full
+  - app: Safari
+    docked: [external-2/1, external/2]   # sıralı: bağlı ilk yer kazanır
   - app: cmux
     docked: {screen: external, desktop: 2, layout: center-two-thirds}
     launch: true                   # açık penceresi yoksa aç
@@ -604,7 +615,11 @@ yerleştirmenin duraklatılıp duraklatılmadığı ve son hata. `desktopNames`�
 (ekran rolü → numara → ad, şu anki düzen) yanında `names` (`id`, `name`,
 `space`, `screen`, `desktop`: masaüstünün şu an nerede olduğu, `planned`:
 kurulum → `screen/n`) ve `plans` (kurulum → ekran rolü → ad kimlikleri
-listesi, adsız masaüstü için `""`) alanlarını da içerir. `desktopMoves`
+listesi, adsız masaüstü için `""`) alanlarını da içerir. Her pencerenin
+`place` alanı, son taramada sabitlemesinin hangi yerinin kullanıldığını
+söyler: `"1"`, `"2"` … (sıralı yerler), `"fallback"` (hiçbiri bağlı değil, rol
+sırası) ya da `"untouched"` (sabitli ama dokunulmadı); `deskmap windows` bunu
+`place=` olarak gösterir. `desktopMoves`
 masaüstü taşımanın açık olup olmadığını söyler: `on`, `held` (doğrulanmamış
 macOS, **Yine de dene**’ye kadar kapalı), `reduced` (düşük mod) ya da
 `unavailable`; taşıma kapalıysa `deskmap status` bunu bir satırla yazar.
@@ -890,8 +905,10 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   sabitlemelerle sabitlenebilir.
 - **Tam ekran pencerelere** dokunulmaz.
 - **Yalnız iki kurulum**: monitör bağlı / sadece laptop. Bir ya da birkaç
-  harici monitörle kurulum aynıdır; bağlı olmayan monitördeki sabitleme
-  **İkinci monitör yokken** ayarına uyar.
+  harici monitörle kurulum aynıdır; hangi monitörler bağlıyken pencerenin
+  nereye gideceğini sabitlemenin sıralı yerleri belirler (monitör başına bir
+  yer: aynı monitör, yanında hangi monitörün bağlı olduğuna göre başka
+  masaüstü kullanamaz).
 - **Anında değil.** Yerleştirme pencere olaylarında olur. 5 saniyede bir
   yapılan hafif bir denetim olayların kaçırdığını yakalar (tam tarama yalnız
   bir şey değiştiğinde, bir de iki dakikada bir); başlık değişiklikleri bir
