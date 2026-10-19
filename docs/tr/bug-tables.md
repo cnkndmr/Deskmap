@@ -84,11 +84,12 @@ gibi soldan sağa sıradan gelir ve öğrenilir. Bu ilk adımın geride kaldığ
 açık). Test ekranı ("Deskmap Test Display") hiç beklemez.
 
 Testler: `PrimaryExternalBugTests`, `PrimaryExternalServiceTests`,
-`DisplayRolesTests`, `scripts/clitest` (`ScreenRoleTest`).
+`DisplayRolesTests`, `PlanPickerFollowTests`, `scripts/clitest` (`ScreenRoleTest`).
 
 | İşlem \ Durum | Henüz öğrenilen yok | Hatırlanan monitör tek | Hatırlanan monitör + tanınmayan ekran | Hatırlanan yok, tanınmayan ekran tek | Aynı rolde iki hatırlanan, ikisi bağlı | Bir monitör unutuldu, bağlı |
 | --- | --- | --- | --- | --- | --- | --- |
 | Tak, ekranlar yatışır | OK: konum sırası, öğrenilir `firstConnectionIsNotHeld` | OK `virtualRightOfMonitorKeepsMonitorExternal` | OK: tanınmayan `external-2` alır, bekler `virtualLeftOfMonitorDoesNotStealExternalRole` | DÜZELTME: `external` alır, bekler, öğrenilmez `loneUnknownDisplayDoesNotTakeMonitorPlan`, `loneVirtualIsHeldUntilChosen` | DÜZELTME: eskisi `external-2`ye düşer, bekler `automaticRoleChangeIsHeldUntilConfirmed` | DÜZELTME: bekler, yeniden öğrenilmez `forgettingOneMonitorPutsItOnHold` |
+| Plan seçici değişimi izler (tek ekran değişimi, tek `$screens` yayını) | HATA: seçici bir adım geride kalıyordu (`@Published` henüz willSet'teyken `screens.mode` okunuyordu) → DÜZELTME: yayınlanan listeyi izler `pickerFollowsPublishedScreens`, `publishIsWillSet` | DÜZELTME (aynı) | DÜZELTME (aynı) | DÜZELTME (aynı) | DÜZELTME (aynı) | DÜZELTME (aynı) |
 | Yeniden düzenle (sanal ekran sola) | OK (ilk yatışmada öğrenildi) | — | OK `virtualLeftOfMonitorDoesNotStealExternalRole` | — | OK | — |
 | Planı uygula (geçiş, *Planı şimdi uygula*) | OK `correctRolesNeedNoWork` | OK | DÜZELTME: bekleyen rol dışarıda `holdingKeepsOtherRoles` | DÜZELTME: masaüstü, taşıma, yeniden bağlama yok `loneUnknownDisplayDoesNotTakeMonitorPlan` | DÜZELTME: monitörün adlı masaüstüleri yerinde `automaticRoleChangeIsHeldUntilConfirmed` (kapı olmasa: `withoutTheGateTheWholeLayoutWouldMove`) | DÜZELTME (aynı) |
 | Pinler ve kurallar | OK | OK | DÜZELTME: bekleyen role kural ya da yedek yok `heldRoleIsNotAFallbackTarget` | DÜZELTME (aynı) | DÜZELTME (aynı) | DÜZELTME (aynı) |

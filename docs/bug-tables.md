@@ -87,11 +87,12 @@ roles come from left-to-right order and are learned, as before.
 ("Deskmap Test Display") never waits.
 
 Tests: `PrimaryExternalBugTests`, `PrimaryExternalServiceTests`,
-`DisplayRolesTests`, `scripts/clitest` (`ScreenRoleTest`).
+`DisplayRolesTests`, `PlanPickerFollowTests`, `scripts/clitest` (`ScreenRoleTest`).
 
 | Operation \ State | Nothing learned yet | Remembered monitor alone | Remembered monitor + unknown display | Remembered monitor away, unknown display alone | Two remembered for one role, both connected | One monitor forgotten, connected |
 | --- | --- | --- | --- | --- | --- | --- |
 | Plug in, displays settle | OK: position order, learned `firstConnectionIsNotHeld` | OK `virtualRightOfMonitorKeepsMonitorExternal` | OK: unknown gets `external-2`, on hold `virtualLeftOfMonitorDoesNotStealExternalRole` | FIX: gets `external`, on hold, not learned `loneUnknownDisplayDoesNotTakeMonitorPlan`, `loneVirtualIsHeldUntilChosen` | FIX: the older one drops to `external-2`, on hold `automaticRoleChangeIsHeldUntilConfirmed` | FIX: on hold, not learned again `forgettingOneMonitorPutsItOnHold` |
+| Plan picker follows the change (a single screen change, one `$screens` publish) | BUG: the picker stayed one step behind (it read `screens.mode` while `@Published` was still in willSet) → FIX: follows the published list `pickerFollowsPublishedScreens`, `publishIsWillSet` | FIX (same) | FIX (same) | FIX (same) | FIX (same) | FIX (same) |
 | Rearrange (virtual display to the left) | OK (learned after first settle) | — | OK `virtualLeftOfMonitorDoesNotStealExternalRole` | — | OK | — |
 | Apply plan (transition, *Apply plan now*) | OK `correctRolesNeedNoWork` | OK | FIX: held role left out `holdingKeepsOtherRoles` | FIX: no desktops, moves or rebinds `loneUnknownDisplayDoesNotTakeMonitorPlan` | FIX: monitor's named desktops stay `automaticRoleChangeIsHeldUntilConfirmed` (without the gate: `withoutTheGateTheWholeLayoutWouldMove`) | FIX (same) |
 | Pins and rules | OK | OK | FIX: no rule or fallback to the held role `heldRoleIsNotAFallbackTarget` | FIX (same) | FIX (same) | FIX (same) |

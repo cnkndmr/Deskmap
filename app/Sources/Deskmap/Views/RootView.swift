@@ -347,13 +347,16 @@ struct RootView: View {
             ui.windows = router.windows
             syncScreens()
         }
-        .onReceive(screens.$screens) { _ in
-            syncScreens()
+        .onReceive(screens.$screens) { list in
+            // `$screens` willSet'te yayınlar: `screens.screens`/`screens.mode`
+            // burada hâlâ eski değer, yayınlanan liste kullanılır
+            // (docs/bug-tables.md A′, plan seçici satırı).
+            syncScreens(list)
             // Monitör takılıp çıkarıldığında seçici gerçek modu izler
             // (pencere bir kez oluşturulduğu için onAppear yeniden gelmez).
-            if liveMode != screens.mode {
-                liveMode = screens.mode
-                mode = screens.mode
+            if let next = Self.followedMode(published: list, liveMode: liveMode) {
+                liveMode = next
+                mode = next
             }
         }
         .onReceive(ui.$requestedPlan) { plan in
@@ -527,9 +530,17 @@ struct RootView: View {
         Log.app.notice("Map opened on front window \(window.id) (\(window.appName, privacy: .public))")
     }
 
-    private func syncScreens() {
-        store.remember(screens.screens.map(\.known))
-        ui.desktopCounts = Router.desktopCounts(screens: screens.screens)
+    private func syncScreens(_ list: [ScreenInfo]? = nil) {
+        let list = list ?? screens.screens
+        store.remember(list.map(\.known))
+        ui.desktopCounts = Router.desktopCounts(screens: list)
+    }
+
+    /// `$screens` yayınından sonra plan seçicinin geçeceği mod; gerçek mod
+    /// değişmediyse nil (kullanıcının seçtiği öbür plan korunur). Saf.
+    nonisolated static func followedMode(published: [ScreenInfo], liveMode: Mode?) -> Mode? {
+        let next = ScreenService.mode(of: published)
+        return next == liveMode ? nil : next
     }
 
     // MARK: - Ayrıntı sütunu

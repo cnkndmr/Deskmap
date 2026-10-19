@@ -152,8 +152,19 @@ final class ScreenService: ObservableObject {
         }
         displaySource = { raw }
         roles = DisplayRoles()
+        isDemo = true
         self.screens = screens
     }
+
+    /// Yalnız Shots modunda: demo ekran listesini değiştirir (monitör
+    /// takıldı/söküldü karesi). Üretimde (`isDemo` false) hiçbir şey yapmaz.
+    func replaceDemoScreens(_ screens: [ScreenInfo]) {
+        guard isDemo else { return }
+        self.screens = screens
+    }
+
+    /// Shots modunda true; üretim init'leri değiştirmez.
+    private var isDemo = false
 
     /// Test: ekran gözlemcisi yok; ölçüm verilen ham listeden yapılır.
     init(displays: @escaping () -> [RawDisplay], roles: DisplayRoles = DisplayRoles()) {
@@ -176,7 +187,14 @@ final class ScreenService: ObservableObject {
     }
 
     var isDocked: Bool { screens.contains { !$0.isBuiltin } }
-    var mode: Mode { isDocked ? .docked : .undocked }
+    var mode: Mode { Self.mode(of: screens) }
+
+    /// Verilen ekran listesinin modu (saf). `$screens` aboneleri bunu yayınlanan
+    /// değerle çağırmalı: `@Published` willSet'te yayınlar, o anda `mode` hâlâ
+    /// eski listeyi okur.
+    nonisolated static func mode(of screens: [ScreenInfo]) -> Mode {
+        screens.contains { !$0.isBuiltin } ? .docked : .undocked
+    }
 
     func refresh() {
         screens = Self.detect(displaySource(), roles: roles)

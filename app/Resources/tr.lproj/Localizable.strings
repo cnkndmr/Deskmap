@@ -632,3 +632,17 @@
 "Forget" = "Unut";
 "No connected monitor matches %@" = "%@ ile eşleşen bağlı monitör yok";
 "Only %ld monitors are connected" = "Yalnız %ld monitör bağlı";
+
+/* Demo dizisi (docs/media GIF'i, --scenario demo) */
+"Project A" = "Proje A";
+"Team" = "Takım";
+"Desk" = "Masa";
+"%@ — Docs" = "%@ — Belgeler";
+"%@ — build" = "%@ — derleme";
+"Inbox" = "Gelen Kutusu";
+"Notes" = "Notlar";
+"Calendar" = "Takvim";
+"Laptop only: everything piles up on one desktop" = "Sadece laptop: her şey tek masaüstüne yığılır";
+"Monitor connected: Deskmap knows where each window belongs" = "Monitör bağlandı: Deskmap her pencerenin yerini biliyor";
+"Pinned windows go to their screen and desktop on their own" = "Sabitlenen pencereler kendi ekranına ve masaüstüne kendiliğinden gider";
+"A second monitor keeps its own role: Monitor 2" = "İkinci monitör kendi rolünü korur: 2. monitör";

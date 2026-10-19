@@ -68,7 +68,9 @@ enum Shots {
         let crowded = options.scenario == "crowded"
         let twoMonitors = options.scenario == "two-monitors"
         let heldMonitor = options.scenario == "held-monitor"
-        let world = crowded ? DemoData.crowded() : twoMonitors ? DemoData.twoMonitors() : DemoData.make()
+        let sequence = options.scenario == "demo"
+        let world = crowded ? DemoData.crowded() : twoMonitors ? DemoData.twoMonitors()
+            : sequence ? DemoData.demoSequence() : DemoData.make()
         var document = world.document
         if heldMonitor {
             // Evdeki monitör hatırlanıyor, bağlı olan başka bir ekran: rolü
@@ -83,12 +85,15 @@ enum Shots {
         let ui = UIState()
         ui.persistsPreferences = false
         ui.visualMap = true
+        let caption = ShotsCaption()
 
         // Kareler 1710 × 1074 pt'lik kullanılabilir alana göre (bu Mac'in
         // dahili ekranı): pencere oranlı boyutunu buna göre alır; boy her karede
         // içeriğe göre yeniden ölçülür (açık panel pencereyi uzatır).
-        let room = WindowRoom(height: 1074 - RootView.screenMargin,
-                              visible: CGSize(width: 1710, height: 1074))
+        // Demo dizisi (GIF): pencere boyu 826 pt; altyazı çubuğuyla birlikte
+        // bu Mac'in ekranına (1074 pt) sığar, yoksa AppKit pencereyi kırpar.
+        let visible = sequence ? CGSize(width: 1710, height: 1180) : CGSize(width: 1710, height: 1074)
+        let room = WindowRoom(height: visible.height - RootView.screenMargin, visible: visible)
         let size = NSSize(width: RootView.totalWidth(visibleWidth: room.visible.width),
                           height: RootView.preferredHeight(visibleHeight: room.visible.height))
         let hosting = NSHostingView(rootView:
@@ -98,7 +103,8 @@ enum Shots {
                 .environmentObject(screens)
                 .environmentObject(router)
                 .environmentObject(permission)
-                .environmentObject(ui))
+                .environmentObject(ui)
+                .environmentObject(caption))
         hosting.frame = NSRect(origin: .zero, size: size)
 
         let window = ShotsWindow(
@@ -132,10 +138,18 @@ enum Shots {
 
         func capture(_ name: String) {
             guard shouldCapture(name, options: options) else { return }
-            ui.desktopCounts = fixedDesktopCounts
+            // Demo dizisi sayıları adım başına kendisi verir.
+            if !sequence { ui.desktopCounts = fixedDesktopCounts }
             pump(0.15)
-            let fitting = hosting.fittingSize
-            if fitting.width > 0, fitting.height > 0, fitting != hosting.frame.size {
+            // İki ölçüm: ilk boy değişimi altyazı/iç yerleşimi yeniden akıtabilir.
+            // Demo dizisinde birkaç pt pay: içerik üstten kırpılmasın
+            // (sarmalayıcı üste hizalı, pay alta düşer).
+            let slack: CGFloat = sequence ? 8 : 0
+            for _ in 0..<2 {
+                var fitting = hosting.fittingSize
+                guard fitting.width > 0, fitting.height > 0 else { break }
+                fitting.height += slack
+                guard fitting != hosting.frame.size else { break }
                 hosting.setFrameSize(fitting)
                 window.setContentSize(fitting)
                 pump(0.15)
@@ -184,6 +198,13 @@ enum Shots {
         if heldMonitor {
             // m3 — hatırlanmayan monitör: kartta "düzen bekliyor", başlıkta menü.
             capture("m3-held-monitor")
+            window.orderOut(nil)
+            exit(0)
+        }
+
+        if sequence {
+            captureSequence(ui: ui, router: router, store: store, screens: screens,
+                            caption: caption, capture: capture)
             window.orderOut(nil)
             exit(0)
         }
@@ -379,6 +400,45 @@ enum Shots {
         capture("g09-other-plan-selected")
     }
 
+    /// Demo dizisinin kareleri (docs/media GIF'i): d1 laptop tek başına,
+    /// d2 monitör takıldı, d3 pencereler yerine gitti, d4 ikinci monitör.
+    /// Ekranlar, pencereler ve masaüstü sayıları adım adım değiştirilir;
+    /// hiçbir gerçek pencereye dokunulmaz (demo Router taşımaz).
+    @MainActor
+    private static func captureSequence(ui: UIState, router: Router, store: Store,
+                                        screens: ScreenService, caption: ShotsCaption,
+                                        capture: (String) -> Void) {
+        let steps: [(String, DemoData.DemoStage, String)] = [
+            ("d1-laptop", .laptopOnly, L("Laptop only: everything piles up on one desktop")),
+            ("d2-monitor", .monitorConnected, L("Monitor connected: Deskmap knows where each window belongs")),
+            ("d3-placed", .placed, L("Pinned windows go to their screen and desktop on their own")),
+            ("d4-monitor-2", .secondMonitor, L("A second monitor keeps its own role: Monitor 2")),
+        ]
+        for (index, step) in steps.enumerated() {
+            let (name, stage, text) = step
+            caption.text = text
+            caption.step = index + 1
+            caption.count = steps.count
+            store.document = DemoData.demoDocument(stage)
+            screens.replaceDemoScreens(DemoData.demoScreens(stage))
+            router.replaceDemoWindows(DemoData.demoWindows(stage))
+            router.replaceDemoDesktopCounts(DemoData.demoDesktopCounts(stage))
+            ui.desktopCounts = DemoData.demoDesktopCounts(stage)
+            pump(0.3)
+            // Harita yeni satırlarla kaymasın: ilk üç karede en üste, son
+            // karede 2. monitördeki Mail'in satırına kaydır.
+            if stage == .secondMonitor {
+                ui.reveal = RevealRequest(window: DemoData.demoMailWindowID, seq: index + 1)
+            } else if let scroll = ui.autoScroll.scrollView, let document = scroll.documentView {
+                let top = document.isFlipped ? 0 : max(document.bounds.height - scroll.contentView.bounds.height, 0)
+                scroll.contentView.scroll(to: NSPoint(x: 0, y: top))
+                scroll.reflectScrolledClipView(scroll.contentView)
+            }
+            pump(0.6)
+            capture(name)
+        }
+    }
+
     /// SwiftUI'nin durum değişikliğini işleyip yeniden çizmesi için ana
     /// run loop'u kısa süre çalıştırır (offscreen render; gerçek bir olay
     /// döngüsü sürmediği için elle pompalanır).
@@ -402,10 +462,36 @@ private final class ShotsWindow: NSWindow {
 /// Üretim yolunda (`DeskmapApp`) bu sarmalayıcı hiç kullanılmaz,
 /// `RootView`'ın kendisi değişmez.
 private struct ShotsRootView: View {
+    @EnvironmentObject private var caption: ShotsCaption
+
     var body: some View {
-        ZStack {
-            Color(nsColor: .windowBackgroundColor)
+        VStack(spacing: 0) {
             RootView()
+                // Durum satırı üstten kırpılmasın (ölçülen boy birkaç pt eksik).
+                .padding(.top, caption.text.isEmpty ? 0 : 10)
+            if !caption.text.isEmpty {
+                HStack(spacing: 12) {
+                    Text("\(caption.step)/\(caption.count)")
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                    Text(caption.text)
+                        .font(.system(size: 20, weight: .semibold))
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 14)
+                .background(Color.accentColor.opacity(0.28))
+            }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
+}
+
+/// Demo dizisinin (`--scenario demo`) kare altyazısı; boşsa çizilmez.
+/// Yalnız shots modunda vardır.
+final class ShotsCaption: ObservableObject {
+    @Published var text = ""
+    @Published var step = 0
+    @Published var count = 0
 }

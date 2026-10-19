@@ -39,6 +39,8 @@ Pin a window once. From then on it lives on that display, that desktop
 (Space), in that layout: when it opens, when it wanders off, and when you plug
 in or unplug a monitor.
 
+<p align="center"><img src="docs/media/en/demo.gif" width="720" alt="Laptop only: windows piled on one desktop. Monitor connected: pinned windows move to their display and desktop on their own; a second monitor keeps its own role."></p>
+
 <table>
   <tr>
     <td width="50%" align="center"><img src="docs/images/en/01-map.png" alt="The map: each display as cards of desktops, pinned windows in place"></td>

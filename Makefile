@@ -2,7 +2,7 @@
 
 PROJECT := Deskmap
 
-.PHONY: help app run install logs measure-idle sample url check test cli-test concurrency-check dist site site-serve site-shots clean
+.PHONY: help app run install logs measure-idle sample url check test cli-test concurrency-check dist site site-serve site-shots demo-media clean
 
 help:
 	@echo "make app        Build the menu bar app (build/$(PROJECT).app)"
@@ -24,6 +24,7 @@ help:
 	@echo "make site       Build the website into website/_site (Node + pandoc)"
 	@echo "make site-serve Build it and serve it on http://localhost:$(SITE_PORT)"
 	@echo "make site-shots Website screenshots, dark and light (website/shots)"
+	@echo "make demo-media Demo GIF + MP4 for the README, EN and TR (docs/media)"
 	@echo "make clean      Delete build output"
 
 app:
@@ -128,6 +129,11 @@ site-serve:
 # değişince çalıştır ve website/shots'u commit'le.
 site-shots: app
 	@./scripts/site-shots.sh
+
+# README demo dizisi (docs/media/<dil>/demo.gif + .mp4): --shots --scenario demo
+# kareleri, ffmpeg ile birleştirilir. Demo verisi, gerçek pencereye dokunmaz.
+demo-media: app
+	@./scripts/demo-media.sh
 
 clean:
 	@rm -rf build app/.build website/_site

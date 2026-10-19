@@ -7,6 +7,8 @@ Bir kez söylüyorsun: *"başlığında `acme-web` geçen pencere, monitörde,
 2. masaüstünde, sol yarıda durur."* Sonrası kendiliğinden: uygulamayı
 açtığında, monitörü taktığında, öğle arasından döndüğünde.
 
+<p align="center"><img src="media/tr/demo.gif" width="720" alt="Sadece laptop: pencereler tek masaüstüne yığılmış. Monitör bağlanınca sabitlenen pencereler kendi ekranına ve masaüstüne kendiliğinden gider; ikinci monitör kendi rolünü korur."></p>
+
 Bu kılavuz on dakika sürer. macOS 13 ya da üstü gerekir.
 
 ---
