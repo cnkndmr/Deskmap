@@ -176,8 +176,11 @@ is signed the same way (see *Upgrading*).
   routing.
 - **Idle CPU** lower: windows are scanned less often, title events filtered,
   scan budget kept under the unresponsive threshold.
-- `make concurrency-check` counts warnings again; 14 compiler warnings and the
-  strict concurrency warnings in the router and window rows fixed.
+- **Compiler warnings: 0.** `make concurrency-check` counts warnings again
+  (the compiler's colored output had hidden them); the 14 regular compiler
+  warnings and every strict concurrency warning (router, window rows, layout
+  constants, RootView observers) are fixed, so both the release build and
+  `-strict-concurrency=complete` report none.
 - Links in the Turkish docs and changelogs that pointed to wrong relative paths
   on GitHub.
 

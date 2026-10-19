@@ -184,9 +184,11 @@ aynı biçimde imzalandığı sürece geçerli kalır (bkz. *Yükseltme*).
   yeniden açma taraması yönlendirmeyi bloke etmez.
 - **Boşta CPU** düştü: pencereler daha seyrek taranır, başlık olayları
   süzülür, tarama bütçesi yanıtsızlık eşiğinin altında tutulur.
-- `make concurrency-check` uyarıları yeniden sayıyor; 14 derleyici uyarısı ve
-  yönlendirici ile pencere satırlarındaki sıkı eşzamanlılık uyarıları
-  giderildi.
+- **Derleyici uyarıları: 0.** `make concurrency-check` uyarıları yeniden
+  sayıyor (derleyicinin renkli çıktısı onları gizliyordu); 14 olağan derleyici
+  uyarısı ve bütün sıkı eşzamanlılık uyarıları (yönlendirici, pencere
+  satırları, düzen sabitleri, RootView gözlemcileri) giderildi; release
+  derlemesi de `-strict-concurrency=complete` de hiç uyarı vermiyor.
 - Türkçe belgelerde ve değişiklik günlüklerinde GitHub'da yanlış göreli yola
   giden bağlantılar.
 
