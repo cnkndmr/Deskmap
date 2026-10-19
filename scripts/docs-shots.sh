@@ -5,9 +5,8 @@
 # written at the mode's native size (2x). Needs build/Deskmap.app (make app).
 # A shot window shows briefly on screen while it draws.
 # Only names already present in docs/images are refreshed; images the shots
-# mode cannot draw (07-menu, a real menu crop) or whose framing no longer
-# holds (see source_name) are left untouched. The website's scaled copies
-# come from scripts/site-shots.sh.
+# mode cannot draw (07-menu, a real menu crop) are left untouched. The
+# website's scaled copies come from scripts/site-shots.sh.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -17,12 +16,9 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
 # Docs name -> name the shots mode writes (crowded scenario names start with g).
-# 08-open-closed is kept: the crowded map now lists the Extra monitor first and
-# pushes the built-in display's Desktop 3 (Open 4 button, closed Preview group,
-# what the README and the site describe) below the frame.
 source_name() {
   case "$1" in
-    08-open-closed) echo KEEP ;;
+    08-open-closed) echo g01c-grid-closed-pins ;;
     *) echo "$1" ;;
   esac
 }
@@ -35,9 +31,7 @@ for lang in en tr; do
   for f in docs/images/"$lang"/*.png; do
     name=$(basename "$f" .png)
     src=$(source_name "$name")
-    if [ "$src" = KEEP ]; then
-      echo "docs-shots: $lang/$name kept on purpose (see source_name)"
-    elif [ -f "$out/$src.png" ]; then
+    if [ -f "$out/$src.png" ]; then
       cp "$out/$src.png" "$f"
     else
       echo "docs-shots: $lang/$name has no shots-mode source; kept as is"

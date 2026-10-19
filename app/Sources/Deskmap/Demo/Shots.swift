@@ -355,7 +355,11 @@ enum Shots {
         // Alt kısım: uzun başlık, penceresi kapalı Preview sabitlemeleri, boş masaüstü.
         ui.reveal = RevealRequest(window: DemoData.crowdedCometWindowID, seq: 10)
         pump(0.5)
+        scrollMap(ui: ui, toBottom: true)
+        pump(0.3)
         capture("g01c-grid-closed-pins")
+        scrollMap(ui: ui, toBottom: false)
+        pump(0.3)
 
         ui.search = "orion"
         ui.reveal = RevealRequest(window: 130, seq: 2)
@@ -444,6 +448,24 @@ enum Shots {
     /// döngüsü sürmediği için elle pompalanır).
     private static func pump(_ seconds: TimeInterval) {
         RunLoop.main.run(until: Date().addingTimeInterval(seconds))
+    }
+
+    /// Haritayı en alta ya da başa kaydırır; yalnız shots modunda, ürün
+    /// yolunda kullanılmaz. `ui.reveal` (SwiftUI `scrollTo`) kalabalık
+    /// ızgarada kareye yetişmiyor; harici monitör listenin başında, dahili
+    /// ekran sonunda olduğu için alt uç dahili ekranın Masaüstü 3'ünü
+    /// (4 aç düğmesi, kapalı Preview grubu) karede tutar.
+    @MainActor
+    private static func scrollMap(ui: UIState, toBottom: Bool) {
+        guard let scrollView = ui.autoScroll.scrollView,
+              let document = scrollView.documentView else { return }
+        let clip = scrollView.contentView
+        let limit = max(document.frame.height - clip.bounds.height, 0)
+        var origin = clip.bounds.origin
+        // SwiftUI belge görünümü çevrik (y aşağı artar); değilse yön terstir.
+        origin.y = (toBottom == document.isFlipped) ? limit : 0
+        clip.scroll(to: origin)
+        scrollView.reflectScrolledClipView(clip)
     }
 }
 
