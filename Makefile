@@ -2,7 +2,7 @@
 
 PROJECT := Deskmap
 
-.PHONY: help app run install logs measure-idle sample url check test concurrency-check dist site site-serve site-shots clean
+.PHONY: help app run install logs measure-idle sample url check test cli-test concurrency-check dist site site-serve site-shots clean
 
 help:
 	@echo "make app        Build the menu bar app (build/$(PROJECT).app)"
@@ -16,6 +16,7 @@ help:
 	@echo "                Send an automation URL to the running app"
 	@echo "make check      Debug build"
 	@echo "make test       Unit tests (swift test)"
+	@echo "make cli-test   Unit tests of the deskmap CLI (no running app needed)"
 	@echo "make concurrency-check"
 	@echo "                Strict concurrency warnings (-strict-concurrency=complete; report only)"
 	@echo "make dist       Distributable package: universal build + signing + zip (build/dist)"
@@ -85,6 +86,10 @@ check:
 
 test:
 	@swift test --package-path app
+
+# deskmap CLI'nin saf işlevleri (Deskmap çalışmıyor olabilir).
+cli-test:
+	@python3 -m unittest discover -s scripts/clitest
 
 # Swift 6 hazırlığı: sıkı eşzamanlılık uyarılarını listeler, derleme ayarını
 # değiştirmez. Ayrı ve her seferinde temiz bir derleme dizini kullanır; yoksa

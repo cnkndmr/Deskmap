@@ -755,6 +755,7 @@ biçimleri, yerelleştirme): [docs/architecture.md](architecture.md).
 ```sh
 make check              # debug derleme
 make test               # birim testleri (Swift Testing)
+make cli-test           # deskmap CLI birim testleri (Python, uygulamanın çalışması gerekmez)
 make concurrency-check  # -strict-concurrency=complete ile derle ve uyarıları listele (yalnız rapor)
 make app                # release derleme + build/ içinde .app paketi
 make run                # make app, sonra aç
@@ -763,14 +764,19 @@ make clean              # build/ ve app/.build/ klasörlerini sil
 ```
 
 Testler (`app/Tests/DeskmapTests`, 600 kadar test; tam sayıyı `make test`
-yazar) yalnız saf mantığı
-kapsar: kural eşleştirme (Türkçe İ/ı büyük/küçük harf kuralları dahil) ve
+yazar) yalnız saf mantığı kapsar: kural eşleştirme (Türkçe İ/ı büyük/küçük harf kuralları dahil) ve
 başlık bölme, düzenler ve koordinatlar, `rules.json` şema göçleri,
 sabitlemeler ve profiller üzerindeki belge işlemleri, içe/dışa aktarma, hedef
 seçimi, yeniden deneme ve geri çekilme yardımcıları, geri almanın
 geçerliliği, harita mantığı ve yerelleştirme tutarlılığı. Gerçek pencerelere
 hiç dokunmazlar; dosya yazan testler (yedekler, göçler) geçici
 bir klasör kullanır.
+
+`make cli-test` (`scripts/clitest`) CLI’nin kendi mantığını aynı biçimde
+kapsar: düzen ve yer ayrıştırma, düzen dosyası → kurallar, birleştirme ve
+farklar, kural eşleştirme, `check` raporu ve “tamamen örtülebilir” uyarısı.
+Uygulamayla konuşan komutları `scripts/hooktest/cli.sh` baştan sona dener;
+onun için Deskmap’in çalışıyor olması gerekir.
 
 Swift dosyalarına dokunan her commit’ten önce derleyip test eden pre-commit
 kancasını açmak için:

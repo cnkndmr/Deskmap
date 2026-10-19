@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Commit öncesi hızlı doğrulama: Swift dosyası değişmişse derle ve testleri çalıştır.
+# Commit öncesi hızlı doğrulama: Swift dosyası değişmişse derle ve testleri çalıştır;
+# deskmap CLI değişmişse CLI birim testlerini çalıştır.
 # Etkinleştirmek için:  git config core.hooksPath .githooks
 #
 set -euo pipefail
@@ -11,4 +12,8 @@ if command -v swift >/dev/null 2>&1 && [[ "$(uname -s)" == "Darwin" ]]; then
     swift build --package-path "$PACKAGE" -c debug
     swift test --package-path "$PACKAGE"
   fi
+fi
+
+if git diff --cached --name-only --diff-filter=ACM | grep -qE '^scripts/(deskmap|clitest/)'; then
+  python3 -m unittest discover -s "$(git rev-parse --show-toplevel)/scripts/clitest"
 fi
