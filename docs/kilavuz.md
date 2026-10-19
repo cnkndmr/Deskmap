@@ -200,6 +200,11 @@ ona hiçbir şey taşınmaz. **Sıranın sonuna ekle** ona ötekilerden sonra ke
 
 ![Yeni monitör bekler: Sıranın sonuna ekle ya da Yerine geç…](images/tr/m3-held-monitor.png)
 
+Bekleyen monitör takılı olmayan bir monitörün rolündeyse o monitör kendi soluk kartını ve
+sabitlemelerini korur.
+
+![Takılı olmayan monitör, rolünde yeni bir monitör beklerken de kartını korur](images/tr/m3b-held-monitor-away-card.png)
+
 Birini kur, geç, diğerini kur. Monitörü taktığında ya da çıkardığında
 uygulama ekranların yatışmasını birkaç saniye bekler, sonra o planın dediği
 yere her sabit pencereyi yerleştirir.

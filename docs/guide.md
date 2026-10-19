@@ -195,6 +195,11 @@ monitor Deskmap knows. Both ask first.
 
 ![A new monitor waits: Add to the end or Replace…](images/en/m3-held-monitor.png)
 
+If the waiting monitor sits in the role of a monitor that is unplugged, that
+monitor keeps its own faded card with its own pins.
+
+![The unplugged monitor keeps its card while a new one waits in its role](images/en/m3b-held-monitor-away-card.png)
+
 Set up one, switch, set up the other. When you plug the monitor in or pull
 it out, the app waits a couple of seconds for the displays to settle and
 then puts every pinned window where that plan says.
