@@ -1017,7 +1017,10 @@ private struct WindowVisibilityObserver: NSViewRepresentable {
 
     final class ObserverView: NSView {
         var onChange: ((Bool) -> Void)?
-        private var tokens: [NSObjectProtocol] = []
+        // nonisolated(unsafe): yalnızca ana aktörde (viewDidMoveToWindow)
+        // değişir, deinit'te kaldırılır; gözlemci belirteci Sendable olmadığı
+        // için deinit erişimi başka türlü sıkı eşzamanlılık uyarısı verir.
+        nonisolated(unsafe) private var tokens: [NSObjectProtocol] = []
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -1127,7 +1130,8 @@ struct WindowRoomReader: NSViewRepresentable {
         let margin: CGFloat
         let changed: (WindowRoom) -> Void
         private var last: WindowRoom?
-        private var tokens: [NSObjectProtocol] = []
+        // nonisolated(unsafe): ObserverView.tokens ile aynı gerekçe.
+        nonisolated(unsafe) private var tokens: [NSObjectProtocol] = []
         /// Kendi `setFrameOrigin` çağrılarımızın ürettiği olaylar yok sayılır.
         private var adjusting = false
         /// Bu gösterimde ilk konum verildi mi (panel gizlenince sıfırlanır).
@@ -1199,9 +1203,13 @@ struct WindowRoomReader: NSViewRepresentable {
             guard let window else { return }
             window.alphaValue = 0
             let center = NotificationCenter.default
-            func on(_ name: Notification.Name, _ object: Any?, _ body: @escaping (Probe) -> Void) {
+            // Gözlemci `queue: .main` ile ana iş parçacığında çalışır;
+            // gövde `@MainActor @Sendable`, çağrı assumeIsolated ile yapılır.
+            func on(_ name: Notification.Name, _ object: Any?,
+                    _ body: @escaping @MainActor @Sendable (Probe) -> Void) {
                 tokens.append(center.addObserver(forName: name, object: object, queue: .main) {
-                    [weak self] _ in if let self { body(self) } })
+                    [weak self] _ in
+                    MainActor.assumeIsolated { if let self { body(self) } } })
             }
             // Gösterim animasyonu alpha'yı kendisi 1'e çekiyor; gizli
             // başlatma (eski karenin görünmemesi) bunu kapatmayı gerektirir.
