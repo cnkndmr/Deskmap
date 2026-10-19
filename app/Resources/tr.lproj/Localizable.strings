@@ -625,8 +625,6 @@
 "Its role then waits for a choice and its layout is not applied." = "Sonra rolü seçim bekler, düzeni uygulanmaz.";
 "Use this monitor as %@?" = "Bu monitör %@ olsun mu?";
 "%@ is remembered as the %@. Pinned windows, desktop names and the desktop plan of the %@ are applied to it now." = "%1$@ %2$@ olarak hatırlanır. %3$@ için sabit pencereler, masaüstü adları ve masaüstü planı şimdi ona uygulanır.";
-"Second monitor missing" = "İkinci monitör yokken";
-"Windows whose rule names another external monitor go to the first external monitor, same desktop number, until it is back. Off: they stay where macOS puts them." = "Kuralı başka bir harici monitörü gösteren pencereler, o monitör geri gelene dek ilk harici monitöre, aynı masaüstü numarasına gider. Kapalıysa macOS'un koyduğu yerde kalırlar.";
 "Monitor roles" = "Monitör rolleri";
 "Each monitor keeps its role (Extra monitor, Monitor 2) wherever it is placed. Forget: roles follow the left-to-right order again." = "Her monitör nereye konursa konsun rolünü (Ekstra monitör, 2. monitör) korur. Unut: roller yeniden soldan sağa sıraya göre verilir.";
 "Forget" = "Unut";

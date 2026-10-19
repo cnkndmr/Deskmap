@@ -236,10 +236,16 @@ struct PlanApplyTests {
 
     /// Ad hedefi çözümü: adın space'inin canlı yeri; yerleşmemiş ad tutulur.
     @Test func nameTargetResolvesAndUnplacedHolds() {
+        let builtin = ScreenInfo(id: "builtin", uuid: "B", name: "B", isBuiltin: true,
+                                 frame: CGRect(x: 0, y: 0, width: 1710, height: 1112),
+                                 visibleFrame: CGRect(x: 0, y: 0, width: 1710, height: 1074))
         let number = Destination(screen: "builtin", desktop: 3)
-        #expect(Router.resolveTarget(number, nameSpaces: [:], holdNames: true, displays: [], screens: []) == number)
+        #expect(Router.resolvePlaces([number], nameSpaces: [:], holdNames: true, displays: [],
+                                     screens: [builtin])?.destination == number)
         let named = Destination(screen: "external", desktop: 2, nameID: "EXPO")
-        #expect(Router.resolveTarget(named, nameSpaces: [:], holdNames: false, displays: [], screens: []) == nil)
-        #expect(Router.resolveTarget(named, nameSpaces: ["EXPO": 5], holdNames: true, displays: [], screens: []) == nil)
+        #expect(Router.resolvePlaces([named], nameSpaces: [:], holdNames: false, displays: [],
+                                     screens: [builtin]) == nil)
+        #expect(Router.resolvePlaces([named], nameSpaces: ["EXPO": 5], holdNames: true, displays: [],
+                                     screens: [builtin]) == nil)
     }
 }

@@ -85,6 +85,10 @@ struct GhostDesktop: Codable, Equatable, Hashable, Identifiable {
         var mode: Mode
         var rule: Rule
         var destination: Destination
+        /// Yerin monitörlü sıradaki yeri (0 = ilk); geri gelince aynı sıraya
+        /// girer. Eski kayıtlarda yok (nil): yalnız kuralın o modda yeri
+        /// yoksa yazılır.
+        var order: Int? = nil
     }
     var id: String = UUID().uuidString
     var screen: String
@@ -318,10 +322,11 @@ struct Document: Codable, Equatable {
             let rules = profile.id == activeID ? activeRules : profile.rules
             for rule in rules {
                 for mode in Mode.allCases {
-                    guard let destination = rule[mode] else { continue }
-                    let key = planKey(mode: mode, screen: destination.screen)
-                    usedKeys.insert(key)
-                    usedSlots.insert("\(key)#\(destination.desktop)")
+                    for destination in rule.places(mode) {
+                        let key = planKey(mode: mode, screen: destination.screen)
+                        usedKeys.insert(key)
+                        usedSlots.insert("\(key)#\(destination.desktop)")
+                    }
                 }
             }
             var ownNames: [String: [String: String]] = [:]
@@ -365,7 +370,7 @@ struct Document: Codable, Equatable {
         }
         return rules.map { rule in
             var rule = rule
-            rule.docked = fill(rule.docked)
+            rule.mapPlaces(.docked) { fill($1) }
             rule.undocked = fill(rule.undocked)
             return rule
         }
@@ -445,7 +450,7 @@ struct Document: Codable, Equatable {
         var used = Set<Int>()
         for list in [rules] + profiles.map(\.rules) {
             for rule in list {
-                if let d = rule[mode], d.screen == screen { used.insert(d.desktop) }
+                for d in rule.places(mode) where d.screen == screen { used.insert(d.desktop) }
             }
         }
         for d in sessionPins where d.screen == screen { used.insert(d.desktop) }
@@ -524,7 +529,10 @@ struct Document: Codable, Equatable {
         rules[i] = rule
     }
 
-    /// Bir kuralın verilen moddaki hedefini değiştirir (nil = atanmamış).
+    /// Bir kuralın verilen moddaki hedefini değiştirir (nil = atanmamış;
+    /// monitörlü modda bütün sıralı liste silinir). Monitörlü modda yeni yer
+    /// K7'ye göre yazılır: aynı ekrandaki yer değişir, başka ekrana konan
+    /// yer başa geçer ve eski yer sırada kalır (`Rule.place`).
     /// Hedef adlı bir masaüstüyse ad hedefi olur (`normalizedTarget`); yeni
     /// bir ada bağlanan kuralın öbür kurulumda hedefi yoksa orada da o ada
     /// bağlanır (N2).
@@ -533,7 +541,7 @@ struct Document: Codable, Equatable {
         guard var rule = rule(id) else { return }
         let old = rule[mode]
         let new = destination.map { normalizedTarget($0, mode: mode, live: live) }
-        rule[mode] = new
+        if let new { rule.place(new, mode: mode) } else { rule.setPlaces([], mode: mode) }
         if let nameID = new?.nameID, nameID != old?.nameID { rule = pinnedToNameInOtherSetup(rule, mode: mode) }
         update(rule)
     }
@@ -574,21 +582,37 @@ struct Document: Codable, Equatable {
             return existing.id
         }
         var rule = draft
-        rule[mode] = normalizedTarget(destination, mode: mode, live: live)
+        rule.place(normalizedTarget(destination, mode: mode, live: live), mode: mode)
         rule = pinnedToNameInOtherSetup(rule, mode: mode)
         rules.append(rule)
         return rule.id
     }
 
-    /// Bu moddaki hedefi kaldırır; kuralın hiçbir hedefi kalmazsa silinir.
+    /// Bu moddaki hedefi (monitörlü modda bütün sıralı listeyi) kaldırır;
+    /// kuralın hiçbir hedefi kalmazsa silinir.
     mutating func unpin(_ id: String, mode: Mode) {
         guard var rule = rule(id) else { return }
-        rule[mode] = nil
-        if rule.docked == nil && rule.undocked == nil {
+        rule.setPlaces([], mode: mode)
+        if rule.hasNoPlaces {
             rules.removeAll { $0.id == id }
         } else {
             update(rule)
         }
+    }
+
+    /// Sıralı listeden bir yeri siler (yan panel ×); kuralın hiçbir yeri
+    /// kalmazsa kural silinir.
+    mutating func removePlace(at index: Int, for id: String, mode: Mode) {
+        guard var rule = rule(id) else { return }
+        rule.removePlace(at: index, mode: mode)
+        if rule.hasNoPlaces { rules.removeAll { $0.id == id } } else { update(rule) }
+    }
+
+    /// Sıralı listede bir yeri taşır (yan panel ↑ ↓).
+    mutating func movePlace(from source: Int, to target: Int, for id: String, mode: Mode) {
+        guard var rule = rule(id) else { return }
+        rule.movePlace(from: source, to: target, mode: mode)
+        update(rule)
     }
 
     /// Bir modun bütün kurulumunu diğer modun üzerine yazar: her kuralın
@@ -600,7 +624,8 @@ struct Document: Codable, Equatable {
         guard source != target else { return false }
         let before = self
         var copied = rules
-        for i in copied.indices { copied[i][target] = copied[i][source] }
+        // Monitörlü modun bütün sırası yazılır; laptop yalnız ilk yeri alır.
+        for i in copied.indices { copied[i].setPlaces(copied[i].places(source), mode: target) }
         copied.removeAll { $0.docked == nil && $0.undocked == nil }
         if copied != rules { rules = copied }
         copyPlan(from: source, to: target)
@@ -827,8 +852,12 @@ struct Document: Codable, Equatable {
             }
             for i in rules.indices {
                 for mode in Mode.allCases {
-                    guard let id = rules[i][mode]?.nameID else { continue }
-                    rules[i][mode]?.nameID = idMap[id]
+                    rules[i].mapPlaces(mode) { _, destination in
+                        guard let id = destination.nameID else { return destination }
+                        var destination = destination
+                        destination.nameID = idMap[id]
+                        return destination
+                    }
                 }
             }
         } else if !payload.desktopNames.isEmpty || !payload.plannedDesktops.isEmpty {

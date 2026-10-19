@@ -358,8 +358,14 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     /// pencere uyar (aynı adlı iki farklı dosya karışmaz). Eski kayıtlarda
     /// yok (nil).
     var path: String?
+    /// Monitör bağlıyken hedef: sıralı yer listesinin ilki (K3). Eski
+    /// sürümler yalnız bunu okur.
     var docked: Destination?
     var undocked: Destination?
+    /// Monitör bağlıyken sıradaki yerler (`docked`'tan sonra, öncelik
+    /// sırasıyla). Taramada listede bağlı olan ilk yer kazanır; ekran rolü
+    /// başına en çok bir yer. İsteğe bağlı alan: eski sürüm yok sayar.
+    var dockedNext: [Destination] = []
 
     /// `tokens`'ın küçük harfli kopyası; `matches` her çağrıda yeniden
     /// küçültmesin (her taramada ve her arayüz çiziminde kural × pencere kez
@@ -377,7 +383,8 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         tokens: [String],
         path: String? = nil,
         docked: Destination? = nil,
-        undocked: Destination? = nil
+        undocked: Destination? = nil,
+        dockedNext: [Destination] = []
     ) {
         self.id = id
         self.appName = appName
@@ -387,6 +394,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         self.loweredTokens = Self.lowered(tokens)
         self.docked = docked
         self.undocked = undocked
+        self.dockedNext = docked == nil ? [] : dockedNext
     }
 
     /// Boş `tokens` = uygulamanın bütün pencereleri.
@@ -403,17 +411,82 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     /// Verilen moddaki hedef. İki mod (monitör bağlı / sadece laptop)
     /// birbirinden tamamen bağımsızdır; biri diğerinden devralmaz,
     /// kullanıcı her iki kurulumu da ayrı ayrı yapar.
+    ///
+    /// Monitörlü modda bu, sıralı listenin ilk yeridir. nil atamak yalnız
+    /// ilk yeri düşürür, sıradaki yer ilk olur (masaüstü silme gibi iç
+    /// bakım); bütün listeyi silmek için `setPlaces([], mode:)`.
     subscript(mode: Mode) -> Destination? {
         get { mode == .docked ? docked : undocked }
         set {
-            if mode == .docked { docked = newValue } else { undocked = newValue }
+            guard mode == .docked else { undocked = newValue; return }
+            if let newValue {
+                docked = newValue
+            } else if dockedNext.isEmpty {
+                docked = nil
+            } else {
+                docked = dockedNext.removeFirst()
+            }
         }
     }
+
+    // MARK: Sıralı yerler (K3, docs/bug-tables.md §D)
+
+    /// Bu moddaki yerler, öncelik sırasıyla. Laptop modunda en çok bir.
+    func places(_ mode: Mode) -> [Destination] {
+        guard mode == .docked else { return undocked.map { [$0] } ?? [] }
+        guard let docked else { return [] }
+        return [docked] + dockedNext
+    }
+
+    /// Bu moddaki yerleri olduğu gibi yazar (boş = hedef yok). Laptop
+    /// modunda yalnız ilki tutulur.
+    mutating func setPlaces(_ places: [Destination], mode: Mode) {
+        guard mode == .docked else { undocked = places.first; return }
+        docked = places.first
+        dockedNext = Array(places.dropFirst())
+    }
+
+    /// Her yeri dönüştürür; nil dönen yer düşer, sıradakiler yukarı kayar.
+    /// `transform`'a yerin sırası da verilir (0 = ilk).
+    mutating func mapPlaces(_ mode: Mode, _ transform: (Int, Destination) -> Destination?) {
+        let mapped = places(mode).enumerated().compactMap { transform($0.offset, $0.element) }
+        if mapped != places(mode) { setPlaces(mapped, mode: mode) }
+    }
+
+    /// Kullanıcı pencereyi bu yere koydu (K7): aynı ekranda bir yeri varsa o
+    /// yer değişir, başka ekrandaysa yeni yer başa geçer; bir ekranın en çok
+    /// bir yeri olur. Laptop modunda tek yer değişir.
+    mutating func place(_ destination: Destination, mode: Mode) {
+        guard mode == .docked else { undocked = destination; return }
+        setPlaces([destination] + places(.docked).filter { $0.screen != destination.screen },
+                  mode: .docked)
+    }
+
+    /// `index`'teki yeri siler (yan panel ×); ilk yer silinirse sıradaki
+    /// ilk olur.
+    mutating func removePlace(at index: Int, mode: Mode) {
+        var list = places(mode)
+        guard list.indices.contains(index) else { return }
+        list.remove(at: index)
+        setPlaces(list, mode: mode)
+    }
+
+    /// Bir yeri sırada taşır (yan panel ↑ ↓).
+    mutating func movePlace(from source: Int, to target: Int, mode: Mode) {
+        var list = places(mode)
+        guard list.indices.contains(source), list.indices.contains(target), source != target
+        else { return }
+        list.insert(list.remove(at: source), at: target)
+        setPlaces(list, mode: mode)
+    }
+
+    /// Kuralın hiçbir modda yeri yok.
+    var hasNoPlaces: Bool { docked == nil && undocked == nil }
 
     // MARK: Çözümleme (eski şemayı da okur)
 
     private enum CodingKeys: String, CodingKey {
-        case id, appName, bundleID, tokens, path, docked, undocked
+        case id, appName, bundleID, tokens, path, docked, undocked, dockedNext
         // v1 alanları
         case app, match
     }
@@ -423,6 +496,15 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
         docked = try c.decodeIfPresent(Destination.self, forKey: .docked)
         undocked = try c.decodeIfPresent(Destination.self, forKey: .undocked)
+        // Okunamayan sıradaki yer atlanır; ilk yer yoksa sıradaki ilk olur.
+        let next = (try? c.decodeIfPresent(LossyArray<Destination>.self, forKey: .dockedNext))?
+            .elements ?? []
+        if docked == nil, let first = next.first {
+            docked = first
+            dockedNext = Array(next.dropFirst())
+        } else {
+            dockedNext = next
+        }
         path = try c.decodeIfPresent(String.self, forKey: .path)
 
         let decodedTokens: [String]
@@ -457,6 +539,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         try c.encodeIfPresent(path, forKey: .path)
         try c.encodeIfPresent(docked, forKey: .docked)
         try c.encodeIfPresent(undocked, forKey: .undocked)
+        if !dockedNext.isEmpty { try c.encode(dockedNext, forKey: .dockedNext) }
     }
 
     private struct LegacyApp: Decodable {

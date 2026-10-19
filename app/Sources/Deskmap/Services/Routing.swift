@@ -191,6 +191,60 @@ enum Routing {
         return Match(destination: destination, ruleID: rule.id, rule: rule)
     }
 
+    // MARK: - Sıralı yerler (K3/K4, docs/bug-tables.md §D)
+
+    /// Pinin sıralı yerlerinden hangisinin kullanıldığı.
+    enum PlaceChoice: Equatable, Hashable {
+        /// Listedeki bu sıradaki yer (0 = ilk).
+        case place(Int)
+        /// Listede bağlı yer yok; rol sırasında bağlı ilk monitör (K4).
+        case fallback
+    }
+
+    struct ResolvedPlace: Equatable {
+        let destination: Destination
+        let choice: PlaceChoice
+    }
+
+    /// Bu taramada pinin gideceği yer (saf). Listede kullanılabilir ilk yer
+    /// kazanır: ekranı bağlı ve onaylı (`held` dışında); ad hedefiyse adın
+    /// masaüstü bağlı, onaylı bir ekranda (`namePlace`). Hiçbiri değilse
+    /// K4: rol sırasında (`external`, `external-2` …) bağlı ve onaylı ilk
+    /// harici ekran, listenin ilk yerinin masaüstü numarasıyla (o numara
+    /// yoksa taşıma son masaüstüne gider). O da yoksa nil: pencereye
+    /// dokunulmaz (yalnız onay bekleyen monitör bağlıyken de, D2.4).
+    /// `holdNames`: adlar taşınırken (şema geçişi) ad hedefine sıra gelirse
+    /// pencere tutulur. Yeri bilinmeyen (yerleşmemiş) bir ad varsa yedeğe
+    /// gidilmez, pencere tutulur: ad yerleşince oraya gider.
+    static func resolvePlace(_ places: [Destination], connected: [String], held: Set<String>,
+                             holdNames: Bool = false,
+                             namePlace: (String) -> (screen: String, desktop: Int)? = { _ in nil }
+    ) -> ResolvedPlace? {
+        let usable = Set(connected).subtracting(held)
+        var unplacedName = false
+        for (index, place) in places.enumerated() {
+            guard let nameID = place.nameID else {
+                if usable.contains(place.screen) { return ResolvedPlace(destination: place, choice: .place(index)) }
+                continue
+            }
+            if holdNames { return nil }
+            guard let spot = namePlace(nameID) else { unplacedName = true; continue }
+            guard usable.contains(spot.screen) else { continue }
+            var resolved = place
+            resolved.screen = spot.screen
+            resolved.desktop = spot.desktop
+            return ResolvedPlace(destination: resolved, choice: .place(index))
+        }
+        guard !unplacedName, let first = places.first,
+              let screen = usable.compactMap({ role in
+                  DisplayRoles.externalIndex(of: role).map { (role, $0) } })
+                .min(by: { $0.1 < $1.1 })?.0
+        else { return nil }
+        return ResolvedPlace(
+            destination: Destination(screen: screen, desktop: first.desktop, layout: first.layout),
+            choice: .fallback)
+    }
+
     // MARK: - "Neden burada?"
 
     /// Pencere satırının ipucu (saf): hangi kural (ya da oturum pini) hangi

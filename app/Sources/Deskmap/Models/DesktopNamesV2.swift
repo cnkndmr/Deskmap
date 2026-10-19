@@ -256,18 +256,20 @@ extension Document {
         func refresh(_ list: inout [Rule], names: [DesktopName], plans: DesktopPlans) {
             for i in list.indices {
                 for mode in Mode.allCases {
-                    guard var destination = list[i][mode], let id = destination.nameID,
-                          let record = names.first(where: { $0.id == id }) else { continue }
-                    var slot: Slot?
-                    if let live, live.mode == mode, let space = record.space {
-                        slot = live.place(of: space)
+                    list[i].mapPlaces(mode) { _, destination in
+                        guard let id = destination.nameID,
+                              let record = names.first(where: { $0.id == id }) else { return destination }
+                        var slot: Slot?
+                        if let live, live.mode == mode, let space = record.space {
+                            slot = live.place(of: space)
+                        }
+                        if slot == nil { slot = plans.place(of: id, mode: mode) }
+                        guard let slot else { return destination }
+                        var destination = destination
+                        destination.screen = slot.screen
+                        destination.desktop = slot.desktop
+                        return destination
                     }
-                    if slot == nil { slot = plans.place(of: id, mode: mode) }
-                    guard let slot, slot.screen != destination.screen || slot.desktop != destination.desktop
-                    else { continue }
-                    destination.screen = slot.screen
-                    destination.desktop = slot.desktop
-                    list[i][mode] = destination
                 }
             }
         }
@@ -339,10 +341,19 @@ extension Document {
                 let index = list.firstIndex { $0.id == pin.rule.id }
                     ?? list.firstIndex { $0.sameKey(as: pin.rule) }
                 if let index {
-                    if list[index][pin.mode] == nil { list[index][pin.mode] = target }
+                    var places = list[index].places(pin.mode)
+                    if let order = pin.order, pin.mode == .docked {
+                        // Sıradaki yer kendi sırasına döner; o ekranda yeri
+                        // varsa üzerine yazılmaz.
+                        guard !places.contains(where: { $0.screen == target.screen }) else { return }
+                        places.insert(target, at: min(order, places.count))
+                        list[index].setPlaces(places, mode: pin.mode)
+                    } else if places.isEmpty {
+                        list[index][pin.mode] = target
+                    }
                 } else {
                     var rule = pin.rule
-                    rule.docked = nil
+                    rule.setPlaces([], mode: .docked)
                     rule.undocked = nil
                     rule[pin.mode] = target
                     list.append(rule)

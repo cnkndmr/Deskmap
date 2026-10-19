@@ -516,11 +516,6 @@ final class Store: ObservableObject {
         document.displayRoles = forgotten
     }
 
-    func setDisplayFallback(_ on: Bool) {
-        guard document.displayRoles.fallbackToFirstExternal != on else { return }
-        document.displayRoles.fallbackToFirstExternal = on
-    }
-
     // MARK: - Kurallar
 
     func add(_ rule: Rule) {
@@ -621,7 +616,22 @@ final class Store: ObservableObject {
         return changed
     }
 
-    /// Bu moddaki hedefi kaldırır; kuralın hiçbir hedefi kalmazsa silinir.
+    /// Sıralı listeden bir yeri siler (geri alınabilir).
+    func removePlace(at index: Int, for id: String, mode: Mode) {
+        recording(L("Pin removed")) {
+            document.removePlace(at: index, for: id, mode: mode)
+        }
+    }
+
+    /// Sıralı listede bir yeri taşır (geri alınabilir).
+    func movePlace(from source: Int, to target: Int, for id: String, mode: Mode) {
+        recording(L("Pin moved")) {
+            document.movePlace(from: source, to: target, for: id, mode: mode)
+        }
+    }
+
+    /// Bu moddaki hedefi (monitörlü modda bütün sıralı listeyi) kaldırır;
+    /// kuralın hiçbir hedefi kalmazsa silinir.
     func unpin(_ id: String, mode: Mode) {
         recording(L("Pin removed")) {
             document.unpin(id, mode: mode)

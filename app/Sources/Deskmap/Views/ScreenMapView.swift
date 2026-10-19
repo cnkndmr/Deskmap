@@ -56,7 +56,7 @@ struct ScreenMapView: View {
 
     private func tileCount(for screen: KnownScreen) -> Int {
         let used = store.document.rules
-            .compactMap { $0[mode] }
+            .flatMap { $0.places(mode) }
             .filter { $0.screen == screen.id }
             .map(\.desktop)
             .max() ?? 0

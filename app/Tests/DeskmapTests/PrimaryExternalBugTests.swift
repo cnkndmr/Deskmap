@@ -139,12 +139,13 @@ struct PrimaryExternalBugTests {
                        visibleFrame: CGRect(x: 1710, y: 0, width: 1920, height: 1050)),
         ]
         let rule = Destination(screen: "external-2", desktop: 2, layout: .full)
-        let open = Router.resolveTarget(rule, nameSpaces: [:], holdNames: false, displays: [],
-                                        screens: screens, displayFallback: true)
-        #expect(open?.screen == "external")
-        let held = Router.resolveTarget(rule, nameSpaces: [:], holdNames: false, displays: [],
-                                        screens: screens, displayFallback: true, heldRoles: ["external"])
-        #expect(held == rule)   // bağlı olmayan ekran: taramada atlanır
+        let open = Router.resolvePlaces([rule], nameSpaces: [:], holdNames: false, displays: [],
+                                        screens: screens)
+        #expect(open?.destination.screen == "external")
+        #expect(open?.choice == .fallback)
+        let held = Router.resolvePlaces([rule], nameSpaces: [:], holdNames: false, displays: [],
+                                        screens: screens, heldRoles: ["external"])
+        #expect(held == nil)   // yalnız onay bekleyen monitör: pencereye dokunulmaz (D2.4)
     }
 
     // MARK: - A4 · Ana monitör çıktı, yalnız (hatırlanmayan) sanal ekran kaldı

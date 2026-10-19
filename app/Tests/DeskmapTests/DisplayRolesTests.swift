@@ -230,20 +230,8 @@ struct DisplayRolesTests {
 
     // MARK: Eksik ekran
 
-    @Test func missingSecondMonitorFallsBackToFirstExternal() {
-        let both: Set<String> = ["builtin", "external", "external-2"]
-        let one: Set<String> = ["builtin", "external"]
-        let none: Set<String> = ["builtin"]
-        #expect(DisplayRoles.effectiveScreen("external-2", connected: both, fallback: true) == "external-2")
-        #expect(DisplayRoles.effectiveScreen("external-2", connected: one, fallback: true) == "external")
-        #expect(DisplayRoles.effectiveScreen("external-3", connected: one, fallback: true) == "external")
-        #expect(DisplayRoles.effectiveScreen("external-2", connected: one, fallback: false) == nil)
-        #expect(DisplayRoles.effectiveScreen("external-2", connected: none, fallback: true) == nil)
-        #expect(DisplayRoles.effectiveScreen("external", connected: none, fallback: true) == nil)
-        #expect(DisplayRoles.effectiveScreen("builtin", connected: one, fallback: true) == "builtin")
-    }
-
-    @Test func resolveTargetAppliesTheFallbackOnlyWhenAsked() {
+    /// K4: yedek hep açık; masaüstü numarası ve düzen ilk yerden.
+    @Test func fallbackKeepsDesktopAndLayout() {
         let screens = [
             ScreenInfo(id: "builtin", uuid: "B", name: "B", isBuiltin: true,
                        frame: CGRect(x: 0, y: 0, width: 1710, height: 1112),
@@ -253,14 +241,11 @@ struct DisplayRolesTests {
                        visibleFrame: CGRect(x: 0, y: 1112, width: 1920, height: 1050)),
         ]
         let rule = Destination(screen: "external-2", desktop: 3, layout: .leftHalf)
-        let on = Router.resolveTarget(rule, nameSpaces: [:], holdNames: false, displays: [],
-                                      screens: screens, displayFallback: true)
+        let on = Router.resolvePlaces([rule], nameSpaces: [:], holdNames: false, displays: [],
+                                      screens: screens)?.destination
         #expect(on?.screen == "external")
         #expect(on?.desktop == 3)
         #expect(on?.layout == .leftHalf)
-        let off = Router.resolveTarget(rule, nameSpaces: [:], holdNames: false, displays: [],
-                                       screens: screens, displayFallback: false)
-        #expect(off == rule)
     }
 
     // MARK: Kayıt
@@ -314,9 +299,8 @@ struct DisplayRolesTests {
         #expect(URLCommand.parse(URL(string: "deskmap://screen-role/ABCD/builtin")!) == nil)
         #expect(URLCommand.parse(URL(string: "deskmap://screen-role/ABCD")!) == nil)
         #expect(URLCommand.parse(URL(string: "deskmap://screen-role-forget")!) == .forgetScreenRoles)
-        #expect(URLCommand.parse(URL(string: "deskmap://screen-fallback/off")!) == .screenFallback(false))
-        #expect(URLCommand.parse(URL(string: "deskmap://screen-fallback/on")!) == .screenFallback(true))
-        #expect(URLCommand.parse(URL(string: "deskmap://screen-fallback/maybe")!) == nil)
+        // Eski "İkinci monitör yokken" anahtarı kalktı (K4: yedek hep açık).
+        #expect(URLCommand.parse(URL(string: "deskmap://screen-fallback/off")!) == nil)
     }
 
     @Test func connectedDisplayMatchesRoleOrUniqueUUIDPrefix() {

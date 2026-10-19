@@ -40,7 +40,6 @@ import Foundation
 ///     deskmap://screen-role-forget   hatırlanan monitör rollerini unut (konum sırası)
 ///     deskmap://screen-role-forget/<monitör>  yalnız bu monitörü unut (bağlıysa rolü
 ///                                    onay bekler, düzen ona uygulanmaz)
-///     deskmap://screen-fallback/<on|off>  ikinci monitör yokken ilk harici monitör
 ///     deskmap://backup-now           otomatik yedeği şimdi çalıştır
 ///     deskmap://backup-restore/<kimlik>  yedeği geri yükle (önce şimdiki hâli
 ///                                    pre-restore katmanına yedekler; geri alınabilir)
@@ -82,7 +81,6 @@ enum URLCommand: Equatable {
     case screenRole(display: String, role: String)
     case forgetScreenRoles
     case forgetScreen(display: String)
-    case screenFallback(Bool)
     case backupNow
     case restoreBackup(id: String)
 
@@ -232,13 +230,6 @@ enum URLCommand: Equatable {
             case 0: return .forgetScreenRoles
             case 1: return .forgetScreen(display: parts[0])
             default: return nil
-            }
-        case "screen-fallback":
-            guard parts.count == 1 else { return nil }
-            switch parts[0].lowercased() {
-            case "on", "1", "true":   return .screenFallback(true)
-            case "off", "0", "false": return .screenFallback(false)
-            default:                  return nil
             }
         case "reapply":      return .reapply
         case "pause":        return .pause
@@ -423,8 +414,6 @@ enum URLCommands {
                 return
             }
             store.forgetDisplay(uuid)
-        case .screenFallback(let on):
-            store.setDisplayFallback(on)
         case .nameDesktop(let screen, let desktop, let name, let mode):
             let target = mode ?? AppModel.shared.screens.mode
             if !store.setDesktopName(name, screen: screen, desktop: desktop, mode: target) {
@@ -473,7 +462,7 @@ enum URLCommands {
         let screens = AppModel.shared.screens
         let mode = mode ?? screens.mode
         let live = mode == screens.mode
-        let used = store.document.rules.compactMap { $0[mode] }
+        let used = store.document.rules.flatMap { $0.places(mode) }
             .filter { $0.screen == screen }.map(\.desktop).max() ?? 0
         let windows = live ? router.windows.compactMap(\.placement)
             .filter { $0.screen == screen }.map(\.desktop).max() ?? 0 : 0

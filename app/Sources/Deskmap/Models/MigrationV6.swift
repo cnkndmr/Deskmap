@@ -104,11 +104,13 @@ enum MigrationV6 {
                 let modes: [Mode] = ghost.screen == "builtin" ? Mode.allCases : [.docked]
                 for i in rules.indices {
                     for m in modes {
-                        guard var destination = rules[i][m], destination.nameID == nil,
-                              destination.screen == ghost.screen,
-                              destination.desktop >= ghost.desktop else { continue }
-                        destination.desktop += 1
-                        rules[i][m] = destination
+                        rules[i].mapPlaces(m) { _, destination in
+                            guard destination.nameID == nil, destination.screen == ghost.screen,
+                                  destination.desktop >= ghost.desktop else { return destination }
+                            var destination = destination
+                            destination.desktop += 1
+                            return destination
+                        }
                     }
                 }
                 let live = ghost.name.flatMap { name in
@@ -130,7 +132,7 @@ enum MigrationV6 {
                         rules[index][pin.mode] = destination
                     } else {
                         var rule = pin.rule
-                        rule.docked = nil
+                        rule.setPlaces([], mode: .docked)
                         rule.undocked = nil
                         rule[pin.mode] = destination
                         rules.append(rule)
@@ -333,9 +335,10 @@ enum MigrationV6 {
         rules.map { rule in
             var rule = rule
             for m in Mode.allCases {
-                guard let destination = rule[m] else { continue }
-                rule[m] = convertDestination(destination, mode: m, current: mode, legacy: legacy,
-                                             names: names, evidence: evidence)
+                rule.mapPlaces(m) { _, destination in
+                    convertDestination(destination, mode: m, current: mode, legacy: legacy,
+                                       names: names, evidence: evidence)
+                }
             }
             return rule
         }
@@ -347,7 +350,7 @@ enum MigrationV6 {
                            evidence: MigrationEvidence?) -> DesktopPlans {
         var plans = DesktopPlans()
         func numberMax(_ m: Mode, _ role: String) -> Int {
-            rules.compactMap { $0[m] }.filter { $0.nameID == nil && $0.screen == role }
+            rules.flatMap { $0.places(m) }.filter { $0.nameID == nil && $0.screen == role }
                 .map(\.desktop).max() ?? 0
         }
         func idOf(_ normalized: String) -> String? {

@@ -20,9 +20,10 @@ struct DisplayRoles: Codable, Equatable {
     /// Rol → o rolde görülmüş monitör UUID'leri (normalleştirilmiş, en yeni
     /// önde). Bir UUID yalnız bir rolde bulunur.
     var remembered: [String: [String]] = [:]
-    /// Kuralın harici ekranı (`external-2` …) bağlı değilken pencere ilk
-    /// harici ekrana (`external`), aynı masaüstü numarasına gider. Kapalıysa
-    /// pencereye dokunulmaz (eski davranış).
+    /// Eski "İkinci monitör yokken" ayarı. Artık çözümlemeyi etkilemez:
+    /// listede bağlı yer yoksa rol sırasıyla yedek hep açık (K4,
+    /// `Routing.resolvePlace`). Alan, eski sürümler dosyayı aynı okusun diye
+    /// okunup yazılmaya devam eder.
     var fallbackToFirstExternal: Bool = true
     /// Bir kez öğrenildi (ilk bağlanış geride). Öncesinde bağlı monitörler
     /// konum sırasıyla kendiliğinden öğrenilir (yükseltmede davranış
@@ -201,19 +202,28 @@ struct DisplayRoles: Codable, Equatable {
         remembered[role] = Array(list.prefix(Self.historyLimit))
     }
 
-    /// Kullanıcı `uuid` monitörünü `role` rolüne verdi. O rolde şu an başka
-    /// bir bağlı monitör varsa ikisi yer değiştirir (o monitör seçilenin eski
-    /// rolünü alır); seçilenin rolü yoksa öteki konum sırasına göre yeniden
-    /// yer bulur (bir sonraki atamada).
+    /// Kullanıcı `uuid` monitörünü `role` rolüne verdi (K5). O rolde başka
+    /// bir monitör varsa (bağlı olan; yoksa o rolde hatırlanan, bağlı
+    /// olmayanlar) ikisi yer değiştirir: o monitör seçilenin eski rolünü
+    /// alır. Pinler ve planlar role bağlı olduğundan düzenler de yer
+    /// değiştirir, hiçbiri kaybolmaz. Seçilenin rolü yoksa (yeni monitör
+    /// bir yerin yerine geçti) öteki unutulur; bağlıysa konum sırasına göre
+    /// yeniden yer bulur (bir sonraki atamada).
     func choosing(_ uuid: String, for role: String,
                   current: [(role: String, uuid: String)]) -> DisplayRoles {
         guard Self.isExternalRole(role) else { return self }
         let key = ScreenInfo.normalize(uuid)
         let oldRole = current.first { ScreenInfo.normalize($0.uuid) == key }?.role
+            ?? self.role(of: key)
         var copy = self
-        if let occupant = current.first(where: { $0.role == role }),
-           ScreenInfo.normalize(occupant.uuid) != key {
-            let other = ScreenInfo.normalize(occupant.uuid)
+        let occupants: [String]
+        if let occupant = current.first(where: { $0.role == role }) {
+            occupants = [ScreenInfo.normalize(occupant.uuid)]
+        } else {
+            occupants = remembered[role] ?? []
+        }
+        // Sıra korunsun: `bind` başa ekler, en yeni en sona kalırdı.
+        for other in occupants.reversed() where other != key && oldRole != role {
             if let oldRole {
                 copy.bind(other, to: oldRole)
             } else {
@@ -226,18 +236,6 @@ struct DisplayRoles: Codable, Equatable {
         copy.bind(key, to: role)
         copy.learnedOnce = true
         return copy
-    }
-
-    // MARK: - Eksik ekran
-
-    /// Kuralın ekranı bağlı değilken pencerenin gideceği bağlı ekran rolü
-    /// (saf). Bağlıysa kendisi; `external-N` (N ≥ 2) bağlı değil, seçenek açık
-    /// ve `external` bağlıysa `external`; yoksa nil (pencereye dokunulmaz).
-    static func effectiveScreen(_ screen: String, connected: Set<String>, fallback: Bool) -> String? {
-        if connected.contains(screen) { return screen }
-        guard fallback, let index = externalIndex(of: screen), index >= 2,
-              connected.contains("external") else { return nil }
-        return "external"
     }
 
     // MARK: - Ad

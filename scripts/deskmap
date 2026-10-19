@@ -57,7 +57,6 @@ COMMANDS:
                                    A monitor Deskmap does not remember waits "on hold" (its
                                    layout is not applied) until it is given a role here
   screen-role DISPLAY --forget     forget one monitor: its role waits on hold again
-  screen-fallback on|off           rule's monitor (external-2 …) missing: first external / leave
   move W SCREEN [N] | pin W SCREEN [N] | unpin W            one window
   free W 15m|2h|lock|end           let a pinned window move freely for a while, until
                                    the screen locks, or end that early
@@ -1142,9 +1141,6 @@ def main():
     sp = sub.add_parser("screen-role", help="give a connected monitor an external role; it keeps it")
     sp.add_argument("display", nargs="?"); sp.add_argument("role", nargs="?")
     sp.add_argument("--forget", action="store_true"); sp.set_defaults(fn=screen_role)
-    sp = sub.add_parser("screen-fallback", help="second monitor missing: use the first external (on) or leave (off)")
-    sp.add_argument("state", choices=("on", "off"))
-    sp.set_defaults(fn=lambda a: (send(f"screen-fallback/{a.state}"), print(f"fallback {a.state}")))
     for name in ("pause", "resume", "toggle", "reapply", "reload", "next-profile"):
         sub.add_parser(name).set_defaults(fn=lambda a, n=name: send(n))
     sp = sub.add_parser("profile"); sp.add_argument("name")

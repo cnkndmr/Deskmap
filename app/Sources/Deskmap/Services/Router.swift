@@ -282,6 +282,9 @@ final class Router: ObservableObject {
     /// o kimlik yok ve bağ "pin silindi" diye pencereyi eski yerinde
     /// tutardı. Profil değişince bağlar baştan kurulur.
     private var bindingsProfileID: String?
+    /// Son taramada pencerenin pininden kullanılan yer (`status.json`
+    /// `place`): "1", "2" … (sıra), "fallback" (K4) ya da "untouched".
+    private(set) var placeStatus: [CGWindowID: String] = [:]
     /// Tarama sürerken verilen bağlar (pin kaldırma); sonuç gelince
     /// taramanın eski bağlarının üstüne yazılır.
     private var bindingOverrides: [CGWindowID: Routing.Binding] = [:]
@@ -1931,7 +1934,7 @@ final class Router: ObservableObject {
     /// masaüstü sırası. O sıraya dek masaüstü silinmez.
     private func pinnedDesktops(mode: Mode) -> [String: Int] {
         var result: [String: Int] = [:]
-        let destinations = store.document.rules.compactMap { $0[mode] } + Array(sessionPins.values)
+        let destinations = store.document.rules.flatMap { $0.places(mode) } + Array(sessionPins.values)
         for destination in destinations where destination.nameID == nil {
             result[destination.screen] = max(result[destination.screen] ?? 0, destination.desktop)
         }
@@ -2584,7 +2587,6 @@ final class Router: ObservableObject {
         let nameSpaces = Dictionary(store.document.names.compactMap { name in
             name.space.map { (name.id, $0) } }, uniquingKeysWith: { a, _ in a })
         let holdNames = store.migrationPending || store.upgradeUndone
-        let displayFallback = store.document.displayRoles.fallbackToFirstExternal
         let heldRoles = screens.heldRoles
         let profileID = store.document.activeProfileID
         let bindings = bindings(for: profileID)
@@ -2603,7 +2605,7 @@ final class Router: ObservableObject {
                                      refusedSizes: refusedSizes,
                                      lastAttempts: lastAttempts, movesAllowed: movesAllowed,
                                      nameSpaces: nameSpaces, holdNames: holdNames,
-                                     displayFallback: displayFallback, heldRoles: heldRoles,
+                                     heldRoles: heldRoles,
                                      bindings: bindings, firstSeen: firstSeen, initial: initial,
                                      token: token)
             Task { @MainActor in
@@ -2646,6 +2648,8 @@ final class Router: ObservableObject {
                 self.refusedSizes.merge(outcome.refusedSizes) { $1 }
                 self.acceptSelection(outcome.context, firstSeen: outcome.firstSeen,
                                      routing: routing, profileID: profileID, live: Set(live.keys))
+                self.placeStatus = Self.placeStatus(choices: outcome.placeChoices,
+                                                    unplaced: outcome.unplaced)
                 self.applied = applied
                 self.attempts = attempts
                 self.lastAttempts = lastAttempts
@@ -2744,6 +2748,10 @@ final class Router: ObservableObject {
         var firstSeen: [CGWindowID: Date] = [:]
         /// En erken bekleme bitişine kalan süre (sn); bekleyen yoksa nil.
         var heldUntil: TimeInterval?
+        /// Pencerenin pininden kullanılan yer (sıra ya da yedek).
+        var placeChoices: [CGWindowID: Routing.PlaceChoice] = [:]
+        /// Pini olan ama bu taramada yeri bulunmayan (dokunulmayan) pencereler.
+        var unplaced: Set<CGWindowID> = []
     }
 
     /// Bir pencerenin taramada bir kez okunan durumu; anlık görüntü,
@@ -2797,7 +2805,7 @@ final class Router: ObservableObject {
         attempts: [String: Int], refusedSizes: [String: CGSize],
         lastAttempts: [String: Date], movesAllowed: Bool,
         nameSpaces: [String: UInt64] = [:], holdNames: Bool = false,
-        displayFallback: Bool = false, heldRoles: Set<String> = [],
+        heldRoles: Set<String> = [],
         bindings: [CGWindowID: Routing.Binding] = [:], firstSeen: [CGWindowID: Date] = [:],
         initial: Bool = false,
         token: RoutingGeneration.Token
@@ -2887,11 +2895,18 @@ final class Router: ObservableObject {
             if free.contains(window.id) { continue }
             // Ad hedefi: adın bağlı olduğu masaüstü, nerede olursa (A.3).
             // Ad yerleşmemişse ya da masaüstü bağlı değilse pencere tutulur.
-            guard let destination = Self.resolveTarget(match.destination, nameSpaces: nameSpaces,
-                                                       holdNames: holdNames, displays: displays,
-                                                       screens: screens,
-                                                       displayFallback: displayFallback,
-                                                       heldRoles: heldRoles) else { continue }
+            // Sıralı yerler (K3): listede bağlı ilk yer, yoksa rol sırasıyla
+            // yedek (K4); oturum pininin tek yeri var.
+            guard let resolved = Self.resolvePlaces(match.rule?.places(mode) ?? [match.destination],
+                                                    nameSpaces: nameSpaces,
+                                                    holdNames: holdNames, displays: displays,
+                                                    screens: screens, heldRoles: heldRoles)
+            else {
+                outcome.unplaced.insert(window.id)
+                continue
+            }
+            let destination = resolved.destination
+            outcome.placeChoices[window.id] = resolved.choice
 
             // Onay bekleyen rolün ekranına kural uygulanmaz (A3/A4): düzen
             // kullanıcı monitörü seçene dek bekler.
@@ -2933,7 +2948,7 @@ final class Router: ObservableObject {
                let display = displays.first(where: { $0.displayUUID == screen.uuid }),
                !display.desktops.isEmpty {
                 let desktops = display.desktops
-                let index = min(destination.desktop, desktops.count)
+                let index = Self.desktopIndex(destination.desktop, count: desktops.count)
                 let space = desktops[index - 1]
                 let current = state.spaces
                 // Tam ekran uygulamaya ait pencerelere dokunulmaz.
@@ -3152,36 +3167,40 @@ final class Router: ObservableObject {
         return screens.first.map { Placement(screen: $0.id, desktop: 1) }
     }
 
-    /// Hedefin bu taramadaki yeri (saf): numara hedefi olduğu gibi; ad
-    /// hedefi adın space'inin canlı yeri; ad yerleşmemişse, masaüstü bağlı
-    /// ekranda değilse ya da adlar tutuluyorsa (geçiş bekliyor) nil: pencere
+    /// Hedef masaüstünün ekrandaki sırası (saf): ekranda o kadar masaüstü
+    /// yoksa son masaüstü (D1.10).
+    nonisolated static func desktopIndex(_ desktop: Int, count: Int) -> Int {
+        min(max(desktop, 1), count)
+    }
+
+    /// `status.json` için yer durumu (saf).
+    nonisolated static func placeStatus(choices: [CGWindowID: Routing.PlaceChoice],
+                                        unplaced: Set<CGWindowID>) -> [CGWindowID: String] {
+        var result: [CGWindowID: String] = [:]
+        for (id, choice) in choices {
+            switch choice {
+            case .place(let index): result[id] = String(index + 1)
+            case .fallback: result[id] = "fallback"
+            }
+        }
+        for id in unplaced where result[id] == nil { result[id] = "untouched" }
+        return result
+    }
+
+    /// Pinin sıralı yerlerinden bu taramada kullanılanı (saf,
+    /// `Routing.resolvePlace`): ad hedefi adın space'inin canlı yeri;
+    /// bağlı ekranda yer yoksa rol sırasıyla yedek (K4). nil: pencere
     /// taşınmaz.
-    nonisolated static func resolveTarget(_ destination: Destination, nameSpaces: [String: UInt64],
+    nonisolated static func resolvePlaces(_ places: [Destination], nameSpaces: [String: UInt64],
                                           holdNames: Bool, displays: [SkyLight.DisplaySpaces],
                                           screens: [ScreenInfo],
-                                          displayFallback: Bool = false,
-                                          heldRoles: Set<String> = []) -> Destination? {
-        guard let nameID = destination.nameID else {
-            // Kuralın harici ekranı bağlı değilse ilk harici ekran (seçenek
-            // açıksa); anahtar çözülmüş hedefe bağlı olduğu için ekran geri
-            // gelince pencere yeniden kendi ekranına yerleşir.
-            // Yedek de yoksa hedef olduğu gibi döner; bağlı olmayan ekran
-            // taramada atlanır (pencereye dokunulmaz).
-            guard let screen = DisplayRoles.effectiveScreen(
-                destination.screen, connected: Set(screens.map(\.id)).subtracting(heldRoles),
-                fallback: displayFallback),
-                  screen != destination.screen
-            else { return destination }
-            var resolved = destination
-            resolved.screen = screen
-            return resolved
+                                          heldRoles: Set<String> = []) -> Routing.ResolvedPlace? {
+        Routing.resolvePlace(places, connected: screens.map(\.id), held: heldRoles,
+                             holdNames: holdNames) { nameID in
+            guard let space = nameSpaces[nameID],
+                  let place = place(of: space, displays: displays, screens: screens) else { return nil }
+            return (place.screen, place.desktop)
         }
-        guard !holdNames, let space = nameSpaces[nameID],
-              let place = place(of: space, displays: displays, screens: screens) else { return nil }
-        var resolved = destination
-        resolved.screen = place.screen
-        resolved.desktop = place.desktop
-        return resolved
     }
 
     /// Bir space'in bağlı ekrandaki yeri (normal masaüstüyse); saf.

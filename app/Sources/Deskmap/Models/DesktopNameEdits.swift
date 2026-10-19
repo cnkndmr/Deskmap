@@ -53,23 +53,24 @@ extension Document {
         for original in rules {
             var rule = original
             for m in Mode.allCases {
-                guard var destination = rule[m] else { continue }
-                if let id = destination.nameID {
-                    if id == record?.id {
+                // Sıralı listenin her yeri (yalnız ilki değil); silinen yer
+                // hayalete sırasıyla gider.
+                rule.mapPlaces(m) { order, destination in
+                    var destination = destination
+                    if let id = destination.nameID {
+                        guard id == record?.id else { return destination }
                         pins.append(.init(profileID: activeProfileID, mode: m, rule: original,
-                                          destination: destination))
-                        rule[m] = nil
+                                          destination: destination, order: order))
+                        return nil
                     }
-                    continue
-                }
-                guard shiftModes.contains(m), destination.screen == role else { continue }
-                if destination.desktop == desktop {
-                    pins.append(.init(profileID: activeProfileID, mode: m, rule: original,
-                                      destination: destination))
-                    rule[m] = nil
-                } else if destination.desktop > desktop {
-                    destination.desktop -= 1
-                    rule[m] = destination
+                    guard shiftModes.contains(m), destination.screen == role else { return destination }
+                    if destination.desktop == desktop {
+                        pins.append(.init(profileID: activeProfileID, mode: m, rule: original,
+                                          destination: destination, order: order))
+                        return nil
+                    }
+                    if destination.desktop > desktop { destination.desktop -= 1 }
+                    return destination
                 }
             }
             if rule.docked != nil || rule.undocked != nil { kept.append(rule) }
@@ -232,12 +233,14 @@ extension Document {
         // Bu sıradaki numara pinleri ad pini olur (laptop: öbür kurulumda da aynı sıradaysa).
         var list = rules
         for i in list.indices {
-            for m in Mode.allCases {
-                guard var destination = list[i][m], destination.nameID == nil,
-                      destination.screen == screen, destination.desktop == desktop else { continue }
-                guard m == mode || (m == other && twinIndex == desktop) else { continue }
-                destination.nameID = id
-                list[i][m] = destination
+            for m in Mode.allCases where m == mode || (m == other && twinIndex == desktop) {
+                list[i].mapPlaces(m) { _, destination in
+                    guard destination.nameID == nil, destination.screen == screen,
+                          destination.desktop == desktop else { return destination }
+                    var destination = destination
+                    destination.nameID = id
+                    return destination
+                }
             }
         }
         if list != rules { rules = list }
@@ -267,7 +270,13 @@ extension Document {
         plans.remove(id, mode: .undocked, collapse: false)
         var list = rules
         for i in list.indices {
-            for m in Mode.allCases where list[i][m]?.nameID == id { list[i][m]?.nameID = nil }
+            for m in Mode.allCases {
+                list[i].mapPlaces(m) { _, destination in
+                    var destination = destination
+                    if destination.nameID == id { destination.nameID = nil }
+                    return destination
+                }
+            }
         }
         if list != rules { rules = list }
     }
@@ -308,10 +317,13 @@ extension Document {
         var kept: [Rule] = []
         for original in rules {
             var rule = original
-            for m in Mode.allCases where rule[m]?.nameID == id {
-                pins.append(.init(profileID: activeProfileID, mode: m, rule: original,
-                                  destination: rule[m]!))
-                rule[m] = nil
+            for m in Mode.allCases {
+                rule.mapPlaces(m) { order, destination in
+                    guard destination.nameID == id else { return destination }
+                    pins.append(.init(profileID: activeProfileID, mode: m, rule: original,
+                                      destination: destination, order: order))
+                    return nil
+                }
             }
             if rule.docked != nil || rule.undocked != nil { kept.append(rule) }
         }
@@ -343,15 +355,16 @@ extension Document {
         var kept: [Rule] = []
         for original in rules {
             var rule = original
-            if var destination = rule[mode], destination.nameID == nil, destination.screen == screen {
+            rule.mapPlaces(mode) { order, destination in
+                guard destination.nameID == nil, destination.screen == screen else { return destination }
+                var destination = destination
                 if destination.desktop == desktop {
                     pins.append(.init(profileID: activeProfileID, mode: mode, rule: original,
-                                      destination: destination))
-                    rule[mode] = nil
-                } else if destination.desktop > desktop {
-                    destination.desktop -= 1
-                    rule[mode] = destination
+                                      destination: destination, order: order))
+                    return nil
                 }
+                if destination.desktop > desktop { destination.desktop -= 1 }
+                return destination
             }
             if rule.docked != nil || rule.undocked != nil { kept.append(rule) }
         }
@@ -385,11 +398,13 @@ extension Document {
             guard sharedLaptop || profileID == active else { return }
             for i in list.indices {
                 for m in modes {
-                    guard var destination = list[i][m], destination.nameID == nil,
-                          destination.screen == screen,
-                          let updated = mapping[destination.desktop] else { continue }
-                    destination.desktop = updated
-                    list[i][m] = destination
+                    list[i].mapPlaces(m) { _, destination in
+                        guard destination.nameID == nil, destination.screen == screen,
+                              let updated = mapping[destination.desktop] else { return destination }
+                        var destination = destination
+                        destination.desktop = updated
+                        return destination
+                    }
                 }
             }
         }
@@ -438,14 +453,19 @@ extension Document {
         mapAllRules { list, profileID in
             guard physical || profileID == active else { return }
             for i in list.indices {
-                guard var destination = list[i][mode], destination.nameID == nil,
-                      let next = Self.acrossPlacement(
-                        screen: destination.screen, desktop: destination.desktop,
-                        from: fromScreen, desktop: from, to: toScreen, at: to)
-                else { continue }
-                destination.screen = next.screen
-                destination.desktop = next.desktop
-                list[i][mode] = destination
+                // Sıralı listenin her yeri; ekran değiştiren yer aynı ekranda
+                // ikinci bir yer olabilir: ilki kazanır, pin kaybolmaz.
+                list[i].mapPlaces(mode) { _, destination in
+                    guard destination.nameID == nil,
+                          let next = Self.acrossPlacement(
+                            screen: destination.screen, desktop: destination.desktop,
+                            from: fromScreen, desktop: from, to: toScreen, at: to)
+                    else { return destination }
+                    var destination = destination
+                    destination.screen = next.screen
+                    destination.desktop = next.desktop
+                    return destination
+                }
             }
         }
         if let spaceMap { applySpaceMap(spaceMap) }
