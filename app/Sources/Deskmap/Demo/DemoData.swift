@@ -28,7 +28,7 @@ enum DemoData {
     // MARK: - Ekranlar
 
     private static let builtinScreen = ScreenInfo(
-        id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0001", name: "Built-in Display",
+        id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0001", name: L("Built-in Display"),
         isBuiltin: true, frame: CGRect(x: 0, y: 0, width: 1512, height: 944),
         visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 919))
 
@@ -97,8 +97,8 @@ enum DemoData {
                 docked: Destination(screen: "builtin", desktop: 2, layout: .full)),
         ]
 
-        let deskProfile = Profile(id: "demo-profile-desk", name: "Desk", rules: deskRules)
-        let cafeProfile = Profile(id: "demo-profile-cafe", name: "Café", rules: cafeRules)
+        let deskProfile = Profile(id: "demo-profile-desk", name: L("Desk"), rules: deskRules)
+        let cafeProfile = Profile(id: "demo-profile-cafe", name: L("Café"), rules: cafeRules)
 
         var document = Document()
         document.enabled = true
@@ -232,7 +232,7 @@ enum DemoData {
     static let crowdedCometWindowID: CGWindowID = 121
 
     private static let retinaScreen = ScreenInfo(
-        id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0002", name: "Built-in Retina Display",
+        id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0002", name: L("Built-in Retina Display"),
         isBuiltin: true, frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
         visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 945))
 
@@ -308,7 +308,7 @@ enum DemoData {
         document.enabled = true
         document.setupNoticeDismissed = true
         document.screens = [retinaScreen.known, monitorScreen.known]
-        let profile = Profile(id: "crowded-profile", name: "Desk", rules: rules)
+        let profile = Profile(id: "crowded-profile", name: L("Desk"), rules: rules)
         document.profiles = [profile]
         document.activeProfileID = profile.id
         document.rules = rules
@@ -399,7 +399,7 @@ extension DemoData {
     }
 
     static let demoBuiltin = ScreenInfo(
-        id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0003", name: "Built-in Display",
+        id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0003", name: L("Built-in Display"),
         isBuiltin: true, frame: CGRect(x: 0, y: 0, width: 1512, height: 944),
         visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 919))
 

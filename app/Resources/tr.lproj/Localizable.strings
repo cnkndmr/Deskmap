@@ -633,10 +633,13 @@
 "No connected monitor matches %@" = "%@ ile eşleşen bağlı monitör yok";
 "Only %ld monitors are connected" = "Yalnız %ld monitör bağlı";
 
-/* Demo dizisi (docs/media GIF'i, --scenario demo) */
+/* Demo verisi (Shots kareleri ve docs/media GIF'i): profil ve ekran adları, demo dizisi */
 "Project A" = "Proje A";
 "Team" = "Takım";
 "Desk" = "Masa";
+"Café" = "Kafe";
+"Built-in Display" = "Dahili ekran";
+"Built-in Retina Display" = "Dahili Retina ekran";
 "%@ — Docs" = "%@ — Belgeler";
 "%@ — build" = "%@ — derleme";
 "Inbox" = "Gelen Kutusu";
