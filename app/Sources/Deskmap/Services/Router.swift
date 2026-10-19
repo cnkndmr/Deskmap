@@ -1036,7 +1036,7 @@ final class Router: ObservableObject {
         let ids = [fromScreen, toScreen]
         let candidates = windows.filter { ids.contains($0.placement?.screen ?? "") }.map(\.id)
         guard !candidates.isEmpty else { return }
-        queue.async {
+        queue.async { [self] in
             let sky = SkyLight.shared
             guard sky.canRead, sky.canMove else { return }
             let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(connected))
@@ -1142,7 +1142,7 @@ final class Router: ObservableObject {
         let connected = screens.screens
         let candidates = windows.filter { $0.placement?.screen == screenID }.map(\.id)
         guard !candidates.isEmpty else { return }
-        queue.async {
+        queue.async { [self] in
             let sky = SkyLight.shared
             guard sky.canRead, sky.canMove,
                   let target = connected.first(where: { $0.id == screenID }),

@@ -632,7 +632,7 @@ final class BackupService: ObservableObject {
     /// Listeyi arka planda yeniler.
     func reload() {
         let archive = archive
-        queue.async {
+        queue.async { [self] in
             let entries = archive.list()
             DispatchQueue.main.async { [weak self] in
                 MainActor.assumeIsolated { self?.entries = entries }

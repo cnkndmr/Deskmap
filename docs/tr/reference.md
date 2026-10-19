@@ -86,7 +86,7 @@ Değiştirdikten sonra uygulamadan çık ve yeniden aç.
 
 ## Gerekli macOS ayarları {#required-macos-settings}
 
-<img src="images/en/05-setup.png" align="right" width="300" alt="Bütün denetimleri geçmiş macOS ayarları kartı">
+<img src="../images/tr/05-setup.png" align="right" width="300" alt="Bütün denetimleri geçmiş macOS ayarları kartı">
 
 Deskmap bu ayarları canlı denetler ve hepsi doğru olana dek turuncu bir
 **macOS ayarları düzeltilmeli** kartı gösterir. Kartta bir **Masaüstü ve
@@ -156,7 +156,7 @@ flowchart LR
 
 ### Sabitlemeler (kurallar) {#pins-rules}
 
-<img src="images/en/03-layout.png" align="right" width="300" alt="Bir sabitlemenin paneli: başlık parçaları ve sağ yarı düzeni">
+<img src="../images/tr/03-layout.png" align="right" width="300" alt="Bir sabitlemenin paneli: başlık parçaları ve sağ yarı düzeni">
 
 Bir sabitleme şunu söyler: *bu uygulamanın, başlığında bu parçalar geçen
 pencereleri bu ekrana, bu masaüstüne, bu düzende gider*.
@@ -319,7 +319,7 @@ denetler (UUID’ler, çıkar / yeniden tak, aynı seri numarası).
 
 ### Profiller {#profiles}
 
-<img src="images/en/04-profiles.png" align="right" width="300" alt="Profiller: Masa ve Kafe; Çoğalt, Dışa aktar ve Sil">
+<img src="../images/tr/04-profiles.png" align="right" width="300" alt="Profiller: Masa ve Kafe; Çoğalt, Dışa aktar ve Sil">
 
 Profil, adı olan bir sabitleme kümesidir; araç çubuğunun altındaki çipler
 profilleri sabitleme sayılarıyla listeler.
