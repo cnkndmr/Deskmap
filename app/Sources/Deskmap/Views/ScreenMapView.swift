@@ -20,7 +20,8 @@ struct ScreenMapView: View {
         // pine) yenilen kurallar; bir kez hesaplanır, satırlara dağıtılır.
         let shadowed = isLive
             ? Self.shadows(rules: store.document.rules, windows: ui.windows,
-                           sessionPins: router.sessionPins, mode: mode).shadowedBy
+                           sessionPins: router.sessionPins, mode: mode,
+                           context: router.context(for: mode)).shadowedBy
             : [:]
         let shown = store.screens(for: mode)
         // Ekranlar arası masaüstü sürüklemesi hedef ekranın satır sayısını ister.
@@ -86,16 +87,20 @@ struct ScreenMapView: View {
 
     /// Her pencere için Router ile aynı seçimi yapar (`Routing.select`);
     /// seçilmeyen ama uyan kurallar gölgede sayılır. Böylece "penceresi
-    /// açık ama kazanamayan" pin haritada kaybolmaz.
+    /// açık ama kazanamayan" pin haritada kaybolmaz. `context`: Router'ın
+    /// yapışkan bağları; pencereyi başlığı değişse de onu yerleştiren kural
+    /// tutar, başlığa yeni uyan kural gölgede sayılır.
     static func shadows(
         rules: [Rule], windows: [Router.WindowSnapshot],
-        sessionPins: [CGWindowID: Destination], mode: Mode
+        sessionPins: [CGWindowID: Destination], mode: Mode,
+        context: Routing.Context? = nil
     ) -> RuleShadows {
         var result = RuleShadows()
         for window in windows {
             guard let match = Routing.select(
                 rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
-                bundleID: window.bundleID, appName: window.appName, title: window.title, document: window.document)
+                bundleID: window.bundleID, appName: window.appName, title: window.title,
+                document: window.document, context: context)
             else { continue }
             result.winners.insert(match.ruleID)
             for rule in rules

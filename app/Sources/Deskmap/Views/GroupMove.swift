@@ -21,9 +21,11 @@ struct GroupMovePlan: Equatable {
 
     /// Saf. Aynı kurala uyan birden çok pencere ya da hem pencereye hem
     /// kapalı çipe düşen kural bir kez taşınır. Hedefi zaten orası olan
-    /// öğe atlanır.
+    /// öğe atlanır. `context`: Router'ın yapışkan bağları (`Router.context(for:)`);
+    /// pencere başlığına uyan değil, onu yerleştiren kural taşınır.
     static func make(group: AppGroup, to placement: Router.Placement, mode: Mode, isLive: Bool,
-                     rules: [Rule], sessionPins: [CGWindowID: Destination]) -> GroupMovePlan {
+                     rules: [Rule], sessionPins: [CGWindowID: Destination],
+                     context: Routing.Context? = nil) -> GroupMovePlan {
         var plan = GroupMovePlan()
         func moveRule(_ rule: Rule, layout: WindowLayout) {
             guard !plan.rules.contains(where: { $0.id == rule.id }) else { return }
@@ -41,7 +43,7 @@ struct GroupMovePlan: Equatable {
             } else if let rule = Routing.select(
                         rules: rules, sessionPins: [:], mode: mode, windowID: window.id,
                         bundleID: window.bundleID, appName: window.appName,
-                        title: window.title, document: window.document)?.rule,
+                        title: window.title, document: window.document, context: context)?.rule,
                       let current = rule[mode] {
                 moveRule(rule, layout: current.layout)
             } else if isLive, WindowRow.unpinnedDropActs(

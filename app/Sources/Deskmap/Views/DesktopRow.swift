@@ -612,7 +612,8 @@ struct DesktopRow: View {
     /// pencereler router'da, kural hedefleri tek geri alma adımıyla belgede.
     private func moveGroup(_ group: AppGroup, to target: Router.Placement) {
         let plan = GroupMovePlan.make(group: group, to: target, mode: mode, isLive: isLive,
-                                      rules: store.document.rules, sessionPins: router.sessionPins)
+                                      rules: store.document.rules, sessionPins: router.sessionPins,
+                                      context: router.context(for: mode))
         guard !plan.isEmpty else { return }
         switch ui.panel {
         case .rule, .session: ui.panel = nil

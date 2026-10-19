@@ -4,8 +4,10 @@ import Testing
 @testable import Deskmap
 
 /// Pencere kayması düzeltmesi (docs/bug-tables.md §B, DÜZELTME hücreleri).
-/// `Sim`, Router taramasının seçim kısmını aynen kurar (ilk görülme,
-/// bekleme, tam başlık sahipleri, bağların taşınması); gerçek pencere yok.
+/// Gerçek Router sahte ekran/pencere kaynaklarıyla (`RouterHarness`): ilk
+/// görülme, bekleme, tam başlık sahipleri, bağların taramalar arası
+/// taşınması ve pin kaldırma Router'ın kendi kodundan geçer; gerçek pencere yok.
+@MainActor
 struct WindowDriftFixTests {
 
     private static let bundle = "com.anthropic.claudefordesktop"
@@ -17,61 +19,10 @@ struct WindowDriftFixTests {
         Rule(id: id, appName: "Claude", bundleID: Self.bundle, tokens: tokens, docked: destination)
     }
 
-    /// Taramalar arası seçim durumu (Router'daki `bindings`/`firstSeen`).
-    private struct Sim {
-        var rules: [Rule]
-        var titles: [CGWindowID: String] = [:]
-        var pins: [CGWindowID: Destination] = [:]
-        var bindings: [CGWindowID: Routing.Binding] = [:]
-        var firstSeen: [CGWindowID: Date] = [:]
-        var swept = false
-        var mode: Mode = .docked
-        var now = Date(timeIntervalSince1970: 1_000_000)
-
-        /// Bir tarama: pencere → seçilen hedef (yoksa nil).
-        mutating func sweep() -> [CGWindowID: Destination?] {
-            var context = Routing.Context(bindings: bindings)
-            for (id, title) in titles {
-                let seen = firstSeen[id] ?? (swept ? now : .distantPast)
-                firstSeen[id] = seen
-                if Routing.isHeld(title: title, appName: "Claude", firstSeen: seen, now: now,
-                                  titleRules: Routing.hasTitleRule(rules, bundleID: bundle, appName: "Claude")) {
-                    context.held.insert(id)
-                }
-            }
-            context.exactOwned = Routing.exactOwners(
-                rules: rules,
-                windows: titles.filter { !context.held.contains($0.key) }
-                    .map { (bundle, "Claude", $0.value) })
-            var result: [CGWindowID: Destination?] = [:]
-            for (id, title) in titles {
-                let resolved = Routing.resolve(
-                    rules: rules, sessionPins: pins, mode: mode, windowID: id,
-                    bundleID: bundle, appName: "Claude", title: title, context: context)
-                context.bindings[id] = resolved.binding
-                result.updateValue(resolved.match?.destination, forKey: id)
-            }
-            bindings = Routing.prunedBindings(context.bindings, alive: Set(titles.keys))
-            firstSeen = firstSeen.filter { titles[$0.key] != nil }
-            swept = true
-            return result
-        }
-
-        mutating func unpin(_ id: CGWindowID) {
-            pins[id] = nil
-            bindings[id] = Routing.bindingAfterUnpin(
-                rules: rules, mode: .docked, bundleID: bundle, appName: "Claude", title: titles[id] ?? "")
-        }
-
-        mutating func wait(_ seconds: TimeInterval) { now = now.addingTimeInterval(seconds) }
-
-        private var bundle: String { WindowDriftFixTests.bundle }
-    }
-
     // MARK: - B2 · geçici başlık
 
     @Test func transientTitleIsHeld() {
-        var sim = Sim(rules: [rule("main", ["Claude"], mainDesk), rule("sess", ["Paper review"], sessionDesk)])
+        let sim = RouterHarness(rules: [rule("main", ["Claude"], mainDesk), rule("sess", ["Paper review"], sessionDesk)])
         sim.titles = [1: "Claude"]
         #expect(sim.sweep()[1] == .some(mainDesk))          // açılışta var olan ana pencere beklemez
         sim.titles[2] = "Claude"                              // yeni oturum penceresi
@@ -83,7 +34,7 @@ struct WindowDriftFixTests {
     }
 
     @Test func genericTitleIsRoutedAfterGrace() {
-        var sim = Sim(rules: [rule("main", ["Claude"], mainDesk)])
+        let sim = RouterHarness(rules: [rule("main", ["Claude"], mainDesk)])
         _ = sim.sweep()
         sim.titles = [3: "Claude"]
         #expect(sim.sweep()[3] == .some(nil))
@@ -94,7 +45,7 @@ struct WindowDriftFixTests {
     // MARK: - B3/B4 · tam başlık sahibi
 
     @Test func exactOwnerKeepsRule() {
-        var sim = Sim(rules: [rule("main", ["Claude"], mainDesk), rule("orig", ["Paper review"], sessionDesk)])
+        let sim = RouterHarness(rules: [rule("main", ["Claude"], mainDesk), rule("orig", ["Paper review"], sessionDesk)])
         sim.titles = [1: "Claude", 2: "Paper review", 3: "Paper review (fork)", 4: "Claude Code notes"]
         let out = sim.sweep()
         #expect(out[1] == .some(mainDesk))
@@ -104,7 +55,7 @@ struct WindowDriftFixTests {
     }
 
     @Test func ruleWithoutExactOwnerStillMatchesSubstring() {
-        var sim = Sim(rules: [rule("orig", ["Paper review"], sessionDesk)])
+        let sim = RouterHarness(rules: [rule("orig", ["Paper review"], sessionDesk)])
         sim.titles = [3: "Paper review (fork)"]               // asıl pencere kapalı
         #expect(sim.sweep()[3] == .some(sessionDesk))
     }
@@ -112,7 +63,7 @@ struct WindowDriftFixTests {
     // MARK: - B5/B6 · başlık değişti
 
     @Test func bindingSurvivesTitleChange() {
-        var sim = Sim(rules: [rule("main", ["Claude"], mainDesk), rule("notes", ["Budget"], otherDesk),
+        let sim = RouterHarness(rules: [rule("main", ["Claude"], mainDesk), rule("notes", ["Budget"], otherDesk),
                               rule("wide", [], otherDesk), rule("sess", ["Paper review"], sessionDesk)])
         sim.titles = [1: "Claude", 2: "Paper review"]
         _ = sim.sweep()
@@ -123,7 +74,7 @@ struct WindowDriftFixTests {
     }
 
     @Test func moreSpecificRuleUpgradesBinding() {
-        var sim = Sim(rules: [rule("wide", [], mainDesk), rule("two", ["Paper", "review"], otherDesk)])
+        let sim = RouterHarness(rules: [rule("wide", [], mainDesk), rule("two", ["Paper", "review"], otherDesk)])
         sim.titles = [2: "Paper notes"]
         #expect(sim.sweep()[2] == .some(mainDesk))
         sim.titles[2] = "Paper review"
@@ -134,7 +85,7 @@ struct WindowDriftFixTests {
     /// Kural yerinde daraltıldı (uygulama geneli → "Claude" başlığı): ona
     /// bağlı oturum pencereleri artık tutulmaz.
     @Test func editedRuleRebindsByNewTokens() {
-        var sim = Sim(rules: [rule("main", [], mainDesk)])
+        let sim = RouterHarness(rules: [rule("main", [], mainDesk)])
         sim.titles = [1: "Claude", 2: "Paper review"]
         _ = sim.sweep()
         sim.rules[0].tokens = ["Claude"]
@@ -146,7 +97,7 @@ struct WindowDriftFixTests {
     /// İnceleme 3: kuralın bu kurulumda hedefi yok (laptop'a geçildi):
     /// bağ korunur, monitör geri gelince pencere yine kuralın yerine gider.
     @Test func bindingSurvivesModeWithoutDestination() {
-        var sim = Sim(rules: [rule("wide", [], otherDesk), rule("sess", ["Paper review"], sessionDesk)])
+        let sim = RouterHarness(rules: [rule("wide", [], otherDesk), rule("sess", ["Paper review"], sessionDesk)])
         sim.rules[0].undocked = Destination(screen: "builtin", desktop: 1)
         sim.titles = [2: "Paper review"]
         _ = sim.sweep()
@@ -159,7 +110,7 @@ struct WindowDriftFixTests {
 
     /// İnceleme 7: düzenlenen kural artık uymuyorsa eski bağ saklanmaz.
     @Test func editedRuleWithoutMatchForgetsBinding() {
-        var sim = Sim(rules: [rule("sess", ["Paper review"], sessionDesk)])
+        let sim = RouterHarness(rules: [rule("sess", ["Paper review"], sessionDesk)])
         sim.titles = [2: "Paper review"]
         _ = sim.sweep()
         sim.rules[0].tokens = ["Budget"]
@@ -170,7 +121,7 @@ struct WindowDriftFixTests {
     /// İnceleme 2: başlık kuralı olmayan uygulamanın genel başlıklı penceresi
     /// beklemez.
     @Test func noHoldWithoutTitleRules() {
-        var sim = Sim(rules: [rule("wide", [], mainDesk)])
+        let sim = RouterHarness(rules: [rule("wide", [], mainDesk)])
         _ = sim.sweep()
         sim.titles = [3: "Claude"]
         #expect(sim.sweep()[3] == .some(mainDesk))
@@ -181,9 +132,9 @@ struct WindowDriftFixTests {
     // MARK: - B1 · pin kaldırıldı
 
     @Test func unpinnedWindowStays() {
-        var sim = Sim(rules: [rule("wide", [], mainDesk)])
+        let sim = RouterHarness(rules: [rule("wide", [], mainDesk)])
         sim.titles = [5: "Paper review"]
-        sim.pins = [5: sessionDesk]
+        sim.pin(5, sessionDesk)
         #expect(sim.sweep()[5] == .some(sessionDesk))
         sim.unpin(5)
         #expect(sim.sweep()[5] == .some(nil))
@@ -195,7 +146,7 @@ struct WindowDriftFixTests {
     // MARK: - Kural silindi, pencere kapandı
 
     @Test func deletedRuleLeavesWindowInPlace() {
-        var sim = Sim(rules: [rule("wide", [], mainDesk), rule("sess", ["Paper review"], sessionDesk)])
+        let sim = RouterHarness(rules: [rule("wide", [], mainDesk), rule("sess", ["Paper review"], sessionDesk)])
         sim.titles = [2: "Paper review"]
         #expect(sim.sweep()[2] == .some(sessionDesk))
         sim.rules.removeAll { $0.id == "sess" }               // haritada pin kaldırıldı
@@ -207,14 +158,16 @@ struct WindowDriftFixTests {
     }
 
     @Test func bindingsPrunedWithWindows() {
-        var sim = Sim(rules: [rule("sess", ["Paper review"], sessionDesk)])
+        let sim = RouterHarness(rules: [rule("sess", ["Paper review"], sessionDesk)])
         sim.titles = [2: "Paper review"]
         _ = sim.sweep()
         #expect(sim.bindings[2] != nil)
-        sim.titles = [:]
+        // Budama yaşayan pencere listesine göre (liste boşsa budanmaz).
+        sim.titles = [3: "Budget planning"]
         _ = sim.sweep()
-        #expect(sim.bindings.isEmpty)
-        #expect(sim.firstSeen.isEmpty)
+        #expect(sim.bindings[2] == nil)
+        #expect(sim.router.firstSeen[2] == nil)
+        #expect(sim.router.firstSeen[3] != nil)
     }
 
     /// Bağ verilmezse (arayüzün öbür modu) eski durumsuz seçim aynen.
