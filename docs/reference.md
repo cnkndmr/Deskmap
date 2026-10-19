@@ -472,6 +472,9 @@ deskmap status                      # mode, profile, screens, counts
 deskmap windows --app Code          # id, app, screen/desktop, title
 deskmap move Safari external 2      # window id or a unique app/title fragment
 deskmap pin 12345 builtin 1 && deskmap unpin 12345
+deskmap free Safari 15m             # pinned window moves freely: 15m, 2h, lock (until the screen locks), end
+deskmap screens | rules [--json]    # connected displays | the active profile's rules
+deskmap hooks                       # commands run when a window changes screen (hooks.json)
 deskmap rule add --app cmux --screen external --undocked-screen builtin --layout 0,0,0.5,1
 deskmap rule rm <id>
 deskmap pause | resume | reload | profile Office

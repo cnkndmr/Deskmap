@@ -52,6 +52,8 @@ COMMANDS:
   apply FILE [--dry-run] | apply FILE --remove | apply --undo | check FILE | dump
   layouts                          layout names
   move W SCREEN [N] | pin W SCREEN [N] | unpin W            one window
+  free W 15m|2h|lock|end           let a pinned window move freely for a while, until
+                                   the screen locks, or end that early
   move W DESKTOP-NAME | pin W DESKTOP-NAME [--desktop-only] target by desktop name
                                    (--desktop-only: follow the desktop, keep position/size)
   desktops | name SCREEN N [NAME] [--mode M]  list desktop names | name a desktop (no NAME:

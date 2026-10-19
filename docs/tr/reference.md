@@ -497,6 +497,9 @@ deskmap status                      # plan, profil, ekranlar, sayılar
 deskmap windows --app Code          # kimlik, uygulama, ekran/masaüstü, başlık
 deskmap move Safari external 2      # pencere kimliği ya da tekil bir uygulama/başlık parçası
 deskmap pin 12345 builtin 1 && deskmap unpin 12345
+deskmap free Safari 15m             # sabit pencere serbest kalır: 15m, 2h, lock (ekran kilitlenene kadar), end
+deskmap screens | rules [--json]    # bağlı ekranlar | etkin profilin kuralları
+deskmap hooks                       # pencere ekran değiştirince çalışan komutlar (hooks.json)
 deskmap rule add --app cmux --screen external --undocked-screen builtin --layout 0,0,0.5,1
 deskmap rule rm <id>
 deskmap pause | resume | reload | profile Office
