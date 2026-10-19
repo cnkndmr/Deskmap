@@ -109,9 +109,20 @@ final class AppModel {
                 .sink { [weak screens] in screens?.roles = $0 },
             // Yalnız yatışmış liste öğretilir (açılış ve her `settled`): ekran
             // değişiminin ilk ölçümü yarım düzenlenmiş olabilir.
+            // Belge willSet'te yayınlar: harita seçimi `roles`'ü değiştirip
+            // `settled` gönderdiğinde belgede henüz eski kayıt durur. O an
+            // öğrenilirse eski kayıt seçimin üstüne yazılır; öğrenme bir
+            // sonraki tura kalır.
             screens.settled.prepend(())
                 .sink { [weak store, weak screens] in
                     guard let store, let screens, !screens.isSettling else { return }
+                    guard store.document.displayRoles == screens.roles else {
+                        DispatchQueue.main.async {
+                            guard !screens.isSettling else { return }
+                            store.learnDisplayRoles(screens.externalAssignment)
+                        }
+                        return
+                    }
                     store.learnDisplayRoles(screens.externalAssignment)
                 },
         ]

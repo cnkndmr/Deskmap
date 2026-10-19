@@ -158,4 +158,29 @@ struct RouterSelectionTests {
                                               sessionPins: [:], mode: .docked)
         #expect(stateless.winners == ["wide2"])
     }
+
+    // MARK: - Profil geçişi
+
+    /// A profilinde başlık kuralıyla yerleşen pencere, B profiline geçince
+    /// B'nin uygulama geneli kuralına gider: A'nın kuralı B'de yok ama bu
+    /// silinmiş pin değil, bağ eski yerde tutmaz.
+    @Test func profileSwitchDropsBindings() {
+        let sim = RouterHarness(rules: [rule("a-main", ["Claude"], mainDesk)])
+        sim.titles = [7: "Claude"]
+        #expect(sim.sweepRules()[7] == .some("a-main"))
+        sim.store.addProfile(named: "B")
+        sim.rules = [rule("b-wide", [], otherDesk)]
+        #expect(sim.sweepRules()[7] == .some("b-wide"))
+    }
+
+    /// Aynı profilde silinen pin pencereyi yine yerinde bırakır (geçişin
+    /// bağları düşürmesi bunu bozmaz).
+    @Test func deletedRuleStillStaysWithinProfile() {
+        let sim = RouterHarness(rules: [rule("main", ["Claude"], mainDesk),
+                                        rule("wide", [], otherDesk)])
+        sim.titles = [7: "Claude"]
+        #expect(sim.sweepRules()[7] == .some("main"))
+        sim.rules.removeAll { $0.id == "main" }
+        #expect(sim.sweepRules()[7] == .some(nil))
+    }
 }

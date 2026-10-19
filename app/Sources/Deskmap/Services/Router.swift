@@ -278,6 +278,10 @@ final class Router: ObservableObject {
     /// Pencere başına yapışkan kural bağı (docs/bug-tables.md §B): başlık
     /// değişse de pencere kapanana kadar sürer. Diske yazılmaz.
     private var bindings: [CGWindowID: Routing.Binding] = [:]
+    /// Bağların verildiği profil. Bağ kural kimliğine bakar; başka profilde
+    /// o kimlik yok ve bağ "pin silindi" diye pencereyi eski yerinde
+    /// tutardı. Profil değişince bağlar baştan kurulur.
+    private var bindingsProfileID: String?
     /// Tarama sürerken verilen bağlar (pin kaldırma); sonuç gelince
     /// taramanın eski bağlarının üstüne yazılır.
     private var bindingOverrides: [CGWindowID: Routing.Binding] = [:]
@@ -2503,11 +2507,12 @@ final class Router: ObservableObject {
     /// verilen bağlar (pin kaldırma), ilk görülme anları ve arayüzün bağlamı.
     /// `live`: yaşayan pencereler (boşsa budama yok).
     private func acceptSelection(_ swept: Routing.Context, firstSeen sweptFirstSeen: [CGWindowID: Date],
-                                 routing: Bool, live: Set<CGWindowID>) {
+                                 routing: Bool, profileID: String, live: Set<CGWindowID>) {
         // Yönlendirme kapalıyken (duraklama, yatışma) kural listesi boş
         // geçer: bağlar o taramadan alınmaz, yoksa hepsi düşerdi.
-        var bindings = (routing ? swept.bindings : self.bindings)
+        var bindings = (routing ? swept.bindings : bindings(for: profileID))
             .merging(bindingOverrides) { $1 }
+        bindingsProfileID = profileID
         bindingOverrides = [:]
         // Listede olmayan ama yaşayan (ör. geçici olarak masaüstüsüz)
         // pencereler ilk görülme anını korur, dönünce yeniden beklemez.
@@ -2524,18 +2529,24 @@ final class Router: ObservableObject {
         if context != routingContext { routingContext = context }
     }
 
+    /// `profileID` profiline ait bağlar; başka profilin bağları boş sayılır.
+    private func bindings(for profileID: String) -> [CGWindowID: Routing.Binding] {
+        profileID == bindingsProfileID ? bindings : [:]
+    }
+
     /// Taramanın seçim adımını AX/SkyLight olmadan yürütür: `sweep` ile aynı
     /// girdiler, aynı `select` ve aynı birleştirme; pencereler dışarıdan
     /// verilir ve hiçbiri taşınmaz. Testler gerçek Router'ı bununla sürer.
     @discardableResult
     func sweepSelection(windows: [WindowSnapshot], now: Date = Date()) -> [CGWindowID: Routing.Match] {
         let (routing, rules, sessionPins) = routingInputs()
+        let profileID = store.document.activeProfileID
         let selection = Self.select(
             windows: windows, rules: rules, sessionPins: sessionPins, mode: screens.mode,
-            bindings: bindings, firstSeen: firstSeen, initial: !sweptAny, now: now)
+            bindings: bindings(for: profileID), firstSeen: firstSeen, initial: !sweptAny, now: now)
         if windows != self.windows { self.windows = windows }
         acceptSelection(selection.context, firstSeen: selection.firstSeen,
-                        routing: routing, live: Set(windows.map(\.id)))
+                        routing: routing, profileID: profileID, live: Set(windows.map(\.id)))
         return selection.matches
     }
 
@@ -2575,7 +2586,8 @@ final class Router: ObservableObject {
         let holdNames = store.migrationPending || store.upgradeUndone
         let displayFallback = store.document.displayRoles.fallbackToFirstExternal
         let heldRoles = screens.heldRoles
-        let bindings = self.bindings
+        let profileID = store.document.activeProfileID
+        let bindings = bindings(for: profileID)
         let firstSeen = self.firstSeen
         let initial = !sweptAny
         let token = generation.token()
@@ -2633,7 +2645,7 @@ final class Router: ObservableObject {
                 }
                 self.refusedSizes.merge(outcome.refusedSizes) { $1 }
                 self.acceptSelection(outcome.context, firstSeen: outcome.firstSeen,
-                                     routing: routing, live: Set(live.keys))
+                                     routing: routing, profileID: profileID, live: Set(live.keys))
                 self.applied = applied
                 self.attempts = attempts
                 self.lastAttempts = lastAttempts

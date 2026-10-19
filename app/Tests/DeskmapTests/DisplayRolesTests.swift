@@ -405,6 +405,25 @@ struct DisplayRolesServiceTests {
         #expect(service.screens.first { $0.uuid == "DELL" }?.id == "external")
     }
 
+    /// "Hepsini unut"tan hemen sonra üç monitörde seçim: belge willSet'te
+    /// yayınlar; öğrenme o an eski (boş) kaydı okuyup seçimde olmayan
+    /// monitörü de öğretmemeli. ScreenService ile belge aynı kalır.
+    @Test func choosingRightAfterForgetKeepsTheChoice() {
+        let source = Source()
+        source.list = [Self.builtin, Self.external("DELL", x: 0), Self.external("LG", x: 1920),
+                       Self.external("PEBBLE", x: 3840)]
+        let service = ScreenService(displays: { source.list })
+        let store = Store(demo: Document())
+        let sync = AppModel.syncDisplayRoles(store: store, screens: service)
+        defer { _ = sync }
+        store.forgetDisplayRoles()
+        let current = service.connectedExternals.map { (role: $0.role, uuid: $0.display.uuid) }
+        store.chooseDisplay("PEBBLE", for: "external", current: current)
+        #expect(service.roles == store.document.displayRoles)
+        #expect(service.screens.first { $0.uuid == "PEBBLE" }?.id == "external")
+        #expect(service.screens.first { $0.uuid == "DELL" }?.id == "external-3")
+    }
+
     @Test func testDisplayIsNotLearned() {
         let source = Source()
         source.list = [Self.builtin, Self.external("TEST", x: 0, name: Store.testDisplayName)]
