@@ -187,6 +187,30 @@ struct DisplayRolesTests {
         #expect(DisplayRoles.externalRole(3) == "external-3")
     }
 
+    // MARK: Arayüz adları
+
+    @Test func externalScreensAreNamedByRoleEverywhere() {
+        #expect(DisplayRoles.displayName(role: "external", name: "LG HDR 4K") == "Extra monitor")
+        #expect(DisplayRoles.displayName(role: "external-2", name: "LG HDR 4K") == "Monitor 2")
+        #expect(DisplayRoles.displayName(role: "builtin", name: "Built-in Display") == "Built-in Display")
+        #expect(DisplayRoles.displayName(role: "builtin", name: nil) == "builtin")
+        // "Neden burada?" metni de rol adını kullanır, model adını değil.
+        let rule = Rule(appName: "Mail", bundleID: "com.apple.mail", tokens: [],
+                        docked: Destination(screen: "external-2", desktop: 2, layout: .full))
+        let match = Routing.Match(destination: rule.docked!, ruleID: rule.id, rule: rule)
+        let reason = Routing.reason(for: match, screenName: "LG HDR 4K") ?? ""
+        #expect(reason.contains("Monitor 2 · Desktop 2"))
+        #expect(!reason.contains("LG HDR 4K"))
+    }
+
+    @Test func roleNamesAreTranslated() throws {
+        let url = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .appendingPathComponent("../../Resources/tr.lproj/Localizable.strings")
+        let text = try String(contentsOf: url, encoding: .utf8)
+        #expect(text.contains(#""Extra monitor" = "Ekstra monitör";"#))
+        #expect(text.contains(#""Monitor %ld" = "%ld. monitör";"#))
+    }
+
     // MARK: Eksik ekran
 
     @Test func missingSecondMonitorFallsBackToFirstExternal() {

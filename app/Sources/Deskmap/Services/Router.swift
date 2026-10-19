@@ -2726,7 +2726,8 @@ final class Router: ObservableObject {
                 target = space
                 onTarget = current.contains(space.id)
                 isVisible = current.contains(where: visibleSpaces.contains)
-                desktopLabel = L("%@ · Desktop %ld", screen.name, index)
+                desktopLabel = L("%@ · Desktop %ld",
+                                 DisplayRoles.displayName(role: screen.id, name: screen.name), index)
             }
 
             // 1. Düzen — pencere yalnızca GÖRÜNÜRKEN uygulanır. Görünmeyen

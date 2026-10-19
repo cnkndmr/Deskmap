@@ -778,11 +778,10 @@ extension UnownedWindowsTray {
     private func location(of window: Router.WindowSnapshot) -> String? {
         guard let placement = window.placement else { return nil }
         // Harici ekranlar haritadaki gibi rol adıyla (aynı model iki monitör ayrılsın).
-        let screenName = DisplayRoles.isExternalRole(placement.screen)
-            ? DisplayRoles.roleLabel(placement.screen)
-            : screens.screens.first { $0.id == placement.screen }?.name
-                ?? store.screens(for: screens.mode).first { $0.id == placement.screen }?.name
-                ?? placement.screen
+        let screenName = DisplayRoles.displayName(
+            role: placement.screen,
+            name: screens.screens.first { $0.id == placement.screen }?.name
+                ?? store.screens(for: screens.mode).first { $0.id == placement.screen }?.name)
         var place = L("%@ · Desktop %ld", screenName, placement.desktop)
         if let name = store.desktopName(screen: placement.screen, desktop: placement.desktop,
                                         mode: screens.mode) {

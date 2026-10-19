@@ -204,6 +204,12 @@ struct DisplayRoles: Codable, Equatable {
         return result
     }
 
+    /// Bir ekranın arayüzdeki adı (saf): harici rol için rol adı (aynı model
+    /// iki monitör ayrılsın, model adı görünmesin), yoksa verilen ad.
+    static func displayName(role: String, name: String?) -> String {
+        isExternalRole(role) ? roleLabel(role) : (name ?? role)
+    }
+
     /// Kart başlığındaki rol adı: "Ekstra monitör", "2. monitör" …
     static func roleLabel(_ role: String) -> String {
         let index = externalIndex(of: role) ?? 1

@@ -59,7 +59,8 @@ enum Routing {
     static func reason(for match: Match?, screenName: String?) -> String? {
         guard let match else { return nil }
         let destination = match.destination
-        let target = L("%@ · Desktop %ld", screenName ?? destination.screen,
+        let target = L("%@ · Desktop %ld",
+                       DisplayRoles.displayName(role: destination.screen, name: screenName),
                        destination.desktop)
         let layout = L("Layout: %@", destination.layout.label)
         guard let rule = match.rule else {
