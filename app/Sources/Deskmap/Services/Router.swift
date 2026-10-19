@@ -1282,7 +1282,7 @@ final class Router: ObservableObject {
         reopenReads = reopenReads.filter { alive.contains($0.key) }
         guard !jobs.isEmpty, !reopenBusy else { return }
         reopenBusy = true
-        reopenQueue.async { [weak self] in
+        reopenQueue.async { [weak self, jobs] in
             var found: [String: URL] = [:]
             for job in jobs {
                 guard let element = AX.element(pid: job.pid, windowID: job.window),
@@ -1290,7 +1290,7 @@ final class Router: ObservableObject {
                 else { continue }
                 found[job.rule] = url
             }
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self, found] in
                 self?.reopenBusy = false
                 if !found.isEmpty { self?.storeReopenTargets(found) }
             }
