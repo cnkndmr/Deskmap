@@ -267,6 +267,22 @@ class ReportTests(unittest.TestCase):
         self.assertIsNone(dm.target_rect(st, "external", dm.parse_layout("full")))
 
 
+class FreeDurationTests(unittest.TestCase):
+
+    def test_minutes_hours_and_words(self):
+        self.assertEqual(dm.free_duration("15m"), 15)
+        self.assertEqual(dm.free_duration("30"), 30)
+        self.assertEqual(dm.free_duration("10 min"), 10)
+        self.assertEqual(dm.free_duration("2H"), 120)
+        self.assertEqual(dm.free_duration(" Lock "), "lock")
+        self.assertEqual(dm.free_duration("end"), "end")
+
+    def test_bad_durations(self):
+        for text in ("0m", "-5", "1.5h", "soon", "15s", ""):
+            with self.subTest(text=text), self.assertRaises(ValueError):
+                dm.free_duration(text)
+
+
 class StatusTextTests(unittest.TestCase):
 
     def test_desktop_moves_line_only_when_off(self):

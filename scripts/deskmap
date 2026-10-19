@@ -474,20 +474,28 @@ def rule_rm(args):
         die("rule is still there")
 
 
+def free_duration(text):
+    """'15m', '2h', '30' (minutes), 'lock' or 'end' → minutes, "lock" or "end"."""
+    d = text.strip().lower()
+    if d in ("end", "lock"):
+        return d
+    m = re.fullmatch(r"(\d+)\s*(m|min|h)?", d)
+    if not m or int(m.group(1)) <= 0:
+        raise ValueError("duration: e.g. 15m, 2h, lock or end")
+    return int(m.group(1)) * (60 if m.group(2) == "h" else 1)
+
+
 def free_move(args):
     s = fresh_status()
     window = resolve_window(s, args.window)
-    d = args.duration.strip().lower()
+    try:
+        d = free_duration(args.duration)
+    except ValueError as error:
+        die(str(error))
     if d == "end":
         send(f"free-end/{window}")
-    elif d == "lock":
-        send(f"free/{window}/lock")
     else:
-        m = re.fullmatch(r"(\d+)\s*(m|min|h)?", d)
-        if not m or int(m.group(1)) <= 0:
-            die("duration: e.g. 15m, 2h, lock or end")
-        minutes = int(m.group(1)) * (60 if m.group(2) == "h" else 1)
-        send(f"free/{window}/{minutes}")
+        send(f"free/{window}/{d}")
     w = next((w for w in fresh_status()["windows"] if w["id"] == window), None)
     free = w and w.get("free")
     if d == "end":
