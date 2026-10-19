@@ -2,7 +2,7 @@
 
 Bu belge uygulamanın nasıl kurulduğunu anlatır: ana türler, bir taramada
 neler olduğu, yeniden deneme sınırları, veri dosyaları ve yerelleştirmenin
-nasıl çalıştığı. Kullanım için [README](../README.md)’ye bak.
+nasıl çalıştığı. Kullanım için [README](../../README.md)’ye bak.
 
 ## Genel bakış {#overview}
 

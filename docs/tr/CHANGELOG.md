@@ -495,7 +495,7 @@ söylüyor.
   1120×1280; App Store Connect bunu kabul etmiyor.
 - `app/Resources/PrivacyInfo.xcprivacy`: veri toplanmaz, izleme yok, gerekçe
   isteyen tek API (user defaults). `build-app.sh` pakete kopyalar;
-  [docs/app-store-submission.md](docs/app-store-submission.md) bir başvuru
+  [docs/app-store-submission.md](../../appstore/submission.md) bir başvuru
   için başka neler gerektiğini listeler.
 - Yeni simge: başı bir pencere olan bir harita işareti. Kodla çizilir
   (`scripts/make-icons.swift`, her boyutu ve `.icns`’i tek komutla yeniden

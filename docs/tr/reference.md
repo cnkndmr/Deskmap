@@ -514,7 +514,7 @@ deskmap save-layout Safari [--window 12345] # az önce sürükleyerek verdiğin 
 ### Düzen dosyaları (`deskmap apply`) {#layout-files-deskmap-apply}
 
 Bir kurulumu tek bir dosyada tarif et, Deskmap kursun
-(bkz. [`examples/layout.yaml`](examples/layout.yaml)). Varsayılan olarak
+(bkz. [`examples/layout.yaml`](../examples/layout.yaml)). Varsayılan olarak
 **etkin profil** düzenlenir: dosyadaki pencereler için kurallar eklenir ya da
 güncellenir (aynı uygulama + başlık parçaları kuralın kimliğini korur), öteki
 her kural kalır. Başka bir profili düzenlemek ya da oluşturmak için

@@ -458,7 +458,7 @@ what it does.
   does not accept.
 - `app/Resources/PrivacyInfo.xcprivacy`: no data collected, no tracking, one
   required-reason API (user defaults). Copied into the bundle by
-  `build-app.sh`, and [docs/app-store-submission.md](docs/app-store-submission.md)
+  `build-app.sh`, and [docs/app-store-submission.md](appstore/submission.md)
   lists what else a submission would need.
 - New icon: a map marker whose head is a window. It is drawn in code
   (`scripts/make-icons.swift`, one command to regenerate every size and the
