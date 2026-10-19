@@ -386,3 +386,157 @@ enum DemoData {
             frame: nil, isMinimized: false)
     }
 }
+
+// MARK: - Demo dizisi (`--scenario demo`, docs/media GIF'i)
+
+extension DemoData {
+
+    /// Demo GIF'inin adımları: laptop tek başına (pencereler tek masaüstüne
+    /// yığılmış) → monitör takıldı (pencereler hâlâ laptopta) → pencereler
+    /// pinlendikleri ekrana/masaüstüne gitti → ikinci monitör kendi rolünde.
+    enum DemoStage: CaseIterable {
+        case laptopOnly, monitorConnected, placed, secondMonitor
+    }
+
+    static let demoBuiltin = ScreenInfo(
+        id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0003", name: "Built-in Display",
+        isBuiltin: true, frame: CGRect(x: 0, y: 0, width: 1512, height: 944),
+        visibleFrame: CGRect(x: 0, y: 0, width: 1512, height: 919))
+
+    static let demoMonitor = ScreenInfo(
+        id: "external", uuid: "DEMO-EXTERNAL-SCREEN-0005", name: "Studio Display",
+        isBuiltin: false, frame: CGRect(x: 1512, y: -248, width: 2560, height: 1440),
+        visibleFrame: CGRect(x: 1512, y: -248, width: 2560, height: 1415))
+
+    static let demoMonitor2 = ScreenInfo(
+        id: "external-2", uuid: "DEMO-EXTERNAL-SCREEN-0006", name: "LG HDR 4K",
+        isBuiltin: false, frame: CGRect(x: 4072, y: -136, width: 1920, height: 1080),
+        visibleFrame: CGRect(x: 4072, y: -136, width: 1920, height: 1055))
+
+    /// Adımdaki bağlı ekranlar.
+    static func demoScreens(_ stage: DemoStage) -> [ScreenInfo] {
+        switch stage {
+        case .laptopOnly: return [demoBuiltin]
+        case .monitorConnected, .placed: return [demoBuiltin, demoMonitor]
+        case .secondMonitor: return [demoBuiltin, demoMonitor, demoMonitor2]
+        }
+    }
+
+    /// Ekran başına gerçek masaüstü sayısı (durum satırı bununla sayar).
+    static func demoDesktopCounts(_ stage: DemoStage) -> [String: Int] {
+        var counts = ["builtin": 2]
+        if stage != .laptopOnly { counts["external"] = 2 }
+        if stage == .secondMonitor { counts["external-2"] = 1 }
+        return counts
+    }
+
+    /// Haritanın kaydırıldığı pencereler: ilk karelerde Safari (en üst
+    /// sıra), son karede 2. monitördeki Mail.
+    static let demoSafariWindowID: CGWindowID = 201
+    static let demoMailWindowID: CGWindowID = 203
+
+    private static let demoProjectRuleID = "demo-seq-project"
+    private static let demoBuildRuleID = "demo-seq-build"
+    private static let demoMailRuleID = "demo-seq-mail"
+    private static let demoTeamRuleID = "demo-seq-team"
+    private static let demoNotesRuleID = "demo-seq-notes"
+    private static let demoCalendarRuleID = "demo-seq-calendar"
+
+    /// Kurallar: ikinci monitör adımında Mail ve Messages "Monitör 2"ye
+    /// pinlidir (her monitör kendi rolünü korur).
+    static func demoRules(_ stage: DemoStage) -> [Rule] {
+        let second = stage == .secondMonitor
+        return [
+            Rule(id: demoProjectRuleID, appName: "Safari", bundleID: "com.apple.Safari",
+                 tokens: [L("Project A")],
+                 docked: Destination(screen: "external", desktop: 1, layout: .leftHalf)),
+            Rule(id: demoBuildRuleID, appName: "Terminal", bundleID: "com.apple.Terminal",
+                 tokens: [L("Project A")],
+                 docked: Destination(screen: "external", desktop: 1, layout: .rightHalf)),
+            Rule(id: demoMailRuleID, appName: "Mail", bundleID: "com.apple.mail", tokens: [],
+                 docked: Destination(screen: second ? "external-2" : "external",
+                                     desktop: second ? 1 : 2, layout: .leftHalf)),
+            Rule(id: demoTeamRuleID, appName: "Messages", bundleID: "com.apple.MobileSMS",
+                 tokens: [L("Team")],
+                 docked: Destination(screen: second ? "external-2" : "external",
+                                     desktop: second ? 1 : 2, layout: .rightHalf)),
+            Rule(id: demoNotesRuleID, appName: "Notes", bundleID: "com.apple.Notes", tokens: [],
+                 docked: Destination(screen: "builtin", desktop: 1, layout: .full)),
+            Rule(id: demoCalendarRuleID, appName: "Calendar", bundleID: "com.apple.iCal", tokens: [],
+                 docked: Destination(screen: "builtin", desktop: 2, layout: .full)),
+        ]
+    }
+
+    /// Adımın belgesi (kişisel veri yok).
+    static func demoDocument(_ stage: DemoStage) -> Document {
+        var document = Document()
+        document.enabled = true
+        document.setupNoticeDismissed = true
+        document.screens = [demoBuiltin.known, demoMonitor.known]
+            + (stage == .secondMonitor ? [demoMonitor2.known] : [])
+        let rules = demoRules(stage)
+        let profile = Profile(id: "demo-seq-profile", name: L("Desk"), rules: rules)
+        document.profiles = [profile]
+        document.activeProfileID = profile.id
+        document.rules = rules
+        if stage == .secondMonitor {
+            document.displayRoles = DisplayRoles(remembered: [
+                "external": [demoMonitor.uuid], "external-2": [demoMonitor2.uuid]])
+        }
+        return document
+    }
+
+    /// Adımın canlı pencereleri. Laptop adımlarında altı pencere laptopun
+    /// 1. masaüstüne üst üste yığılır; yerleşince kuralın düzenine oturur.
+    static func demoWindows(_ stage: DemoStage) -> [Router.WindowSnapshot] {
+        let screens = demoScreens(stage)
+        func area(_ screen: ScreenInfo) -> CGRect {
+            Coordinates.axRect(fromCocoa: screen.visibleFrame, screens: screens)
+        }
+        func messy(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> CGRect {
+            let a = area(demoBuiltin)
+            return CGRect(x: a.minX + a.width * x, y: a.minY + a.height * y,
+                          width: a.width * w, height: a.height * h)
+        }
+        func placed(_ rule: Rule) -> (Router.Placement, CGRect) {
+            let dest = rule.docked!
+            let screen = screens.first { $0.id == dest.screen } ?? demoBuiltin
+            return (Router.Placement(screen: dest.screen, desktop: dest.desktop),
+                    dest.layout.rect(in: area(screen)))
+        }
+        let rules = demoRules(stage)
+        func rule(_ id: String) -> Rule { rules.first { $0.id == id }! }
+        let settled = stage == .placed || stage == .secondMonitor
+
+        func win(_ id: CGWindowID, _ ruleID: String, _ title: String,
+                 messy frame: CGRect) -> Router.WindowSnapshot {
+            let r = rule(ruleID)
+            let (placement, rect) = settled ? placed(r)
+                : (Router.Placement(screen: "builtin", desktop: 1), frame)
+            return Router.WindowSnapshot(
+                id: id, pid: pid_t(7000 + Int(id)), appName: r.appName, bundleID: r.bundleID,
+                title: title, placement: placement, frame: rect, isMinimized: false)
+        }
+        return [
+            win(demoSafariWindowID, demoProjectRuleID, L("%@ — Docs", L("Project A")),
+                messy: messy(0.02, 0.03, 0.66, 0.72)),
+            win(202, demoBuildRuleID, L("%@ — build", L("Project A")),
+                messy: messy(0.40, 0.30, 0.56, 0.62)),
+            win(demoMailWindowID, demoMailRuleID, L("Inbox"),
+                messy: messy(0.10, 0.36, 0.58, 0.60)),
+            win(204, demoTeamRuleID, L("Team"),
+                messy: messy(0.48, 0.06, 0.50, 0.52)),
+            win(205, demoNotesRuleID, L("Notes"),
+                messy: messy(0.04, 0.52, 0.42, 0.46)),
+            win(206, demoCalendarRuleID, L("Calendar"),
+                messy: messy(0.30, 0.18, 0.46, 0.50)),
+        ]
+    }
+
+    /// İlk adımın dünyası; sonraki adımlar `Shots` içinde
+    /// `replaceDemo…` ile uygulanır.
+    static func demoSequence() -> World {
+        World(document: demoDocument(.laptopOnly), screens: demoScreens(.laptopOnly),
+              windows: demoWindows(.laptopOnly))
+    }
+}

@@ -105,4 +105,53 @@ struct ShotsTests {
             title: window.title)
         #expect(match == nil)
     }
+
+    // MARK: - Demo dizisi (--scenario demo)
+
+    @Test func scenarioFlagIsParsed() {
+        let options = Shots.parseOptions(["Deskmap", "--shots", "/tmp/out", "--scenario", "demo"])
+        #expect(options?.scenario == "demo")
+    }
+
+    @Test func demoSequenceStagesAreConsistent() {
+        for stage in DemoData.DemoStage.allCases {
+            let screens = DemoData.demoScreens(stage)
+            let screenIDs = Set(screens.map(\.id))
+            let document = DemoData.demoDocument(stage)
+            let counts = DemoData.demoDesktopCounts(stage)
+            #expect(Set(counts.keys) == screenIDs)
+            #expect(document.rules == document.activeProfile?.rules)
+            for rule in document.rules {
+                #expect(rule.undocked == nil)
+                if let docked = rule.docked {
+                    #expect(document.screens.contains { $0.id == docked.screen })
+                    #expect(docked.desktop <= (counts[docked.screen] ?? counts["builtin"] ?? 0))
+                }
+            }
+            for window in DemoData.demoWindows(stage) {
+                #expect(window.frame != nil)
+                guard let placement = window.placement else {
+                    Issue.record("Demo dizisi penceresi yerleşimsiz: \(window.id)")
+                    continue
+                }
+                #expect(screenIDs.contains(placement.screen))
+            }
+        }
+    }
+
+    @Test func demoSequenceWindowsStartPiledThenLandOnTheirRule() {
+        let piled = DemoData.demoWindows(.monitorConnected)
+        #expect(piled.allSatisfy { $0.placement == Router.Placement(screen: "builtin", desktop: 1) })
+        for stage in [DemoData.DemoStage.placed, .secondMonitor] {
+            let rules = DemoData.demoRules(stage)
+            for window in DemoData.demoWindows(stage) {
+                let match = Routing.select(
+                    rules: rules, sessionPins: [:], mode: .docked, windowID: window.id,
+                    bundleID: window.bundleID, appName: window.appName, title: window.title)
+                #expect(match?.destination.screen == window.placement?.screen)
+                #expect(match?.destination.desktop == window.placement?.desktop)
+            }
+        }
+        #expect(DemoData.demoWindows(.secondMonitor).contains { $0.placement?.screen == "external-2" })
+    }
 }

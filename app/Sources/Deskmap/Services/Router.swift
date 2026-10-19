@@ -472,6 +472,20 @@ final class Router: ObservableObject {
         self.status = demoStatus
     }
 
+    /// Yalnız Shots modunda: demo pencere listesini değiştirir (demo
+    /// dizisinde pencereler "taşınır"). Üretimde hiçbir şey yapmaz.
+    func replaceDemoWindows(_ windows: [WindowSnapshot]) {
+        guard isDemo else { return }
+        self.windows = windows
+    }
+
+    /// Yalnız Shots modunda: ekran başına gerçek masaüstü sayısı (durum
+    /// satırı "yerinde değil" sayabilsin). Üretimde hiçbir şey yapmaz.
+    func replaceDemoDesktopCounts(_ counts: [String: Int]) {
+        guard isDemo else { return }
+        desktopCounts = counts
+    }
+
     deinit {
         timer?.invalidate()
         followUp?.cancel()
