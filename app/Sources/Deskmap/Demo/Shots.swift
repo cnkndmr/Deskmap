@@ -178,6 +178,14 @@ enum Shots {
             capture("m1-two-monitors")
             ui.visualMap = false
             capture("m1-two-monitors-list")
+            // m2 — 2. monitör kartı üstte (yalnız çizim sırası): başlıkta
+            // monitör menüsü. Menünün açık hâli ve onay penceresi ayrı
+            // pencerelerde açıldığı için bu yolla çizilemez.
+            let known = store.document.screens
+            store.document.screens = known.filter { $0.id == "external-2" }
+                + known.filter { $0.id != "external-2" }
+            ui.visualMap = true
+            capture("m2-monitor-2-card")
             window.orderOut(nil)
             exit(0)
         }
