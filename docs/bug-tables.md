@@ -1,6 +1,6 @@
-# Bug tables: primary external monitor, window drift
+# Bug tables: primary external monitor, window drift, map reveal
 
-Two open bugs, each written as an operation × state table. Every cell names
+Three open bugs, each written as an operation × state table. Every cell names
 the test that reproduces it (`app/Tests/DeskmapTests/`). On `main` the bug
 cells are marked `withKnownIssue`; the suite stays green and each known issue
 is listed in the test output. Nothing in these tests moves a real window:
@@ -156,6 +156,39 @@ too. Renamed: `unpinFallsBackToAppWideRule` → `unpinLeavesWindowInPlace`,
 the map's shadow list (`ScreenMapView.shadows`) now take the Router's binding
 (`router.context(for:)`): `groupMoveMovesBoundRule`, `shadowsFollowBinding`.
 
+## C. Map does not scroll to a revealed window (`ui.reveal`)
+
+Opening the map selects the front window and scrolls the map to its row
+(`showFrontWindow` → `ui.reveal`). On macOS 27.0 (26A428) the map never moved.
+
+### Root cause
+
+`RootView` called `proxy.scrollTo` inside `withAnimation(.easeInOut)`. On this
+macOS an animated `ScrollViewReader.scrollTo` is a no-op: the same call without
+animation scrolls. Measured in a standalone SwiftUI app under
+`NSApplication.run` (plain, `.default`, `.linear`, `.spring`, `.top` anchor and
+a deferred call: only the plain call moves), in the `--shots` mode and in the
+test below. Not the cause: the anchor ids (`WindowAnchor` matches both list
+rows and grid boxes), lazy stacks (none on the map), the reader (the map's own
+`ScrollViewReader`), timing (the deferred call runs). Older macOS versions
+(13 to 26) were not measured. The `--shots` crowded frames depended on this
+call too; `scrollMap(ui:toBottom:)` in `Shots.swift` worked around it and is
+gone now.
+
+### Table
+
+| Operation \ State | Map list, row present | Visual grid, box present | Window hidden behind "+N more" |
+| --- | --- | --- | --- |
+| Open the map on the front window | BUG `animatedScrollToDoesNotMove` → FIX `revealScrollsToWindowRow` | BUG (same call) → FIX (same) | not measured: no anchor, the map should stay |
+| Shots frames `g01b`, `g01c`, `g02`, `g03`, `d4` | BUG: frames stayed at the top → FIX: frames scroll to the window | BUG → FIX | — |
+
+`animatedScrollToDoesNotMove` keeps the old call under `withKnownIssue`
+(intermittent: another macOS version may scroll). The fix
+(`gece/1910-deskmap-i18n`) scrolls without animation (`MapReveal.scroll`): the
+map jumps to the row instead of sliding. A grid box carries its id after
+`.offset`, so the scroll target is the desktop card's top left, not the box
+itself; the card is still in view, left as is.
+
 ## Decisions (for the maintainer)
 
 A. Primary external monitor
@@ -185,3 +218,7 @@ B. Window drift
    needs one measurement with a real new session window.
 4. Exact owner: while a window whose whole title equals a one-token rule is
    open, other windows that only contain that token do not match the rule.
+
+C. Map reveal
+1. Jump without animation (fix on this branch) or keep looking for an animated
+   scroll that works on macOS 27 (for example animating the `NSClipView`)?

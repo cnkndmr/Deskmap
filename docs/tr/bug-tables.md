@@ -1,6 +1,6 @@
-# Hata tabloları: ana harici monitör, pencere kayması
+# Hata tabloları: ana harici monitör, pencere kayması, haritada gösterme
 
-İki açık hata, her biri işlem × durum tablosu olarak. Her hücrede hatayı
+Üç açık hata, her biri işlem × durum tablosu olarak. Her hücrede hatayı
 yeniden üreten testin adı var (`app/Tests/DeskmapTests/`). `main`'de hatalı
 hücreler `withKnownIssue` ile işaretli; takım yeşil kalır, her bilinen hata
 test çıktısında listelenir. Bu testler gerçek pencere taşımaz: ekranlar,
@@ -153,6 +153,39 @@ birleştirme; AX yok, pencere taşınmaz); `WindowDriftFixTests` ve
 listesi (`ScreenMapView.shadows`) artık Router'ın bağını alıyor
 (`router.context(for:)`): `groupMoveMovesBoundRule`, `shadowsFollowBinding`.
 
+## C. Harita gösterilen pencereye kaymıyor (`ui.reveal`)
+
+Harita açılınca öndeki pencere seçilir ve harita onun satırına kaydırılır
+(`showFrontWindow` → `ui.reveal`). macOS 27.0'da (26A428) harita hiç kaymıyordu.
+
+### Kök neden
+
+`RootView`, `proxy.scrollTo`'yu `withAnimation(.easeInOut)` içinde çağırıyordu.
+Bu macOS'ta animasyonlu `ScrollViewReader.scrollTo` hiçbir şey yapmıyor; aynı
+çağrı animasyonsuz kaydırıyor. Ölçüm: `NSApplication.run` altında bağımsız bir
+SwiftUI uygulaması (düz, `.default`, `.linear`, `.spring`, `.top` çapası ve
+ertelenmiş çağrı: yalnız düz çağrı kaydırıyor), `--shots` kipi ve aşağıdaki
+test. Neden olmayanlar: çapa kimlikleri (`WindowAnchor` liste satırına da ızgara
+kutusuna da bağlı), tembel yığınlar (haritada yok), okuyucu (haritanın kendi
+`ScrollViewReader`'ı), zamanlama (ertelenen çağrı çalışıyor). Eski macOS
+sürümleri (13–26) ölçülmedi. `--shots` kalabalık kareleri de bu çağrıya
+dayanıyordu; `Shots.swift`'teki `scrollMap(ui:toBottom:)` geçici çözümü artık
+yok.
+
+### Tablo
+
+| İşlem \ Durum | Harita listesi, satır var | Görsel ızgara, kutu var | Pencere "+N daha" arkasında |
+| --- | --- | --- | --- |
+| Haritayı öndeki pencerede aç | HATA `animatedScrollToDoesNotMove` → DÜZELTME `revealScrollsToWindowRow` | HATA (aynı çağrı) → DÜZELTME (aynı) | ölçülmedi: çapa yok, harita yerinde kalmalı |
+| Shots kareleri `g01b`, `g01c`, `g02`, `g03`, `d4` | HATA: kareler en üstte kalıyordu → DÜZELTME: kareler pencereye kayıyor | HATA → DÜZELTME | — |
+
+`animatedScrollToDoesNotMove` eski çağrıyı `withKnownIssue` altında tutar
+(aralıklı: başka bir macOS sürümü kaydırabilir). Düzeltme
+(`gece/1910-deskmap-i18n`) animasyonsuz kaydırır (`MapReveal.scroll`): harita
+satıra kayarak değil, atlayarak gider. Izgara kutusu kimliğini `.offset`'ten
+sonra taşıdığı için kaydırma hedefi kutunun kendisi değil masaüstü kartının sol
+üstü; kart yine görünür alanda kalıyor, dokunulmadı.
+
 ## Kararlar (geliştirici için)
 
 A. Ana harici monitör
@@ -181,3 +214,7 @@ B. Pencere kayması
    bir yeni oturum penceresiyle bir kez ölçülmeli.
 4. Tam başlık sahibi: tek parçalı bir kuralın parçasına bütün başlığı eşit
    olan pencere açıkken, yalnız o parçayı içeren öbür pencereler kurala uymaz.
+
+C. Haritada gösterme
+1. Animasyonsuz atlama (bu daldaki düzeltme) mı, yoksa macOS 27'de çalışan
+   animasyonlu bir kaydırma mı aranmalı (ör. `NSClipView`'u canlandırmak)?

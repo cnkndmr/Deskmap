@@ -270,9 +270,7 @@ struct RootView: View {
                 guard let request else { return }
                 // Panel açılınca harita daralır; yerleşim bittikten sonra kaydır.
                 DispatchQueue.main.async {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        proxy.scrollTo(WindowAnchor(id: request.window), anchor: .center)
-                    }
+                    MapReveal.scroll(proxy, to: request.window)
                 }
             }
             }
