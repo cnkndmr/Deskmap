@@ -182,7 +182,9 @@ Products change. If something here is out of date, open an issue.
 
 **[Download the latest release](https://github.com/cnkndmr/Deskmap/releases/latest)**,
 unzip it and drag `Deskmap.app` to `/Applications` (macOS 13 or later, Apple
-silicon and Intel).
+silicon and Intel). On macOS 15 and 26.0–26.3 moving windows between desktops
+has not been verified, so it starts off there (displays and layouts still
+work); the app shows a card with **Try Anyway**.
 
 The app is not notarized, so macOS blocks the first launch. Open it once,
 then go to System Settings › Privacy & Security and click **Open Anyway**.
