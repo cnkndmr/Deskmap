@@ -241,6 +241,30 @@ class DockedListTests(unittest.TestCase):
         self.assertEqual(dm.docked_item(r), ["external-2/1 full", "external/2 full"])
         self.assertEqual(dm.docked_item(rule("B", docked="external/3")), "external/3 full")
 
+    def test_effective_place_is_the_first_connected_then_role_order(self):
+        r = dict(rule("A", docked="external-2/1"), dockedNext=[dm.parse_place("external/2")])
+        status = {"mode": "docked", "heldRoles": [],
+                  "screens": [{"id": "builtin"}, {"id": "external"}, {"id": "external-2"}]}
+        self.assertEqual(dm.effective_place(status, r)["screen"], "external-2")
+        status["screens"] = [{"id": "builtin"}, {"id": "external"}]
+        self.assertEqual((dm.effective_place(status, r)["screen"], dm.effective_place(status, r)["desktop"]),
+                         ("external", 2))
+        # Hiçbiri bağlı değil: rol sırasında ilk harici, ilk yerin numarası.
+        only_3 = dict(rule("B", docked="external-2/1"))
+        status["screens"] = [{"id": "builtin"}, {"id": "external-3"}]
+        self.assertEqual((dm.effective_place(status, only_3)["screen"], dm.effective_place(status, only_3)["desktop"]),
+                         ("external-3", 1))
+        # Onay bekleyen monitör sayılmaz.
+        status["heldRoles"] = ["external-3"]
+        self.assertIsNone(dm.effective_place(status, only_3))
+        # Ekranda o kadar masaüstü yoksa son masaüstü.
+        status["heldRoles"] = []
+        status["screens"] = [{"id": "builtin"}, {"id": "external-3", "desktops": 1}]
+        self.assertEqual(dm.effective_place(status, r)["desktop"], 1)
+        # Laptop modunda tek yer.
+        laptop = rule("C", undocked="builtin/2")
+        self.assertEqual(dm.effective_place({"mode": "undocked", "screens": [{"id": "builtin"}]}, laptop)["desktop"], 2)
+
     def test_diff_sees_a_changed_rest(self):
         old = [dict(rule("A", docked="external/1"), dockedNext=[dm.parse_place("external-2/1")])]
         new = [rule("A", docked="external/1")]

@@ -368,6 +368,36 @@ def docked_places(r):
     return ([r["docked"]] if r.get("docked") else []) + list(r.get("dockedNext") or [])
 
 
+def external_index(role):
+    if role == "external":
+        return 1
+    head, _, n = role.partition("external-")
+    return int(n) if not head and n.isdigit() and int(n) >= 2 else None
+
+
+def effective_place(status, r):
+    """Pencerenin bu durumda gideceği yer (Deskmap'in `Routing.resolvePlace`'i
+    gibi): bağlı ve onay beklemeyen ekrandaki ilk yer; yoksa rol sırasında
+    bağlı ilk harici ekran, ilk yerin masaüstü numarasıyla. Adlı masaüstü
+    önbellekteki ekranına göre sayılır. Yer yoksa None."""
+    mode = status.get("mode", "docked")
+    places = docked_places(r) if mode == "docked" else ([r[mode]] if r.get(mode) else [])
+    usable = {sc["id"] for sc in status.get("screens", [])} - set(status.get("heldRoles") or [])
+    counts = {sc["id"]: sc.get("desktops") for sc in status.get("screens", [])}
+
+    def clamped(d):
+        # Ekranda o kadar masaüstü yoksa Deskmap son masaüstüne koyar.
+        count = counts.get(d["screen"])
+        return {**d, "desktop": min(d["desktop"], count)} if count else d
+    for d in places:
+        if d["screen"] in usable:
+            return clamped(d)
+    externals = sorted((external_index(x), x) for x in usable if external_index(x))
+    if not places or not externals:
+        return None
+    return clamped({**places[0], "screen": externals[0][1]})
+
+
 def docked_text(r):
     places = docked_places(r)
     return " → ".join(dest_text(d) for d in places) if places else "-"
@@ -860,7 +890,12 @@ def report(status, rules, only=None):
             rows.append(f"  ·  {label(r)} [{w['id']}]: temporary pin wins ({w['pinned']['screen']}/{w['pinned']['desktop']})")
             total -= 1
             continue
-        dest = r[mode]
+        dest = effective_place(status, r)
+        if dest is None:
+            # Sıralı yerlerin hiçbiri bağlı değil ve yedek de yok: dokunulmaz.
+            rows.append(f"  ·  {label(r)} [{w['id']}]: no connected place (left alone)")
+            total -= 1
+            continue
         problems = []
         if w.get("fullscreen"):
             problems.append("fullscreen (Deskmap leaves it alone)")
@@ -904,7 +939,9 @@ def exposure_issues(status, rules, desks=None):
             dest = {"screen": w["pinned"]["screen"], "desktop": w["pinned"]["desktop"], "layout": None}
             label = f"{w['app']} [{w['id']}] (temporary pin)"
         elif r:
-            dest = r[mode]
+            dest = effective_place(status, r)
+            if dest is None:
+                continue
             label = r["appName"] + (f" ~{' '.join(r['tokens'])}" if r.get("tokens") else "")
         else:
             continue
