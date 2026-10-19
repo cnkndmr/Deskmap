@@ -138,6 +138,10 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- **The plan picker follows a single screen change.** After plugging in or
+  unplugging a monitor once, the picker could stay on the previous plan: it
+  read the screen mode while the screen list was still being published. It
+  now follows the published list (`docs/bug-tables.md` A′).
 - **Moving an app group and the map's shadowed pins follow the window's
   binding.** A window keeps the rule that placed it even after its title
   changes; *Send group to* now moves that rule instead of the one the new

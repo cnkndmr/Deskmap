@@ -146,6 +146,10 @@ numarası `VERSION` dosyasından gelir.
 
 ### Düzeltilenler {#fixed}
 
+- **Plan seçici tek bir ekran değişimini izliyor.** Monitör bir kez takılıp
+  çıkarılınca seçici önceki planda kalabiliyordu: ekran listesi henüz
+  yayınlanırken ekran modunu okuyordu. Artık yayınlanan listeyi izliyor
+  (`docs/bug-tables.md` A′).
 - **Uygulama grubunu taşımak ve haritadaki gölgede kalan pinler pencerenin
   bağını izliyor.** Pencere başlığı değişse de onu yerleştiren kuralda
   kalır; *Grubu gönder* artık yeni başlığın uyduğu kuralı değil o kuralı
