@@ -210,6 +210,14 @@ struct DisplayRolesTests {
         let reason = Routing.reason(for: match, screenName: "LG HDR 4K") ?? ""
         #expect(reason.contains("Monitor 2 · Desktop 2"))
         #expect(!reason.contains("LG HDR 4K"))
+        // Sabitleme panelindeki Display menüsü ve açılır liste de (KnownScreen
+        // üzerinden) rol adını gösterir; kart başlığıyla çelişmez.
+        let external = KnownScreen(id: "external", name: "Studio Display", aspect: 1.78)
+        let second = KnownScreen(id: "external-2", name: "LG HDR 4K", aspect: 1.78)
+        let builtin = KnownScreen(id: "builtin", name: "Built-in Display", aspect: 1.55)
+        #expect(external.roleName == "Extra monitor")
+        #expect(second.roleName == "Monitor 2")
+        #expect(builtin.roleName == "Built-in Display")
     }
 
     @Test func roleNamesAreTranslated() throws {

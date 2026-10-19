@@ -12,6 +12,11 @@ struct KnownScreen: Codable, Equatable, Identifiable, Hashable {
     var visibleWidth: Double?
     var visibleHeight: Double?
 
+    /// Arayüzde gösterilen ad: harici ekranda rol adı ("Ekstra monitör",
+    /// "2. monitör"), dahili ekranda kendi adı; model adı (`name`) menülerde
+    /// de görünmez (kart başlığıyla aynı kaynak, `DisplayRoles.displayName`).
+    var roleName: String { DisplayRoles.displayName(role: id, name: name) }
+
     /// Kaydedilmiş gerçek kullanılabilir alan; ekran bu sürümde hiç
     /// bağlanmadıysa nil (sabit boyuta çevirme o zaman kapalı).
     var knownVisibleSize: CGSize? {
