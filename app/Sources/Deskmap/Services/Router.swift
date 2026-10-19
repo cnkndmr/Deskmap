@@ -207,7 +207,9 @@ final class Router: ObservableObject {
     private static let maxPlannedCreations = 8
     /// Masaüstü taşımasının doğrulanmış durumu; devre kesici açıksa
     /// (`degraded`) taşıma durur, ekran ve düzen sürer.
-    @Published private(set) var moveHealth = MoveHealth()
+    /// Doğrulanmamış macOS'ta (`MoveSupport.unverified`) kullanıcı "Yine de
+    /// dene" diyene kadar taşıma bekletilir (`held`).
+    @Published private(set) var moveHealth = MoveHealth(held: Router.holdsMovesAtLaunch)
     /// Yönlendirme nesli: kural, ekran, duraklatma ya da oturum pini
     /// değişince artar. Arka planda süren tarama her yan etkiden
     /// (`AX.setFrame`, `sky.move`) önce nesline bakar; eskimişse durur (P0-2).
@@ -273,6 +275,26 @@ final class Router: ObservableObject {
     /// taşırsa, başka bir kural aynı hedefe çıksa da yerinden oynatılmaz.
     /// Hedef değişip geri dönerse (A→B→A) yeniden verilir (B7).
     private var applied: [CGWindowID: AppliedEntry] = [:]
+    /// Pencere başına yapışkan kural bağı (docs/bug-tables.md §B): başlık
+    /// değişse de pencere kapanana kadar sürer. Diske yazılmaz.
+    private var bindings: [CGWindowID: Routing.Binding] = [:]
+    /// Bağların verildiği profil. Bağ kural kimliğine bakar; başka profilde
+    /// o kimlik yok ve bağ "pin silindi" diye pencereyi eski yerinde
+    /// tutardı. Profil değişince bağlar baştan kurulur.
+    private var bindingsProfileID: String?
+    /// Tarama sürerken verilen bağlar (pin kaldırma); sonuç gelince
+    /// taramanın eski bağlarının üstüne yazılır.
+    private var bindingOverrides: [CGWindowID: Routing.Binding] = [:]
+    /// Pencerenin ilk görüldüğü an (genel başlık beklemesi için). İlk
+    /// taramada görülenler beklemez.
+    private(set) var firstSeen: [CGWindowID: Date] = [:]
+    private var sweptAny = false
+    /// Son taramanın seçim durumu; arayüz "Neden burada?" için aynısını kullanır.
+    @Published private(set) var routingContext = Routing.Context()
+    /// Arayüzün seçimi için bağlam: yalnız canlı modda (öbür modda bağ yok).
+    func context(for mode: Mode) -> Routing.Context? {
+        mode == screens.mode ? routingContext : nil
+    }
     /// Pencere başına "bu nesilden eski düzen kayıtları geçersiz" sınırı:
     /// tarama sürerken unutulan pencerenin eski kaydı sonuçla geri gelmesin.
     private var appliedFloor: [CGWindowID: UInt64] = [:]
@@ -338,7 +360,9 @@ final class Router: ObservableObject {
         let sky = SkyLight.shared
         Log.skylight.notice("""
             SkyLight \(sky.canRead ? "available" : "unavailable", privacy: .public); \
-            desktop move path: \(sky.movePath, privacy: .public)
+            desktop move path: \(sky.movePath, privacy: .public); \
+            support: \(String(describing: sky.moveSupport), privacy: .public)\
+            \(self.moveHealth.state == .held ? " (held until the user tries)" : "", privacy: .public)
             """)
         loadSessionPins()
         loadDesktopState()
@@ -408,6 +432,19 @@ final class Router: ObservableObject {
             .sink { [weak self] _ in self?.applyPlanNow(reason: "profile switch") }
             .store(in: &cancellables)
 
+        // Onay bekleyen bir monitör rolü onaylandı (kart menüsü, `deskmap
+        // screen-role`): o rolün planı ve kuralları şimdi uygulanır. Rol
+        // ataması değiştiyse (takas) yatışma zaten geçiş başlatır; aynı kaldıysa
+        // (yalnız onay) ekran bildirimi gelmez, plan buradan uygulanır.
+        store.$document
+            .map(\.displayRoles)
+            .removeDuplicates()
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.followHeldRoles() }
+            .store(in: &cancellables)
+        lastHeldRoles = screens.heldRoles
+
         // @Published willSet'te yayar: tarama bir sonraki turda, yeni kurallar
         // yazıldıktan sonra başlasın (yoksa eski kural listesini okurdu).
         store.$document
@@ -466,6 +503,20 @@ final class Router: ObservableObject {
         self.windows = demoWindows
         self.sessionPins = demoSessionPins
         self.status = demoStatus
+    }
+
+    /// Yalnız Shots modunda: demo pencere listesini değiştirir (demo
+    /// dizisinde pencereler "taşınır"). Üretimde hiçbir şey yapmaz.
+    func replaceDemoWindows(_ windows: [WindowSnapshot]) {
+        guard isDemo else { return }
+        self.windows = windows
+    }
+
+    /// Yalnız Shots modunda: ekran başına gerçek masaüstü sayısı (durum
+    /// satırı "yerinde değil" sayabilsin). Üretimde hiçbir şey yapmaz.
+    func replaceDemoDesktopCounts(_ counts: [String: Int]) {
+        guard isDemo else { return }
+        desktopCounts = counts
     }
 
     deinit {
@@ -649,10 +700,20 @@ final class Router: ObservableObject {
     /// Düşük moddan çıkış: devre kesici kapanır, bütün pencereler yeniden
     /// yerleştirilir (taşımalar yeniden doğrulanır).
     func retryMoves() {
+        if moveHealth.state == .held {
+            UserDefaults.standard.set(true, forKey: MoveSupport.allowUnverifiedKey)
+            Log.skylight.notice("Desktop moves enabled by user on an unverified macOS")
+        } else {
+            Log.skylight.notice("Desktop moves re-enabled by user")
+        }
         moveHealth.reset()
         pendingMoves = [:]
-        Log.skylight.notice("Desktop moves re-enabled by user")
         reapplyAll()
+    }
+
+    nonisolated private static var holdsMovesAtLaunch: Bool {
+        SkyLight.shared.moveSupport == .unverified
+            && !UserDefaults.standard.bool(forKey: MoveSupport.allowUnverifiedKey)
     }
 
     /// Bir taşıma çağrısının sonucunu kaydeder: hemen doğrulandıysa ya da
@@ -679,7 +740,7 @@ final class Router: ObservableObject {
                 Desktop moves could not be verified \(MoveHealth.failureLimit) times in a row; \
                 reduced mode (path: \(SkyLight.shared.movePath, privacy: .public))
                 """)
-        case .unknown:
+        case .unknown, .held:
             break
         }
     }
@@ -711,6 +772,14 @@ final class Router: ObservableObject {
 
     func unpinSession(_ windowID: CGWindowID) {
         guard sessionPins.removeValue(forKey: windowID) != nil else { return }
+        // Pini kalkan pencere yerinde kalır: genel kural onu geri çekmez.
+        if let window = windows.first(where: { $0.id == windowID }) {
+            let binding = Routing.bindingAfterUnpin(
+                rules: store.document.rules, mode: screens.mode, bundleID: window.bundleID,
+                appName: window.appName, title: window.title, document: window.document)
+            bindings[windowID] = binding
+            bindingOverrides[windowID] = binding
+        }
         sessionRecords[windowID] = nil
         sessionMisses[windowID] = nil
         forgetApplied(for: windowID)
@@ -745,7 +814,7 @@ final class Router: ObservableObject {
                   let match = Routing.select(
                     rules: store.document.rules, sessionPins: sessionPins, mode: screens.mode,
                     windowID: id, bundleID: window.bundleID, appName: window.appName,
-                    title: window.title, document: window.document)
+                    title: window.title, document: window.document, context: routingContext)
             else { continue }
             freeMoves[id] = end
             freeTargets[id] = FreeGrant(ruleID: match.ruleID, destination: match.destination,
@@ -971,7 +1040,7 @@ final class Router: ObservableObject {
         let ids = [fromScreen, toScreen]
         let candidates = windows.filter { ids.contains($0.placement?.screen ?? "") }.map(\.id)
         guard !candidates.isEmpty else { return }
-        queue.async {
+        queue.async { [self] in
             let sky = SkyLight.shared
             guard sky.canRead, sky.canMove else { return }
             let displays = sky.displaySpaces(mainUUID: Self.primaryUUID(connected))
@@ -1077,7 +1146,7 @@ final class Router: ObservableObject {
         let connected = screens.screens
         let candidates = windows.filter { $0.placement?.screen == screenID }.map(\.id)
         guard !candidates.isEmpty else { return }
-        queue.async {
+        queue.async { [self] in
             let sky = SkyLight.shared
             guard sky.canRead, sky.canMove,
                   let target = connected.first(where: { $0.id == screenID }),
@@ -1268,7 +1337,7 @@ final class Router: ObservableObject {
         reopenReads = reopenReads.filter { alive.contains($0.key) }
         guard !jobs.isEmpty, !reopenBusy else { return }
         reopenBusy = true
-        reopenQueue.async { [weak self] in
+        reopenQueue.async { [weak self, jobs] in
             var found: [String: URL] = [:]
             for job in jobs {
                 guard let element = AX.element(pid: job.pid, windowID: job.window),
@@ -1276,7 +1345,7 @@ final class Router: ObservableObject {
                 else { continue }
                 found[job.rule] = url
             }
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self, found] in
                 self?.reopenBusy = false
                 if !found.isEmpty { self?.storeReopenTargets(found) }
             }
@@ -1627,8 +1696,22 @@ final class Router: ObservableObject {
         return now.timeIntervalSince(transition.startedAt) < 60
     }
 
+    /// Son bakılan onay bekleyen roller (onaylanınca plan uygulanır).
+    private var lastHeldRoles: Set<String> = []
+
+    private func followHeldRoles() {
+        let held = screens.heldRoles
+        let released = lastHeldRoles.subtracting(held)
+        lastHeldRoles = held
+        guard !released.isEmpty, !screens.isSettling else { return }
+        Log.screens.notice("Monitor role confirmed: \(released.sorted().joined(separator: ", "), privacy: .public); applying its plan")
+        applyPlanNow(reason: "monitor role confirmed")
+        reapplyAll()
+    }
+
     /// Ekranlar yatıştı: geçiş planı uygular.
     private func handleSettled() {
+        lastHeldRoles = screens.heldRoles
         if transition == nil { beginTransition(reason: "display") }
         Task { await runTransition() }
     }
@@ -1742,7 +1825,11 @@ final class Router: ObservableObject {
             newSpaces: extras.newSpaces, compactBeyondPlan: true, otherNamed: otherNamed,
             pending: pending, pinned: pinnedDesktops(mode: mode),
             allowRemovals: true, allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
-        let plan = PlanApply.compute(input)
+        let held = screens.heldRoles
+        if !held.isEmpty {
+            Log.screens.notice("Plan held for unconfirmed monitor role(s): \(held.sorted().joined(separator: ", "), privacy: .public)")
+        }
+        let plan = PlanApply.compute(PlanApply.holding(input, roles: held))
         logPlan(plan, live: live.spaces, mode: mode, reason: current.reason)
         if !input.allowMoves {
             planStatus = PlanStatus(message: L("Plan could not be applied: moving windows is off"),
@@ -1824,7 +1911,7 @@ final class Router: ObservableObject {
         if let last = lastCleanupAt, Date().timeIntervalSince(last) < Self.cleanupThrottle { return }
         let contents = lastContents.mapValues { $0.map(\.id) }
         let removable = PlanApply.cleanupRemovals(
-            live: spaces, contents: contents, plans: store.document.plans[mode], named: allNamedSpaces(),
+            live: PlanApply.holding(live: spaces, roles: screens.heldRoles), contents: contents, plans: store.document.plans[mode], named: allNamedSpaces(),
             pending: Self.pendingQueue(store.document.pendingRemovals, mode: mode).all,
             pinned: pinnedDesktops(mode: mode))
         guard !removable.isEmpty else { return }
@@ -1885,7 +1972,7 @@ final class Router: ObservableObject {
             return
         }
         let decisions = PlanApply.cleanupPlan(
-            live: live.spaces, contents: fresh.contents.mapValues { $0.map(\.id) },
+            live: PlanApply.holding(live: live.spaces, roles: screens.heldRoles), contents: fresh.contents.mapValues { $0.map(\.id) },
             plans: store.document.plans[mode], named: allNamedSpaces(),
             pending: Self.pendingQueue(store.document.pendingRemovals, mode: mode).all,
             pinned: pinnedDesktops(mode: mode))
@@ -1973,7 +2060,7 @@ final class Router: ObservableObject {
             pinned: pinnedDesktops(mode: mode),
             allowRemovals: allowRemovals,
             allowMoves: moveHealth.movesAllowed && SkyLight.shared.canMove)
-        let plan = PlanApply.compute(input)
+        let plan = PlanApply.compute(PlanApply.holding(input, roles: screens.heldRoles))
         guard !plan.isEmpty else { return }
         logPlan(plan, live: live.spaces, mode: mode, reason: reason)
         let outcome = await execute(plan, expected: live.spaces, refs: refs,
@@ -2356,6 +2443,113 @@ final class Router: ObservableObject {
 
     // MARK: - Tarama
 
+    /// Taramanın seçim girdileri: yönlendirme kapalıyken (duraklama yok,
+    /// ama kurallar kapalı, ekranlar yatışıyor ya da plan yürütülüyor)
+    /// kural ve oturum pini verilmez.
+    private func routingInputs() -> (routing: Bool, rules: [Rule],
+                                     sessionPins: [CGWindowID: Destination]) {
+        let routing = store.document.enabled && !screens.isSettling && !planHoldsRouting(now: Date())
+        return (routing, routing ? store.document.rules : [], routing ? sessionPins : [:])
+    }
+
+    /// Bir taramanın seçim sonucu (§B).
+    struct Selection: Equatable {
+        /// Pencere → geçerli hedef; hedefi olmayan pencere yok.
+        var matches: [CGWindowID: Routing.Match] = [:]
+        /// Bağları güncellenmiş seçim durumu.
+        var context = Routing.Context()
+        var firstSeen: [CGWindowID: Date] = [:]
+        /// En erken bekleme bitişine kalan süre (sn); bekleyen yoksa nil.
+        var heldUntil: TimeInterval?
+    }
+
+    /// Taramanın seçim adımı (saf): yapışkan bağlar, genel başlıklı yeni
+    /// pencereler ve tam başlık sahipleriyle her pencere için arayüzle aynı
+    /// seçim (oturum pini, yoksa bağlı kural, yoksa bu modda hedefi olan en
+    /// özgül eşleşen kural). `initial`: ilk tarama; o an açık pencereler
+    /// beklemez.
+    nonisolated static func select(
+        windows: [WindowSnapshot], rules: [Rule], sessionPins: [CGWindowID: Destination],
+        mode: Mode, bindings: [CGWindowID: Routing.Binding], firstSeen: [CGWindowID: Date],
+        initial: Bool, now: Date
+    ) -> Selection {
+        var selection = Selection()
+        var context = Routing.Context(bindings: bindings)
+        for window in windows {
+            let seen = firstSeen[window.id] ?? (initial ? .distantPast : now)
+            selection.firstSeen[window.id] = seen
+            if Routing.isHeld(title: window.title, appName: window.appName, firstSeen: seen, now: now,
+                              titleRules: Routing.hasTitleRule(rules, bundleID: window.bundleID,
+                                                               appName: window.appName)) {
+                context.held.insert(window.id)
+                // Bekleme bitince bir tarama daha (başlık değişmese de).
+                let due = seen.addingTimeInterval(Routing.genericTitleGrace).timeIntervalSince(now)
+                selection.heldUntil = min(selection.heldUntil ?? due, due)
+            }
+        }
+        context.exactOwned = Routing.exactOwners(
+            rules: rules,
+            windows: windows.filter { !context.held.contains($0.id) }
+                .map { ($0.bundleID, $0.appName, $0.title) })
+        for window in windows {
+            let resolved = Routing.resolve(
+                rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
+                bundleID: window.bundleID, appName: window.appName, title: window.title,
+                document: window.document, context: context)
+            context.bindings[window.id] = resolved.binding
+            selection.matches[window.id] = resolved.match
+        }
+        selection.context = context
+        return selection
+    }
+
+    /// Taramanın seçim durumunu Router'a işler: bağlar, tarama sürerken
+    /// verilen bağlar (pin kaldırma), ilk görülme anları ve arayüzün bağlamı.
+    /// `live`: yaşayan pencereler (boşsa budama yok).
+    private func acceptSelection(_ swept: Routing.Context, firstSeen sweptFirstSeen: [CGWindowID: Date],
+                                 routing: Bool, profileID: String, live: Set<CGWindowID>) {
+        // Yönlendirme kapalıyken (duraklama, yatışma) kural listesi boş
+        // geçer: bağlar o taramadan alınmaz, yoksa hepsi düşerdi.
+        var bindings = (routing ? swept.bindings : bindings(for: profileID))
+            .merging(bindingOverrides) { $1 }
+        bindingsProfileID = profileID
+        bindingOverrides = [:]
+        // Listede olmayan ama yaşayan (ör. geçici olarak masaüstüsüz)
+        // pencereler ilk görülme anını korur, dönünce yeniden beklemez.
+        var firstSeen = self.firstSeen.merging(sweptFirstSeen) { old, _ in old }
+        if !live.isEmpty {
+            bindings = Routing.prunedBindings(bindings, alive: live)
+            firstSeen = firstSeen.filter { live.contains($0.key) }
+        }
+        self.bindings = bindings
+        self.firstSeen = firstSeen
+        sweptAny = true
+        var context = swept
+        context.bindings = bindings
+        if context != routingContext { routingContext = context }
+    }
+
+    /// `profileID` profiline ait bağlar; başka profilin bağları boş sayılır.
+    private func bindings(for profileID: String) -> [CGWindowID: Routing.Binding] {
+        profileID == bindingsProfileID ? bindings : [:]
+    }
+
+    /// Taramanın seçim adımını AX/SkyLight olmadan yürütür: `sweep` ile aynı
+    /// girdiler, aynı `select` ve aynı birleştirme; pencereler dışarıdan
+    /// verilir ve hiçbiri taşınmaz. Testler gerçek Router'ı bununla sürer.
+    @discardableResult
+    func sweepSelection(windows: [WindowSnapshot], now: Date = Date()) -> [CGWindowID: Routing.Match] {
+        let (routing, rules, sessionPins) = routingInputs()
+        let profileID = store.document.activeProfileID
+        let selection = Self.select(
+            windows: windows, rules: rules, sessionPins: sessionPins, mode: screens.mode,
+            bindings: bindings(for: profileID), firstSeen: firstSeen, initial: !sweptAny, now: now)
+        if windows != self.windows { self.windows = windows }
+        acceptSelection(selection.context, firstSeen: selection.firstSeen,
+                        routing: routing, profileID: profileID, live: Set(windows.map(\.id)))
+        return selection.matches
+    }
+
     func sweep() {
         guard !isDemo, AXIsProcessTrusted(), !isPaused else { return }
         if isSweeping {
@@ -2370,9 +2564,7 @@ final class Router: ObservableObject {
         // Özgüllük sıralamasını `Routing.select` yapar.
         // Plan uygulanırken yönlendirme durur: adların bağları kaydedilmeden
         // kural pencerelerini eski yerlerine geri taşımasın (§P.1 adım 6).
-        let routing = store.document.enabled && !screens.isSettling && !planHoldsRouting(now: Date())
-        let rules = routing ? store.document.rules : []
-        let sessionPins = routing ? self.sessionPins : [:]
+        let (routing, rules, sessionPins) = routingInputs()
         // Duraklatılmışken de geçici pinli pencereler listelenir ve yaşam
         // denetimi sürer.
         let sessionIDs = Set(self.sessionPins.keys)
@@ -2392,6 +2584,12 @@ final class Router: ObservableObject {
         let nameSpaces = Dictionary(store.document.names.compactMap { name in
             name.space.map { (name.id, $0) } }, uniquingKeysWith: { a, _ in a })
         let holdNames = store.migrationPending || store.upgradeUndone
+        let displayFallback = store.document.displayRoles.fallbackToFirstExternal
+        let heldRoles = screens.heldRoles
+        let profileID = store.document.activeProfileID
+        let bindings = bindings(for: profileID)
+        let firstSeen = self.firstSeen
+        let initial = !sweptAny
         let token = generation.token()
         isSweeping = true
         sweepRequested = false
@@ -2405,6 +2603,8 @@ final class Router: ObservableObject {
                                      refusedSizes: refusedSizes,
                                      lastAttempts: lastAttempts, movesAllowed: movesAllowed,
                                      nameSpaces: nameSpaces, holdNames: holdNames,
+                                     displayFallback: displayFallback, heldRoles: heldRoles,
+                                     bindings: bindings, firstSeen: firstSeen, initial: initial,
                                      token: token)
             Task { @MainActor in
                 guard let self else { return }
@@ -2444,6 +2644,8 @@ final class Router: ObservableObject {
                     self.refusedSizes = self.refusedSizes.filter { isLive($0.key) }
                 }
                 self.refusedSizes.merge(outcome.refusedSizes) { $1 }
+                self.acceptSelection(outcome.context, firstSeen: outcome.firstSeen,
+                                     routing: routing, profileID: profileID, live: Set(live.keys))
                 self.applied = applied
                 self.attempts = attempts
                 self.lastAttempts = lastAttempts
@@ -2489,6 +2691,8 @@ final class Router: ObservableObject {
                 }
                 if outcome.needsFollowUp || outcome.stale || self.sweepRequested {
                     self.scheduleFollowUp(after: outcome.needsFollowUp ? 200 : 20)
+                } else if let held = outcome.heldUntil {
+                    self.scheduleFollowUp(after: UInt64(max(0.05, held + 0.05) * 1000))
                 }
                 var status = self.status
                 status.routedWindows = outcome.routed
@@ -2535,6 +2739,11 @@ final class Router: ObservableObject {
         /// Bir pencere taşındı ya da düzeni henüz oturmadı; kısa süre sonra
         /// yeniden dene.
         var needsFollowUp = false
+        /// Taramanın seçim durumu (bağlar güncel) ve ilk görülme anları.
+        var context = Routing.Context()
+        var firstSeen: [CGWindowID: Date] = [:]
+        /// En erken bekleme bitişine kalan süre (sn); bekleyen yoksa nil.
+        var heldUntil: TimeInterval?
     }
 
     /// Bir pencerenin taramada bir kez okunan durumu; anlık görüntü,
@@ -2588,6 +2797,9 @@ final class Router: ObservableObject {
         attempts: [String: Int], refusedSizes: [String: CGSize],
         lastAttempts: [String: Date], movesAllowed: Bool,
         nameSpaces: [String: UInt64] = [:], holdNames: Bool = false,
+        displayFallback: Bool = false, heldRoles: Set<String> = [],
+        bindings: [CGWindowID: Routing.Binding] = [:], firstSeen: [CGWindowID: Date] = [:],
+        initial: Bool = false,
         token: RoutingGeneration.Token
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts, lastAttempts: lastAttempts)
@@ -2662,14 +2874,14 @@ final class Router: ObservableObject {
         }
 
         let now = Date()
+        let selection = Self.select(
+            windows: outcome.snapshots, rules: rules, sessionPins: sessionPins, mode: mode,
+            bindings: bindings, firstSeen: firstSeen, initial: initial, now: now)
+        outcome.firstSeen = selection.firstSeen
+        outcome.heldUntil = selection.heldUntil
+        outcome.context = selection.context
         windowLoop: for window in listed {
-            // Arayüzle aynı seçim: oturum pini, yoksa bu modda hedefi olan
-            // en özgül eşleşen kural.
-            guard let match = Routing.select(
-                rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
-                bundleID: window.bundleID, appName: window.appName, title: window.title,
-                document: documents[window.id])
-            else { continue }
+            guard let match = selection.matches[window.id] else { continue }
             // Serbest hareket izni olan pencereye dokunulmaz (izin geçerliliği
             // taramadan önce ana aktörde denetlenir: `validateFreeMoves`).
             if free.contains(window.id) { continue }
@@ -2677,9 +2889,14 @@ final class Router: ObservableObject {
             // Ad yerleşmemişse ya da masaüstü bağlı değilse pencere tutulur.
             guard let destination = Self.resolveTarget(match.destination, nameSpaces: nameSpaces,
                                                        holdNames: holdNames, displays: displays,
-                                                       screens: screens) else { continue }
+                                                       screens: screens,
+                                                       displayFallback: displayFallback,
+                                                       heldRoles: heldRoles) else { continue }
 
-            guard let screen = screens.first(where: { $0.id == destination.screen })
+            // Onay bekleyen rolün ekranına kural uygulanmaz (A3/A4): düzen
+            // kullanıcı monitörü seçene dek bekler.
+            guard !heldRoles.contains(destination.screen),
+                  let screen = screens.first(where: { $0.id == destination.screen })
             else { continue }
 
             let state = windowState(window)
@@ -2724,7 +2941,8 @@ final class Router: ObservableObject {
                 target = space
                 onTarget = current.contains(space.id)
                 isVisible = current.contains(where: visibleSpaces.contains)
-                desktopLabel = L("%@ · Desktop %ld", screen.name, index)
+                desktopLabel = L("%@ · Desktop %ld",
+                                 DisplayRoles.displayName(role: screen.id, name: screen.name), index)
             }
 
             // 1. Düzen — pencere yalnızca GÖRÜNÜRKEN uygulanır. Görünmeyen
@@ -2940,8 +3158,24 @@ final class Router: ObservableObject {
     /// taşınmaz.
     nonisolated static func resolveTarget(_ destination: Destination, nameSpaces: [String: UInt64],
                                           holdNames: Bool, displays: [SkyLight.DisplaySpaces],
-                                          screens: [ScreenInfo]) -> Destination? {
-        guard let nameID = destination.nameID else { return destination }
+                                          screens: [ScreenInfo],
+                                          displayFallback: Bool = false,
+                                          heldRoles: Set<String> = []) -> Destination? {
+        guard let nameID = destination.nameID else {
+            // Kuralın harici ekranı bağlı değilse ilk harici ekran (seçenek
+            // açıksa); anahtar çözülmüş hedefe bağlı olduğu için ekran geri
+            // gelince pencere yeniden kendi ekranına yerleşir.
+            // Yedek de yoksa hedef olduğu gibi döner; bağlı olmayan ekran
+            // taramada atlanır (pencereye dokunulmaz).
+            guard let screen = DisplayRoles.effectiveScreen(
+                destination.screen, connected: Set(screens.map(\.id)).subtracting(heldRoles),
+                fallback: displayFallback),
+                  screen != destination.screen
+            else { return destination }
+            var resolved = destination
+            resolved.screen = screen
+            return resolved
+        }
         guard !holdNames, let space = nameSpaces[nameID],
               let place = place(of: space, displays: displays, screens: screens) else { return nil }
         var resolved = destination

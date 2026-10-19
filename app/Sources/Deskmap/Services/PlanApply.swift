@@ -243,6 +243,32 @@ enum PlanApply {
         return extras
     }
 
+    /// Onay bekleyen harici roller (`DisplayRoles.unconfirmed`) planın
+    /// dışında (saf): o ekran bağlı değilmiş gibi; masaüstüleri, içerikleri,
+    /// oradaki adlar, planı, park kayıtları ve pinleri girdiden çıkar. Ne o
+    /// ekrana taşınır, ne oradan alınır, ne orada masaüstü açılır ya da
+    /// silinir. Kullanıcı rolü onaylayınca plan yeniden uygulanır.
+    static func holding(_ input: Input, roles held: Set<String>) -> Input {
+        guard !held.isEmpty else { return input }
+        var copy = input
+        let heldSpaces = Set(held.flatMap { input.live[$0] ?? [] })
+        copy.live = holding(live: input.live, roles: held)
+        copy.plans = input.plans.filter { !held.contains($0.key) }
+        copy.contents = input.contents.filter { !heldSpaces.contains($0.key) }
+        copy.names = input.names.filter { name in name.space.map { !heldSpaces.contains($0) } ?? true }
+        copy.arriving = input.arriving.filter { !held.contains($0.key) }
+        copy.parked = input.parked.filter { !held.contains($0.role) }
+        copy.pinned = input.pinned.filter { !held.contains($0.key) }
+        copy.leftovers = input.leftovers.subtracting(heldSpaces)
+        copy.newSpaces = input.newSpaces.subtracting(heldSpaces)
+        return copy
+    }
+
+    /// Canlı masaüstü listesi onay bekleyen roller olmadan (temizlik için).
+    static func holding(live: [String: [UInt64]], roles held: Set<String>) -> [String: [UInt64]] {
+        live.filter { !held.contains($0.key) }
+    }
+
     static func compute(_ input: Input) -> Output {
         var output = Output()
         guard input.allowMoves else { return output }

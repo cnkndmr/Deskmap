@@ -65,6 +65,8 @@ final class SkyLight: Sendable {
     let canMove: Bool
     /// Okuma ve taşıma birlikte kullanılabilir.
     var isAvailable: Bool { canRead && canMove }
+    /// Taşımanın bu macOS sürümünde doğrulanmış olup olmadığı (PLAN K4).
+    let moveSupport: MoveSupport
 
     /// `move(window:to:)` sonucu.
     enum MoveResult: Equatable {
@@ -121,6 +123,8 @@ final class SkyLight: Sendable {
             bridged: performBridgedOperation != nil,
             compat: spaceSetCompatID != nil && setWindowListWorkspace != nil,
             legacy: moveWindowsToManagedSpace != nil) != "none"
+        moveSupport = MoveSupport.classify(
+            ProcessInfo.processInfo.operatingSystemVersion, hasMovePath: canMove)
     }
 
     // MARK: - Okuma

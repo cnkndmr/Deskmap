@@ -359,6 +359,33 @@ struct BackupTests {
         #expect(accepted)
     }
 
+    /// `reload()` yaşam süresi: kuyruk işi servisi güçlü tutar (liste okunur),
+    /// ana iş parçacığına dönüş zayıf; servis bırakılınca serbest kalır.
+    @MainActor @Test func reloadPublishesEntriesAndReleasesService() async throws {
+        let fm = FileManager.default
+        let root = fm.temporaryDirectory.appendingPathComponent("DeskmapBackupTests-\(UUID())")
+        try fm.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: root) }
+        let archive = BackupArchive(sourceDirectory: root, schedule: schedule)
+        try writeDocument(document(rules: 1), in: root)
+        _ = archive.run(now: at(2026, 10, 12))
+        #expect(!archive.list().isEmpty)
+
+        var service: BackupService? = BackupService(archive: archive)
+        weak let weakService = service
+        service?.reload()
+        for _ in 0..<200 where service?.entries.isEmpty == true {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        #expect(service?.entries.count == archive.list().count)
+
+        service = nil
+        for _ in 0..<200 where weakService != nil {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        #expect(weakService == nil)
+    }
+
     @Test func urlCommandsParse() {
         #expect(URLCommand.parse(URL(string: "deskmap://backup-now")!) == .backupNow)
         #expect(URLCommand.parse(URL(string: "deskmap://backup-restore/daily-2026-10-12")!)

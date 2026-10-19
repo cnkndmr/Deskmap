@@ -15,6 +15,8 @@ final class StatusFile {
             let id: String
             let name: String
             let builtin: Bool
+            /// macOS ekran UUID'si (rol seçimi `deskmap screen-role` için).
+            let uuid: String
             let frame: [Double]
             let visible: [Double]
             let desktops: Int?
@@ -52,6 +54,10 @@ final class StatusFile {
         let profile: String?
         let profiles: [String]
         let lastError: String?
+        /// Masaüstü taşıma: "on", "held" (doğrulanmamış macOS, kullanıcı
+        /// "Yine de dene" demedi), "reduced" (devre kesici açık) ya da
+        /// "unavailable" (bu macOS'ta taşıma yolu yok).
+        let desktopMoves: String
         let primaryHeight: Double?
         let screens: [Screen]
         let windows: [Window]
@@ -66,6 +72,11 @@ final class StatusFile {
         let names: [Name]
         /// Kurulum → ekran → girdiler (ad kimliği ya da "").
         let plans: DesktopPlans
+        /// Hatırlanan harici ekran rolleri ve eksik ekran seçeneği.
+        let displayRoles: DisplayRoles
+        /// Onay bekleyen roller: monitör bu rolde hatırlanmıyor, düzen
+        /// uygulanmıyor (`deskmap screen-role` ile onaylanır).
+        let heldRoles: [String]
     }
     struct Name: Codable {
         let id: String
@@ -92,6 +103,7 @@ final class StatusFile {
             router.$sessionPins.map { _ in () }.eraseToAnyPublisher(),
             store.$document.map { _ in () }.eraseToAnyPublisher(),
             store.$lastError.map { _ in () }.eraseToAnyPublisher(),
+            router.$moveHealth.removeDuplicates().map { _ in () }.eraseToAnyPublisher(),
             screens.$screens.map { _ in () }.eraseToAnyPublisher(),
         ]
         Publishers.MergeMany(changes)
@@ -110,8 +122,18 @@ final class StatusFile {
             planned[mode.rawValue] = store.document.plannedDesktops(mode: mode, screen: screen.id)
         }
         return Snapshot.Screen(id: screen.id, name: screen.name, builtin: screen.isBuiltin,
-                               frame: frame, visible: visible,
+                               uuid: screen.uuid, frame: frame, visible: visible,
                                desktops: router.desktopCounts[screen.id], planned: planned)
+    }
+
+    /// `desktopMoves` alanı (saf).
+    nonisolated static func desktopMoves(canMove: Bool, health: MoveHealth.State) -> String {
+        guard canMove else { return "unavailable" }
+        switch health {
+        case .unknown, .working: return "on"
+        case .held: return "held"
+        case .degraded: return "reduced"
+        }
     }
 
     /// Adların durum dosyası kaydı (saf).
@@ -142,6 +164,8 @@ final class StatusFile {
             profile: store.document.activeProfile?.name,
             profiles: store.profiles.map(\.name),
             lastError: store.lastError,
+            desktopMoves: Self.desktopMoves(canMove: SkyLight.shared.canMove,
+                                            health: router.moveHealth.state),
             primaryHeight: primaryHeight,
             screens: screens.screens.map(screenEntry),
             windows: router.windows.map { window -> Snapshot.Window in
@@ -167,7 +191,9 @@ final class StatusFile {
             desktopNames: store.document.desktopNames(for: screens.mode, live: store.live),
             deletedDesktops: store.document.ghostDesktops,
             names: Self.names(store.document, live: store.live),
-            plans: store.document.plans)
+            plans: store.document.plans,
+            displayRoles: store.document.displayRoles,
+            heldRoles: screens.heldRoles.sorted())
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

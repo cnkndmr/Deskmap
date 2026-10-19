@@ -74,7 +74,29 @@ final class ScreenService: ObservableObject {
     /// hiç düşmez ve yönlendirme sonsuza dek kapalı kalırdı.
     nonisolated static let settleHardCap: TimeInterval = 10
 
-    init() {
+    /// Ham ekran kaynağı; üretimde `NSScreen`, testte enjekte edilir.
+    private var displaySource: () -> [RawDisplay]
+
+    /// Hatırlanan harici ekran rolleri (belgedeki `displayRoles`). Değişince
+    /// roller hemen yeniden hesaplanır; sonuç değiştiyse yeniden yerleştirme
+    /// (`settled`) tetiklenir.
+    var roles: DisplayRoles {
+        didSet {
+            guard roles != oldValue, !isSettling else { return }
+            let detected = Self.detect(displaySource(), roles: roles)
+            guard detected != screens else { return }
+            screens = detected
+            Log.screens.notice("""
+                Display roles changed: \
+                \(detected.map { "\($0.id)=\($0.name)" }.joined(separator: ", "), privacy: .public)
+                """)
+            settled.send()
+        }
+    }
+
+    init(roles: DisplayRoles = DisplayRoles()) {
+        displaySource = { Self.currentDisplays() }
+        self.roles = roles
         refresh()
         observer = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
@@ -109,7 +131,7 @@ final class ScreenService: ObservableObject {
     /// değişimi yatışırken dokunmaz: yatışma zaten yeniden ölçer.
     private func adoptIfChanged() {
         guard !isSettling else { return }
-        let detected = Self.detect()
+        let detected = Self.detect(displaySource(), roles: roles)
         guard detected != screens else { return }
         screens = detected
         Log.screens.notice("""
@@ -124,7 +146,39 @@ final class ScreenService: ObservableObject {
     /// çağrılmaz. Ekran listesi dışarıdan sabit verilir. Üretim `init()`'i
     /// değişmez.
     init(demo screens: [ScreenInfo]) {
+        let raw = screens.map {
+            RawDisplay(uuid: $0.uuid, name: $0.name, isBuiltin: $0.isBuiltin,
+                       frame: $0.frame, visibleFrame: $0.visibleFrame)
+        }
+        displaySource = { raw }
+        roles = DisplayRoles()
+        isDemo = true
         self.screens = screens
+    }
+
+    /// Yalnız Shots modunda: demo ekran listesini değiştirir (monitör
+    /// takıldı/söküldü karesi). Üretimde (`isDemo` false) hiçbir şey yapmaz.
+    func replaceDemoScreens(_ screens: [ScreenInfo]) {
+        guard isDemo else { return }
+        self.screens = screens
+    }
+
+    /// Shots modunda true; üretim init'leri değiştirmez.
+    private var isDemo = false
+
+    /// Test: ekran gözlemcisi yok; ölçüm verilen ham listeden yapılır.
+    init(displays: @escaping () -> [RawDisplay], roles: DisplayRoles = DisplayRoles()) {
+        displaySource = displays
+        self.roles = roles
+        refresh()
+    }
+
+    /// Test: ekran değişimini (gözlemci bildirimi) ve yatışmayı taklit eder.
+    func simulateChangeForTesting(settle: Bool) {
+        refresh()  // üretimdeki sıra: önce ölçüm, sonra yatışma bayrağı
+        if !settle { isSettling = true; return }
+        isSettling = false
+        settled.send()
     }
 
     deinit {
@@ -133,11 +187,36 @@ final class ScreenService: ObservableObject {
     }
 
     var isDocked: Bool { screens.contains { !$0.isBuiltin } }
-    var mode: Mode { isDocked ? .docked : .undocked }
+    var mode: Mode { Self.mode(of: screens) }
+
+    /// Verilen ekran listesinin modu (saf). `$screens` aboneleri bunu yayınlanan
+    /// değerle çağırmalı: `@Published` willSet'te yayınlar, o anda `mode` hâlâ
+    /// eski listeyi okur.
+    nonisolated static func mode(of screens: [ScreenInfo]) -> Mode {
+        screens.contains { !$0.isBuiltin } ? .docked : .undocked
+    }
 
     func refresh() {
-        screens = Self.detect()
+        screens = Self.detect(displaySource(), roles: roles)
     }
+
+    /// Şu an bağlı harici ekranlar, rol sırasında (menü için).
+    var connectedExternals: [(role: String, display: DisplayRoles.Display)] {
+        screens.filter { !$0.isBuiltin }.map {
+            (role: $0.id, display: DisplayRoles.Display(
+                uuid: $0.uuid, minX: $0.frame.minX, minY: $0.frame.minY, name: $0.name))
+        }
+    }
+
+    /// Rolü öğrenilecek ve onaylanacak harici ekranlar: test ekranı
+    /// ("Deskmap Test Display") hiç öğrenilmez, onay da beklemez.
+    var externalAssignment: [(role: String, uuid: String)] {
+        screens.filter { !$0.isBuiltin && $0.name != Store.testDisplayName }
+            .map { (role: $0.id, uuid: $0.uuid) }
+    }
+
+    /// Onay bekleyen roller (`DisplayRoles.unconfirmed`): düzen uygulanmaz.
+    var heldRoles: Set<String> { roles.unconfirmed(externalAssignment) }
 
     private func screensChanged() {
         refresh()
@@ -185,36 +264,47 @@ final class ScreenService: ObservableObject {
         return a.uuid < b.uuid
     }
 
-    static func detect() -> [ScreenInfo] {
-        var builtin: [NSScreen] = []
-        var externals: [(screen: NSScreen, uuid: String?)] = []
+    /// `NSScreen`'den okunan ham ekran (saf `detect` girdisi).
+    struct RawDisplay: Equatable {
+        let uuid: String
+        let name: String
+        let isBuiltin: Bool
+        let frame: CGRect
+        let visibleFrame: CGRect
+    }
 
-        for screen in NSScreen.screens {
-            guard let displayID = ScreenInfo.displayID(of: screen) else { continue }
-            if CGDisplayIsBuiltin(displayID) != 0 {
-                builtin.append(screen)
-            } else {
-                externals.append((screen, ScreenInfo.uuid(of: screen)))
-            }
+    /// Bağlı ekranların ham listesi (`NSScreen` sırasında).
+    static func currentDisplays() -> [RawDisplay] {
+        NSScreen.screens.compactMap { screen in
+            guard let displayID = ScreenInfo.displayID(of: screen),
+                  let uuid = ScreenInfo.uuid(of: screen) else { return nil }
+            return RawDisplay(uuid: uuid, name: screen.localizedName,
+                              isBuiltin: CGDisplayIsBuiltin(displayID) != 0,
+                              frame: screen.frame, visibleFrame: screen.visibleFrame)
         }
-        externals.sort {
-            externalOrder(($0.screen.frame.minX, $0.screen.frame.minY, $0.uuid ?? ""),
-                          ($1.screen.frame.minX, $1.screen.frame.minY, $1.uuid ?? ""))
-        }
+    }
 
+    /// Ham ekranlardan rol listesi (saf): ilk dahili ekran `builtin`; aynı
+    /// UUID'li harici ekranlar bir kez sayılır; roller `DisplayRoles.assign`
+    /// ile (kayıt yoksa eski konum sırası).
+    nonisolated static func detect(_ raw: [RawDisplay], roles: DisplayRoles) -> [ScreenInfo] {
+        var externals: [String: RawDisplay] = [:]
+        var displays: [DisplayRoles.Display] = []
+        for display in raw where !display.isBuiltin && externals[display.uuid] == nil {
+            externals[display.uuid] = display
+            displays.append(DisplayRoles.Display(uuid: display.uuid, minX: display.frame.minX,
+                                                 minY: display.frame.minY, name: display.name))
+        }
         var result: [ScreenInfo] = []
-        if let screen = builtin.first, let uuid = ScreenInfo.uuid(of: screen) {
+        if let screen = raw.first(where: \.isBuiltin) {
             result.append(ScreenInfo(
-                id: "builtin", uuid: uuid, name: screen.localizedName,
-                isBuiltin: true, frame: screen.frame,
-                visibleFrame: screen.visibleFrame))
+                id: "builtin", uuid: screen.uuid, name: screen.name,
+                isBuiltin: true, frame: screen.frame, visibleFrame: screen.visibleFrame))
         }
-        for (index, external) in externals.enumerated() {
-            guard let uuid = external.uuid else { continue }
-            let screen = external.screen
+        for (role, display) in roles.assign(displays) {
+            guard let screen = externals[display.uuid] else { continue }
             result.append(ScreenInfo(
-                id: index == 0 ? "external" : "external-\(index + 1)",
-                uuid: uuid, name: screen.localizedName, isBuiltin: false,
+                id: role, uuid: display.uuid, name: screen.name, isBuiltin: false,
                 frame: screen.frame, visibleFrame: screen.visibleFrame))
         }
         return result

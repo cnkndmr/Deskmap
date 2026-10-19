@@ -2,7 +2,7 @@
 
 Bu belge uygulamanın nasıl kurulduğunu anlatır: ana türler, bir taramada
 neler olduğu, yeniden deneme sınırları, veri dosyaları ve yerelleştirmenin
-nasıl çalıştığı. Kullanım için [README](../README.md)’ye bak.
+nasıl çalıştığı. Kullanım için [README](../../README.md)’ye bak.
 
 ## Genel bakış {#overview}
 
@@ -45,6 +45,7 @@ background queue
 | `Routing` | `Services/Routing.swift` | Saf yardımcılar: `select` bir pencerenin hedefini seçer (hem motor hem arayüz kullanır); ayrıca düzen ve taşıma denemelerinin sayımı. |
 | `AX` | `Services/Accessibility.swift` | Pencereleri listeleme, çerçeveler, `setFrame`, yanıt vermeyen uygulamalar için geri çekilme (backoff). `AccessibilityPermission` güven durumunu yoklar. |
 | `SkyLight` | `Services/SkyLight.swift` | Özel Spaces API’si: ekran başına masaüstleri, bir pencerenin Alan’ları, bir pencereyi bir Alan’a taşıma. |
+| `MoveHealth` / `MoveSupport` | `Services/MoveHealth.swift`, `Services/MoveSupport.swift` | Saf: her masaüstü taşıması sonraki taramada denetlenir, art arda başarısızlık devre kesiciyi açar (düşük mod); taşımanın doğrulanmadığı macOS sürümlerinde (15.x, 26.0–26.3) kullanıcı **Yine de dene** diyene kadar taşıma bekletilir. |
 | `ScreenService` | `Services/ScreenService.swift` | Rolleriyle birlikte bağlı ekranlar; ekranlar yeniden düzenlenirken `isSettling`. |
 | `WindowEvents` | `Services/WindowEvents.swift` | Uygulama başına AX gözlemcileri ve çalışma alanı (workspace) bildirimleri; bir tarama tetikleyen sinyal yayımlar. |
 | `URLCommand` / `URLCommands` | `Services/URLCommands.swift` | `deskmap://` URL’leri için saf ayrıştırıcı ve onları çalıştıran kod. |
@@ -133,8 +134,17 @@ kaldırmadan hemen önce yeniden denetlenir. Sonuç ve günlük
 `desktop-state.json`’a yazılır. Belirtim: şema 6 tasarım notları
 (desktop-names-v2, deponun dışında tutuluyor).
 
-Harici ekran rolleri konuma göre atanır: önce `minX`’e, sonra `minY`’ye,
-sonra UUID’ye göre sıralanır. Dahili ekran her zaman `builtin`’dir.
+Harici ekran rolleri `DisplayRoles`’tan gelir (`Models/DisplayRoles.swift`,
+saf): UUID’si bir rol için hatırlanan ekran o rolü alır (aynı rolde iki ekran
+hatırlanıyorsa en son kullanılan kazanır); kalanlar konum sırasıyla (`minX`,
+sonra `minY`, sonra UUID) en küçük boş rollere oturur. Hiç kayıt yoksa bu eski
+konum sırasıdır. `AppModel` iki yanı eşit tutar: belgedeki `displayRoles`
+`ScreenService.roles`’a gider, yatışmış her ekran listesi belgeye öğretilir
+(yatışırken değil, test ekranı hiç). `Router.resolveTarget`,
+`fallbackToFirstExternal` açıkken bağlı olmayan `external-N` sabitlemesini
+`external`’a gönderir; uygulanan anahtar çözülmüş hedefe bağlı olduğu için
+monitör geri gelince sabitleme yeniden yerleşir. Dahili ekran her zaman
+`builtin`’dir.
 
 ### Pencereleri masaüstleri arasında taşıma {#moving-windows-between-desktops}
 
@@ -304,6 +314,7 @@ Pencere başlıkları `.private` olarak yazılır.
 | `DocumentCodableTests` | `rules.json` v1/v2/v3 çözümleme, hedef varsayılanları, atlanan bozuk kurallar, daha yeni sürümü algılama |
 | `DocumentOperationsTests` | Masaüstü eşlemesi ve tersi, masaüstlerini yeniden sıralama, sabitleme/sabitlemeyi kaldırma, profiller, içe/dışa aktarma |
 | `RoutingTests` | `Routing.select` ve düzen denemelerinin sayımı |
+| `RouterSelectionTests`, `WindowDriftBugTests`, `WindowDriftFixTests` | Gerçek Router'ın tarama seçimi ve birleştirmesi, sahte ekran ve pencerelerle (`RouterHarness`, `Router.sweepSelection`): yapışkan bağlar, genel başlık beklemesi, tam başlık sahipleri, pin kaldırma, duraklatılmış/yatışan yönlendirme; Router'ın bağıyla grup taşıma ve gölge listesi |
 | `EngineHelperTests` | Geri çekilme kararı, AX zaman aşımları, pencere sunucusu süzgeçleri, taşıma denemeleri ve bekleme süresi, canlı pencere birleştirme, duraklatma güvenliği, yatışma üst sınırı, harici ekran sırası, Alan türleri, `Router.placement` |
 | `ChangeHistoryTests` | Çok adımlı geri al/yinele, atılan yineleme dalı ve onun geri alınması, bir satıra dönme, 50 kayıt sınırı, gürültü ile izlenmeyen değişiklikler, eşlik eden kayıtlar |
 | `MapLogicTests` | Gölgede kalan sabitlemeler, eksik masaüstü rozeti |

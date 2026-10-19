@@ -58,7 +58,7 @@ ID1=$(st '[r["id"] for r in d["rules"] if r["appName"]=="HookProbe"][0]')
 [ $code -eq 0 ] && [ "$(st 'd.get("profile")')" == "Deskmap Test" ] && [ "$(st 'len(d["rules"])')" == "1" ] \
     && ok "named profile + replace" || bad "named profile (exit $code)"
 
-for i in 1 2 3; do "$CLI" apply --undo | sed 's/^/    /'; done
+for _ in 1 2 3; do "$CLI" apply --undo | sed 's/^/    /'; done
 [ "$(st 'd.get("profile")')" == "$ACTIVE" ] && [ "$(st 'len(d["rules"])')" == "$COUNT" ] && ok "undo ×3 back to '$ACTIVE' ($COUNT rules)" || bad "undo"
 
 cleanup; trap - EXIT; sleep 1

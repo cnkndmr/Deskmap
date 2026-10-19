@@ -243,10 +243,42 @@ pressing its pin) opens a pin for that setup and does not move the window. When 
 unplugged, Deskmap waits for the displays to settle (2.5 s, at most
 10 s) and then places every pinned window again.
 
-Displays are identified by role, not by serial number: `builtin`, `external`,
-`external-2`, … External displays are numbered left to right; displays stacked
-in the same column are ordered by vertical position (the lower one first),
-then by UUID. A pin whose display isn't connected is skipped.
+Pins name a display role: `builtin`, `external`, `external-2`, … (on the map:
+*Extra monitor*, *Monitor 2*, …; model names are not shown). Each external monitor keeps the role it first got,
+remembered by its macOS display UUID: rearranging displays, plugging them in a
+different order or adding a virtual display on the left no longer moves pins
+to the other monitor. A monitor Deskmap has not seen takes the lowest free
+role; displays without a remembered role are numbered left to right (stacked
+ones by vertical position, the lower first, then by UUID), which is also how
+roles were given before. Two monitors of the same model are told apart by
+their UUIDs (macOS derives them from the serial number); the map adds
+*(left)* / *(right)* to identical names.
+
+With two or more external monitors connected, the title of the second (and
+later) card is a menu: pick which monitor the card stands for. After a
+confirmation the two swap, with their pins, desktop names and plans.
+`deskmap screen-role` does the same from the terminal. Settings › General ›
+**Monitor roles › Forget** returns to left-to-right order.
+
+**A monitor Deskmap does not remember waits.** Once a monitor has been
+learned, a display that is not remembered in the role it gets (a new office
+monitor, a virtual display left alone after the monitor is unplugged, a
+monitor you forgot) is *on hold*: its card says *new monitor · layout on hold*,
+no plan is applied to it and no pin or rule is routed to it, so the Extra
+monitor layout does not move there by itself. Its card title menu offers
+*Use as Extra monitor*, *Use as Monitor 2* …; after a confirmation the choice is
+remembered and the layout is applied at once (`deskmap screen-role DISPLAY
+ROLE` does the same). *Forget This Monitor* in the same menu forgets one
+monitor (`deskmap screen-role DISPLAY --forget`). The very first monitor (and
+every monitor after Settings › *Forget*) is learned without asking.
+
+**Second monitor missing** (Settings › General, on by default): a pin whose
+monitor (`external-2`, …) is not connected goes to `external`, same desktop
+number and layout, and returns to its own monitor when that is plugged in
+again. Off: the pin is skipped and the window stays where macOS puts it. A
+pin on `external` while only another monitor is connected is skipped.
+`scripts/hooktest/multimon.sh` checks the macOS side with two virtual displays
+of the same model (UUIDs, unplug / replug, identical serial numbers).
 
 ### Desktops
 
@@ -444,6 +476,10 @@ running, macOS starts it first.
 | `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Make a display have *count* desktops |
 | `deskmap://desktop-name/<screen>/<n>?name=<name>` | Name a desktop (empty name removes it). The name belongs to that desktop: it follows it when it is reordered or moved, also to the other display, and in plug/unplug. A name already used in the profile is refused |
 | `deskmap://quit` | Quit Deskmap (the way scripts and tests close it; never kill the process) |
+| `deskmap://screen-role/<monitor>/<role>` | Give a connected monitor (its current role or the start of its UUID) an external role; it keeps it from now on. A monitor already in that role swaps with it. Roles up to the number of connected monitors |
+| `deskmap://screen-role-forget` | Forget remembered monitor roles (left-to-right order again) |
+| `deskmap://screen-role-forget/<monitor>` | Forget one connected monitor: its role waits on hold, its layout is not applied |
+| `deskmap://screen-fallback/<on\|off>` | Second monitor missing: use the first external monitor (on) or leave the window (off) |
 | `deskmap://backup-now` | Run the automatic backup now |
 | `deskmap://backup-restore/<id>` | Restore a backup by id (e.g. `daily-2026-10-12`); see [Backups](#backups) |
 
@@ -472,6 +508,9 @@ deskmap status                      # mode, profile, screens, counts
 deskmap windows --app Code          # id, app, screen/desktop, title
 deskmap move Safari external 2      # window id or a unique app/title fragment
 deskmap pin 12345 builtin 1 && deskmap unpin 12345
+deskmap free Safari 15m             # pinned window moves freely: 15m, 2h, lock (until the screen locks), end
+deskmap screens | rules [--json]    # connected displays | the active profile's rules
+deskmap hooks                       # commands run when a window changes screen (hooks.json)
 deskmap rule add --app cmux --screen external --undocked-screen builtin --layout 0,0,0.5,1
 deskmap rule rm <id>
 deskmap pause | resume | reload | profile Office
@@ -480,6 +519,11 @@ deskmap export ~/office.deskmap.json [--profile Office]
 deskmap desktop-move external 1 3          # desktop 1 becomes desktop 3
 deskmap desktops [--json]                  # names with their live place, the plan of each setup
 deskmap name external 2 "Nova Ek"          # name the desktop that is desktop 2 now
+deskmap screens                            # roles, UUID start, "role kept" / "role by position"
+deskmap screen-role LG 2                   # this monitor is Monitor 2 from now on (swaps)
+deskmap screen-role --forget               # roles follow left-to-right order again
+deskmap screen-role Pebble --forget         # forget this monitor only: its role waits
+deskmap screen-fallback off                # pins on a missing monitor 2 are skipped
 deskmap backups [--json]                   # automatic backups, newest first
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12
@@ -536,7 +580,9 @@ routing is paused, and the last error. Besides `desktopNames` (display role →
 number → name, the current layout) it has `names` (`id`, `name`, `space`,
 `screen`, `desktop`: where the desktop is now, `planned`: setup → `screen/n`)
 and `plans` (setup → display role → list of name ids, `""` for an unnamed
-desktop).
+desktop). `desktopMoves` says whether desktop moves are on: `on`, `held`
+(unverified macOS, off until **Try Anyway**), `reduced` (reduced mode) or
+`unavailable`; `deskmap status` prints a line when they are off.
 
 ### Screen change hooks (`hooks.json`)
 
@@ -638,10 +684,11 @@ can't stall the others. It is picked up again automatically once it responds.
 
 ### External display roles swapped
 
-If two external displays share the same left edge, their roles (`external`,
-`external-2`) are ordered by vertical position (the lower display first).
-After an update that changed this order, drag the affected pins once; the
-order stays the same afterwards.
+Since remembered roles, a monitor keeps its role. If the roles are the wrong
+way round (for example the first time two monitors were seen together, when
+roles still come from left-to-right order), open the map and pick the right
+monitor in the card title menu, or run `deskmap screen-role <monitor> 1`.
+Settings › General › **Monitor roles › Forget** starts over.
 
 ### Reading the log
 
@@ -727,6 +774,7 @@ More detail (sweep steps, retry limits, data formats, localization):
 ```sh
 make check              # debug build
 make test               # unit tests (Swift Testing)
+make cli-test           # unit tests of the deskmap CLI (Python, no running app needed)
 make concurrency-check  # build with -strict-concurrency=complete and list warnings (report only)
 make app                # release build + .app bundle in build/
 make run                # make app, then open it
@@ -734,12 +782,19 @@ make dist               # distributable package (see below)
 make clean              # delete build/ and app/.build/
 ```
 
-The tests (`app/Tests/DeskmapTests`, 122 tests in 10 suites) cover pure
-logic only: rule matching (including Turkish İ/ı case rules) and title
-splitting, layouts and coordinates, `rules.json` schema migrations, document
+The tests (`app/Tests/DeskmapTests`, about 600 tests; `make test` prints the
+exact count) cover pure logic only: rule matching (including Turkish İ/ı case
+rules) and title splitting, layouts and coordinates, `rules.json` schema migrations, document
 operations on pins and profiles, import/export, target selection, retry and
 backoff helpers, undo validity, map logic, and localization consistency.
-They never touch the disk or real windows.
+They never touch real windows; tests that write files (backups,
+migrations) use a temporary folder.
+
+`make cli-test` (`scripts/clitest`) covers the CLI's own logic the same way:
+layout and placement parsing, layout files → rules, merging and diffs, rule
+matching, the `check` report and the "can be completely covered" warning.
+The commands that talk to the app are tested end to end by
+`scripts/hooktest/cli.sh`, which needs Deskmap running.
 
 Enable the pre-commit hook to build and test before every commit that
 touches Swift files:
@@ -788,6 +843,11 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   update can break them. Every desktop move is checked on the next scan; if
   moves keep having no effect, Deskmap switches to a reduced mode (display and
   layout only, desktop moves off) and shows a card with a **Try Again** button.
+- **Desktop moves start off where they are unverified.** On macOS 15.x and
+  macOS 26.0–26.3 desktop moves have not been verified, so they are off from
+  the start and a card says so; display and layout still apply. **Try Anyway**
+  turns them on (remembered); if they then keep having no effect, the reduced
+  mode above takes over.
 - **Unknown state means hands off.** If macOS doesn't say which desktop a
   window is on, the window is only listed: it is neither moved nor resized.
 - **Desktops are added through Mission Control.** macOS has no public way
@@ -797,8 +857,9 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   document name in the title can only be pinned app-wide or with temporary
   pins.
 - **Full-screen windows** are left alone.
-- **Two setups only**: monitor connected / laptop only. External displays are
-  identified by position (left to right), not by model or serial number.
+- **Two setups only**: monitor connected / laptop only. With one or several
+  external monitors the setup is the same; a pin on a missing monitor follows
+  **Second monitor missing**.
 - **Not instant.** Placement happens on window events. A light check every
   5 seconds catches what events miss (a full scan only when something
   changed, plus one every two minutes); title changes are grouped for a

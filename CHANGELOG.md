@@ -8,6 +8,45 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Demo GIF.** `docs/media/<lang>/demo.gif` (and `.mp4`) shows the four-step
+  story in the README and the guide: laptop only, monitor connected, pinned
+  windows in place, a second monitor with its own role. Drawn by the shots
+  mode (`Deskmap --shots <dir> --scenario demo`, demo data, no real window is
+  touched) and assembled by `make demo-media` (ffmpeg), English and Turkish.
+- **Desktop moves off on unverified macOS versions.** On macOS 15.x and
+  26.0–26.3, where moving windows between desktops has not been verified,
+  desktop moves start off and the main window shows a card saying so (display
+  and layout still apply). **Try Anyway** turns them on and is remembered; the
+  circuit breaker still watches every move (`Services/MoveSupport.swift`).
+  `status.json` reports the state as `desktopMoves` and `deskmap status`
+  prints a line when moves are off.
+- **CLI unit tests.** `make cli-test` runs offline tests of the `deskmap`
+  command line tool (layout parsing, layout files, merging, matching, the
+  `check` report); the pre-commit hook runs them when the CLI changes.
+- **Second external monitor.** Each external monitor keeps its role
+  (*Extra monitor*, *Monitor 2*, …) by its display UUID instead of its left-to-right
+  position: rearranging displays, plugging them in another order, a virtual
+  display on the left or two monitors of the same model no longer move pins to
+  the other monitor. With two or more connected, the second card's title is a menu to
+  swap them (with confirmation); `deskmap screen-role`, `deskmap screen-role --forget` and the URL
+  commands `screen-role`, `screen-role-forget` do the same. New setting
+  **Second monitor missing** (on): pins on an unplugged `external-2` wait on
+  `external` and go back when it returns; `deskmap screen-fallback on|off`.
+  `rules.json` gets an optional `displayRoles` field (schema 6 unchanged;
+  older versions ignore it and fall back to position order). `status.json`
+  screens carry their `uuid` (`Models/DisplayRoles.swift`).
+- **A monitor Deskmap does not remember waits.** After the first monitor has
+  been learned, a display that is not remembered in its role (new monitor,
+  virtual display left alone, forgotten monitor, or the older of two monitors
+  remembered for the same role) is on hold: no plan, pin or rule is applied to
+  it and no leftover cleanup runs there, so the Extra monitor layout no longer
+  moves by itself. Its card shows *new monitor · layout on hold* and a menu
+  (*Use as Extra monitor / Monitor 2 …*, with confirmation; *Forget This
+  Monitor* on remembered ones). `deskmap screen-role DISPLAY --forget` and
+  `deskmap://screen-role-forget/<monitor>` forget one monitor; `deskmap
+  screens` shows *role on hold*; `status.json` gets `heldRoles`;
+  `displayRoles.learnedOnce` is new (docs/bug-tables.md, table A′).
+
 - **Open a workspace at once.** A desktop with closed pinned windows shows
   **Open N** next to its name (list and visual view); one click opens them
   all, each routed to its pinned place. Every app group gets a button at the
@@ -28,6 +67,12 @@ number comes from the `VERSION` file.
   A new change after undo drops the redo branch with a footer notice whose
   Undo brings it back. Temporary-pin steps are undo-only
   (`Models/ChangeHistory.swift`).
+- **Automatic backups**: the app backs up all profiles, pins and desktop
+  names hourly (kept 24 hours), daily (kept 7 days) and weekly (kept
+  forever) under `Application Support/Deskmap/Backups/`. Restore from
+  **Settings › Backups** (also **Backups…** in the profile panel) or with `deskmap backups` /
+  `deskmap backup-restore <id>`; the current state is backed up first and the
+  restore can be undone. Replaces the external `profile-backup.sh` script.
 
 ### Changed
 
@@ -99,6 +144,20 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- **The plan picker follows a single screen change.** After plugging in or
+  unplugging a monitor once, the picker could stay on the previous plan: it
+  read the screen mode while the screen list was still being published. It
+  now follows the published list (`docs/bug-tables.md` A′).
+- **Moving an app group and the map's shadowed pins follow the window's
+  binding.** A window keeps the rule that placed it even after its title
+  changes; *Send group to* now moves that rule instead of the one the new
+  title happens to match, and the map no longer shows the bound rule as
+  losing to it.
+- **`make concurrency-check` counts warnings again.** The compiler colors its
+  output, so the warning pattern never matched and the count was always 0.
+- **Links in the Turkish docs and changelogs** that pointed to wrong relative
+  paths on GitHub.
+
 - **Desktop names no longer get lost through the other setup's plan.** Removing
   a laptop desktop row from the setup that is not active used to drop the
   active setup's names on the same and later numbers right away (their pins
@@ -109,15 +168,6 @@ number comes from the `VERSION` file.
   look deleted (which turned them into deleted-desktop rows and took their pins
   and their other-setup counterparts along), and a name whose desktop still
   exists is never treated as deleted.
-
-### Added
-
-- **Automatic backups**: the app backs up all profiles, pins and desktop
-  names hourly (kept 24 hours), daily (kept 7 days) and weekly (kept
-  forever) under `Application Support/Deskmap/Backups/`. Restore from
-  **Settings › Backups** (also **Backups…** in the profile panel) or with `deskmap backups` /
-  `deskmap backup-restore <id>`; the current state is backed up first and the
-  restore can be undone. Replaces the external `profile-backup.sh` script.
 
 ## [0.5.0] — 2026-09-30
 
@@ -452,7 +502,7 @@ what it does.
   does not accept.
 - `app/Resources/PrivacyInfo.xcprivacy`: no data collected, no tracking, one
   required-reason API (user defaults). Copied into the bundle by
-  `build-app.sh`, and [docs/app-store-submission.md](docs/app-store-submission.md)
+  `build-app.sh`, and [docs/app-store-submission.md](appstore/submission.md)
   lists what else a submission would need.
 - New icon: a map marker whose head is a window. It is drawn in code
   (`scripts/make-icons.swift`, one command to regenerate every size and the

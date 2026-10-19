@@ -40,12 +40,12 @@ struct RootView: View {
     /// değil): 1710×1074 pt'lik ekranda ≈ 900×750. Alt/üst sınırlar küçük
     /// ekranda okunurluğu, büyük ekranda gereksiz büyümeyi önler; üst sınır
     /// her zaman ekranın kendisidir (taşma yok).
-    static let widthFraction: CGFloat = 0.53
-    static let heightFraction: CGFloat = 0.70
-    static let minWindowWidth: CGFloat = 660
-    static let maxWindowWidth: CGFloat = 1100
-    static let minWindowHeight: CGFloat = 480
-    static let maxWindowHeight: CGFloat = 900
+    nonisolated static let widthFraction: CGFloat = 0.53
+    nonisolated static let heightFraction: CGFloat = 0.70
+    nonisolated static let minWindowWidth: CGFloat = 660
+    nonisolated static let maxWindowWidth: CGFloat = 1100
+    nonisolated static let minWindowHeight: CGFloat = 480
+    nonisolated static let maxWindowHeight: CGFloat = 900
 
     /// Pencere genişliği (saf): ekranın oranı, sınırlar içinde, ekrandan
     /// geniş değil.
@@ -61,7 +61,7 @@ struct RootView: View {
     }
 
     /// Sağdaki ayrıntı sütununun genişliği.
-    static let inspectorWidth: CGFloat = 360
+    nonisolated static let inspectorWidth: CGFloat = 360
     /// Eski tip (hep görünen) kaydırma çubuğunun kapladığı genişlik (≈15 pt).
     static let scrollerGutter: CGFloat = 16
     /// Sütundaki sabit genişlikli öğelerin (ızgara, döşemeler) her koşulda
@@ -80,9 +80,9 @@ struct RootView: View {
         min(max(windowWidth * 0.32, 220), 300)
     }
     /// Alt panel açıkken bile haritaya kalan en az yükseklik.
-    static let minMapHeight: CGFloat = 260
+    nonisolated static let minMapHeight: CGFloat = 260
     /// Pencerenin ekranın kullanılabilir alanının altında bıraktığı boşluk.
-    static let screenMargin: CGFloat = 12
+    nonisolated static let screenMargin: CGFloat = 12
 
     /// Ölçülen yükseklikler: "top" (üst çubuklar), "bottom" (alt çubuk).
     /// Harita alanı bunlardan hesaplanır.
@@ -172,7 +172,8 @@ struct RootView: View {
         let pinned = Routing.select(
             rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
             windowID: id, bundleID: window.bundleID, appName: window.appName,
-            title: window.title, document: window.document) != nil
+            title: window.title, document: window.document,
+            context: mode == screens.mode ? router.routingContext : nil) != nil
         if pinned { return L("Pinned: dropping it updates the saved desktop.") }
         return mode == screens.mode
             ? L("Not pinned: dropping it moves the window once; nothing is saved.")
@@ -224,9 +225,11 @@ struct RootView: View {
                     if !permission.isTrusted {
                         PermissionCard()
                     }
-                    if permission.isTrusted
-                        && (!SkyLight.shared.canMove || router.moveHealth.state == .degraded) {
-                        ReducedModeCard(canMove: SkyLight.shared.canMove) { router.retryMoves() }
+                    if permission.isTrusted,
+                       let reason = ReducedModeCard.Reason.current(
+                           canMove: SkyLight.shared.canMove, health: router.moveHealth.state,
+                           version: MoveSupport.versionLabel(ProcessInfo.processInfo.operatingSystemVersion)) {
+                        ReducedModeCard(reason: reason) { router.retryMoves() }
                     }
                     if let report = store.migrationReport {
                         MigrationReportCard(
@@ -267,9 +270,7 @@ struct RootView: View {
                 guard let request else { return }
                 // Panel açılınca harita daralır; yerleşim bittikten sonra kaydır.
                 DispatchQueue.main.async {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        proxy.scrollTo(WindowAnchor(id: request.window), anchor: .center)
-                    }
+                    MapReveal.scroll(proxy, to: request.window)
                 }
             }
             }
@@ -344,13 +345,16 @@ struct RootView: View {
             ui.windows = router.windows
             syncScreens()
         }
-        .onReceive(screens.$screens) { _ in
-            syncScreens()
+        .onReceive(screens.$screens) { list in
+            // `$screens` willSet'te yayınlar: `screens.screens`/`screens.mode`
+            // burada hâlâ eski değer, yayınlanan liste kullanılır
+            // (docs/bug-tables.md A′, plan seçici satırı).
+            syncScreens(list)
             // Monitör takılıp çıkarıldığında seçici gerçek modu izler
             // (pencere bir kez oluşturulduğu için onAppear yeniden gelmez).
-            if liveMode != screens.mode {
-                liveMode = screens.mode
-                mode = screens.mode
+            if let next = Self.followedMode(published: list, liveMode: liveMode) {
+                liveMode = next
+                mode = next
             }
         }
         .onReceive(ui.$requestedPlan) { plan in
@@ -509,7 +513,8 @@ struct RootView: View {
         let rule: Rule? = Routing.select(
             rules: store.document.rules, sessionPins: [:], mode: mode,
             windowID: window.id, bundleID: window.bundleID,
-            appName: window.appName, title: window.title, document: window.document)?.rule
+            appName: window.appName, title: window.title, document: window.document,
+                context: router.context(for: mode))?.rule
         ui.panel = UIState.openingPanel(for: window, sessionPinned: sessionPinned,
                                         ruleID: rule?.id)
         ui.panelSourceWindowID = sessionPinned || rule == nil ? nil : window.id
@@ -523,9 +528,17 @@ struct RootView: View {
         Log.app.notice("Map opened on front window \(window.id) (\(window.appName, privacy: .public))")
     }
 
-    private func syncScreens() {
-        store.remember(screens.screens.map(\.known))
-        ui.desktopCounts = Router.desktopCounts(screens: screens.screens)
+    private func syncScreens(_ list: [ScreenInfo]? = nil) {
+        let list = list ?? screens.screens
+        store.remember(list.map(\.known))
+        ui.desktopCounts = Router.desktopCounts(screens: list)
+    }
+
+    /// `$screens` yayınından sonra plan seçicinin geçeceği mod; gerçek mod
+    /// değişmediyse nil (kullanıcının seçtiği öbür plan korunur). Saf.
+    nonisolated static func followedMode(published: [ScreenInfo], liveMode: Mode?) -> Mode? {
+        let next = ScreenService.mode(of: published)
+        return next == liveMode ? nil : next
     }
 
     // MARK: - Ayrıntı sütunu
@@ -1002,7 +1015,10 @@ private struct WindowVisibilityObserver: NSViewRepresentable {
 
     final class ObserverView: NSView {
         var onChange: ((Bool) -> Void)?
-        private var tokens: [NSObjectProtocol] = []
+        // nonisolated(unsafe): yalnızca ana aktörde (viewDidMoveToWindow)
+        // değişir, deinit'te kaldırılır; gözlemci belirteci Sendable olmadığı
+        // için deinit erişimi başka türlü sıkı eşzamanlılık uyarısı verir.
+        nonisolated(unsafe) private var tokens: [NSObjectProtocol] = []
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
@@ -1112,7 +1128,8 @@ struct WindowRoomReader: NSViewRepresentable {
         let margin: CGFloat
         let changed: (WindowRoom) -> Void
         private var last: WindowRoom?
-        private var tokens: [NSObjectProtocol] = []
+        // nonisolated(unsafe): ObserverView.tokens ile aynı gerekçe.
+        nonisolated(unsafe) private var tokens: [NSObjectProtocol] = []
         /// Kendi `setFrameOrigin` çağrılarımızın ürettiği olaylar yok sayılır.
         private var adjusting = false
         /// Bu gösterimde ilk konum verildi mi (panel gizlenince sıfırlanır).
@@ -1184,9 +1201,13 @@ struct WindowRoomReader: NSViewRepresentable {
             guard let window else { return }
             window.alphaValue = 0
             let center = NotificationCenter.default
-            func on(_ name: Notification.Name, _ object: Any?, _ body: @escaping (Probe) -> Void) {
+            // Gözlemci `queue: .main` ile ana iş parçacığında çalışır;
+            // gövde `@MainActor @Sendable`, çağrı assumeIsolated ile yapılır.
+            func on(_ name: Notification.Name, _ object: Any?,
+                    _ body: @escaping @MainActor @Sendable (Probe) -> Void) {
                 tokens.append(center.addObserver(forName: name, object: object, queue: .main) {
-                    [weak self] _ in if let self { body(self) } })
+                    [weak self] _ in
+                    MainActor.assumeIsolated { if let self { body(self) } } })
             }
             // Gösterim animasyonu alpha'yı kendisi 1'e çekiyor; gizli
             // başlatma (eski karenin görünmemesi) bunu kapatmayı gerektirir.

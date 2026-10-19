@@ -20,7 +20,8 @@ struct ScreenMapView: View {
         // pine) yenilen kurallar; bir kez hesaplanır, satırlara dağıtılır.
         let shadowed = isLive
             ? Self.shadows(rules: store.document.rules, windows: ui.windows,
-                           sessionPins: router.sessionPins, mode: mode).shadowedBy
+                           sessionPins: router.sessionPins, mode: mode,
+                           context: router.context(for: mode)).shadowedBy
             : [:]
         let shown = store.screens(for: mode)
         // Ekranlar arası masaüstü sürüklemesi hedef ekranın satır sayısını ister.
@@ -86,16 +87,20 @@ struct ScreenMapView: View {
 
     /// Her pencere için Router ile aynı seçimi yapar (`Routing.select`);
     /// seçilmeyen ama uyan kurallar gölgede sayılır. Böylece "penceresi
-    /// açık ama kazanamayan" pin haritada kaybolmaz.
+    /// açık ama kazanamayan" pin haritada kaybolmaz. `context`: Router'ın
+    /// yapışkan bağları; pencereyi başlığı değişse de onu yerleştiren kural
+    /// tutar, başlığa yeni uyan kural gölgede sayılır.
     static func shadows(
         rules: [Rule], windows: [Router.WindowSnapshot],
-        sessionPins: [CGWindowID: Destination], mode: Mode
+        sessionPins: [CGWindowID: Destination], mode: Mode,
+        context: Routing.Context? = nil
     ) -> RuleShadows {
         var result = RuleShadows()
         for window in windows {
             guard let match = Routing.select(
                 rules: rules, sessionPins: sessionPins, mode: mode, windowID: window.id,
-                bundleID: window.bundleID, appName: window.appName, title: window.title, document: window.document)
+                bundleID: window.bundleID, appName: window.appName, title: window.title,
+                document: window.document, context: context)
             else { continue }
             result.winners.insert(match.ruleID)
             for rule in rules
@@ -138,6 +143,11 @@ private struct ScreenCard: View {
 
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var store: Store
+    @EnvironmentObject private var screens: ScreenService
+    /// Menüde seçilen, onay bekleyen monitör (UUID).
+    @State private var pendingSwap: String?
+    /// Onay bekleyen monitöre verilecek rol (onay penceresi açık).
+    @State private var pendingRole: String?
 
     /// Bu ekrandaki tam ekran space'ler, `afterDesktop` → soldan sağa.
     private var fullscreenSpaces: [Int: [FullscreenSpace]] {
@@ -154,8 +164,13 @@ private struct ScreenCard: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: screen.isBuiltin ? "laptopcomputer" : "display")
-                Text(screen.name)
-                    .lineLimit(1)
+                if showsMonitorPicker {
+                    monitorPicker
+                } else {
+                    Text(screen.isBuiltin ? screen.name : DisplayRoles.roleLabel(screen.id))
+                        .lineLimit(1)
+                        .help(screen.isBuiltin ? "" : screen.name)
+                }
                 if ui.visualMap {
                     Text(L("· %ld desktops", realCount ?? tileCount))
                         .fontWeight(.regular)
@@ -165,6 +180,11 @@ private struct ScreenCard: View {
                 if !isConnected {
                     Text(L("not connected"))
                         .foregroundStyle(.tertiary)
+                } else if isHeld {
+                    Text(L("new monitor · layout on hold"))
+                        .foregroundStyle(.orange)
+                        .lineLimit(1)
+                        .help(L("Deskmap does not know this monitor yet, so the layout of this role is not applied to it. Choose its role in the menu on the left."))
                 }
             }
             .font(.caption.weight(.semibold))
@@ -180,6 +200,91 @@ private struct ScreenCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(.quaternary, lineWidth: 1))
+    }
+
+    /// Harici kartın adı rolüdür ("Ekstra monitör", "2. monitör"), model
+    /// adı değil (Can'ın isteği). İki ya da daha çok harici monitör bağlıyken
+    /// ikinci ve sonraki kartların başlığı bir menüdür: bu kart hangi monitör.
+    /// Seçim kalıcıdır ve öteki monitörle yer değiştirir; kurallar, adlar ve
+    /// planlar rolle gittiği için önce onay istenir.
+    ///
+    /// Hatırlanmayan monitörün kartında (rolü onay bekliyor, düzen
+    /// uygulanmıyor) ve tek harici monitörde de menü var: rolünü seç
+    /// ya da bu monitörü unut (`deskmap screen-role DISPLAY ROLE|--forget`).
+    private var showsMonitorPicker: Bool {
+        isLive && isConnected && !screen.isBuiltin
+    }
+
+    /// Bu kartın rolü onay bekliyor (`DisplayRoles.unconfirmed`).
+    private var isHeld: Bool {
+        isLive && isConnected && screens.heldRoles.contains(screen.id)
+    }
+
+    @ViewBuilder private var monitorPicker: some View {
+        let current = screens.connectedExternals
+        let labels = DisplayRoles.labels(current.map(\.display))
+        let here = current.first { $0.role == screen.id }?.display.uuid
+        let pairs = current.map { (role: $0.role, uuid: $0.display.uuid) }
+        Menu {
+            if isHeld {
+                Section(L("New monitor: its layout waits for your choice")) {
+                    ForEach(store.document.displayRoles.choosableRoles(connected: pairs), id: \.self) { role in
+                        Button(L("Use as %@", DisplayRoles.roleLabel(role))) { pendingRole = role }
+                    }
+                }
+            } else if screen.id != "external" && current.count > 1 {
+                ForEach(DisplayRoles.positional(current.map(\.display)), id: \.uuid) { display in
+                    Button {
+                        guard display.uuid != here else { return }
+                        pendingSwap = display.uuid
+                    } label: {
+                        if display.uuid == here {
+                            Label(labels[display.uuid] ?? display.name, systemImage: "checkmark")
+                        } else {
+                            Text(labels[display.uuid] ?? display.name)
+                        }
+                    }
+                }
+            }
+            if !isHeld, let here {
+                Divider()
+                Button(L("Forget This Monitor")) { store.forgetDisplay(here) }
+                    .help(L("Its role then waits for a choice and its layout is not applied."))
+            }
+        } label: {
+            Text(DisplayRoles.roleLabel(screen.id))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(L("Which monitor this card stands for. The choice is remembered."))
+        .alert(L("Swap the monitors?"), isPresented: Binding(
+            get: { pendingSwap != nil }, set: { if !$0 { pendingSwap = nil } })) {
+            Button(L("Swap")) {
+                if let uuid = pendingSwap {
+                    store.chooseDisplay(uuid, for: screen.id,
+                                        current: current.map { (role: $0.role, uuid: $0.display.uuid) })
+                }
+                pendingSwap = nil
+            }
+            Button(L("Cancel"), role: .cancel) { pendingSwap = nil }
+        } message: {
+            Text(L("%@ becomes the %@. Pinned windows, desktop names and desktop plans of the two monitors trade places now.",
+                   pendingSwap.flatMap { labels[$0] } ?? "", DisplayRoles.roleLabel(screen.id)))
+        }
+        .alert(L("Use this monitor as %@?", pendingRole.map(DisplayRoles.roleLabel) ?? ""), isPresented: Binding(
+            get: { pendingRole != nil }, set: { if !$0 { pendingRole = nil } })) {
+            Button(L("Use")) {
+                if let role = pendingRole, let here {
+                    store.chooseDisplay(here, for: role, current: pairs)
+                }
+                pendingRole = nil
+            }
+            Button(L("Cancel"), role: .cancel) { pendingRole = nil }
+        } message: {
+            Text(L("%@ is remembered as the %@. Pinned windows, desktop names and the desktop plan of the %@ are applied to it now.",
+                   here.flatMap { labels[$0] } ?? "", pendingRole.map(DisplayRoles.roleLabel) ?? "",
+                   pendingRole.map(DisplayRoles.roleLabel) ?? ""))
+        }
     }
 
     /// Görsel görünüm: masaüstü kartları ızgarada, sonda "+ Masaüstü ekle";
@@ -538,7 +643,8 @@ struct SetupDifferenceTray: View {
             return Routing.select(
                 rules: store.document.rules, sessionPins: router.sessionPins, mode: mode,
                 windowID: id, bundleID: window.bundleID, appName: window.appName,
-                title: window.title, document: window.document) != nil
+                title: window.title, document: window.document,
+                context: router.context(for: mode)) != nil
         }
     }
 
@@ -720,9 +826,11 @@ extension UnownedWindowsTray {
     /// Satırın ikinci satırı: pencerenin şu an bulunduğu ekran ve masaüstü.
     private func location(of window: Router.WindowSnapshot) -> String? {
         guard let placement = window.placement else { return nil }
-        let screenName = screens.screens.first { $0.id == placement.screen }?.name
-            ?? store.screens(for: screens.mode).first { $0.id == placement.screen }?.name
-            ?? placement.screen
+        // Harici ekranlar haritadaki gibi rol adıyla (aynı model iki monitör ayrılsın).
+        let screenName = DisplayRoles.displayName(
+            role: placement.screen,
+            name: screens.screens.first { $0.id == placement.screen }?.name
+                ?? store.screens(for: screens.mode).first { $0.id == placement.screen }?.name)
         var place = L("%@ · Desktop %ld", screenName, placement.desktop)
         if let name = store.desktopName(screen: placement.screen, desktop: placement.desktop,
                                         mode: screens.mode) {
@@ -846,7 +954,7 @@ extension ScreenMapView {
     /// hiçbir modda hedefi olan kural uymuyor. Tam ekran ya da yeri
     /// bilinmeyen pencereler Deskmap'in hiç dokunmadığı pencerelerdir;
     /// listelenmez (sürüklenip taşınamasın, rozette sayılmasın).
-    static func unownedWindows(
+    nonisolated static func unownedWindows(
         _ windows: [Router.WindowSnapshot], rules: [Rule],
         sessionPins: [CGWindowID: Destination]
     ) -> [Router.WindowSnapshot] {

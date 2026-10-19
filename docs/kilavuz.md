@@ -7,6 +7,8 @@ Bir kez söylüyorsun: *"başlığında `acme-web` geçen pencere, monitörde,
 2. masaüstünde, sol yarıda durur."* Sonrası kendiliğinden: uygulamayı
 açtığında, monitörü taktığında, öğle arasından döndüğünde.
 
+<p align="center"><img src="media/tr/demo.gif" width="720" alt="Sadece laptop: pencereler tek masaüstüne yığılmış. Monitör bağlanınca sabitlenen pencereler kendi ekranına ve masaüstüne kendiliğinden gider; ikinci monitör kendi rolünü korur."></p>
+
 Bu kılavuz on dakika sürer. macOS 13 ya da üstü gerekir.
 
 ---
@@ -169,6 +171,12 @@ işaretlidir; öteki ne zaman geçerli olacağını yazar.
 - **Monitör bağlı** — en az bir harici ekran takılı.
 - **Sadece laptop** — yalnızca dahili ekran.
 
+İki harici monitörle haritada her biri için bir kart görünür (**Ekstra
+monitör**, **2. monitör**). Her monitör, Sistem Ayarları › Ekranlar’da nereye konursa
+konsun kendi kartında kalır; ikisi ters düştüyse 2. monitör kartının başlığına tıkla, öteki
+monitörü seç ve onayla. 2. monitör takılı değilken pencereleri Ekstra monitörde bekler
+(Ayarlar › Genel › **İkinci monitör yokken**).
+
 Birini kur, geç, diğerini kur. Monitörü taktığında ya da çıkardığında
 uygulama ekranların yatışmasını birkaç saniye bekler, sonra o planın dediği
 yere her sabit pencereyi yerleştirir.
@@ -301,7 +309,7 @@ otomasyonuna: "Çalışma odağı açılınca Masa profiline geç".
 | Sabitlemenin çipi soluk görünüyor | O pencereye daha özgül başka bir sabitleme önce uyuyor. Üzerine gel, hangisi olduğunu söyler. |
 | Turuncu **Masaüstü 5 yok** rozeti | O masaüstü yok; Mission Control’den masaüstü ekle. |
 | Bir pencere zıpladı, nedenini bilmiyorsun | Araç çubuğundaki **Son hareketler** her taşımayı ve hedefini listeler. |
-| Masaüstleri arası taşıma olmuyor ama boyutlar çalışıyor | Bu macOS sürümü uygulamanın masaüstü taşıma için kullandığı özel çağrıları vermedi. Ekran ve düzen çalışmaya devam eder. |
+| Masaüstleri arası taşıma olmuyor ama boyutlar çalışıyor | Pencerenin üstündeki turuncu kart nedenini söyler. macOS 15 ve 26.0–26.3’te masaüstü taşıma **Yine de dene**’ye basana kadar kapalıdır (orada henüz doğrulanmadı). Taşımalar art arda etkisiz kaldıysa **Yeniden dene** onları yeniden açar. Kartta düğme yoksa bu macOS, uygulamanın masaüstü taşıma için kullandığı çağrıları vermiyor. Ekran ve düzen her durumda çalışır. |
 
 Uzun sorun giderme, eşleştirmenin tam kuralları ve dosya biçimleri
 [README](../README.md) içinde.

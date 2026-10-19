@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Gerçek giriş noktası. `--shots <dizin>` varsa (bkz. `Shots.swift`) normal
@@ -85,15 +86,46 @@ final class AppModel {
     let status: StatusFile
     /// Otomatik yedek (`Backups/`); Shots modunda hiç yaratılmaz.
     let backups: BackupService?
+    private var roleSync: [AnyCancellable] = []
 
     private init() {
         store = Store()
-        screens = ScreenService()
+        screens = ScreenService(roles: store.document.displayRoles)
         router = Router(store: store, screens: screens)
         status = StatusFile(url: Store.directoryURL.appendingPathComponent("status.json"),
                             store: store, router: router, screens: screens)
         backups = BackupService(archive: BackupArchive(sourceDirectory: Store.directoryURL))
         BackupService.current = backups
+        roleSync = Self.syncDisplayRoles(store: store, screens: screens)
+    }
+
+    /// Harici ekran rolleri iki yönlü: belgedeki kayıt (harita seçimi, yedek
+    /// geri yükleme, rules.json yeniden okuma) ScreenService'e gider; yatışmış
+    /// her ekran listesi belgeye öğretilir. Döngü yok: öğrenilen kayıt aynı
+    /// atamayı verir, ScreenService değişmeyen sonucu yayınlamaz.
+    static func syncDisplayRoles(store: Store, screens: ScreenService) -> [AnyCancellable] {
+        [
+            store.$document.map(\.displayRoles).removeDuplicates()
+                .sink { [weak screens] in screens?.roles = $0 },
+            // Yalnız yatışmış liste öğretilir (açılış ve her `settled`): ekran
+            // değişiminin ilk ölçümü yarım düzenlenmiş olabilir.
+            // Belge willSet'te yayınlar: harita seçimi `roles`'ü değiştirip
+            // `settled` gönderdiğinde belgede henüz eski kayıt durur. O an
+            // öğrenilirse eski kayıt seçimin üstüne yazılır; öğrenme bir
+            // sonraki tura kalır.
+            screens.settled.prepend(())
+                .sink { [weak store, weak screens] in
+                    guard let store, let screens, !screens.isSettling else { return }
+                    guard store.document.displayRoles == screens.roles else {
+                        DispatchQueue.main.async {
+                            guard !screens.isSettling else { return }
+                            store.learnDisplayRoles(screens.externalAssignment)
+                        }
+                        return
+                    }
+                    store.learnDisplayRoles(screens.externalAssignment)
+                },
+        ]
     }
 }
 

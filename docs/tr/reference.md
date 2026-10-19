@@ -86,7 +86,7 @@ Değiştirdikten sonra uygulamadan çık ve yeniden aç.
 
 ## Gerekli macOS ayarları {#required-macos-settings}
 
-<img src="images/en/05-setup.png" align="right" width="300" alt="Bütün denetimleri geçmiş macOS ayarları kartı">
+<img src="../images/tr/05-setup.png" align="right" width="300" alt="Bütün denetimleri geçmiş macOS ayarları kartı">
 
 Deskmap bu ayarları canlı denetler ve hepsi doğru olana dek turuncu bir
 **macOS ayarları düzeltilmeli** kartı gösterir. Kartta bir **Masaüstü ve
@@ -156,7 +156,7 @@ flowchart LR
 
 ### Sabitlemeler (kurallar) {#pins-rules}
 
-<img src="images/en/03-layout.png" align="right" width="300" alt="Bir sabitlemenin paneli: başlık parçaları ve sağ yarı düzeni">
+<img src="../images/tr/03-layout.png" align="right" width="300" alt="Bir sabitlemenin paneli: başlık parçaları ve sağ yarı düzeni">
 
 Bir sabitleme şunu söyler: *bu uygulamanın, başlığında bu parçalar geçen
 pencereleri bu ekrana, bu masaüstüne, bu düzende gider*.
@@ -256,10 +256,40 @@ açar ve pencereyi taşımaz. Bir monitör takıldığında ya da çıkarıldı�
 Deskmap ekranların yatışmasını bekler (2,5 sn, en çok 10 sn) ve sonra bütün
 sabit pencereleri yeniden yerleştirir.
 
-Ekranlar seri numarasıyla değil, rolleriyle tanınır: `builtin`, `external`,
-`external-2`, … Harici ekranlar soldan sağa numaralanır; aynı sütunda üst
-üste duran ekranlar dikey konuma göre (alttaki önce), sonra UUID’ye göre
-sıralanır. Ekranı bağlı olmayan sabitleme atlanır.
+Sabitlemeler bir ekran rolünü gösterir: `builtin`, `external`, `external-2`, …
+(haritada *Ekstra monitör*, *2. monitör*, …; model adları gösterilmez). Her harici monitör ilk aldığı rolü
+korur; rol macOS’un ekran UUID’siyle hatırlanır: ekranların yerini değiştirmek,
+onları başka sırayla takmak ya da sola sanal ekran eklemek artık sabitlemeleri
+öteki monitöre kaydırmaz. Deskmap’in görmediği bir monitör en küçük boş rolü
+alır; hatırlanan rolü olmayan ekranlar soldan sağa numaralanır (üst üste
+duranlar dikey konuma göre, alttaki önce, sonra UUID’ye göre); roller önceden
+de böyle veriliyordu. Aynı model iki monitör UUID’leriyle ayrılır (macOS onları
+seri numarasından türetir); harita aynı adlara *(sol)* / *(sağ)* ekler.
+
+İki ya da daha çok harici monitör bağlıyken ikinci (ve sonraki) kartın başlığı
+bir menüdür: kartın hangi monitör olduğunu seç. Onaydan sonra ikisi
+sabitlemeleri, masaüstü adları ve planlarıyla yer değiştirir.
+Terminalde aynısını `deskmap screen-role` yapar. Ayarlar › Genel › **Monitör
+rolleri › Unut** soldan sağa sıraya döndürür.
+
+**Deskmap’in hatırlamadığı monitör bekler.** Bir monitör öğrenildikten sonra,
+aldığı rolde hatırlanmayan bir ekran (ofisteki yeni monitör, monitör sökülünce
+tek kalan sanal ekran, unuttuğun bir monitör) *beklemede*dir: kartında *yeni
+monitör · düzen bekliyor* yazar, ona plan uygulanmaz, sabitleme ya da kural
+yönlendirilmez; Ekstra monitör düzeni oraya kendiliğinden gitmez. Kart başlığı
+menüsü *Ekstra monitör olarak kullan*, *2. monitör olarak kullan* … sunar;
+onaydan sonra seçim hatırlanır ve düzen hemen uygulanır (`deskmap screen-role
+EKRAN ROL` aynısını yapar). Aynı menüdeki *Bu monitörü unut* tek monitörü
+unutur (`deskmap screen-role EKRAN --forget`). İlk monitör (ve Ayarlar ›
+*Unut*’tan sonra her monitör) sormadan öğrenilir.
+
+**İkinci monitör yokken** (Ayarlar › Genel, varsayılan açık): monitörü
+(`external-2`, …) bağlı olmayan sabitleme `external`’a, aynı masaüstü
+numarasına ve düzene gider; monitör yeniden takılınca kendi yerine döner.
+Kapalıysa sabitleme atlanır, pencere macOS’un koyduğu yerde kalır. Yalnız
+başka bir monitör bağlıyken `external` sabitlemesi atlanır.
+`scripts/hooktest/multimon.sh` macOS tarafını aynı model iki sanal ekranla
+denetler (UUID’ler, çıkar / yeniden tak, aynı seri numarası).
 
 ### Masaüstleri {#desktops}
 
@@ -289,7 +319,7 @@ sıralanır. Ekranı bağlı olmayan sabitleme atlanır.
 
 ### Profiller {#profiles}
 
-<img src="images/en/04-profiles.png" align="right" width="300" alt="Profiller: Masa ve Kafe; Çoğalt, Dışa aktar ve Sil">
+<img src="../images/tr/04-profiles.png" align="right" width="300" alt="Profiller: Masa ve Kafe; Çoğalt, Dışa aktar ve Sil">
 
 Profil, adı olan bir sabitleme kümesidir; araç çubuğunun altındaki çipler
 profilleri sabitleme sayılarıyla listeler.
@@ -469,6 +499,10 @@ Hammerspoon, Keyboard Maestro ya da bir terminal onu yönetebilir. Uygulama
 | `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Bir ekranın *count* masaüstü olmasını sağla |
 | `deskmap://desktop-name/<screen>/<n>?name=<name>` | Bir masaüstüne ad ver (boş ad adı kaldırır). Ad o masaüstüne aittir: masaüstü yeniden sıralanınca ya da taşınınca, öteki ekrana bile, ve takıp çıkarmada onu izler. Profilde zaten kullanılan bir ad reddedilir |
 | `deskmap://quit` | Deskmap’ten çık (betiklerin ve testlerin onu kapatma yolu; süreci asla öldürme) |
+| `deskmap://screen-role/<monitör>/<rol>` | Bağlı bir monitöre (şu anki rolü ya da UUID’sinin başı) bir harici rol ver; bundan sonra onu korur. O roldeki monitörle yer değiştirir. Rol, bağlı monitör sayısını aşamaz |
+| `deskmap://screen-role-forget` | Hatırlanan monitör rollerini unut (yeniden soldan sağa) |
+| `deskmap://screen-role-forget/<monitör>` | Bağlı tek bir monitörü unut: rolü beklemeye geçer, düzeni uygulanmaz |
+| `deskmap://screen-fallback/<on\|off>` | İkinci monitör yokken: ilk harici monitörü kullan (on) ya da pencereyi bırak (off) |
 | `deskmap://backup-now` | Otomatik yedeklemeyi şimdi çalıştır |
 | `deskmap://backup-restore/<id>` | Bir yedeği kimliğiyle geri getir (örn. `daily-2026-10-12`); bkz. [Yedekler](#backups) |
 
@@ -497,6 +531,9 @@ deskmap status                      # plan, profil, ekranlar, sayılar
 deskmap windows --app Code          # kimlik, uygulama, ekran/masaüstü, başlık
 deskmap move Safari external 2      # pencere kimliği ya da tekil bir uygulama/başlık parçası
 deskmap pin 12345 builtin 1 && deskmap unpin 12345
+deskmap free Safari 15m             # sabit pencere serbest kalır: 15m, 2h, lock (ekran kilitlenene kadar), end
+deskmap screens | rules [--json]    # bağlı ekranlar | etkin profilin kuralları
+deskmap hooks                       # pencere ekran değiştirince çalışan komutlar (hooks.json)
 deskmap rule add --app cmux --screen external --undocked-screen builtin --layout 0,0,0.5,1
 deskmap rule rm <id>
 deskmap pause | resume | reload | profile Office
@@ -505,6 +542,11 @@ deskmap export ~/office.deskmap.json [--profile Office]
 deskmap desktop-move external 1 3          # 1. masaüstü 3. masaüstü olur
 deskmap desktops [--json]                  # adlar, canlı yerleri, her kurulumun planı
 deskmap name external 2 "Nova Ek"          # şu an 2. masaüstü olan masaüstüne ad ver
+deskmap screens                            # roller, UUID başı, "role kept" / "role by position"
+deskmap screen-role LG 2                   # bu monitör artık 2. monitör (yer değiştirir)
+deskmap screen-role --forget               # roller yeniden soldan sağa
+deskmap screen-role Pebble --forget         # yalnız bu monitörü unut: rolü bekler
+deskmap screen-fallback off                # bağlı olmayan 2. monitör sabitlemeleri atlanır
 deskmap backups [--json]                   # otomatik yedekler, en yenisi başta
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12
@@ -514,7 +556,7 @@ deskmap save-layout Safari [--window 12345] # az önce sürükleyerek verdiğin 
 ### Düzen dosyaları (`deskmap apply`) {#layout-files-deskmap-apply}
 
 Bir kurulumu tek bir dosyada tarif et, Deskmap kursun
-(bkz. [`examples/layout.yaml`](examples/layout.yaml)). Varsayılan olarak
+(bkz. [`examples/layout.yaml`](../examples/layout.yaml)). Varsayılan olarak
 **etkin profil** düzenlenir: dosyadaki pencereler için kurallar eklenir ya da
 güncellenir (aynı uygulama + başlık parçaları kuralın kimliğini korur), öteki
 her kural kalır. Başka bir profili düzenlemek ya da oluşturmak için
@@ -562,7 +604,10 @@ yerleştirmenin duraklatılıp duraklatılmadığı ve son hata. `desktopNames`�
 (ekran rolü → numara → ad, şu anki düzen) yanında `names` (`id`, `name`,
 `space`, `screen`, `desktop`: masaüstünün şu an nerede olduğu, `planned`:
 kurulum → `screen/n`) ve `plans` (kurulum → ekran rolü → ad kimlikleri
-listesi, adsız masaüstü için `""`) alanlarını da içerir.
+listesi, adsız masaüstü için `""`) alanlarını da içerir. `desktopMoves`
+masaüstü taşımanın açık olup olmadığını söyler: `on`, `held` (doğrulanmamış
+macOS, **Yine de dene**’ye kadar kapalı), `reduced` (düşük mod) ya da
+`unavailable`; taşıma kapalıysa `deskmap status` bunu bir satırla yazar.
 
 ### Ekran değişikliği kancaları (`hooks.json`) {#screen-change-hooks-hooksjson}
 
@@ -665,10 +710,11 @@ bekletemez. Yanıt verir vermez kendiliğinden yeniden ele alınır.
 
 ### Harici ekran rolleri yer değiştirdi {#external-display-roles-swapped}
 
-İki harici ekranın sol kenarı aynı hizadaysa rolleri (`external`,
-`external-2`) dikey konuma göre sıralanır (alttaki ekran önce). Bu sırayı
-değiştiren bir güncellemeden sonra etkilenen sabitlemeleri bir kez sürükle;
-sıra bundan sonra aynı kalır.
+Roller hatırlandığından beri bir monitör rolünü korur. Roller ters düştüyse
+(örneğin iki monitör ilk kez birlikte görüldüğünde, roller henüz soldan sağa
+sıradan gelirken) haritayı aç ve kart başlığındaki menüden doğru monitörü seç
+ya da `deskmap screen-role <monitör> 1` çalıştır. Ayarlar › Genel › **Monitör
+rolleri › Unut** baştan başlatır.
 
 ### Günlüğü okumak {#reading-the-log}
 
@@ -755,6 +801,7 @@ biçimleri, yerelleştirme): [docs/architecture.md](architecture.md).
 ```sh
 make check              # debug derleme
 make test               # birim testleri (Swift Testing)
+make cli-test           # deskmap CLI birim testleri (Python, uygulamanın çalışması gerekmez)
 make concurrency-check  # -strict-concurrency=complete ile derle ve uyarıları listele (yalnız rapor)
 make app                # release derleme + build/ içinde .app paketi
 make run                # make app, sonra aç
@@ -762,13 +809,20 @@ make dist               # dağıtılabilir paket (aşağıya bak)
 make clean              # build/ ve app/.build/ klasörlerini sil
 ```
 
-Testler (`app/Tests/DeskmapTests`, 10 grupta 122 test) yalnız saf mantığı
-kapsar: kural eşleştirme (Türkçe İ/ı büyük/küçük harf kuralları dahil) ve
+Testler (`app/Tests/DeskmapTests`, 600 kadar test; tam sayıyı `make test`
+yazar) yalnız saf mantığı kapsar: kural eşleştirme (Türkçe İ/ı büyük/küçük harf kuralları dahil) ve
 başlık bölme, düzenler ve koordinatlar, `rules.json` şema göçleri,
 sabitlemeler ve profiller üzerindeki belge işlemleri, içe/dışa aktarma, hedef
 seçimi, yeniden deneme ve geri çekilme yardımcıları, geri almanın
-geçerliliği, harita mantığı ve yerelleştirme tutarlılığı. Diske ya da gerçek
-pencerelere hiç dokunmazlar.
+geçerliliği, harita mantığı ve yerelleştirme tutarlılığı. Gerçek pencerelere
+hiç dokunmazlar; dosya yazan testler (yedekler, göçler) geçici
+bir klasör kullanır.
+
+`make cli-test` (`scripts/clitest`) CLI’nin kendi mantığını aynı biçimde
+kapsar: düzen ve yer ayrıştırma, düzen dosyası → kurallar, birleştirme ve
+farklar, kural eşleştirme, `check` raporu ve “tamamen örtülebilir” uyarısı.
+Uygulamayla konuşan komutları `scripts/hooktest/cli.sh` baştan sona dener;
+onun için Deskmap’in çalışıyor olması gerekir.
 
 Swift dosyalarına dokunan her commit’ten önce derleyip test eden pre-commit
 kancasını açmak için:
@@ -819,6 +873,11 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   taşıması bir sonraki taramada denetlenir; taşımalar art arda etkisiz
   kalırsa Deskmap düşük moda geçer (yalnız ekran ve düzen, masaüstü taşıma
   kapalı) ve **Yeniden dene** düğmeli bir kart gösterir.
+- **Doğrulanmamış sürümlerde masaüstü taşıma kapalı başlar.** macOS 15.x ve
+  macOS 26.0–26.3’te masaüstü taşıma doğrulanmadı; bu yüzden baştan kapalıdır
+  ve bir kart bunu söyler, ekran ve düzen yine uygulanır. **Yine de dene**
+  taşımayı açar (hatırlanır); taşımalar sonra da etkisiz kalırsa yukarıdaki
+  düşük mod devreye girer.
 - **Durum bilinmiyorsa dokunulmaz.** macOS bir pencerenin hangi masaüstünde
   olduğunu söylemezse pencere yalnız listelenir: ne taşınır ne
   boyutlandırılır.
@@ -830,8 +889,9 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   göstermeyen uygulamalar yalnız uygulama çapında ya da geçici
   sabitlemelerle sabitlenebilir.
 - **Tam ekran pencerelere** dokunulmaz.
-- **Yalnız iki kurulum**: monitör bağlı / sadece laptop. Harici ekranlar
-  model ya da seri numarasıyla değil, konumlarıyla (soldan sağa) tanınır.
+- **Yalnız iki kurulum**: monitör bağlı / sadece laptop. Bir ya da birkaç
+  harici monitörle kurulum aynıdır; bağlı olmayan monitördeki sabitleme
+  **İkinci monitör yokken** ayarına uyar.
 - **Anında değil.** Yerleştirme pencere olaylarında olur. 5 saniyede bir
   yapılan hafif bir denetim olayların kaçırdığını yakalar (tam tarama yalnız
   bir şey değiştiğinde, bir de iki dakikada bir); başlık değişiklikleri bir

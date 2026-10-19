@@ -17,6 +17,9 @@ struct MoveHealth: Equatable {
         case working
         /// Devre kesici açık: masaüstü taşıması durduruldu.
         case degraded
+        /// Bu macOS'ta taşıma doğrulanmadı (`MoveSupport.unverified`):
+        /// kullanıcı "Yine de dene" diyene kadar taşıma kapalı.
+        case held
     }
 
     private(set) var state: State = .unknown
@@ -31,12 +34,17 @@ struct MoveHealth: Equatable {
     /// inatçı pencere (taşımayı reddeden uygulama) bütün taşımayı durdurmasın.
     static let minDistinctWindows = 2
 
-    var movesAllowed: Bool { state != .degraded }
+    init(held: Bool = false) {
+        state = held ? .held : .unknown
+    }
+
+    var movesAllowed: Bool { state != .degraded && state != .held }
 
     /// Bir taşımanın doğrulama sonucunu işler. Durum değiştiyse true.
     @discardableResult
     mutating func record(window: CGWindowID, verified: Bool) -> Bool {
         let before = state
+        if state == .held { return false }
         if verified {
             consecutiveFailures = 0
             failedWindows = []
@@ -52,7 +60,8 @@ struct MoveHealth: Equatable {
         return state != before
     }
 
-    /// Kullanıcı "yeniden dene" dedi: devre kapanır, sayaç sıfırlanır.
+    /// Kullanıcı "yeniden dene" ya da "yine de dene" dedi: devre kapanır,
+    /// bekletme kalkar, sayaç sıfırlanır.
     mutating func reset() {
         self = MoveHealth()
     }

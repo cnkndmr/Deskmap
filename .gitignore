@@ -43,3 +43,4 @@ __pycache__/
 local.mk
 docs/profile-desktop-state.md
 website-concepts/
+scripts/hooktest/MonProbe

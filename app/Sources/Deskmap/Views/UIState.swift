@@ -48,6 +48,16 @@ struct RevealRequest: Equatable {
     let seq: Int
 }
 
+/// Haritayı bir pencere satırına kaydırır (`ui.reveal`).
+enum MapReveal {
+    /// Animasyonsuz: `withAnimation` içindeki `scrollTo` macOS 27'de haritayı
+    /// hiç kaydırmıyor (docs/bug-tables.md, C).
+    @MainActor
+    static func scroll(_ proxy: ScrollViewProxy, to window: CGWindowID) {
+        proxy.scrollTo(WindowAnchor(id: window), anchor: .center)
+    }
+}
+
 /// Haritanın altında açılan panel. Aynı anda yalnızca biri açık olur;
 /// tek bir değer olduğu için biri açılınca diğeri kendiliğinden kapanır.
 enum BottomPanel: Equatable {

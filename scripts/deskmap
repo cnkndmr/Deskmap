@@ -51,7 +51,16 @@ COMMANDS:
   status | windows [--app A] | screens | rules | hooks      (--json for raw data)
   apply FILE [--dry-run] | apply FILE --remove | apply --undo | check FILE | dump
   layouts                          layout names
+  screen-role DISPLAY ROLE | screen-role --forget   give a connected monitor (current role,
+                                   UUID start or name) a role: external = 1, external-2 = 2 …;
+                                   it keeps that role wherever it is placed (swaps if taken).
+                                   A monitor Deskmap does not remember waits "on hold" (its
+                                   layout is not applied) until it is given a role here
+  screen-role DISPLAY --forget     forget one monitor: its role waits on hold again
+  screen-fallback on|off           rule's monitor (external-2 …) missing: first external / leave
   move W SCREEN [N] | pin W SCREEN [N] | unpin W            one window
+  free W 15m|2h|lock|end           let a pinned window move freely for a while, until
+                                   the screen locks, or end that early
   move W DESKTOP-NAME | pin W DESKTOP-NAME [--desktop-only] target by desktop name
                                    (--desktop-only: follow the desktop, keep position/size)
   desktops | name SCREEN N [NAME] [--mode M]  list desktop names | name a desktop (no NAME:
@@ -70,7 +79,9 @@ COMMANDS:
                                    daily for 7 days, weekly forever); restore first backs
                                    up the current state and can be undone in the app
   W: window id or a unique app/title fragment. SCREEN: builtin, external,
-  external-2… or part of the display name. DESKTOP-NAME: a name given to a
+  external-2… or part of the display name; each external monitor keeps the role
+  it first got (or was given with `screen-role`), even if displays are rearranged.
+  DESKTOP-NAME: a name given to a
   desktop (in the app: double-click "Desktop N" on the map, or `deskmap name`);
   exact or a unique part, case-insensitive. `pin` keeps the window there.
   `deskmap CMD --help` for options.
@@ -277,12 +288,25 @@ def where(w):
     return f"{w['screen']}/{w['desktop']}"
 
 
+def desktop_moves_text(state):
+    """status.json `desktopMoves` → one line, or None when moves are on (or the
+    app is older and does not report it)."""
+    return {
+        "held": "desktop moves OFF: not verified on this macOS (Try Anyway in the app turns them on)",
+        "reduced": "desktop moves OFF: reduced mode, moves did not take effect (Try Again in the app)",
+        "unavailable": "desktop moves OFF: not available on this macOS",
+    }.get(state)
+
+
 def show_status(args):
     s = fresh_status()
     if args.json:
         print(json.dumps(s, indent=2, ensure_ascii=False)); return
     state = "routing" if s["enabled"] else "PAUSED"
     print(f"Deskmap pid {s['pid']}  {state}  mode {s['mode']}  profile {s.get('profile') or '-'}")
+    moves = desktop_moves_text(s.get("desktopMoves"))
+    if moves:
+        print(f"  {moves}")
     for sc in s["screens"]:
         n = sum(1 for w in s["windows"] if w.get("screen") == sc["id"])
         print(f"  {sc['id']:<11} {sc['name']:<28} {n} window(s)")
@@ -310,9 +334,17 @@ def show_screens(args):
     s = fresh_status()
     if args.json:
         print(json.dumps(s["screens"], indent=2, ensure_ascii=False)); return
+    remembered = (s.get("displayRoles") or {}).get("remembered") or {}
+    held = set(s.get("heldRoles") or [])
     for sc in s["screens"]:
         x, y, w, h = sc["frame"]
-        print(f"{sc['id']:<11} {sc['name']:<28} {int(w)}x{int(h)} at {int(x)},{int(y)}")
+        uuid = sc.get("uuid", "")
+        kept = "" if sc["builtin"] else (
+            f"  role on hold: layout not applied (confirm: deskmap screen-role {uuid[:8]} {sc['id']})"
+            if sc["id"] in held else
+            "  role kept" if uuid in remembered.get(sc["id"], []) else "  role by position")
+        print(f"{sc['id']:<11} {sc['name']:<28} {int(w)}x{int(h)} at {int(x)},{int(y)}"
+              f"  {uuid[:8]}{kept}")
         for n, name in sorted(((int(k), v) for k, v in
                                ((s.get("desktopNames") or {}).get(sc["id"]) or {}).items())):
             print(f"    desktop {n}: {name}")
@@ -459,20 +491,28 @@ def rule_rm(args):
         die("rule is still there")
 
 
+def free_duration(text):
+    """'15m', '2h', '30' (minutes), 'lock' or 'end' → minutes, "lock" or "end"."""
+    d = text.strip().lower()
+    if d in ("end", "lock"):
+        return d
+    m = re.fullmatch(r"(\d+)\s*(m|min|h)?", d)
+    if not m or int(m.group(1)) <= 0:
+        raise ValueError("duration: e.g. 15m, 2h, lock or end")
+    return int(m.group(1)) * (60 if m.group(2) == "h" else 1)
+
+
 def free_move(args):
     s = fresh_status()
     window = resolve_window(s, args.window)
-    d = args.duration.strip().lower()
+    try:
+        d = free_duration(args.duration)
+    except ValueError as error:
+        die(str(error))
     if d == "end":
         send(f"free-end/{window}")
-    elif d == "lock":
-        send(f"free/{window}/lock")
     else:
-        m = re.fullmatch(r"(\d+)\s*(m|min|h)?", d)
-        if not m or int(m.group(1)) <= 0:
-            die("duration: e.g. 15m, 2h, lock or end")
-        minutes = int(m.group(1)) * (60 if m.group(2) == "h" else 1)
-        send(f"free/{window}/{minutes}")
+        send(f"free/{window}/{d}")
     w = next((w for w in fresh_status()["windows"] if w["id"] == window), None)
     free = w and w.get("free")
     if d == "end":
@@ -1054,6 +1094,42 @@ def save_layout(args):
     print(f"{place_text(before)}  →  {place_text(now)}")
 
 
+def role_name(text):
+    """'2' / 'monitor-2' / 'external-2' → 'external-2'; '1' → 'external'."""
+    t = text.strip().lower().removeprefix("monitor").strip(" -")
+    if t.isdigit():
+        return "external" if int(t) <= 1 else f"external-{int(t)}"
+    if t == "external" or (t.startswith("external-") and t[9:].isdigit() and int(t[9:]) >= 2):
+        return t
+    die(f"'{text}' is not an external role (external, external-2, … or 1, 2, …)")
+
+
+def screen_role(args):
+    if args.forget and not args.display:
+        send("screen-role-forget"); print("monitor roles forgotten: roles follow left-to-right order")
+        return
+    if not args.display or (not args.role and not args.forget):
+        die("screen-role needs DISPLAY ROLE (or DISPLAY --forget, or --forget)")
+    status = fresh_status()
+    externals = [sc for sc in status["screens"] if not sc["builtin"]]
+    text = args.display.lower()
+    hits = [sc for sc in externals if sc["id"] == text] or \
+           [sc for sc in externals if sc.get("uuid", "").lower().startswith(text) and len(text) >= 4] or \
+           [sc for sc in externals if text in sc["name"].lower()]
+    if len(hits) != 1:
+        die(f"'{args.display}' matches {len(hits)} connected monitors: "
+            + ", ".join(f"{sc['id']} ({sc['name']}, {sc.get('uuid', '')[:8]})" for sc in externals))
+    if args.forget:
+        s = send(f"screen-role-forget/{hits[0]['uuid']}")
+        print(f"{hits[0]['name']} forgotten: its role waits for a choice, its layout is not applied")
+        return
+    role = role_name(args.role)
+    s = send(f"screen-role/{hits[0]['uuid']}/{role}")
+    for sc in s["screens"]:
+        if not sc["builtin"]:
+            print(f"{sc['id']:<11} {sc['name']:<28} {sc.get('uuid', '')[:8]}")
+
+
 def main():
     p = argparse.ArgumentParser(prog="deskmap", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -1063,6 +1139,12 @@ def main():
     sp = sub.add_parser("windows"); sp.add_argument("--app"); sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=show_windows)
     sub.add_parser("hooks").set_defaults(fn=show_hooks)
+    sp = sub.add_parser("screen-role", help="give a connected monitor an external role; it keeps it")
+    sp.add_argument("display", nargs="?"); sp.add_argument("role", nargs="?")
+    sp.add_argument("--forget", action="store_true"); sp.set_defaults(fn=screen_role)
+    sp = sub.add_parser("screen-fallback", help="second monitor missing: use the first external (on) or leave (off)")
+    sp.add_argument("state", choices=("on", "off"))
+    sp.set_defaults(fn=lambda a: (send(f"screen-fallback/{a.state}"), print(f"fallback {a.state}")))
     for name in ("pause", "resume", "toggle", "reapply", "reload", "next-profile"):
         sub.add_parser(name).set_defaults(fn=lambda a, n=name: send(n))
     sp = sub.add_parser("profile"); sp.add_argument("name")

@@ -51,6 +51,8 @@ Pin a window once. From then on it lives on that display, that desktop
 (Space), in that layout: when it opens, when it wanders off, and when you plug
 in or unplug a monitor.
 
+<p align="center"><img src="docs/media/en/demo.gif" width="720" alt="Laptop only: windows piled on one desktop. Monitor connected: pinned windows move to their display and desktop on their own; a second monitor keeps its own role."></p>
+
 <table>
   <tr>
     <td width="50%" align="center"><img src="docs/images/en/01-map.png" alt="The map: each display as cards of desktops, pinned windows in place"></td>
@@ -194,7 +196,9 @@ Products change. If something here is out of date, open an issue.
 
 **[Download the latest release](https://github.com/cnkndmr/Deskmap/releases/latest)**,
 unzip it and drag `Deskmap.app` to `/Applications` (macOS 13 or later, Apple
-silicon and Intel).
+silicon and Intel). On macOS 15 and 26.0–26.3 moving windows between desktops
+has not been verified, so it starts off there (displays and layouts still
+work); the app shows a card with **Try Anyway**.
 
 The app is not notarized, so macOS blocks the first launch. Open it once,
 then go to System Settings › Privacy & Security and click **Open Anyway**.

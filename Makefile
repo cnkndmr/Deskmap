@@ -2,7 +2,7 @@
 
 PROJECT := Deskmap
 
-.PHONY: help app run install logs measure-idle sample url check test concurrency-check dist site site-serve site-shots clean
+.PHONY: help app run install logs measure-idle sample url check test cli-test concurrency-check dist site site-serve site-shots docs-shots demo-media clean
 
 help:
 	@echo "make app        Build the menu bar app (build/$(PROJECT).app)"
@@ -16,6 +16,7 @@ help:
 	@echo "                Send an automation URL to the running app"
 	@echo "make check      Debug build"
 	@echo "make test       Unit tests (swift test)"
+	@echo "make cli-test   Unit tests of the deskmap CLI (no running app needed)"
 	@echo "make concurrency-check"
 	@echo "                Strict concurrency warnings (-strict-concurrency=complete; report only)"
 	@echo "make dist       Distributable package: universal build + signing + zip (build/dist)"
@@ -23,6 +24,8 @@ help:
 	@echo "make site       Build the website into website/_site (Node + pandoc)"
 	@echo "make site-serve Build it and serve it on http://localhost:$(SITE_PORT)"
 	@echo "make site-shots Website screenshots, dark and light (website/shots)"
+	@echo "make docs-shots README and guide screenshots, full size (docs/images)"
+	@echo "make demo-media Demo GIF + MP4 for the README, EN and TR (docs/media)"
 	@echo "make clean      Delete build output"
 
 app:
@@ -86,6 +89,10 @@ check:
 test:
 	@swift test --package-path app
 
+# deskmap CLI'nin saf işlevleri (Deskmap çalışmıyor olabilir).
+cli-test:
+	@python3 -m unittest discover -s scripts/clitest
+
 # Swift 6 hazırlığı: sıkı eşzamanlılık uyarılarını listeler, derleme ayarını
 # değiştirmez. Ayrı ve her seferinde temiz bir derleme dizini kullanır; yoksa
 # artımlı derleme değişmeyen dosyaların uyarılarını yeniden basmaz.
@@ -94,9 +101,13 @@ concurrency-check:
 	@swift build --package-path app -c debug --scratch-path app/.build/strict \
 	    -Xswiftc -strict-concurrency=complete > app/.build/strict.log 2>&1 \
 	    || { cat app/.build/strict.log; exit 1; }
-	@grep -E ': warning: ' app/.build/strict.log | sort -u \
-	    || echo "No strict concurrency warnings."
-	@echo "Warning count: $$(grep -E ': warning: ' app/.build/strict.log | sort -u | wc -l | tr -d ' ')"
+	@# Derleyici renkli yazar ("\033[1;33mwarning:"); renk kodları ayıklanmadan
+	@# ': warning: ' deseni hiçbir satıra uymaz ve sayı hep 0 çıkar.
+	@sed -E 's/\x1b\[[0-9;]*m//g' app/.build/strict.log | grep -E '^/.*: warning: ' | sort -u \
+	    > app/.build/strict-warnings.txt || true
+	@if [ -s app/.build/strict-warnings.txt ]; then cat app/.build/strict-warnings.txt; \
+	    else echo "No strict concurrency warnings."; fi
+	@echo "Warning count: $$(wc -l < app/.build/strict-warnings.txt | tr -d ' ')"
 
 dist:
 	@./scripts/make-dist.sh
@@ -119,6 +130,16 @@ site-serve:
 # değişince çalıştır ve website/shots'u commit'le.
 site-shots: app
 	@./scripts/site-shots.sh
+
+# README ve kılavuz ekran görüntüleri (docs/images/<dil>/), tam boy, koyu;
+# aynı --shots kipi. Arayüz değişince site-shots ile birlikte çalıştır.
+docs-shots: app
+	@./scripts/docs-shots.sh
+
+# README demo dizisi (docs/media/<dil>/demo.gif + .mp4): --shots --scenario demo
+# kareleri, ffmpeg ile birleştirilir. Demo verisi, gerçek pencereye dokunmaz.
+demo-media: app
+	@./scripts/demo-media.sh
 
 clean:
 	@rm -rf build app/.build website/_site

@@ -92,7 +92,8 @@ struct RuleSentence<MatchMenu: View>: View {
     }
 
     private var screenName: String {
-        store.screens(for: mode).first { $0.id == destination.screen }?.name ?? destination.screen
+        DisplayRoles.displayName(role: destination.screen,
+                                 name: store.screens(for: mode).first { $0.id == destination.screen }?.name)
     }
 
     private func desktopName(_ desktop: Int) -> String {
@@ -107,7 +108,7 @@ struct RuleSentence<MatchMenu: View>: View {
     @ViewBuilder private var screenItems: some View {
         let choices = choices
         ForEach(store.screens(for: mode)) { screen in
-            MenuCheck(screen.name, checked: screen.id == destination.screen) {
+            MenuCheck(screen.roleName, checked: screen.id == destination.screen) {
                 setDestination(choices.moved(toScreen: screen.id))
             }
         }
@@ -198,7 +199,7 @@ struct DestinationPickers: View {
                     get: { destination.screen },
                     set: { setDestination(choices.moved(toScreen: $0)) })) {
                     ForEach(store.screens(for: mode)) { screen in
-                        Text(screen.name).tag(screen.id)
+                        Text(screen.roleName).tag(screen.id)
                     }
                     // Hedef ekran planın ekranları arasında değilse de seçili görünsün.
                     if !store.screens(for: mode).contains(where: { $0.id == destination.screen }) {

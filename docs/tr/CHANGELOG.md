@@ -8,6 +8,44 @@ numarası `VERSION` dosyasından gelir.
 
 ### Eklenenler {#added}
 
+- **Demo GIF.** `docs/media/<dil>/demo.gif` (ve `.mp4`) README ile kılavuzdaki
+  dört adımlık hikâyeyi gösterir: sadece laptop, monitör bağlandı, sabitlenen
+  pencereler yerinde, kendi rolüyle ikinci monitör. Ekran görüntüsü kipi çizer
+  (`Deskmap --shots <dizin> --scenario demo`, demo verisi, gerçek pencereye
+  dokunulmaz), `make demo-media` (ffmpeg) birleştirir; İngilizce ve Türkçe.
+- **Doğrulanmamış macOS sürümlerinde masaüstü taşıma kapalı.** Pencereleri
+  masaüstleri arasında taşımanın doğrulanmadığı macOS 15.x ve 26.0–26.3’te
+  masaüstü taşıma kapalı başlar ve ana pencerede bunu söyleyen bir kart
+  görünür (ekran ve düzen yine uygulanır). **Yine de dene** taşımayı açar ve
+  hatırlanır; devre kesici her taşımayı izlemeye devam eder
+  (`Services/MoveSupport.swift`). `status.json` durumu `desktopMoves` olarak
+  yazar, taşıma kapalıysa `deskmap status` bunu bir satırla söyler.
+- **CLI birim testleri.** `make cli-test`, `deskmap` komut satırı aracının
+  çevrimdışı testlerini koşar (düzen ayrıştırma, düzen dosyaları, birleştirme,
+  eşleştirme, `check` raporu); CLI değişince pre-commit kancası da koşar.
+- **İkinci harici monitör.** Her harici monitör rolünü (*Ekstra monitör*,
+  *2. monitör*, …) soldan sağa konumuyla değil ekran UUID’siyle korur: ekranların
+  yerini değiştirmek, onları başka sırayla takmak, sola eklenen sanal ekran ya
+  da aynı model iki monitör artık sabitlemeleri öteki monitöre kaydırmaz. İki ya
+  da daha çok monitör bağlıyken ikinci kartın başlığı onları (onayla) yer değiştiren bir menüdür;
+  `deskmap screen-role`, `deskmap screen-role --forget` ve `screen-role`,
+  `screen-role-forget` URL komutları aynısını yapar. Yeni ayar **İkinci monitör
+  yokken** (açık): takılı olmayan `external-2` sabitlemeleri `external`’da bekler,
+  monitör dönünce geri gider; `deskmap screen-fallback on|off`. `rules.json`’a
+  isteğe bağlı `displayRoles` alanı eklendi (şema 6 değişmedi; eski sürümler onu
+  yok sayar ve konum sırasına döner). `status.json` ekranları `uuid` taşır
+  (`Models/DisplayRoles.swift`).
+- **Deskmap’in hatırlamadığı monitör bekler.** İlk monitör öğrenildikten sonra
+  rolünde hatırlanmayan ekran (yeni monitör, tek kalan sanal ekran, unutulan
+  monitör ya da aynı rolde hatırlanan iki monitörden eskisi) beklemededir: ona
+  plan, sabitleme ya da kural uygulanmaz, orada artık temizliği yapılmaz; Ekstra
+  monitör düzeni kendiliğinden taşınmaz. Kartında *yeni monitör · düzen
+  bekliyor* ve bir menü görünür (*Ekstra monitör / 2. monitör … olarak kullan*,
+  onaylı; hatırlananlarda *Bu monitörü unut*). `deskmap screen-role EKRAN
+  --forget` ve `deskmap://screen-role-forget/<monitör>` tek monitörü unutur;
+  `deskmap screens` *role on hold* gösterir; `status.json`’a `heldRoles`,
+  `displayRoles`’a `learnedOnce` eklendi (docs/tr/bug-tables.md, A′ tablosu).
+
 - **Bir çalışma alanını tek seferde aç.** Kapalı sabit pencereleri olan bir
   masaüstünün adının yanında **N aç** görünür (liste ve görsel görünümde);
   tek tık hepsini açar, her biri kendi sabit yerine gider. Her uygulama
@@ -31,6 +69,13 @@ numarası `VERSION` dosyasından gelir.
   bir değişiklik yineleme dalını atar; alt çubukta çıkan uyarıdaki Geri al onu
   geri getirir. Geçici sabitleme adımları yalnız geri alınabilir
   (`Models/ChangeHistory.swift`).
+- **Otomatik yedekler**: uygulama bütün profilleri, sabitlemeleri ve masaüstü
+  adlarını `Application Support/Deskmap/Backups/` altına saatlik (24 saat
+  saklanır), günlük (7 gün saklanır) ve haftalık (sonsuza dek saklanır) olarak
+  yedekler. **Ayarlar › Yedekler**’den (profil panelindeki **Yedekler…** ile de)
+  ya da `deskmap backups` / `deskmap backup-restore <id>` ile geri getir;
+  şimdiki hâl önce yedeklenir ve geri getirme geri alınabilir. Dışarıdaki
+  `profile-backup.sh` betiğinin yerini alır.
 
 ### Değişenler {#changed}
 
@@ -108,6 +153,20 @@ numarası `VERSION` dosyasından gelir.
 
 ### Düzeltilenler {#fixed}
 
+- **Plan seçici tek bir ekran değişimini izliyor.** Monitör bir kez takılıp
+  çıkarılınca seçici önceki planda kalabiliyordu: ekran listesi henüz
+  yayınlanırken ekran modunu okuyordu. Artık yayınlanan listeyi izliyor
+  (`docs/bug-tables.md` A′).
+- **Uygulama grubunu taşımak ve haritadaki gölgede kalan pinler pencerenin
+  bağını izliyor.** Pencere başlığı değişse de onu yerleştiren kuralda
+  kalır; *Grubu gönder* artık yeni başlığın uyduğu kuralı değil o kuralı
+  taşır, harita da bağlı kuralı yenik göstermez.
+- **`make concurrency-check` uyarıları yeniden sayıyor.** Derleyici çıktısını
+  renklendirdiği için uyarı deseni hiçbir satıra uymuyor, sayı hep 0
+  çıkıyordu.
+- **Türkçe belgelerde ve değişiklik günlüklerinde** GitHub’da yanlış göreli
+  yola giden bağlantılar.
+
 - **Masaüstü adları artık öteki kurulumun planı yüzünden kaybolmuyor.** Etkin
   olmayan kurulumdan bir laptop masaüstü satırını silmek, etkin kurulumun aynı
   ve sonraki numaralardaki adlarını hemen atıyordu (sabitlemeleri kalıyordu);
@@ -118,16 +177,6 @@ numarası `VERSION` dosyasından gelir.
   göstermiyor (bu, onları silinen masaüstü satırına çeviriyor, sabitlemelerini
   ve öteki kurulumdaki karşılıklarını da beraberinde götürüyordu); masaüstü
   hâlâ duran bir ad hiçbir zaman silinmiş sayılmaz.
-
-### Eklenenler {#added-1}
-
-- **Otomatik yedekler**: uygulama bütün profilleri, sabitlemeleri ve masaüstü
-  adlarını `Application Support/Deskmap/Backups/` altına saatlik (24 saat
-  saklanır), günlük (7 gün saklanır) ve haftalık (sonsuza dek saklanır) olarak
-  yedekler. **Ayarlar › Yedekler**’den (profil panelindeki **Yedekler…** ile de)
-  ya da `deskmap backups` / `deskmap backup-restore <id>` ile geri getir;
-  şimdiki hâl önce yedeklenir ve geri getirme geri alınabilir. Dışarıdaki
-  `profile-backup.sh` betiğinin yerini alır.
 
 ## [0.5.0] — 2026-09-30
 
@@ -488,7 +537,7 @@ söylüyor.
   1120×1280; App Store Connect bunu kabul etmiyor.
 - `app/Resources/PrivacyInfo.xcprivacy`: veri toplanmaz, izleme yok, gerekçe
   isteyen tek API (user defaults). `build-app.sh` pakete kopyalar;
-  [docs/app-store-submission.md](docs/app-store-submission.md) bir başvuru
+  [docs/app-store-submission.md](../../appstore/submission.md) bir başvuru
   için başka neler gerektiğini listeler.
 - Yeni simge: başı bir pencere olan bir harita işareti. Kodla çizilir
   (`scripts/make-icons.swift`, her boyutu ve `.icns`’i tek komutla yeniden

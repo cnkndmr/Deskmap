@@ -165,6 +165,12 @@ now**; the other one says when it applies.
 - **Monitor connected** — at least one external display is attached.
 - **Laptop only** — just the built-in screen.
 
+With two external monitors the map shows a card for each (**Extra monitor**,
+**Monitor 2**). Each monitor keeps its card wherever you place it in System
+Settings › Displays; if the two are the wrong way round, click the title of
+the Monitor 2 card, pick the other monitor and confirm. While Monitor 2 is
+unplugged its windows wait on the Extra monitor (Settings › General › **Second monitor missing**).
+
 Set up one, switch, set up the other. When you plug the monitor in or pull
 it out, the app waits a couple of seconds for the displays to settle and
 then puts every pinned window where that plan says.
@@ -289,7 +295,7 @@ profile".
 | A pin's chip looks faded | Another, more specific pin matches that window first. Hover it to see which. |
 | Orange **Desktop 5 missing** badge | That desktop doesn't exist; add desktops in Mission Control. |
 | A window jumped and you don't know why | **Recent moves** in the toolbar lists each move and its target. |
-| Nothing moves between desktops, but sizes work | This macOS version didn't expose the private calls the app uses for desktops. Displays and layouts still work. |
+| Nothing moves between desktops, but sizes work | An orange card at the top of the window says why. On macOS 15 and 26.0–26.3 desktop moves are off until you click **Try Anyway** (they are not verified there yet). If moves kept having no effect, **Try Again** turns them back on. Without a button, this macOS doesn't offer the calls the app uses for desktops. Displays and layouts still work in every case. |
 
 Longer troubleshooting, the full rules of matching, and the data file
 formats are in the [README](../README.md).

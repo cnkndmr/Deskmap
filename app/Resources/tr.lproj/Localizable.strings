@@ -215,6 +215,9 @@
 "Moves to other desktops did not take effect several times in a row, so they were stopped. Windows are still placed on the right display and in the right layout." = "Başka masaüstüne taşımalar art arda birkaç kez etkisiz kaldı, bu yüzden durduruldu. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir.";
 "Moving windows between desktops is not available on this macOS. Windows are still placed on the right display and in the right layout." = "Bu macOS'ta pencereleri masaüstleri arasında taşımak mümkün değil. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir.";
 "Try Again" = "Yeniden dene";
+"Try Anyway" = "Yine de dene";
+"Desktop moves are off on this macOS" = "Bu macOS'ta masaüstü taşıma kapalı";
+"Moving windows between desktops has not been verified on macOS %@. Windows are still placed on the right display and in the right layout. If you try it and moves do not take effect, Deskmap turns them off again." = "Pencereleri masaüstleri arasında taşımak macOS %@ üzerinde doğrulanmadı. Pencereler yine doğru ekrana ve doğru düzene yerleştirilir. Denersen ve taşımalar etkisiz kalırsa Deskmap onları yeniden kapatır.";
 
 /* Menü çubuğu simgesi durumları */
 "Deskmap: Ready" = "Deskmap: Hazır";
@@ -604,3 +607,45 @@
 "Could not close %ld windows" = "%ld pencere kapatılamadı";
 "Support Deskmap" = "Deskmap'i destekle";
 "Opens PayPal in your browser" = "PayPal'ı tarayıcıda açar";
+
+/* Harici ekran rolleri */
+"Monitor %ld" = "%ld. monitör";
+"Extra monitor" = "Ekstra monitör";
+"Swap the monitors?" = "Monitörler yer değiştirsin mi?";
+"Swap" = "Değiştir";
+"%@ becomes the %@. Pinned windows, desktop names and desktop plans of the two monitors trade places now." = "%1$@ artık %2$@ olur. İki monitörün sabit pencereleri, masaüstü adları ve masaüstü planları şimdi yer değiştirir.";
+"%@ (left)" = "%@ (sol)";
+"%@ (right)" = "%@ (sağ)";
+"Which monitor this card stands for. The choice is remembered." = "Bu kartın hangi monitör olduğu. Seçim hatırlanır.";
+"new monitor · layout on hold" = "yeni monitör · düzen bekliyor";
+"Deskmap does not know this monitor yet, so the layout of this role is not applied to it. Choose its role in the menu on the left." = "Deskmap bu monitörü henüz tanımıyor; bu rolün düzeni ona uygulanmıyor. Rolünü soldaki menüden seç.";
+"New monitor: its layout waits for your choice" = "Yeni monitör: düzeni senin seçimini bekliyor";
+"Use as %@" = "%@ olarak kullan";
+"Forget This Monitor" = "Bu monitörü unut";
+"Its role then waits for a choice and its layout is not applied." = "Sonra rolü seçim bekler, düzeni uygulanmaz.";
+"Use this monitor as %@?" = "Bu monitör %@ olsun mu?";
+"%@ is remembered as the %@. Pinned windows, desktop names and the desktop plan of the %@ are applied to it now." = "%1$@ %2$@ olarak hatırlanır. %3$@ için sabit pencereler, masaüstü adları ve masaüstü planı şimdi ona uygulanır.";
+"Second monitor missing" = "İkinci monitör yokken";
+"Windows whose rule names another external monitor go to the first external monitor, same desktop number, until it is back. Off: they stay where macOS puts them." = "Kuralı başka bir harici monitörü gösteren pencereler, o monitör geri gelene dek ilk harici monitöre, aynı masaüstü numarasına gider. Kapalıysa macOS'un koyduğu yerde kalırlar.";
+"Monitor roles" = "Monitör rolleri";
+"Each monitor keeps its role (Extra monitor, Monitor 2) wherever it is placed. Forget: roles follow the left-to-right order again." = "Her monitör nereye konursa konsun rolünü (Ekstra monitör, 2. monitör) korur. Unut: roller yeniden soldan sağa sıraya göre verilir.";
+"Forget" = "Unut";
+"No connected monitor matches %@" = "%@ ile eşleşen bağlı monitör yok";
+"Only %ld monitors are connected" = "Yalnız %ld monitör bağlı";
+
+/* Demo verisi (Shots kareleri ve docs/media GIF'i): profil ve ekran adları, demo dizisi */
+"Project A" = "Proje A";
+"Team" = "Takım";
+"Desk" = "Masa";
+"Café" = "Kafe";
+"Built-in Display" = "Dahili ekran";
+"Built-in Retina Display" = "Dahili Retina ekran";
+"%@ — Docs" = "%@ — Belgeler";
+"%@ — build" = "%@ — derleme";
+"Inbox" = "Gelen Kutusu";
+"Notes" = "Notlar";
+"Calendar" = "Takvim";
+"Laptop only: everything piles up on one desktop" = "Sadece laptop: her şey tek masaüstüne yığılır";
+"Monitor connected: Deskmap knows where each window belongs" = "Monitör bağlandı: Deskmap her pencerenin yerini biliyor";
+"Pinned windows go to their screen and desktop on their own" = "Sabitlenen pencereler kendi ekranına ve masaüstüne kendiliğinden gider";
+"A second monitor keeps its own role: Monitor 2" = "İkinci monitör kendi rolünü korur: 2. monitör";

@@ -141,6 +141,44 @@ struct LocalizationTests {
         #expect(problems.isEmpty, "\(problems.joined(separator: "\n"))")
     }
 
+    /// Arayüz kurucularına `L(...)` olmadan verilen, harf içeren dize
+    /// sabitleri (`Text("Pins")`, `.help("…")`, `messageText = "…"`).
+    /// SwiftUI `Text("…")` sabiti `Localizable.strings`'ten çevirir ama
+    /// anahtar taramasına girmez; çevirisi eksik kalırsa kimse görmez.
+    /// Yalnız `\(...)`, rakam ya da simge taşıyan dizgiler (`"\(count)"`,
+    /// `"·"`, `"15:00"`) serbesttir.
+    private static func unwrappedLiterals() throws -> [String] {
+        let sources = appDirectory.appendingPathComponent("Sources/Deskmap")
+        let files = (FileManager.default.enumerator(at: sources, includingPropertiesForKeys: nil)?
+            .compactMap { $0 as? URL } ?? [])
+            .filter { $0.pathExtension == "swift" }
+            .sorted { $0.path < $1.path }
+        let constructor = try Regex(
+            #"(?:\b(?:Text|Button|Toggle|Label|Section|Menu|Picker|LabeledContent|TextField|GroupBox|DisclosureGroup|confirmationDialog|alert)\(|\.(?:help|navigationTitle|accessibilityLabel|accessibilityHint)\(|\b(?:messageText|informativeText|toolTip|placeholderString) = |addButton\(withTitle: |NSMenuItem\(title: )"((?:[^"\\]|\\.)*)""#)
+        let interpolation = try Regex(#"\\\([^)]*\)"#)
+        var result: [String] = []
+        for file in files {
+            let lines = try String(contentsOf: file, encoding: .utf8)
+                .split(separator: "\n", omittingEmptySubsequences: false)
+            for (index, line) in lines.enumerated() {
+                if line.trimmingCharacters(in: .whitespaces).hasPrefix("//") { continue }
+                for match in line.matches(of: constructor) {
+                    let raw = String(match.output[1].substring ?? "")
+                    let bare = raw.replacing(interpolation, with: "")
+                    if bare.contains(where: \.isLetter) {
+                        result.append("\(file.lastPathComponent):\(index + 1): \"\(raw)\"")
+                    }
+                }
+            }
+        }
+        return result
+    }
+
+    @Test func visibleLiteralsGoThroughL() throws {
+        let unwrapped = try Self.unwrappedLiterals()
+        #expect(unwrapped.isEmpty, "L(...) ile sarılmamış görünür metinler:\n\(unwrapped.joined(separator: "\n"))")
+    }
+
     @Test func turkishTableCoversEverySourceKey() throws {
         let table = try Self.table("tr")
         let missing = try Self.sourceCalls()

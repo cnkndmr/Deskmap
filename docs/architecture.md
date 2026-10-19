@@ -44,6 +44,7 @@ background queue
 | `Routing` | `Services/Routing.swift` | Pure helpers: `select` picks a window's target (used by both the engine and the UI), plus layout and move retry accounting. |
 | `AX` | `Services/Accessibility.swift` | Window enumeration, frames, `setFrame`, backoff for unresponsive apps. `AccessibilityPermission` polls the trust state. |
 | `SkyLight` | `Services/SkyLight.swift` | Private Spaces API: desktops per display, spaces of a window, moving a window to a space. |
+| `MoveHealth` / `MoveSupport` | `Services/MoveHealth.swift`, `Services/MoveSupport.swift` | Pure: each desktop move is checked on the next sweep and repeated failures open a circuit breaker (reduced mode); on macOS versions where moves are not verified (15.x, 26.0–26.3) moves are held until the user chooses **Try Anyway**. |
 | `ScreenService` | `Services/ScreenService.swift` | Connected displays with roles; `isSettling` while displays are being rearranged. |
 | `WindowEvents` | `Services/WindowEvents.swift` | AX observers per app and workspace notifications; publishes a signal that triggers a sweep. |
 | `URLCommand` / `URLCommands` | `Services/URLCommands.swift` | Pure parser for `deskmap://` URLs and the code that runs them. |
@@ -128,8 +129,17 @@ changes, 30 s cap). Only empty leftovers beyond the plan length are removed,
 re-checked right before each removal. The result and the journal are committed
 to `desktop-state.json`. Spec: the schema 6 design notes (desktop-names-v2, kept outside the repository).
 
-External display roles are assigned by position: sorted by `minX`, then
-`minY`, then UUID. The built-in display is always `builtin`.
+External display roles come from `DisplayRoles` (`Models/DisplayRoles.swift`,
+pure): a display whose UUID is remembered for a role takes it (the most
+recently used wins when two are remembered for the same role); the rest fill
+the lowest free roles in position order (`minX`, then `minY`, then UUID).
+Without any memory this is the old positional order. `AppModel` keeps both
+sides in step: the document's `displayRoles` goes to `ScreenService.roles`,
+and every settled display list is learned back into the document (not while
+settling, never the test display). `Router.resolveTarget` sends a pin whose
+`external-N` is missing to `external` when `fallbackToFirstExternal` is on;
+the applied key uses the resolved target, so the pin is placed again when its
+monitor returns. The built-in display is always `builtin`.
 
 ### Moving windows between desktops
 
@@ -288,6 +298,7 @@ logged per sweep. Window titles are logged as `.private`.
 | `DocumentCodableTests` | `rules.json` v1/v2/v3 decoding, destination defaults, skipped broken rules, newer-version detection |
 | `DocumentOperationsTests` | Desktop mapping and its inverse, desktop reordering, pin/unpin, profiles, import/export |
 | `RoutingTests` | `Routing.select` and layout retry accounting |
+| `RouterSelectionTests`, `WindowDriftBugTests`, `WindowDriftFixTests` | The real Router's sweep selection and merge on fake screens and windows (`RouterHarness`, `Router.sweepSelection`): sticky bindings, generic-title grace, exact title owners, unpin, paused/settling routing; group moves and the shadow list with the Router's binding |
 | `EngineHelperTests` | Backoff decision, AX timeouts, window server filters, move retries and cooldown, live-window merge, pause safety, settle cap, external display order, space types, `Router.placement` |
 | `ChangeHistoryTests` | Multi-step undo/redo, discarded redo branch and its undo, return to a row, 50-entry limit, noise vs. untracked changes, companion entries |
 | `MapLogicTests` | Shadowed pins, missing-desktop badge |

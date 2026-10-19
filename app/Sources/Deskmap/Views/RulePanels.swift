@@ -151,7 +151,8 @@ struct RulePanel: View {
         let winners = matching.compactMap {
             Routing.select(rules: store.document.rules, sessionPins: router.sessionPins,
                            mode: mode, windowID: $0.id, bundleID: $0.bundleID,
-                           appName: $0.appName, title: $0.title, document: $0.document)?.ruleID
+                           appName: $0.appName, title: $0.title, document: $0.document,
+                context: router.context(for: mode))?.ruleID
         }
         if let winner = winners.first, !winners.contains(rule.id) {
             let name = winner == Routing.sessionRuleID
@@ -220,7 +221,8 @@ struct RulePanel: View {
         let governed = ui.windows.filter {
             Routing.select(rules: store.document.rules, sessionPins: router.sessionPins,
                            mode: mode, windowID: $0.id, bundleID: $0.bundleID,
-                           appName: $0.appName, title: $0.title, document: $0.document)?.rule?.id == rule.id
+                           appName: $0.appName, title: $0.title, document: $0.document,
+                context: router.context(for: mode))?.rule?.id == rule.id
         }.map(\.id)
         if let id = ui.panelSourceWindowID {
             return governed.contains(id) ? [id] : []
