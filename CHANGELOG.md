@@ -8,6 +8,11 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Demo GIF.** `docs/media/<lang>/demo.gif` (and `.mp4`) shows the four-step
+  story in the README and the guide: laptop only, monitor connected, pinned
+  windows in place, a second monitor with its own role. Drawn by the shots
+  mode (`Deskmap --shots <dir> --scenario demo`, demo data, no real window is
+  touched) and assembled by `make demo-media` (ffmpeg), English and Turkish.
 - **Desktop moves off on unverified macOS versions.** On macOS 15.x and
   26.0–26.3, where moving windows between desktops has not been verified,
   desktop moves start off and the main window shows a card saying so (display

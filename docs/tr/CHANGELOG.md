@@ -8,6 +8,11 @@ numarası `VERSION` dosyasından gelir.
 
 ### Eklenenler {#added}
 
+- **Demo GIF.** `docs/media/<dil>/demo.gif` (ve `.mp4`) README ile kılavuzdaki
+  dört adımlık hikâyeyi gösterir: sadece laptop, monitör bağlandı, sabitlenen
+  pencereler yerinde, kendi rolüyle ikinci monitör. Ekran görüntüsü kipi çizer
+  (`Deskmap --shots <dizin> --scenario demo`, demo verisi, gerçek pencereye
+  dokunulmaz), `make demo-media` (ffmpeg) birleştirir; İngilizce ve Türkçe.
 - **Doğrulanmamış macOS sürümlerinde masaüstü taşıma kapalı.** Pencereleri
   masaüstleri arasında taşımanın doğrulanmadığı macOS 15.x ve 26.0–26.3’te
   masaüstü taşıma kapalı başlar ve ana pencerede bunu söyleyen bir kart
