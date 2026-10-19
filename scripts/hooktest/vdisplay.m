@@ -1,7 +1,8 @@
 // Sanal monitör: çalıştığı sürece macOS'a bir ekran ekler, çıkınca kaldırır.
 // Kanca testleri gerçek monitör olmadan "monitör takıldı/çıkarıldı" denesin diye.
-// Kullanım: vdisplay [saniye] [genişlik] [yükseklik]   (saniye 0 = SIGTERM'e kadar, en fazla 300;
-// başlatan süreç ölünce kendiliğinden kapanır)
+// Kullanım: vdisplay [saniye] [genişlik] [yükseklik] [seri]   (saniye 0 = SIGTERM'e kadar, en fazla 300;
+// başlatan süreç ölünce kendiliğinden kapanır). Seri (varsayılan 1) aynı model iki monitörü
+// taklit eder: farklı seri = farklı monitör, aynı seri = EDID'i aynı iki monitör (multimon.sh).
 // CGVirtualDisplay özel bir CoreGraphics arayüzü (DeskPad/BetterDisplay de kullanır).
 #import <Foundation/Foundation.h>
 #import <CoreGraphics/CoreGraphics.h>
@@ -41,6 +42,7 @@ int main(int argc, const char *argv[]) {
         double seconds = argc > 1 ? atof(argv[1]) : 0;
         unsigned int width = argc > 2 ? atoi(argv[2]) : 1920;
         unsigned int height = argc > 3 ? atoi(argv[3]) : 1080;
+        unsigned int serial = argc > 4 ? (unsigned int)strtoul(argv[4], NULL, 0) : 0x0001;
         signal(SIGTERM, onSignal);
         signal(SIGINT, onSignal);
 
@@ -52,7 +54,7 @@ int main(int argc, const char *argv[]) {
         desc.sizeInMillimeters = CGSizeMake(width * 0.25, height * 0.25);
         desc.vendorID = 0xDE5C;
         desc.productID = 0x0001;
-        desc.serialNum = 0x0001;
+        desc.serialNum = serial;
         desc.terminationHandler = ^(id a, id b) { stop = 1; };
 
         CGVirtualDisplay *display = [[CGVirtualDisplay alloc] initWithDescriptor:desc];

@@ -211,6 +211,19 @@ private struct GeneralSettings: View {
                         .labelsHidden()
                 }
             }
+            SettingRow(title: L("Second monitor missing"),
+                       detail: L("Windows whose rule names another external monitor go to the first external monitor, same desktop number, until it is back. Off: they stay where macOS puts them.")) {
+                Toggle("", isOn: Binding(
+                    get: { store.document.displayRoles.fallbackToFirstExternal },
+                    set: { store.setDisplayFallback($0) }))
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+            }
+            SettingRow(title: L("Monitor roles"),
+                       detail: L("Each monitor keeps its role (Extra monitor, Monitor 2) wherever it is placed. Forget: roles follow the left-to-right order again.")) {
+                Button(L("Forget")) { store.forgetDisplayRoles() }
+                    .disabled(store.document.displayRoles.remembered.isEmpty)
+            }
             SettingRow(title: L("Welcome guide"),
                        detail: L("The three first steps: permission, macOS settings, how to start.")) {
                 Button(L("Show")) { WelcomeWindow.shared.show() }

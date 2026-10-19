@@ -134,8 +134,17 @@ kaldırmadan hemen önce yeniden denetlenir. Sonuç ve günlük
 `desktop-state.json`’a yazılır. Belirtim: şema 6 tasarım notları
 (desktop-names-v2, deponun dışında tutuluyor).
 
-Harici ekran rolleri konuma göre atanır: önce `minX`’e, sonra `minY`’ye,
-sonra UUID’ye göre sıralanır. Dahili ekran her zaman `builtin`’dir.
+Harici ekran rolleri `DisplayRoles`’tan gelir (`Models/DisplayRoles.swift`,
+saf): UUID’si bir rol için hatırlanan ekran o rolü alır (aynı rolde iki ekran
+hatırlanıyorsa en son kullanılan kazanır); kalanlar konum sırasıyla (`minX`,
+sonra `minY`, sonra UUID) en küçük boş rollere oturur. Hiç kayıt yoksa bu eski
+konum sırasıdır. `AppModel` iki yanı eşit tutar: belgedeki `displayRoles`
+`ScreenService.roles`’a gider, yatışmış her ekran listesi belgeye öğretilir
+(yatışırken değil, test ekranı hiç). `Router.resolveTarget`,
+`fallbackToFirstExternal` açıkken bağlı olmayan `external-N` sabitlemesini
+`external`’a gönderir; uygulanan anahtar çözülmüş hedefe bağlı olduğu için
+monitör geri gelince sabitleme yeniden yerleşir. Dahili ekran her zaman
+`builtin`’dir.
 
 ### Pencereleri masaüstleri arasında taşıma {#moving-windows-between-desktops}
 

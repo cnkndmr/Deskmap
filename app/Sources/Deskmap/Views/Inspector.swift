@@ -92,7 +92,8 @@ struct RuleSentence<MatchMenu: View>: View {
     }
 
     private var screenName: String {
-        store.screens(for: mode).first { $0.id == destination.screen }?.name ?? destination.screen
+        DisplayRoles.displayName(role: destination.screen,
+                                 name: store.screens(for: mode).first { $0.id == destination.screen }?.name)
     }
 
     private func desktopName(_ desktop: Int) -> String {

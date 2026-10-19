@@ -135,6 +135,10 @@ struct Document: Codable, Equatable {
     var plans = DesktopPlans()
     /// Aktif profilin hayalet masaüstüleri (çalışma kopyası).
     var ghostDesktops: [GhostDesktop] = []
+    /// Harici ekran rolleri ve fiziksel monitörler (`DisplayRoles`). Bütün
+    /// profillerde ortak: monitörler profile göre değişmez. İsteğe bağlı ek
+    /// alan, şema 6 değişmez.
+    var displayRoles = DisplayRoles()
 
     /// Okunan dosyanın `version` alanı (yazılmaz). Bu sürümden yeniyse
     /// dosya daha yeni bir Deskmap'e ait; üzerine yazılmamalı.
@@ -165,7 +169,7 @@ struct Document: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case version, enabled, screens, rules, profiles, activeProfileID, settings
         case setupNoticeDismissed, plannedDesktops, pendingRemovals, desktopNames
-        case desktopNameSpaces, ghostDesktops
+        case desktopNameSpaces, ghostDesktops, displayRoles
     }
 
     private struct LegacySettings: Decodable { var enabled: Bool? }
@@ -216,6 +220,7 @@ struct Document: Codable, Equatable {
         droppedRuleCount += records.reduce(0) { $0 + $1.rules.droppedCount }
         activeProfileID = try c.decodeIfPresent(String.self, forKey: .activeProfileID) ?? ""
         setupNoticeDismissed = try c.decodeIfPresent(Bool.self, forKey: .setupNoticeDismissed) ?? false
+        displayRoles = (try? c.decodeIfPresent(DisplayRoles.self, forKey: .displayRoles)) ?? DisplayRoles()
         pendingRemovals = (try? c.decodeIfPresent(
             [String: [PendingRemoval]].self, forKey: .pendingRemovals)) ?? [:]
         // Şema 5'ten önceki ortak (üst düzey) durum.
@@ -374,6 +379,7 @@ struct Document: Codable, Equatable {
         try c.encode(rules, forKey: .rules)
         try c.encode(activeProfileID, forKey: .activeProfileID)
         try c.encode(setupNoticeDismissed, forKey: .setupNoticeDismissed)
+        if displayRoles != DisplayRoles() { try c.encode(displayRoles, forKey: .displayRoles) }
         // Adlar, planlar ve hayaletler profil kayıtlarında; yazarken aktif
         // profilin çalışma kopyası kayda işlenir.
         var written = self

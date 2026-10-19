@@ -2406,6 +2406,7 @@ final class Router: ObservableObject {
         let nameSpaces = Dictionary(store.document.names.compactMap { name in
             name.space.map { (name.id, $0) } }, uniquingKeysWith: { a, _ in a })
         let holdNames = store.migrationPending || store.upgradeUndone
+        let displayFallback = store.document.displayRoles.fallbackToFirstExternal
         let token = generation.token()
         isSweeping = true
         sweepRequested = false
@@ -2419,7 +2420,7 @@ final class Router: ObservableObject {
                                      refusedSizes: refusedSizes,
                                      lastAttempts: lastAttempts, movesAllowed: movesAllowed,
                                      nameSpaces: nameSpaces, holdNames: holdNames,
-                                     token: token)
+                                     displayFallback: displayFallback, token: token)
             Task { @MainActor in
                 guard let self else { return }
                 self.isSweeping = false
@@ -2602,7 +2603,7 @@ final class Router: ObservableObject {
         attempts: [String: Int], refusedSizes: [String: CGSize],
         lastAttempts: [String: Date], movesAllowed: Bool,
         nameSpaces: [String: UInt64] = [:], holdNames: Bool = false,
-        token: RoutingGeneration.Token
+        displayFallback: Bool = false, token: RoutingGeneration.Token
     ) -> Outcome {
         var outcome = Outcome(applied: applied, attempts: attempts, lastAttempts: lastAttempts)
         let sky = SkyLight.shared
@@ -2691,7 +2692,8 @@ final class Router: ObservableObject {
             // Ad yerleşmemişse ya da masaüstü bağlı değilse pencere tutulur.
             guard let destination = Self.resolveTarget(match.destination, nameSpaces: nameSpaces,
                                                        holdNames: holdNames, displays: displays,
-                                                       screens: screens) else { continue }
+                                                       screens: screens,
+                                                       displayFallback: displayFallback) else { continue }
 
             guard let screen = screens.first(where: { $0.id == destination.screen })
             else { continue }
@@ -2738,7 +2740,8 @@ final class Router: ObservableObject {
                 target = space
                 onTarget = current.contains(space.id)
                 isVisible = current.contains(where: visibleSpaces.contains)
-                desktopLabel = L("%@ · Desktop %ld", screen.name, index)
+                desktopLabel = L("%@ · Desktop %ld",
+                                 DisplayRoles.displayName(role: screen.id, name: screen.name), index)
             }
 
             // 1. Düzen — pencere yalnızca GÖRÜNÜRKEN uygulanır. Görünmeyen
@@ -2954,8 +2957,22 @@ final class Router: ObservableObject {
     /// taşınmaz.
     nonisolated static func resolveTarget(_ destination: Destination, nameSpaces: [String: UInt64],
                                           holdNames: Bool, displays: [SkyLight.DisplaySpaces],
-                                          screens: [ScreenInfo]) -> Destination? {
-        guard let nameID = destination.nameID else { return destination }
+                                          screens: [ScreenInfo],
+                                          displayFallback: Bool = false) -> Destination? {
+        guard let nameID = destination.nameID else {
+            // Kuralın harici ekranı bağlı değilse ilk harici ekran (seçenek
+            // açıksa); anahtar çözülmüş hedefe bağlı olduğu için ekran geri
+            // gelince pencere yeniden kendi ekranına yerleşir.
+            // Yedek de yoksa hedef olduğu gibi döner; bağlı olmayan ekran
+            // taramada atlanır (pencereye dokunulmaz).
+            guard let screen = DisplayRoles.effectiveScreen(
+                destination.screen, connected: Set(screens.map(\.id)), fallback: displayFallback),
+                  screen != destination.screen
+            else { return destination }
+            var resolved = destination
+            resolved.screen = screen
+            return resolved
+        }
         guard !holdNames, let space = nameSpaces[nameID],
               let place = place(of: space, displays: displays, screens: screens) else { return nil }
         var resolved = destination

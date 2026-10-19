@@ -129,8 +129,17 @@ changes, 30 s cap). Only empty leftovers beyond the plan length are removed,
 re-checked right before each removal. The result and the journal are committed
 to `desktop-state.json`. Spec: the schema 6 design notes (desktop-names-v2, kept outside the repository).
 
-External display roles are assigned by position: sorted by `minX`, then
-`minY`, then UUID. The built-in display is always `builtin`.
+External display roles come from `DisplayRoles` (`Models/DisplayRoles.swift`,
+pure): a display whose UUID is remembered for a role takes it (the most
+recently used wins when two are remembered for the same role); the rest fill
+the lowest free roles in position order (`minX`, then `minY`, then UUID).
+Without any memory this is the old positional order. `AppModel` keeps both
+sides in step: the document's `displayRoles` goes to `ScreenService.roles`,
+and every settled display list is learned back into the document (not while
+settling, never the test display). `Router.resolveTarget` sends a pin whose
+`external-N` is missing to `external` when `fallbackToFirstExternal` is on;
+the applied key uses the resolved target, so the pin is placed again when its
+monitor returns. The built-in display is always `builtin`.
 
 ### Moving windows between desktops
 

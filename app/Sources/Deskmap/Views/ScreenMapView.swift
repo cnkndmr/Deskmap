@@ -138,6 +138,9 @@ private struct ScreenCard: View {
 
     @EnvironmentObject private var ui: UIState
     @EnvironmentObject private var store: Store
+    @EnvironmentObject private var screens: ScreenService
+    /// Menüde seçilen, onay bekleyen monitör (UUID).
+    @State private var pendingSwap: String?
 
     /// Bu ekrandaki tam ekran space'ler, `afterDesktop` → soldan sağa.
     private var fullscreenSpaces: [Int: [FullscreenSpace]] {
@@ -154,8 +157,13 @@ private struct ScreenCard: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Image(systemName: screen.isBuiltin ? "laptopcomputer" : "display")
-                Text(screen.name)
-                    .lineLimit(1)
+                if showsMonitorPicker {
+                    monitorPicker
+                } else {
+                    Text(screen.isBuiltin ? screen.name : DisplayRoles.roleLabel(screen.id))
+                        .lineLimit(1)
+                        .help(screen.isBuiltin ? "" : screen.name)
+                }
                 if ui.visualMap {
                     Text(L("· %ld desktops", realCount ?? tileCount))
                         .fontWeight(.regular)
@@ -180,6 +188,55 @@ private struct ScreenCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(.quaternary, lineWidth: 1))
+    }
+
+    /// Harici kartın adı rolüdür ("Ekstra monitör", "2. monitör"), model
+    /// adı değil (Can'ın isteği). İki ya da daha çok harici monitör bağlıyken
+    /// ikinci ve sonraki kartların başlığı bir menüdür: bu kart hangi monitör.
+    /// Seçim kalıcıdır ve öteki monitörle yer değiştirir; kurallar, adlar ve
+    /// planlar rolle gittiği için önce onay istenir.
+    private var showsMonitorPicker: Bool {
+        isLive && isConnected && !screen.isBuiltin && screen.id != "external"
+            && screens.connectedExternals.count > 1
+    }
+
+    @ViewBuilder private var monitorPicker: some View {
+        let current = screens.connectedExternals
+        let labels = DisplayRoles.labels(current.map(\.display))
+        let here = current.first { $0.role == screen.id }?.display.uuid
+        Menu {
+            ForEach(DisplayRoles.positional(current.map(\.display)), id: \.uuid) { display in
+                Button {
+                    guard display.uuid != here else { return }
+                    pendingSwap = display.uuid
+                } label: {
+                    if display.uuid == here {
+                        Label(labels[display.uuid] ?? display.name, systemImage: "checkmark")
+                    } else {
+                        Text(labels[display.uuid] ?? display.name)
+                    }
+                }
+            }
+        } label: {
+            Text(DisplayRoles.roleLabel(screen.id))
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help(L("Which monitor this card stands for. The choice is remembered."))
+        .alert(L("Swap the monitors?"), isPresented: Binding(
+            get: { pendingSwap != nil }, set: { if !$0 { pendingSwap = nil } })) {
+            Button(L("Swap")) {
+                if let uuid = pendingSwap {
+                    store.chooseDisplay(uuid, for: screen.id,
+                                        current: current.map { (role: $0.role, uuid: $0.display.uuid) })
+                }
+                pendingSwap = nil
+            }
+            Button(L("Cancel"), role: .cancel) { pendingSwap = nil }
+        } message: {
+            Text(L("%@ becomes the %@. Pinned windows, desktop names and desktop plans of the two monitors trade places now.",
+                   pendingSwap.flatMap { labels[$0] } ?? "", DisplayRoles.roleLabel(screen.id)))
+        }
     }
 
     /// Görsel görünüm: masaüstü kartları ızgarada, sonda "+ Masaüstü ekle";
@@ -720,9 +777,11 @@ extension UnownedWindowsTray {
     /// Satırın ikinci satırı: pencerenin şu an bulunduğu ekran ve masaüstü.
     private func location(of window: Router.WindowSnapshot) -> String? {
         guard let placement = window.placement else { return nil }
-        let screenName = screens.screens.first { $0.id == placement.screen }?.name
-            ?? store.screens(for: screens.mode).first { $0.id == placement.screen }?.name
-            ?? placement.screen
+        // Harici ekranlar haritadaki gibi rol adıyla (aynı model iki monitör ayrılsın).
+        let screenName = DisplayRoles.displayName(
+            role: placement.screen,
+            name: screens.screens.first { $0.id == placement.screen }?.name
+                ?? store.screens(for: screens.mode).first { $0.id == placement.screen }?.name)
         var place = L("%@ · Desktop %ld", screenName, placement.desktop)
         if let name = store.desktopName(screen: placement.screen, desktop: placement.desktop,
                                         mode: screens.mode) {

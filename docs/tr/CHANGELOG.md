@@ -18,6 +18,18 @@ numarası `VERSION` dosyasından gelir.
 - **CLI birim testleri.** `make cli-test`, `deskmap` komut satırı aracının
   çevrimdışı testlerini koşar (düzen ayrıştırma, düzen dosyaları, birleştirme,
   eşleştirme, `check` raporu); CLI değişince pre-commit kancası da koşar.
+- **İkinci harici monitör.** Her harici monitör rolünü (*Ekstra monitör*,
+  *2. monitör*, …) soldan sağa konumuyla değil ekran UUID’siyle korur: ekranların
+  yerini değiştirmek, onları başka sırayla takmak, sola eklenen sanal ekran ya
+  da aynı model iki monitör artık sabitlemeleri öteki monitöre kaydırmaz. İki ya
+  da daha çok monitör bağlıyken ikinci kartın başlığı onları (onayla) yer değiştiren bir menüdür;
+  `deskmap screen-role`, `deskmap screen-role --forget` ve `screen-role`,
+  `screen-role-forget` URL komutları aynısını yapar. Yeni ayar **İkinci monitör
+  yokken** (açık): takılı olmayan `external-2` sabitlemeleri `external`’da bekler,
+  monitör dönünce geri gider; `deskmap screen-fallback on|off`. `rules.json`’a
+  isteğe bağlı `displayRoles` alanı eklendi (şema 6 değişmedi; eski sürümler onu
+  yok sayar ve konum sırasına döner). `status.json` ekranları `uuid` taşır
+  (`Models/DisplayRoles.swift`).
 
 - **Bir çalışma alanını tek seferde aç.** Kapalı sabit pencereleri olan bir
   masaüstünün adının yanında **N aç** görünür (liste ve görsel görünümde);

@@ -256,10 +256,29 @@ açar ve pencereyi taşımaz. Bir monitör takıldığında ya da çıkarıldı�
 Deskmap ekranların yatışmasını bekler (2,5 sn, en çok 10 sn) ve sonra bütün
 sabit pencereleri yeniden yerleştirir.
 
-Ekranlar seri numarasıyla değil, rolleriyle tanınır: `builtin`, `external`,
-`external-2`, … Harici ekranlar soldan sağa numaralanır; aynı sütunda üst
-üste duran ekranlar dikey konuma göre (alttaki önce), sonra UUID’ye göre
-sıralanır. Ekranı bağlı olmayan sabitleme atlanır.
+Sabitlemeler bir ekran rolünü gösterir: `builtin`, `external`, `external-2`, …
+(haritada *Ekstra monitör*, *2. monitör*, …; model adları gösterilmez). Her harici monitör ilk aldığı rolü
+korur; rol macOS’un ekran UUID’siyle hatırlanır: ekranların yerini değiştirmek,
+onları başka sırayla takmak ya da sola sanal ekran eklemek artık sabitlemeleri
+öteki monitöre kaydırmaz. Deskmap’in görmediği bir monitör en küçük boş rolü
+alır; hatırlanan rolü olmayan ekranlar soldan sağa numaralanır (üst üste
+duranlar dikey konuma göre, alttaki önce, sonra UUID’ye göre); roller önceden
+de böyle veriliyordu. Aynı model iki monitör UUID’leriyle ayrılır (macOS onları
+seri numarasından türetir); harita aynı adlara *(sol)* / *(sağ)* ekler.
+
+İki ya da daha çok harici monitör bağlıyken ikinci (ve sonraki) kartın başlığı
+bir menüdür: kartın hangi monitör olduğunu seç. Onaydan sonra ikisi
+sabitlemeleri, masaüstü adları ve planlarıyla yer değiştirir.
+Terminalde aynısını `deskmap screen-role` yapar. Ayarlar › Genel › **Monitör
+rolleri › Unut** soldan sağa sıraya döndürür.
+
+**İkinci monitör yokken** (Ayarlar › Genel, varsayılan açık): monitörü
+(`external-2`, …) bağlı olmayan sabitleme `external`’a, aynı masaüstü
+numarasına ve düzene gider; monitör yeniden takılınca kendi yerine döner.
+Kapalıysa sabitleme atlanır, pencere macOS’un koyduğu yerde kalır. Yalnız
+başka bir monitör bağlıyken `external` sabitlemesi atlanır.
+`scripts/hooktest/multimon.sh` macOS tarafını aynı model iki sanal ekranla
+denetler (UUID’ler, çıkar / yeniden tak, aynı seri numarası).
 
 ### Masaüstleri {#desktops}
 
@@ -469,6 +488,9 @@ Hammerspoon, Keyboard Maestro ya da bir terminal onu yönetebilir. Uygulama
 | `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Bir ekranın *count* masaüstü olmasını sağla |
 | `deskmap://desktop-name/<screen>/<n>?name=<name>` | Bir masaüstüne ad ver (boş ad adı kaldırır). Ad o masaüstüne aittir: masaüstü yeniden sıralanınca ya da taşınınca, öteki ekrana bile, ve takıp çıkarmada onu izler. Profilde zaten kullanılan bir ad reddedilir |
 | `deskmap://quit` | Deskmap’ten çık (betiklerin ve testlerin onu kapatma yolu; süreci asla öldürme) |
+| `deskmap://screen-role/<monitör>/<rol>` | Bağlı bir monitöre (şu anki rolü ya da UUID’sinin başı) bir harici rol ver; bundan sonra onu korur. O roldeki monitörle yer değiştirir. Rol, bağlı monitör sayısını aşamaz |
+| `deskmap://screen-role-forget` | Hatırlanan monitör rollerini unut (yeniden soldan sağa) |
+| `deskmap://screen-fallback/<on\|off>` | İkinci monitör yokken: ilk harici monitörü kullan (on) ya da pencereyi bırak (off) |
 | `deskmap://backup-now` | Otomatik yedeklemeyi şimdi çalıştır |
 | `deskmap://backup-restore/<id>` | Bir yedeği kimliğiyle geri getir (örn. `daily-2026-10-12`); bkz. [Yedekler](#backups) |
 
@@ -508,6 +530,10 @@ deskmap export ~/office.deskmap.json [--profile Office]
 deskmap desktop-move external 1 3          # 1. masaüstü 3. masaüstü olur
 deskmap desktops [--json]                  # adlar, canlı yerleri, her kurulumun planı
 deskmap name external 2 "Nova Ek"          # şu an 2. masaüstü olan masaüstüne ad ver
+deskmap screens                            # roller, UUID başı, "role kept" / "role by position"
+deskmap screen-role LG 2                   # bu monitör artık 2. monitör (yer değiştirir)
+deskmap screen-role --forget               # roller yeniden soldan sağa
+deskmap screen-fallback off                # bağlı olmayan 2. monitör sabitlemeleri atlanır
 deskmap backups [--json]                   # otomatik yedekler, en yenisi başta
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12
@@ -671,10 +697,11 @@ bekletemez. Yanıt verir vermez kendiliğinden yeniden ele alınır.
 
 ### Harici ekran rolleri yer değiştirdi {#external-display-roles-swapped}
 
-İki harici ekranın sol kenarı aynı hizadaysa rolleri (`external`,
-`external-2`) dikey konuma göre sıralanır (alttaki ekran önce). Bu sırayı
-değiştiren bir güncellemeden sonra etkilenen sabitlemeleri bir kez sürükle;
-sıra bundan sonra aynı kalır.
+Roller hatırlandığından beri bir monitör rolünü korur. Roller ters düştüyse
+(örneğin iki monitör ilk kez birlikte görüldüğünde, roller henüz soldan sağa
+sıradan gelirken) haritayı aç ve kart başlığındaki menüden doğru monitörü seç
+ya da `deskmap screen-role <monitör> 1` çalıştır. Ayarlar › Genel › **Monitör
+rolleri › Unut** baştan başlatır.
 
 ### Günlüğü okumak {#reading-the-log}
 
@@ -849,8 +876,9 @@ SIGN_IDENTITY="Developer ID Application: Name (TEAMID)" NOTARY_PROFILE=notary ma
   göstermeyen uygulamalar yalnız uygulama çapında ya da geçici
   sabitlemelerle sabitlenebilir.
 - **Tam ekran pencerelere** dokunulmaz.
-- **Yalnız iki kurulum**: monitör bağlı / sadece laptop. Harici ekranlar
-  model ya da seri numarasıyla değil, konumlarıyla (soldan sağa) tanınır.
+- **Yalnız iki kurulum**: monitör bağlı / sadece laptop. Bir ya da birkaç
+  harici monitörle kurulum aynıdır; bağlı olmayan monitördeki sabitleme
+  **İkinci monitör yokken** ayarına uyar.
 - **Anında değil.** Yerleştirme pencere olaylarında olur. 5 saniyede bir
   yapılan hafif bir denetim olayların kaçırdığını yakalar (tam tarama yalnız
   bir şey değiştiğinde, bir de iki dakikada bir); başlık değişiklikleri bir
