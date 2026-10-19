@@ -41,6 +41,9 @@ LAYOUT FILE (YAML or JSON):
     - app: Code                   # app name (or bundle: com.microsoft.VSCode)
       title: Orion-Makale     # optional title fragment(s), string or list
       docked: external/2 left-half            # "screen/desktop layout"
+      # or an ordered list, one place per screen: the first connected one wins,
+      # none connected → the first external monitor in role order
+      #   docked: [external-2/1, external/2 left-half]
       undocked: {screen: builtin, desktop: 3, layout: {x: 0, y: 0, w: 0.7, h: 1}}
       place: builtin/1 full       # instead of docked+undocked: same for both
       launch: true                # open the app if no window is open (or a path/command)
@@ -326,7 +329,9 @@ def show_windows(args):
         if w.get("desktop") and w.get("screen") and not w["fullscreen"] and not w["minimized"]:
             place = desktop_label(s, w["screen"], w["desktop"])
         key = f"  key={w['key']}" if w.get("key") else "  key=-"
-        print(f"{w['id']:>7}  {w['app'][:18]:<18} {place[:28]:<28} {w['title'][:50]}{pin}{key}")
+        # Pinin kullanılan yeri: sıradaki yer (1, 2 …), fallback ya da untouched.
+        used = f"  place={w['place']}" if w.get("place") else ""
+        print(f"{w['id']:>7}  {w['app'][:18]:<18} {place[:28]:<28} {w['title'][:50]}{pin}{key}{used}")
 
 
 def show_screens(args):
@@ -358,6 +363,29 @@ def dest_text(d):
         f" [{lay.get('x', 0):g},{lay.get('y', 0):g},{lay.get('w', 1):g},{lay.get('h', 1):g}]")
 
 
+def docked_places(r):
+    """Monitörlü sıralı yerler: `docked` ilk, `dockedNext` sonrakiler."""
+    return ([r["docked"]] if r.get("docked") else []) + list(r.get("dockedNext") or [])
+
+
+def docked_text(r):
+    places = docked_places(r)
+    return " → ".join(dest_text(d) for d in places) if places else "-"
+
+
+def place_item(d):
+    """Düzen dosyasındaki yazımı: 'ekran/N düzen' ya da sözlük."""
+    lay = layout_name(d.get("layout") or {})
+    return (f"{d['screen']}/{d['desktop']} {lay}" if isinstance(lay, str)
+            else {"screen": d["screen"], "desktop": d["desktop"], "layout": lay})
+
+
+def docked_item(r):
+    """Düzen dosyasına `docked`: tek yer ya da sıralı liste."""
+    places = [place_item(d) for d in docked_places(r)]
+    return places[0] if len(places) == 1 else places
+
+
 def show_rules(args):
     s = fresh_status()
     if args.json:
@@ -366,7 +394,7 @@ def show_rules(args):
         title = f" title~{' '.join(r['tokens'])}" if r.get("tokens") else ""
         if r.get("path"):
             title += f" file={r['path']}"
-        print(f"{r['id']}  {r['appName']}{title}\n    docked {dest_text(r.get('docked'))}"
+        print(f"{r['id']}  {r['appName']}{title}\n    docked {docked_text(r)}"
               f"  undocked {dest_text(r.get('undocked'))}")
 
 
@@ -649,7 +677,20 @@ def build_plan(spec):
                     "bundleID": item.get("bundle") or bundle_id(item["app"]), "tokens": tokens}
             both = item.get("place")
             for mode in MODES:
-                place = parse_place(item.get(mode, both))
+                value = item.get(mode, both)
+                if isinstance(value, list):
+                    # Monitörlü sıralı yerler (bağlı ilk yer kazanır); laptop tek yer.
+                    if mode != "docked" or item.get(mode) is None:
+                        raise ValueError("only 'docked' takes a list of places")
+                    places = [parse_place(v) for v in value]
+                    if len({d["screen"] for d in places}) != len(places):
+                        raise ValueError("docked: one place per screen")
+                    if places:
+                        rule["docked"] = places[0]
+                    if len(places) > 1:
+                        rule["dockedNext"] = places[1:]
+                    continue
+                place = parse_place(value)
                 if place:
                     rule[mode] = place
             if not any(m in rule for m in MODES):
@@ -695,8 +736,13 @@ def merge_rules(old, new, replace):
             # Dosyada yazmayan modun hedefi korunur (ör. yalnız docked verilmişse
             # undocked kalır); kimlik de korunur.
             old_rule = merged[i]
-            merged[i] = {**old_rule, **{k: v for k, v in r.items() if k not in MODES and k != "id"},
-                         **{m: r[m] for m in MODES if m in r}}
+            if "docked" in r:
+                # Monitörlü liste bütün olarak dosyadakiyle değişir.
+                old_rule = {k: v for k, v in old_rule.items() if k != "dockedNext"}
+            merged[i] = {**old_rule,
+                         **{k: v for k, v in r.items() if k not in MODES and k not in ("id", "dockedNext")},
+                         **{m: r[m] for m in MODES if m in r},
+                         **({"dockedNext": r["dockedNext"]} if r.get("dockedNext") else {})}
             ids.append(old_rule["id"])
     return merged, ids
 
@@ -730,11 +776,12 @@ def diff_rules(old, new):
     for k, r in new_by.items():
         label = r["appName"] + (f" ~{' '.join(r['tokens'])}" if r["tokens"] else "")
         before = old_by.get(k)
-        now = f"docked {place_text(r.get('docked'))}, undocked {place_text(r.get('undocked'))}"
+        now = f"docked {docked_text(r)}, undocked {place_text(r.get('undocked'))}"
         if not before:
             lines.append(f"  + {label}: {now}")
-        elif any(before.get(m) != r.get(m) for m in MODES):
-            was = f"docked {place_text(before.get('docked'))}, undocked {place_text(before.get('undocked'))}"
+        elif (docked_places(before) != docked_places(r)
+              or before.get("undocked") != r.get("undocked")):
+            was = f"docked {docked_text(before)}, undocked {place_text(before.get('undocked'))}"
             lines.append(f"  ~ {label}: {was}  →  {now}")
     for k, r in old_by.items():
         if k not in new_by:
@@ -988,8 +1035,9 @@ def dump_layout(args):
         for spec, mode in ((args.docked, "docked"), (args.undocked, "undocked")):
             for target in spec or []:
                 scr, _, desk = target.partition("/")
-                d = r.get(mode)
-                if d and d["screen"] == scr.lower() and (not desk or d["desktop"] == int(desk)):
+                places = docked_places(r) if mode == "docked" else [r[mode]] if r.get(mode) else []
+                if any(d["screen"] == scr.lower() and (not desk or d["desktop"] == int(desk))
+                       for d in places):
                     hit = True
         if args.title and any(t.lower() in " ".join(r.get("tokens", [])).lower() for t in args.title):
             hit = True
@@ -1002,12 +1050,10 @@ def dump_layout(args):
             item["bundle"] = r["bundleID"]
         if r.get("tokens"):
             item["title"] = r["tokens"][0] if len(r["tokens"]) == 1 else r["tokens"]
-        for mode in MODES:
-            d = r.get(mode)
-            if d:
-                lay = layout_name(d.get("layout") or {})
-                item[mode] = (f"{d['screen']}/{d['desktop']} {lay}" if isinstance(lay, str)
-                              else {"screen": d["screen"], "desktop": d["desktop"], "layout": lay})
+        if docked_places(r):
+            item["docked"] = docked_item(r)
+        if r.get("undocked"):
+            item["undocked"] = place_item(r["undocked"])
         windows.append(item)
     if not windows:
         die("no rule matches")

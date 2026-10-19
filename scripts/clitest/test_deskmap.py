@@ -197,6 +197,58 @@ class MergeAndDiffTests(unittest.TestCase):
         self.assertEqual(dm.diff_rules(rules, rules), [])
 
 
+class DockedListTests(unittest.TestCase):
+    """Tablo D7: monitörlü yer tek yer ya da sıralı liste."""
+
+    def test_d7_1_list_is_first_place_and_the_rest(self):
+        plan = dm.build_plan({"windows": [{"app": "Safari", "bundle": "s",
+                                           "docked": ["external-2/1", "external/2 left-half"]}]})
+        r = plan["rules"][0]
+        self.assertEqual((r["docked"]["screen"], r["docked"]["desktop"]), ("external-2", 1))
+        self.assertEqual([(d["screen"], d["desktop"]) for d in r["dockedNext"]], [("external", 2)])
+
+    def test_d7_2_single_place_has_no_rest(self):
+        plan = dm.build_plan({"windows": [{"app": "Mail", "bundle": "m", "docked": "external/2"}]})
+        self.assertNotIn("dockedNext", plan["rules"][0])
+
+    def test_one_place_per_screen(self):
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(SystemExit):
+            dm.build_plan({"windows": [{"app": "Mail", "bundle": "m",
+                                        "docked": ["external/1", "external/2"]}]})
+        self.assertIn("one place per screen", stderr.getvalue())
+
+    def test_place_is_not_a_list(self):
+        stderr = io.StringIO()
+        with redirect_stderr(stderr), self.assertRaises(SystemExit):
+            dm.build_plan({"windows": [{"app": "Mail", "bundle": "m", "undocked": ["builtin/1"]}]})
+        self.assertIn("only 'docked' takes a list", stderr.getvalue())
+
+    def test_merge_replaces_the_whole_docked_list(self):
+        old = [dict(rule("OLD", docked="external/1"), dockedNext=[dm.parse_place("external-2/1")])]
+        new = [rule("NEW", docked="external/2")]
+        merged, _ = dm.merge_rules(old, new, replace=False)
+        self.assertNotIn("dockedNext", merged[0])
+        self.assertEqual(merged[0]["docked"]["desktop"], 2)
+        # Dosyada yalnız laptop yeri verilmişse monitörlü liste kalır.
+        merged, _ = dm.merge_rules(old, [rule("NEW", undocked="builtin/1")], replace=False)
+        self.assertEqual(len(merged[0]["dockedNext"]), 1)
+
+    def test_d7_3_dump_text_shows_the_order(self):
+        r = dict(rule("A", docked="external-2/1"), dockedNext=[dm.parse_place("external/2")])
+        self.assertEqual(dm.docked_places(r), [r["docked"]] + r["dockedNext"])
+        self.assertEqual(dm.docked_text(r), "external-2/1 → external/2")
+        self.assertEqual(dm.docked_item(r), ["external-2/1 full", "external/2 full"])
+        self.assertEqual(dm.docked_item(rule("B", docked="external/3")), "external/3 full")
+
+    def test_diff_sees_a_changed_rest(self):
+        old = [dict(rule("A", docked="external/1"), dockedNext=[dm.parse_place("external-2/1")])]
+        new = [rule("A", docked="external/1")]
+        lines = dm.diff_rules(old, new)
+        self.assertEqual(len(lines), 1)
+        self.assertIn("external/1 → external-2/1", lines[0])
+
+
 class MatchingTests(unittest.TestCase):
 
     def test_bundle_wins_over_name(self):
