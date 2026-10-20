@@ -75,7 +75,7 @@ struct RuleSentence<MatchMenu: View>: View {
             Text("·").foregroundStyle(.secondary)
             part(desktopName(destination.desktop), help: L("Desktop"), wraps: true) { desktopItems }
             Text("·").foregroundStyle(.secondary)
-            part(destination.layout.label, help: L("Layout")) { layoutItems }
+            part(store.document.layouts.label(for: destination.layout), help: L("Layout")) { layoutItems }
         }
         .font(.callout)
         .padding(10)
@@ -124,8 +124,10 @@ struct RuleSentence<MatchMenu: View>: View {
     }
 
     @ViewBuilder private var layoutItems: some View {
-        ForEach(BasicLayoutRow.basic, id: \.self) { layout in
-            MenuCheck(layout.label, checked: layout == destination.layout) {
+        let library = store.document.layouts
+        let aspect = store.screens(for: mode).first { $0.id == destination.screen }?.aspect
+        ForEach(library.basic(aspect: aspect), id: \.self) { layout in
+            MenuCheck(library.label(for: layout), checked: layout == destination.layout) {
                 var updated = destination
                 updated.layout = layout
                 setDestination(updated)
@@ -274,17 +276,21 @@ struct WhyHereBox: View {
 
 // MARK: - Temel düzenler
 
-/// Gelişmiş bölüm kapalıyken görünen dört düzen: tamamı, sol yarı, sağ yarı,
-/// olduğu gibi (yalnız masaüstü). Kayıtlı düzen bunlardan biri değilse o da
-/// seçili olarak sona eklenir.
+/// Gelişmiş bölüm kapalıyken görünen temel düzenler (Ayarlar › Düzenler;
+/// varsayılan: tamamı, sol yarı, sağ yarı, olduğu gibi). Kayıtlı düzen
+/// bunlardan biri değilse o da seçili olarak sona eklenir.
 struct BasicLayoutRow: View {
 
-    static let basic: [WindowLayout] = [.full, .leftHalf, .rightHalf, .anyFrame]
-
     @Binding var layout: WindowLayout
+    /// Hedef ekranın en-boy oranı; bilinirse ekrana uymayan temel düzenler gizlenir.
+    var aspect: Double? = nil
+
+    @EnvironmentObject private var store: Store
 
     var body: some View {
-        let shown = Self.basic.contains(layout) ? Self.basic : Self.basic + [layout]
+        let library = store.document.layouts
+        let basic = library.basic(aspect: aspect)
+        let shown = basic.contains(layout) ? basic : basic + [layout]
         VStack(alignment: .leading, spacing: 4) {
         HStack(spacing: 6) {
             ForEach(shown, id: \.self) { candidate in
@@ -295,12 +301,12 @@ struct BasicLayoutRow: View {
                     VStack(spacing: 3) {
                         glyph(candidate)
                             .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                        Text(Self.shortLabel(candidate))
+                        Text(Self.shortLabel(candidate, in: library, aspect: aspect))
                             .font(.caption2)
                             .lineLimit(1)
                             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                     }
-                    // Döşemeler sütunu paylaşır: beşinci (özel) döşeme de
+                    // Döşemeler sütunu paylaşır: fazladan (özel) döşeme de
                     // sütunu taşırmaz.
                     .frame(minWidth: 0, maxWidth: .infinity)
                     .padding(.vertical, 5)
@@ -312,13 +318,13 @@ struct BasicLayoutRow: View {
                 .buttonStyle(.plain)
                 .help(candidate.isDesktopOnly
                       ? L("The window follows this desktop; Deskmap never moves or resizes it there")
-                      : candidate.label)
-                .accessibilityLabel(candidate.label)
+                      : library.label(for: candidate))
+                .accessibilityLabel(library.label(for: candidate))
             }
         }
         // Özel düzenin tam adı döşemeye sığmaz; altında okunur.
-        if !Self.basic.contains(layout) {
-            Text(layout.label)
+        if !basic.contains(layout) {
+            Text(library.label(for: layout))
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -328,9 +334,9 @@ struct BasicLayoutRow: View {
 
     /// Döşeme yazısı (saf): temel düzenlerin adı, başka bir düzen için kısa
     /// "Özel" (tam adı ipucunda ve satırın altında).
-    static func shortLabel(_ layout: WindowLayout) -> String {
-        if layout.isDesktopOnly { return L("As it is") }
-        return basic.contains(layout) ? layout.label : L("Custom")
+    nonisolated static func shortLabel(_ layout: WindowLayout, in library: LayoutLibrary = .defaults,
+                           aspect: Double? = nil) -> String {
+        library.shortLabel(for: layout, aspect: aspect)
     }
 
     @ViewBuilder private func glyph(_ layout: WindowLayout) -> some View {

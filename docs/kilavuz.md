@@ -144,7 +144,9 @@ yazar. Gerisi **Gelişmiş ▸**
 altında: başlık parçaları, üzerinde sürükleyerek alan seçilen ızgara, bütün
 hazır düzenler (%70/%30, üçte birler, çeyrekler, üst/alt yarı, orta),
 kenarlardan bırakılacak boşluk ve sabit boyut. Gelişmiş’i bir kez açarsan
-sonraki pencerede de açık kalır.
+sonraki pencerede de açık kalır. Hangi düzenlerin döşeme olarak, hangilerinin
+Gelişmiş’te görüneceğine sen karar verirsin: **Ayarlar › Düzenler** (ızgarada
+kendi düzenini ekle, yeniden adlandır, gizle, sırala).
 
 ![Düzenler: tam, yarımlar, %70/%30, orta](images/tr/03-layout.png)
 

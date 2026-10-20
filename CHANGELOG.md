@@ -8,6 +8,17 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Your own layouts.** Settings › Layouts lists every layout in three groups:
+  **Basic** (the tiles under every pin, up to six, also in Advanced),
+  **Advanced** (next to the grid) and **Hidden**. Draw a new layout on the
+  grid or with edge gaps, give it a name, limit it to regular or ultrawide
+  displays, edit or rename built-in ones, reorder with ↑ ↓, and **Reset to
+  Defaults…**. **Edit layouts…** under the presets in Advanced opens the tab.
+  Pins keep their layout values, so changing or deleting a layout never moves
+  a window; a pin whose layout matches a named one shows that name. Stored in
+  `rules.json` (`layouts`, shared by all profiles), written only when changed;
+  undoable. Restoring a backup brings back its layouts; a backup without any
+  keeps the current ones.
 - **Desktops dragged to another display in Mission Control move back.**
   Deskmap adds a desktop at the old place, moves the windows there and
   removes the dragged one if it is empty; the name follows, pins don't

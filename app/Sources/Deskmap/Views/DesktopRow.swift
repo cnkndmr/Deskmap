@@ -881,7 +881,7 @@ extension DesktopRow {
                     let look = ui.searchLook(appName: rule.appName, title: rule.title)
                     let why = Routing.explanation(
                         for: Routing.Match(destination: destination, ruleID: rule.id, rule: rule),
-                        screenName: screen.name)
+                        screenName: screen.name, layouts: store.document.layouts)
                     return CardScreen.Item(
                         id: "r\(rule.id)", source: .rule(rule), bundleID: rule.bundleID,
                         label: rule.isAppWide ? rule.appName

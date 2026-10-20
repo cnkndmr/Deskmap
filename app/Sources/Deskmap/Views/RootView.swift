@@ -851,7 +851,7 @@ struct RootView: View {
         .accessibilityLabel(L("More"))
     }
 
-    private func openSettings(_ tab: SettingsTab = .general) {
+    private func openSettings(_ tab: SettingsTab? = nil) {
         showLegend = false
         SettingsWindow.shared.show(tab: tab, store: store)
     }

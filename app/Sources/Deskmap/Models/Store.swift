@@ -246,6 +246,7 @@ final class Store: ObservableObject {
         result.document.enabled = document.enabled
         result.document.screens = document.screens
         result.document.displayRoles = document.displayRoles
+        result.document.layouts = document.layouts
         result.document.droppedRuleCount = 0
         let before = document
         migrationPending = false
@@ -307,6 +308,7 @@ final class Store: ObservableObject {
                 provisional.enabled = document.enabled
                 provisional.screens = document.screens
                 provisional.displayRoles = document.displayRoles
+                provisional.layouts = document.layouts
                 document = provisional
             }
             upgradeUndone = true
@@ -378,6 +380,12 @@ final class Store: ObservableObject {
         restored.enabled = document.enabled
         restored.screens = document.screens
         restored.displayRoles = document.displayRoles
+        // Düzen kitaplığı yedekte varsa o gelir (silinen ya da sıfırlanan
+        // düzenlerin tek dönüş yolu). Yoksa (bu özellikten önceki yedek ya da
+        // varsayılan kitaplık: dosyaya yazılmaz) şu anki kalır; yedek
+        // kullanıcının düzenlerini sessizce silmesin. "Yedek geri yüklendi"yi
+        // geri almak yine bütün önceki belgeyi getirir.
+        restored.layouts = Self.restoredLayouts(backup: backup.layouts, current: document.layouts)
         if restored.needsNameMigration {
             recording(L("Backup restored")) {
                 beginMigrationIfNeeded(restored, fromRestore: true)
@@ -390,6 +398,13 @@ final class Store: ObservableObject {
         recording(L("Backup restored")) { document = restored }
         if let live { bindByPlan(live: live) }
         return flush()
+    }
+
+    /// Geri yüklenen belgenin düzen kitaplığı (saf): yedeğinki, yedekte
+    /// kitaplık yoksa (varsayılan; yazılmaz) şu anki.
+    nonisolated static func restoredLayouts(backup: LayoutLibrary,
+                                            current: LayoutLibrary) -> LayoutLibrary {
+        backup == .defaults ? current : backup
     }
 
     // MARK: - Canlı durum
@@ -482,6 +497,26 @@ final class Store: ObservableObject {
         body(&copy)
         copy.refreshNameCaches(live: live)
         if copy != document { document = copy }
+    }
+
+    // MARK: - Düzen kitaplığı
+
+    /// Kitaplığı değiştirir; gerçekten değiştiyse `label` ile geri alınabilir
+    /// kayıt bırakır. Değiştiyse true.
+    @discardableResult
+    func changeLayouts(_ label: String, _ change: (inout LayoutLibrary) -> Bool) -> Bool {
+        var library = document.layouts
+        guard change(&library), library != document.layouts else { return false }
+        recording(label) { document.layouts = library }
+        return true
+    }
+
+    /// Bütün düzenler varsayılana (geri alınabilir).
+    func resetLayouts() {
+        changeLayouts(L("Layouts reset")) { library in
+            library = .defaults
+            return true
+        }
     }
 
     // MARK: - Harici ekran rolleri

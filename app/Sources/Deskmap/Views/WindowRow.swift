@@ -76,7 +76,7 @@ struct WindowRow: View {
                 LayoutGlyph(layout: destination.layout, size: CGSize(width: 14, height: 10),
                             screenSize: store.screenSize(of: destination.screen))
                     .foregroundStyle(.tertiary)
-                    .help(L("Layout: %@", destination.layout.label))
+                    .help(L("Layout: %@", store.document.layouts.label(for: destination.layout)))
             }
 
             Button {

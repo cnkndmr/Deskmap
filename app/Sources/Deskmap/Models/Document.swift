@@ -146,6 +146,11 @@ struct Document: Codable, Equatable {
     /// profillerde ortak: monitörler profile göre değişmez. İsteğe bağlı ek
     /// alan, şema 6 değişmez.
     var displayRoles = DisplayRoles()
+    /// Kullanıcının düzen kitaplığı (temel satır, gelişmiş ızgara, gizli).
+    /// Bütün profillerde ortak; varsayılansa yazılmaz. İsteğe bağlı ek alan,
+    /// şema 6 değişmez. Kurallar düzenin değerini tutar: kitaplıktan silinen
+    /// ya da değişen düzen hiçbir pini bozmaz.
+    var layouts = LayoutLibrary.defaults
 
     /// Okunan dosyanın `version` alanı (yazılmaz). Bu sürümden yeniyse
     /// dosya daha yeni bir Deskmap'e ait; üzerine yazılmamalı.
@@ -176,7 +181,7 @@ struct Document: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case version, enabled, screens, rules, profiles, activeProfileID, settings
         case setupNoticeDismissed, plannedDesktops, pendingRemovals, desktopNames
-        case desktopNameSpaces, ghostDesktops, displayRoles, missionControlMoves
+        case desktopNameSpaces, ghostDesktops, displayRoles, missionControlMoves, layouts
     }
 
     private struct LegacySettings: Decodable { var enabled: Bool? }
@@ -230,6 +235,8 @@ struct Document: Codable, Equatable {
         missionControlMoves = (try? c.decodeIfPresent(DesktopRevert.Setting.self,
                                                       forKey: .missionControlMoves)) ?? .defaultValue
         displayRoles = (try? c.decodeIfPresent(DisplayRoles.self, forKey: .displayRoles)) ?? DisplayRoles()
+        // Bozuk kitaplık belgeyi okunmaz kılmaz; varsayılanlara döner.
+        layouts = (try? c.decodeIfPresent(LayoutLibrary.self, forKey: .layouts)) ?? .defaults
         pendingRemovals = (try? c.decodeIfPresent(
             [String: [PendingRemoval]].self, forKey: .pendingRemovals)) ?? [:]
         // Şema 5'ten önceki ortak (üst düzey) durum.
@@ -390,6 +397,7 @@ struct Document: Codable, Equatable {
         try c.encode(activeProfileID, forKey: .activeProfileID)
         try c.encode(setupNoticeDismissed, forKey: .setupNoticeDismissed)
         if displayRoles != DisplayRoles() { try c.encode(displayRoles, forKey: .displayRoles) }
+        if layouts != .defaults { try c.encode(layouts, forKey: .layouts) }
         if missionControlMoves != .defaultValue {
             try c.encode(missionControlMoves, forKey: .missionControlMoves)
         }
