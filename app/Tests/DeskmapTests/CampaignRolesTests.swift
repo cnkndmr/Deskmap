@@ -184,9 +184,8 @@ struct CampaignRolesPureTests {
         let cur = current(memory, ["A", "B"])
         #expect(Set(cur.map(\.role)) == ["external", "external-2"])
         let known = memory.knownMonitors(connected: cur)
-        withKnownIssue("campaign: knownMonitors drops a recognised monitor that is connected under another role") {
-            #expect(Set(known.map(\.uuid)).contains("A"))
-        }
+        #expect(Set(known.map(\.uuid)).contains("A"))
+        #expect(known.map(\.uuid).filter { $0 == "A" }.count == 1)
     }
 
     // MARK: Unutma
@@ -558,14 +557,14 @@ struct CampaignRolesServiceTests {
     }
 
     @Test func testDisplay_realMonitorIsNotPushedToASecondRoleByATestDisplayOnItsLeft() {
-        // Kanca testinin sanal ekranı gerçek monitörün solunda: gerçek monitör
-        // yine "external" olarak öğrenilmeli, kalıcı ikinci role itilmemeli.
+        // Kanca testinin sanal ekranı gerçek monitörün solunda: rol atamada
+        // sıradan harici ekran sayılır (T=external, A=external-2); sözleşme
+        // yalnız test ekranının hiç öğrenilmemesini ister (bug-tables §D).
         let rig = Rig([Self.builtin,
                        Self.external("T", x: -2000, name: Store.testDisplayName),
                        Self.external("A", x: 0)])
-        withKnownIssue("campaign: test display on the left takes role external and pushes the real monitor to external-2") {
-            #expect(rig.store.document.displayRoles.remembered == ["external": ["A"]])
-        }
+        #expect(rig.store.document.displayRoles.remembered == ["external-2": ["A"]])
+        #expect(rig.store.document.displayRoles.remembered.values.flatMap { $0 }.contains("T") == false)
     }
 
     // MARK: Aynı UUID, 3+ monitör

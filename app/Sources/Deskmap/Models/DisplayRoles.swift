@@ -123,7 +123,7 @@ struct DisplayRoles: Codable, Equatable {
     }
 
     /// Kart başlığı menüsünde seçilebilen monitörler (D3.4/K9, saf): bağlı
-    /// ve onaylı olanlar ile hatırlanan, şu an bağlı olmayanlar (rolündeki en
+    /// ve onaylı olanlar, bağlı olup başka rolde hatırlanan (tanınan) ile hatırlanan, şu an bağlı olmayanlar (rolündeki en
     /// yeni UUID). Deskmap'in hiç tanımadığı (onay bekleyen) monitör yok.
     /// Rol sırasında.
     func knownMonitors(connected: [(role: String, uuid: String)]) -> [(role: String, uuid: String)] {
@@ -131,6 +131,15 @@ struct DisplayRoles: Codable, Equatable {
             Self.isExternalRole($0.role) && isConfirmed(role: $0.role, uuid: $0.uuid)
         }
         let present = Set(connected.map { ScreenInfo.normalize($0.uuid) })
+        // Bağlı ama bu rolde onaysız, yine de başka bir rolde hatırlanan (tanınan)
+        // monitör de seçilebilir; şu an tuttuğu rolle listelenir.
+        let everRemembered = Set(remembered.values.flatMap { $0 })
+        for pair in connected where Self.isExternalRole(pair.role)
+            && !isConfirmed(role: pair.role, uuid: pair.uuid)
+            && everRemembered.contains(ScreenInfo.normalize(pair.uuid))
+            && !result.contains(where: { $0.role == pair.role }) {
+            result.append(pair)
+        }
         for (role, list) in remembered {
             guard let uuid = list.first, !present.contains(uuid),
                   !result.contains(where: { $0.role == role }) else { continue }
