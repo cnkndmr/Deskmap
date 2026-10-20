@@ -104,7 +104,10 @@ import urllib.parse
 import uuid
 from pathlib import Path
 
-DIR = Path.home() / "Library/Application Support/Deskmap"
+# DESKMAP_DATA_DIR: uygulamayla aynı veri klasörü (uçtan uca testler).
+DIR = Path(os.environ.get("DESKMAP_DATA_DIR") or Path.home() / "Library/Application Support/Deskmap")
+# DESKMAP_APP: URL'yi bu kopyaya gönder (birden çok Deskmap kopyası varken).
+APP_PATH = os.environ.get("DESKMAP_APP")
 STATUS = DIR / "status.json"
 HOOKS = DIR / "hooks.json"
 BACKUPS = DIR / "Backups"
@@ -139,7 +142,7 @@ def send(command, **query):
     query["req"] = request
     # quote (quote_plus değil): Foundation "+"yı boşluğa çevirmez.
     url = f"deskmap://{command}?{urllib.parse.urlencode(query, quote_via=urllib.parse.quote)}"
-    subprocess.run(["open", "-g", url], check=True)
+    subprocess.run(["open", "-g"] + (["-a", APP_PATH] if APP_PATH else []) + [url], check=True)
     deadline = time.time() + TIMEOUT
     while time.time() < deadline:
         status = read_status()

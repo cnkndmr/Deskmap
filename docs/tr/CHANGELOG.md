@@ -178,6 +178,16 @@ numarası `VERSION` dosyasından gelir.
 
 ### Düzeltilenler {#fixed}
 
+- **Plan ya da monitör seçiminden hemen sonra pencereler taşınıyor.** Masaüstü
+  planının sonunda (monitör takıldı, rol takas edildi ya da onaylandı) yeniden
+  yerleştirme taraması plan hâlâ sürüyor sayılırken çalışıyordu; yönlendirme
+  tutuluyor, ardından tarama gelmiyordu: rol takasından ya da monitör onayından
+  sonra pencereler bir sonraki tam taramayı (en çok iki dakika) bekliyordu.
+  Tarama artık plan bittikten sonra çalışıyor. `scripts/hooktest/places.sh`
+  buldu.
+- **İki sanal test ekranı artık gerçek monitör sanılmıyor.** macOS ikincisini
+  "Deskmap Test Display (1)" diye adlandırıyor; o da tanınıyor.
+
 - **Plan seçici tek bir ekran değişimini izliyor.** Monitör bir kez takılıp
   çıkarılınca seçici önceki planda kalabiliyordu: ekran listesi henüz
   yayınlanırken ekran modunu okuyordu. Artık yayınlanan listeyi izliyor

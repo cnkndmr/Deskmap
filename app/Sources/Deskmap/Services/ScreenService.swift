@@ -214,7 +214,7 @@ final class ScreenService: ObservableObject {
     /// Rolü öğrenilecek ve onaylanacak harici ekranlar: test ekranı
     /// ("Deskmap Test Display") hiç öğrenilmez, onay da beklemez.
     var externalAssignment: [(role: String, uuid: String)] {
-        screens.filter { !$0.isBuiltin && $0.name != Store.testDisplayName }
+        screens.filter { !$0.isBuiltin && !Store.isTestDisplay($0.name) }
             .map { (role: $0.id, uuid: $0.uuid) }
     }
 

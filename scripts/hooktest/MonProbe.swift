@@ -50,7 +50,8 @@ case "window":
     var placed = false
     let end = Date().addingTimeInterval(seconds)
     Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-        let tests = NSScreen.screens.filter { $0.localizedName == "Deskmap Test Display" }
+        // macOS aynı adlı ikinci ekranı "Deskmap Test Display (1)" diye adlandırır.
+        let tests = NSScreen.screens.filter { $0.localizedName.hasPrefix("Deskmap Test Display") }
             .sorted { $0.frame.minX < $1.frame.minX }
         if !placed, tests.count >= k {
             let s = tests[k - 1]

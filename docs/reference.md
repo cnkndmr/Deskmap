@@ -302,6 +302,19 @@ menu swaps their layouts with them: no pin is lost. Older versions read only
 version drops `dockedNext`. Tables: [docs/bug-tables.md §D](bug-tables.md).
 `scripts/hooktest/multimon.sh` checks the macOS side with two virtual displays
 of the same model (UUIDs, unplug / replug, identical serial numbers).
+`scripts/hooktest/places.sh` runs the ordered places end to end with real
+window moves: two or three virtual displays, a test window, plug / unplug,
+fallback, role swap and a monitor on hold; it prints PASS / FAIL. It runs a
+separate build of this repository with an empty, temporary data folder
+(`DESKMAP_DATA_DIR`), quits the installed copy first and opens it again at the
+end (also on errors). Two switches exist only for this test and are off in
+normal use: `DESKMAP_LEARN_TEST_DISPLAYS=1` lets virtual displays ("Deskmap
+Test Display", "… (1)", "… (2)") learn roles like real monitors, and
+`DESKMAP_TEST_NO_DESKTOP_CHANGES=1` stops the build from creating or removing
+any desktop (a document without plans would count empty desktops as
+leftovers). Sign the build with the same identity as the installed copy,
+otherwise Accessibility does not apply. The CLI follows the same folder
+(`DESKMAP_DATA_DIR`) and sends URLs to `DESKMAP_APP` when set.
 
 ### Desktops
 

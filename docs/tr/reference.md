@@ -311,6 +311,18 @@ sürümler yalnız `docked`’ı okur ve ilk yerle çalışmayı sürdürür; do
 sürümle kaydetmek `dockedNext`’i düşürür. Tablolar: [docs/tr/bug-tables.md §D](bug-tables.md).
 `scripts/hooktest/multimon.sh` macOS tarafını aynı model iki sanal ekranla
 denetler (UUID’ler, çıkar / yeniden tak, aynı seri numarası).
+`scripts/hooktest/places.sh` sıralı yerleri gerçek pencere taşımalarıyla uçtan
+uca dener: iki ya da üç sanal ekran, bir test penceresi, tak / çıkar, yedek, rol
+takası ve onay bekleyen monitör; PASS / FAIL yazar. Bu deponun ayrı bir
+derlemesini boş, geçici bir veri klasörüyle (`DESKMAP_DATA_DIR`) çalıştırır,
+önce kurulu kopyayı kapatır ve sonda (hata olsa da) yeniden açar. İki anahtar
+yalnız bu test içindir, normal kullanımda kapalıdır: `DESKMAP_LEARN_TEST_DISPLAYS=1`
+sanal ekranların ("Deskmap Test Display", "… (1)", "… (2)") gerçek monitör gibi
+rol öğrenmesini sağlar, `DESKMAP_TEST_NO_DESKTOP_CHANGES=1` derlemenin hiçbir
+masaüstü açıp silmemesini sağlar (plansız belge boş masaüstlerini artık sayardı).
+Derlemeyi kurulu kopyayla aynı kimlikle imzala, yoksa Erişilebilirlik izni
+geçmez. CLI aynı klasörü (`DESKMAP_DATA_DIR`) izler ve verilmişse URL'leri
+`DESKMAP_APP` kopyasına gönderir.
 
 ### Masaüstleri {#desktops}
 
