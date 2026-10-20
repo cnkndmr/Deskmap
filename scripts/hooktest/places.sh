@@ -109,6 +109,8 @@ s = json.load(open(sys.argv[1]))
 what = sys.argv[2]
 if what == "role":                      # role <uuid> → rol
     print(next((sc["id"] for sc in s["screens"] if sc.get("uuid") == sys.argv[3]), "-"))
+elif what == "uuid":                    # uuid <rol> → bağlı ekranın UUID'si
+    print(next((sc.get("uuid") or "-" for sc in s["screens"] if sc["id"] == sys.argv[3]), "-"))
 elif what == "held":
     print(" ".join(s.get("heldRoles", [])))
 elif what == "windows":
@@ -163,9 +165,12 @@ echo "    monitor A ${UA:0:8} = $RA, monitor B ${UB:0:8} = $RB, held: $(status h
 [ "$RA" != "-" ] && [ "$RB" != "-" ] && [ "$RA" != "$RB" ] && ok "two virtual monitors get two roles" \
     || { bad "roles not learned (is DESKMAP_LEARN_TEST_DISPLAYS honoured?)"; exit 1; }
 # A ilk monitör: kendiliğinden öğrenilir. B sonra geldi: onay bekler (K6);
-# "sıranın sonuna ekle" ile onaylanır.
+# "sıranın sonuna ekle" ile onaylanır. Masada gerçek bir monitör varsa o ilk
+# öğrenilendir, A da onay bekler: bekleyen her sanal ekran onaylanır.
 [ -n "$(status held)" ] && ok "second monitor waits for a choice" || info "second monitor was not held"
-cli screen-role "${UB:0:8}" "$RB"
+for pair in "$UB:$RB" "$UA:$RA"; do
+    case " $(status held) " in *" ${pair#*:} "*) cli screen-role "${pair:0:8}" "${pair#*:}";; esac
+done
 sleep 2
 [ -z "$(status held)" ] && ok "second monitor confirmed (add to the end)" || bad "B still held: $(status held)"
 
@@ -205,7 +210,8 @@ wait_window_on "$UB" 30 && ok "replug B: window goes back to B" || bad "after re
 
 # 5. Yedek: tek yer hiç bağlanmamış bir rolde → rol sırasında ilk bağlı monitör (K4).
 set_rule "external-5"
-FIRST=$( [ "$RA" = "external" ] && echo "$UA" || echo "$UB" )
+# Rol sırasında ilk bağlı monitör (masada gerçek monitör varsa o).
+FIRST=$(status uuid external)
 wait_window_on "$FIRST" 20 && ok "fallback: no place connected → first monitor in role order" \
     || bad "fallback not on the first monitor (on $(window_uuid))"
 [ "$(status place)" = "fallback" ] && ok "status.json place = fallback" || bad "status place = $(status place)"
