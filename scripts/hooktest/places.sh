@@ -66,7 +66,8 @@ restore() {
         kill "$TEST_PID" 2>/dev/null
     fi
     if [ "$WAS_RUNNING" -eq 1 ]; then
-        open -g -a "$INSTALLED"
+        # open ortamı uygulamaya geçirir: test veri klasörü kurulu uygulamaya sızmasın.
+        env -u DESKMAP_DATA_DIR -u DESKMAP_APP open -g -a "$INSTALLED"
         for _ in $(seq 40); do [ -n "$(pids_at "$INSTALLED_BIN")" ] && break; sleep 0.25; done
         p=$(pids_at "$INSTALLED_BIN")
         if [ -n "$p" ]; then echo "RESTORED installed Deskmap running: pid $p $INSTALLED_BIN"
