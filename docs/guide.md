@@ -259,6 +259,12 @@ A name belongs to one physical desktop, not to "desktop 2 on the monitor".
 Move the desktop, reorder it in Mission Control, or carry it to the laptop
 screen: the name goes with it, and so do the pins that point at the name.
 
+**Dragged to the other display by mistake?** If you drag a desktop to another
+display in Mission Control, Deskmap moves it back to its display and place
+(a new desktop with the same name and windows) and shows a card with **Keep it
+there**. Settings › General › **Desktop dragged to another display** turns this
+into a question (**Ask**) or off (**Leave**: the name follows the desktop).
+
 Each setup — **Monitor connected** and **Laptop only** — has its own *plan*:
 which names live on which display, in which order, and how many desktops each
 display should have. You don't write the plan; it follows what you do: naming

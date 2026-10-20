@@ -8,6 +8,13 @@ numarası `VERSION` dosyasından gelir.
 
 ### Eklenenler {#added}
 
+- **Mission Control’de başka ekrana sürüklenen masaüstü geri gelir.**
+  Deskmap eski yere masaüstü ekler, pencereleri oraya taşır, sürükleneni
+  boşsa siler; ad izler, pinler değişmez, kart **Böyle kalsın** sunar.
+  Ayarlar › Genel: **Geri al** (varsayılan) / **Sor** / **Bırak**. Ekran
+  değişiminden sonra, uyanınca, açılışta (bunun yerine kart sorar) ya da
+  masaüstü taşıma kapalıyken (kart söyler) yapılmaz. `docs/tr/bug-tables.md`
+  Tablo E.
 - **Demo GIF.** `docs/media/<dil>/demo.gif` (ve `.mp4`) README ile kılavuzdaki
   dört adımlık hikâyeyi gösterir: sadece laptop, monitör bağlandı, sabitlenen
   pencereler yerinde, kendi rolüyle ikinci monitör. Ekran görüntüsü kipi çizer

@@ -255,6 +255,55 @@ Also covered: deleting a desktop shifts every place on that display, a deleted
 second place goes to the ghost desktop with its position and comes back as the
 second place; deleting the first place's desktop makes the next place first.
 
+## E. Desktop dragged to another display in Mission Control
+
+Not a bug: the design table for moving such a desktop back
+(`Services/DesktopRevert.swift`, `Router.handleCrossings` / `runReverts`).
+Pure rows are tests in `app/Tests/DeskmapTests/MissionControlRevertTests.swift`
+(`e1_1_…` = row E1.1); rows marked *manual* need a real Mission Control drag.
+
+macOS has no SIP-free call that moves a space to another display, so the move
+back is a plan: add a desktop at the end of the old display (Mission Control
+**+**), shift the contents from the old position on by one, move the dragged
+desktop's windows into the old position, remove the dragged desktop if it is
+empty. Names follow the content (R5); number pins and temporary pins do not
+change (the Mission Control drag did not shift them either); the plan entry
+that following (P3) moved goes back.
+
+Example desk: Dell and LG; LG has "Reading" (LG · 1, named), LG · 2, LG · 3.
+Safari is pinned to "Reading", Notes to `LG · 2`, Mail to `Dell · 3`. The drag:
+"Reading" to Dell · 2.
+
+| Row | State | Operation | Expected | Test |
+| --- | --- | --- | --- | --- |
+| E1.1 | Dell + LG, stable | drag "Reading" to Dell · 2 | seen twice 1.5 s apart, same display set, space changed role: moved back (setting **Move back**, the default) | `e1_1_crossingDetected`, `e1_1_revertsByDefault`; *manual* |
+| E1.2 | E1.1, Mission Control still open | — | waits until it closes (opening it while open would close it) | *manual* |
+| E1.3 | Dell + LG | two desktops dragged in one session | each moved back, one card | `e1_3_twoCrossingsInOneSession` |
+| E1.4 | Dell + LG | drag one, delete another | the deletion is handled as before (ghost row); the drag is moved back | `e1_4_deletionIsNotACrossing` |
+| E1.6 | dragged while Deskmap was not running | launch | not moved back on its own: card with **Move back** | `e1_6_catchUpAsks` |
+| E1.7 | after a restart | launch | no evidence (R4): nothing | (restart branch, unchanged) |
+| E1.8 | laptop + Dell | drag a laptop desktop to Dell | same rule | `e1_8_builtinCrossing` |
+| E2.1 | E1.1 | move back | LG · 1 is a new desktop named "Reading" with Safari; LG 3 desktops, Dell 3; Notes and Mail stay | `e2_1_planShiftsAndRemoves`, `e2_1_executesRevert` |
+| E2.2 | the last desktop was dragged | move back | no shift | `e2_2_lastDesktopNoShift` |
+| E2.3 | the middle desktop was dragged | move back | that position and later ones shift by one; earlier ones stay | `e2_3_middleDesktopShiftsOnlyLater` |
+| E2.4 | — | drag a full-screen space | untouched (full-screen spaces are not in the desktop lists) | (by construction) |
+| E2.5 | an "All Desktops" window on "Reading" | move back | not moved, does not block the removal | `e2_5_allDesktopsWindowIgnored` |
+| E2.6 | a window could not leave the dragged desktop | move back | that desktop is kept; the card says so | `e2_6_windowLeftKeepsDesktop` |
+| E2.7 | the desktop could not be added (or did not land last) | move back | nothing changes; card "Could not move … back" | `e2_7_addFailsChangesNothing`, `e2_7_addNotAtEndMovesNothing` |
+| E2.8 | desktop moves off (macOS 15.x, 26.0–26.3, reduced mode) | drag | nothing is done; card says moves are off | `e2_8_movesOffShowsCard` |
+| E2.9 | between the drag and the end of the move back | — | routing holds (number-pinned windows do not move twice) | *manual* |
+| E2.10 | interrupted (display change) | — | stops at a step boundary; nothing removed | `e2_10_abortKeepsSource` |
+| E3.1 | Dell + LG | unplug LG | display set changed: transition, not moved back | `e3_1_vanishedRoleIsNotACrossing` |
+| E3.4 | woke from sleep | — | no move back for 60 s after waking | `e3_4_recentWakeLeaves` |
+| E3.5 | display arrangement changed | — | no move back for 15 s after a display notification | `e3_5_recentScreenChangeLeaves`; *manual* |
+| E3.7 | a monitor waiting for confirmation | drag to or from it | followed, not moved back | `e3_7_heldRoleLeaves` |
+| E4.2 | — | move a desktop across in Deskmap | not detected (new spaces, no space changes display) | `e4_2_newSpacesAreNotCrossings` |
+| E4.3 | moved back less than 60 s ago | drag it again | taken as intended: followed | `e4_3_repeatWithinAMinuteLeaves` |
+| E4.4 | E2.1 card | **Keep it there** | the same pin-free path puts it where it was dragged | `e4_4_keepIsTheReverseCrossing` |
+| E5.1–E5.3 | E2.1 | — | name on the new space; plans as before the drag; pins unchanged | `e5_followThenRevertRestoresPlansAndPins`, `e5_returnPlanEntryAllProfiles` |
+| E5.4 | E2.3 | — | names of shifted desktops follow their content | `e5_4_shiftedNamesFollowContent` |
+| E6.1 | Settings | **Move back** / **Ask** / **Leave** | Ask: card with **Move back**; Leave: D5.2 (the name follows) | `e6_1_askAndLeaveSettings`, `settingCodable` |
+
 ## Decisions (for the maintainer)
 
 A. Primary external monitor

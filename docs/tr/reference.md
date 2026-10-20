@@ -405,6 +405,16 @@ Duraklatma kaydedilir ve yeniden başlatmadan sonra da sürer.
 - Bir ad tek bir masaüstüne (bir macOS Alan kimliğine) bağlıdır ve ekranlar
   arasında, yeniden sıralamada ve takıp çıkarmada onu izler. Adın planı,
   ekranı ya da numarası yoktur.
+- **Mission Control’de başka ekrana sürüklenen masaüstü** varsayılan olarak
+  geri alınır (Ayarlar › Genel › **Başka ekrana sürüklenen masaüstü**:
+  **Geri al** / **Sor** / **Bırak**). macOS SIP’siz bir Alan’ı ekranlar arasında
+  taşıyamaz; Deskmap eski ekranın sonuna masaüstü ekler, sonraki içerikleri
+  birer kaydırır, pencereleri eski sıraya taşır, sürüklenen masaüstü boşsa
+  siler; ad izler, pinler değişmez. Kart **Böyle kalsın** sunar. Geri
+  alınmayanlar: açılışta görülen değişiklik (kart sorar), ekran değişiminden
+  sonra 15 sn ya da uyanmadan sonra 60 sn içinde, 60 sn’den az önce geri
+  alınan masaüstü, onay bekleyen monitör, masaüstü taşıma kapalıyken (kart
+  söyler). **Bırak** eski davranış: ad masaüstünü öbür ekrana izler.
 - Her profilin her kurulum (`docked`, `undocked`) ve ekran rolü için bir
   **planı** vardır: sıralı bir masaüstü listesi, her biri bir ad ya da boş.
   Planın uzunluğu, o rolün kaç masaüstü olması gerektiğidir.

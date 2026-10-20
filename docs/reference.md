@@ -390,6 +390,17 @@ saved and survives restarts.
 
 - A name is bound to one desktop (a macOS space ID) and follows it across
   displays, reordering and plug/unplug. It has no mode, screen or number.
+- **A desktop dragged to another display in Mission Control** is moved back
+  by default (Settings › General › **Desktop dragged to another display**:
+  **Move back** / **Ask** / **Leave**). macOS cannot move a space between
+  displays without SIP, so Deskmap adds a desktop at the end of the old
+  display, shifts the later contents by one, moves the windows into the old
+  position and removes the dragged desktop if it is empty; the name follows,
+  pins do not change. A card offers **Keep it there**. Not moved back: changes
+  seen at launch (a card asks), within 15 s of a display change or 60 s of
+  waking, a desktop moved back less than 60 s ago, a monitor waiting for
+  confirmation, or when desktop moves are off (a card says so). **Leave**
+  keeps the old behaviour: the name follows the desktop to the other display.
 - Each profile has a **plan** per setup (`docked`, `undocked`) and display
   role: the ordered list of desktops, each a name or empty. The plan length is
   the number of desktops that role should have.

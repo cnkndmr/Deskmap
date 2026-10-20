@@ -251,6 +251,55 @@ Ayrıca: masaüstü silmek o ekrandaki her yeri kaydırır; silinen ikinci yer
 sırasıyla hayalet masaüstüne gider ve geri gelince yine ikinci yer olur; ilk
 yerin masaüstü silinince sıradaki yer ilk olur.
 
+## E. Mission Control'de başka ekrana sürüklenen masaüstü
+
+Hata değil: böyle bir masaüstünü geri almanın tasarım tablosu
+(`Services/DesktopRevert.swift`, `Router.handleCrossings` / `runReverts`).
+Saf satırlar `app/Tests/DeskmapTests/MissionControlRevertTests.swift`’te
+(`e1_1_…` = E1.1 satırı); *elle* işaretli satırlar gerçek bir Mission Control
+sürüklemesi ister.
+
+macOS’ta bir Alan’ı SIP’siz başka ekrana taşıyan çağrı yok; geri alma bir
+plandır: eski ekranın sonuna masaüstü ekle (Mission Control **+**), eski sıra ve
+sonrasının içeriğini birer kaydır, sürüklenen masaüstünün pencerelerini eski
+sırasına taşı, sürüklenen masaüstü boşsa sil. Adlar içerikle gider (R5); sayı
+pinleri ve geçici pinler değişmez (Mission Control sürüklemesi de onları
+kaydırmadı); izlemenin (P3) taşıdığı plan girdisi geri döner.
+
+Örnek masa: Dell ve LG; LG’de "Okuma" (LG · 1, adlı), LG · 2, LG · 3. Safari
+"Okuma"ya, Notlar `LG · 2`’ye, Mail `Dell · 3`’e sabit. Sürükleme: "Okuma"
+Dell · 2’ye.
+
+| Satır | Durum | İşlem | Beklenen | Test |
+| --- | --- | --- | --- | --- |
+| E1.1 | Dell + LG, kararlı | "Okuma"yı Dell · 2’ye sürükle | 1,5 sn arayla iki kez görülür, ekran kümesi aynı, Alan rol değiştirmiş: geri alınır (**Geri al** ayarı, varsayılan) | `e1_1_crossingDetected`, `e1_1_revertsByDefault`; *elle* |
+| E1.2 | E1.1, Mission Control hâlâ açık | — | kapanması beklenir (açıkken açmak onu kapatırdı) | *elle* |
+| E1.3 | Dell + LG | bir oturumda iki masaüstü sürükle | ikisi de geri alınır, tek kart | `e1_3_twoCrossingsInOneSession` |
+| E1.4 | Dell + LG | birini sürükle, başkasını sil | silme eskisi gibi (hayalet satır); sürükleme geri alınır | `e1_4_deletionIsNotACrossing` |
+| E1.6 | Deskmap kapalıyken sürüklendi | aç | kendiliğinden geri alınmaz: **Geri al** düğmeli kart | `e1_6_catchUpAsks` |
+| E1.7 | yeniden başlatmadan sonra | aç | kanıt yok (R4): hiçbir şey | (yeniden başlatma kolu, değişmedi) |
+| E1.8 | laptop + Dell | laptop masaüstünü Dell’e sürükle | aynı kural | `e1_8_builtinCrossing` |
+| E2.1 | E1.1 | geri alma | LG · 1 yeni bir masaüstü, adı "Okuma", içinde Safari; LG’de 3, Dell’de 3 masaüstü; Notlar ve Mail yerinde | `e2_1_planShiftsAndRemoves`, `e2_1_executesRevert` |
+| E2.2 | son masaüstü sürüklendi | geri alma | kaydırma yok | `e2_2_lastDesktopNoShift` |
+| E2.3 | ortadaki masaüstü sürüklendi | geri alma | o sıra ve sonrası birer kayar; öncekiler yerinde | `e2_3_middleDesktopShiftsOnlyLater` |
+| E2.4 | — | tam ekran Alan’ı sürükle | dokunulmaz (tam ekran Alanlar masaüstü listesinde yok) | (yapı gereği) |
+| E2.5 | "Okuma"da "All Desktops" penceresi | geri alma | taşınmaz, silmeyi engellemez | `e2_5_allDesktopsWindowIgnored` |
+| E2.6 | bir pencere sürüklenen masaüstünden çıkamadı | geri alma | o masaüstü silinmez; kart söyler | `e2_6_windowLeftKeepsDesktop` |
+| E2.7 | masaüstü eklenemedi (ya da sona gelmedi) | geri alma | hiçbir şey değişmez; kart "geri alınamadı" | `e2_7_addFailsChangesNothing`, `e2_7_addNotAtEndMovesNothing` |
+| E2.8 | masaüstü taşıma kapalı (macOS 15.x, 26.0–26.3, azaltılmış mod) | sürükle | hiçbir şey yapılmaz; kart taşımanın kapalı olduğunu söyler | `e2_8_movesOffShowsCard` |
+| E2.9 | sürükleme ile geri almanın sonu arası | — | yönlendirme bekler (sayı pinli pencereler iki kez taşınmaz) | *elle* |
+| E2.10 | kesildi (ekran değişti) | — | adım sınırında durur; hiçbir şey silinmez | `e2_10_abortKeepsSource` |
+| E3.1 | Dell + LG | LG’yi çıkar | ekran kümesi değişti: geçiş, geri alma yok | `e3_1_vanishedRoleIsNotACrossing` |
+| E3.4 | uykudan uyandı | — | uyanmadan sonra 60 sn geri alma yok | `e3_4_recentWakeLeaves` |
+| E3.5 | ekran yerleşimi değişti | — | ekran bildiriminden sonra 15 sn geri alma yok | `e3_5_recentScreenChangeLeaves`; *elle* |
+| E3.7 | onay bekleyen monitör | ona ya da ondan sürükle | izlenir, geri alınmaz | `e3_7_heldRoleLeaves` |
+| E4.2 | — | Deskmap’te masaüstünü öbür ekrana taşı | algılanmaz (yeni Alanlar, hiçbir Alan ekran değiştirmez) | `e4_2_newSpacesAreNotCrossings` |
+| E4.3 | 60 sn’den az önce geri alındı | yine sürükle | kasıtlı sayılır: izlenir | `e4_3_repeatWithinAMinuteLeaves` |
+| E4.4 | E2.1 kartı | **Böyle kalsın** | aynı pin kaydırmasız yol onu sürüklendiği yere götürür | `e4_4_keepIsTheReverseCrossing` |
+| E5.1–E5.3 | E2.1 | — | ad yeni Alan’da; planlar sürüklemeden önceki gibi; pinler değişmez | `e5_followThenRevertRestoresPlansAndPins`, `e5_returnPlanEntryAllProfiles` |
+| E5.4 | E2.3 | — | kayan masaüstülerinin adları içerikle gider | `e5_4_shiftedNamesFollowContent` |
+| E6.1 | Ayarlar | **Geri al** / **Sor** / **Bırak** | Sor: **Geri al** düğmeli kart; Bırak: D5.2 (ad izler) | `e6_1_askAndLeaveSettings`, `settingCodable` |
+
 ## Kararlar (geliştirici için)
 
 A. Ana harici monitör

@@ -8,6 +8,13 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Desktops dragged to another display in Mission Control move back.**
+  Deskmap adds a desktop at the old place, moves the windows there and
+  removes the dragged one if it is empty; the name follows, pins don't
+  change, a card offers **Keep it there**. Settings › General: **Move back**
+  (default) / **Ask** / **Leave**. Not done after a display change, on wake,
+  at launch (a card asks instead) or when desktop moves are off (a card says
+  so). Table E in `docs/bug-tables.md`.
 - **Demo GIF.** `docs/media/<lang>/demo.gif` (and `.mp4`) shows the four-step
   story in the README and the guide: laptop only, monitor connected, pinned
   windows in place, a second monitor with its own role. Drawn by the shots

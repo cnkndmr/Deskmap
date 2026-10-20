@@ -272,6 +272,12 @@ Bir ad, "monitörde 2. masaüstü"ne değil, tek bir gerçek masaüstüne aittir
 Masaüstünü taşı, Mission Control’de sırasını değiştir ya da laptop ekranına
 götür: ad onunla gider, ada bağlı sabitlemeler de.
 
+**Yanlışlıkla öbür ekrana mı sürükledin?** Mission Control’de bir masaüstünü
+başka ekrana sürüklersen Deskmap onu kendi ekranına ve sırasına geri koyar
+(aynı ad ve pencerelerle yeni bir masaüstü) ve **Böyle kalsın** düğmeli bir
+kart gösterir. Ayarlar › Genel › **Başka ekrana sürüklenen masaüstü** bunu
+soruya (**Sor**) çevirir ya da kapatır (**Bırak**: ad masaüstünü izler).
+
 Her kurulumun — **Monitör bağlı** ve **Sadece laptop** — kendi *planı* var:
 hangi ad hangi ekranda, hangi sırada ve her ekranda kaç masaüstü olmalı. Planı
 sen yazmazsın; yaptıklarını izler: bir masaüstüne ad vermek, kartı sürüklemek,
