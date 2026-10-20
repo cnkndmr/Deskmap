@@ -161,6 +161,15 @@ number comes from the `VERSION` file.
 
 ### Fixed
 
+- **Windows move right after a plan or a monitor choice.** At the end of a
+  desktop plan (a monitor plugged in, a role swapped or confirmed) the re-place
+  sweep ran while the plan still counted as running, so routing was held and
+  nothing followed: after a role swap or a confirmed monitor, windows waited
+  for the next full scan (up to two minutes). The sweep now runs after the
+  plan ends. Found by `scripts/hooktest/places.sh`.
+- **Two virtual test displays are no longer taken for real monitors.** macOS
+  names the second one "Deskmap Test Display (1)"; it is now recognised too.
+
 - **The plan picker follows a single screen change.** After plugging in or
   unplugging a monitor once, the picker could stay on the previous plan: it
   read the screen mode while the screen list was still being published. It
