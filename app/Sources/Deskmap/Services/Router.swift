@@ -686,6 +686,15 @@ final class Router: ObservableObject {
         return now.timeIntervalSince(pausedAt) >= pauseSafetyDelay
     }
 
+    /// Geçişin ya da planın sonunda: yeniden yerleştirme, çalışan işaret
+    /// (`transitionRunning`) kalktıktan sonra. Hemen çağrılırsa tarama plan
+    /// sürüyor diye yönlendirmeyi tutar ve ardından tarama gelmezdi: rol
+    /// takasından ya da monitör onayından sonra pencere iki dakikalık tam
+    /// taramaya dek yerinde kalıyordu (places.sh).
+    private func reapplyAfterPlan() {
+        DispatchQueue.main.async { [weak self] in self?.reapplyAll() }
+    }
+
     /// Düzen belleğini sıfırlayıp bütün pencereleri yeniden yerleştirir.
     func reapplyAll() {
         generation.advance()
@@ -1255,7 +1264,7 @@ final class Router: ObservableObject {
     }
 
     private func addDesktopNow(on screenID: String) async -> Bool {
-        guard let display = displayInfo(screenID) else { return false }
+        guard !Self.desktopChangesDisabled, let display = displayInfo(screenID) else { return false }
         let added = await MissionControl.addDesktop(
             displayID: display.id, displayUUID: display.uuid,
             mainUUID: Self.primaryUUID(screens.screens))
@@ -1266,7 +1275,7 @@ final class Router: ObservableObject {
     /// Masaüstünü pinlere dokunmadan siler.
     private func removeDesktopNow(on screenID: String, desktop: Int,
                                   expected: UInt64? = nil) async -> Bool {
-        guard let display = displayInfo(screenID) else { return false }
+        guard !Self.desktopChangesDisabled, let display = displayInfo(screenID) else { return false }
         return await MissionControl.removeDesktop(
             displayID: display.id, displayUUID: display.uuid,
             mainUUID: Self.primaryUUID(screens.screens), desktop: desktop, expectedSpace: expected)
@@ -1876,7 +1885,7 @@ final class Router: ObservableObject {
                 await self?.applyCurrentPlan(reason: "continuation", allowRemovals: true)
             }
         }
-        reapplyAll()
+        reapplyAfterPlan()
     }
 
     /// Plan kararlarını ve özetini günlüğe yazar (gerçek denemede neden
@@ -1896,7 +1905,7 @@ final class Router: ObservableObject {
     /// yerine aldıktan sonra) ve kararlı taramada (açılıştan önce kalan ya da
     /// yönlendirmeyle sonradan boşalan artıklar için) çağrılır.
     private func scheduleCleanup(reason: String, delay: TimeInterval) {
-        guard !isDemo else { return }
+        guard !isDemo, !Self.desktopChangesDisabled else { return }
         cleanupTask?.cancel()
         cleanupTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
@@ -2073,11 +2082,11 @@ final class Router: ObservableObject {
         extendQuietWindow(seconds: 3)
         guard !outcome.aborted else {
             Log.app.notice("Plan application (\(reason, privacy: .public)) interrupted: \(outcome.abortReason ?? "", privacy: .public)")
-            reapplyAll()
+            reapplyAfterPlan()
             return
         }
         report(outcome, plan: plan, mode: mode, reason: reason)
-        reapplyAll()
+        reapplyAfterPlan()
     }
 
     /// Planı yürütür (§P.1 adım 5) gerçek Mission Control ve SkyLight ile;
@@ -2088,7 +2097,7 @@ final class Router: ObservableObject {
                          refs: [CGWindowID: DesktopStateFile.WindowRef],
                          windowSpaces: [CGWindowID: UInt64],
                          allowRemovals: Bool) async -> PlanExecutor.Outcome {
-        guard !plan.isEmpty else { return PlanExecutor.Outcome() }
+        guard !plan.isEmpty, !Self.desktopChangesDisabled else { return PlanExecutor.Outcome() }
         desktopOpInFlight = true
         defer { desktopOpInFlight = false }
         let startScreens = screens.screens
@@ -3172,6 +3181,14 @@ final class Router: ObservableObject {
     nonisolated static func desktopIndex(_ desktop: Int, count: Int) -> Int {
         min(max(desktop, 1), count)
     }
+
+    /// Yalnız uçtan uca test (`scripts/hooktest/places.sh`,
+    /// `DESKMAP_TEST_NO_DESKTOP_CHANGES=1`): masaüstü planı ve artık
+    /// temizliği hiçbir masaüstü açmaz, silmez, pencere taşımaz. Test boş bir
+    /// veri klasörüyle çalışır; plansız belge kullanıcının boş masaüstlerini
+    /// artık sayıp silebilirdi. Yalnız pin yönlendirmesi çalışır.
+    nonisolated static let desktopChangesDisabled =
+        ProcessInfo.processInfo.environment["DESKMAP_TEST_NO_DESKTOP_CHANGES"] == "1"
 
     /// `status.json` için yer durumu (saf).
     nonisolated static func placeStatus(choices: [CGWindowID: Routing.PlaceChoice],

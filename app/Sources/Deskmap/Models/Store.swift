@@ -953,9 +953,22 @@ final class Store: ObservableObject {
     /// test sürerken bağlıdır; hatırlanmaz, haritada kalıcı yer tutmaz.
     nonisolated static let testDisplayName = "Deskmap Test Display"
 
+    /// Yalnız uçtan uca test (`scripts/hooktest/places.sh`):
+    /// `DESKMAP_LEARN_TEST_DISPLAYS=1` iken sanal ekranlar gerçek monitör
+    /// gibi hatırlanır, rol öğrenir ve onay bekler. Üretimde kapalı; test
+    /// ayrı bir veri klasörüyle (`DESKMAP_DATA_DIR`) çalışır.
+    nonisolated static let learnsTestDisplays =
+        ProcessInfo.processInfo.environment["DESKMAP_LEARN_TEST_DISPLAYS"] == "1"
+
+    /// Hatırlanmayan, rol öğrenmeyen test ekranı mı (saf). macOS aynı adlı
+    /// ikinci ekranı "Deskmap Test Display (1)", "(2)" diye adlandırır.
+    nonisolated static func isTestDisplay(_ name: String, learning: Bool = learnsTestDisplays) -> Bool {
+        !learning && (name == testDisplayName || name.hasPrefix(testDisplayName + " ("))
+    }
+
     func remember(_ screens: [KnownScreen]) {
-        var known = document.screens.filter { $0.name != Self.testDisplayName }
-        for screen in screens where screen.name != Self.testDisplayName {
+        var known = document.screens.filter { !Self.isTestDisplay($0.name) }
+        for screen in screens where !Self.isTestDisplay(screen.name) {
             if let i = known.firstIndex(where: { $0.id == screen.id }) {
                 known[i] = screen
             } else {

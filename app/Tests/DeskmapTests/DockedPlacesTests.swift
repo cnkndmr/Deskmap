@@ -755,3 +755,17 @@ struct DockedPlacesMapTests {
         #expect(menu.map(\.role) == ["external", "external-2", "external-3"])
     }
 }
+
+// MARK: - Uçtan uca test anahtarı
+
+struct TestDisplayLearningTests {
+    /// Sanal ekran üretimde öğrenilmez; places.sh'nin anahtarıyla öğrenilir.
+    @Test func testDisplaysAreLearnedOnlyWithTheSwitch() {
+        #expect(Store.isTestDisplay(Store.testDisplayName, learning: false))
+        #expect(!Store.isTestDisplay(Store.testDisplayName, learning: true))
+        #expect(!Store.isTestDisplay("LG HDR 4K", learning: false))
+        // macOS ikinci aynı adlı ekranı numaralar.
+        #expect(Store.isTestDisplay(Store.testDisplayName + " (2)", learning: false))
+        #expect(!Store.learnsTestDisplays)
+    }
+}
