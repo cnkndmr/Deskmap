@@ -208,8 +208,13 @@ struct WindowLayout: Codable, Equatable, Hashable {
     /// sayılır (21:9 ≈ 2,33; 32:9 ≈ 3,56).
     static let ultrawideAspect = 2.2
 
-    /// Eski sabit liste (belgelerde ve testlerde); seçici `presets(aspect:)`
-    /// kullanır.
+    /// Oranlı düzenin en dar kenarı: ultra geniş ızgaranın bir sütunu
+    /// (1/24). Kitaplık (`LayoutLibrary.sanitized`) ve yerleştirme
+    /// (`rect(in:)`) ızgarada çizilen en küçük alanı kırpmaz.
+    static let minSide = 1.0 / 24
+
+    /// Eski sabit liste: `LayoutEditor.toggledFixed` (sabit boyuttan hazır
+    /// düzene dönüş) ve testler kullanır. Kullanıcının listesi `LayoutLibrary`.
     static let presets: [WindowLayout] = [
         .full, .leftHalf, .rightHalf, .left70, .right30,
         .topHalf, .bottomHalf, .center,
@@ -217,7 +222,9 @@ struct WindowLayout: Codable, Equatable, Hashable {
 
     /// Hedef ekranın şekline göre hazır düzenler: ultra genişte sütunlar
     /// (üçte bir, üçte iki, çeyrek, ortada yarım), normal ekranda yarımlar,
-    /// köşeler ve orta.
+    /// köşeler ve orta. Varsayılan kitaplığın gelişmiş listesidir ve
+    /// `LayoutLibrary.defaults` için ölçüdür (testler eşitliği denetler);
+    /// seçici kullanıcının `LayoutLibrary`'sini gösterir.
     static func presets(aspect: Double) -> [WindowLayout] {
         if aspect >= ultrawideAspect {
             return [.full, .leftHalf, .rightHalf, .leftThird, .centerThird, .rightThird,
@@ -277,8 +284,8 @@ struct WindowLayout: Codable, Equatable, Hashable {
         }
         let cx = min(max(x, 0), 1)
         let cy = min(max(y, 0), 1)
-        let cw = min(max(w, 0.05), 1 - cx)
-        let ch = min(max(h, 0.05), 1 - cy)
+        let cw = min(max(w, Self.minSide), 1 - cx)
+        let ch = min(max(h, Self.minSide), 1 - cy)
         return CGRect(
             x: area.minX + area.width * cx,
             y: area.minY + area.height * cy,

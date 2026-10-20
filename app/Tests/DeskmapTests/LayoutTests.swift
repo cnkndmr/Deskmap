@@ -21,13 +21,13 @@ struct LayoutTests {
     }
 
     @Test func rectClampsToArea() {
-        // Genişlik alanın dışına taşamaz; en az %5 kalır.
+        // Genişlik alanın dışına taşamaz; en az bir ızgara sütunu (1/24) kalır.
         let overflow = WindowLayout(x: 0.9, y: 0, w: 0.5, h: 1).rect(in: area)
         #expect(overflow.minX == 1000)
         #expect(abs(overflow.width - 100) < 1e-9)
         let tiny = WindowLayout(x: 0, y: 0, w: 0, h: -1).rect(in: area)
-        #expect(tiny.width == 50)
-        #expect(tiny.height == 40)
+        #expect(abs(tiny.width - 1000.0 / 24) < 1e-9)
+        #expect(abs(tiny.height - 800.0 / 24) < 1e-9)
         // Alanın tamamen dışındaki konum kenara kilitlenir.
         let outside = WindowLayout(x: 2, y: -1, w: 1, h: 1).rect(in: area)
         #expect(outside.minX == area.maxX)
@@ -346,6 +346,29 @@ struct BugFixTests {
         let third = LayoutEditor.toggledFixed(
             LayoutEditor.toggledFixed(.centerThird, on: true, screenSize: wide), on: false, screenSize: wide)
         #expect(third == .centerThird)
+    }
+
+    /// Kapatınca kitaplıktaki yakın giriş de geri gelir: kullanıcının düzeni
+    /// adını ve döşemesini korur (yerleşik listede karşılığı yok).
+    @Test func fixedToggleSnapsBackToLibraryEntry() throws {
+        let size = area.size
+        let code = WindowLayout(x: 0, y: 0, w: 5.0 / 12, h: 1)
+        var library = LayoutLibrary.defaults
+        let added = library.add(code, name: "Code", list: .basic)
+        let id = try #require(added)
+        let on = LayoutEditor.toggledFixed(code, on: true, screenSize: size, library: library)
+        #expect(on.fixed != nil)
+        let back = LayoutEditor.toggledFixed(on, on: false, screenSize: size, library: library)
+        #expect(back == code)
+        #expect(library.label(for: back) == "Code")
+        #expect(library.entry(matching: back)?.id == id)
+        // Kitaplıksız yalnız yuvarlanmış oran kalır.
+        #expect(LayoutEditor.toggledFixed(on, on: false, screenSize: size) != code)
+        // Ekran şekline uymayan giriş aday değil.
+        var wideOnly = LayoutLibrary.defaults
+        let wideID = wideOnly.add(code, name: "Code", list: .advanced, fit: .ultrawide)
+        #expect(wideID != nil)
+        #expect(LayoutEditor.toggledFixed(on, on: false, screenSize: size, library: wideOnly) != code)
     }
 
     @Test func editingOneMarginKeepsTheOtherEdgesExact() {

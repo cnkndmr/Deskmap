@@ -363,11 +363,24 @@ enum Shots {
         store.remove(DemoData.extraRuleID)
         capture("05-setup")
 
-        // 07 — Ayarlar penceresi (Genel ve macOS ayarları sekmeleri) ve 08 —
+        // 07 — Ayarlar penceresi (Genel, Düzenler, macOS ayarları ve Profiller
+        // sekmeleri) ve 08 —
         // üst çubuktaki "?" açıklama paneli. Ayrı barındırıcıda çizilir;
         // harita penceresi değişmez.
         let settingsState = SettingsState()
         captureView("07-settings", SettingsView(state: settingsState).environmentObject(store))
+        settingsState.tab = .layouts
+        captureView("07-settings-layouts", SettingsView(state: settingsState).environmentObject(store))
+        // Düzenler sekmesinin tamamı (kaydırmadan) ve ızgara taslağı.
+        captureView("07-settings-layouts-full",
+                    LayoutSettings(title: SettingsTab.layouts.title)
+                        .environmentObject(store)
+                        .frame(width: 500, height: 1150))
+        captureView("07-settings-layouts-editor",
+                    LayoutDraftEditor(title: SettingsTab.layouts.title,
+                                      draft: .new(in: store.document.layouts), close: {})
+                        .environmentObject(store)
+                        .frame(width: 500, height: 460))
         settingsState.tab = .macOS
         captureView("07-settings-macos", SettingsView(state: settingsState).environmentObject(store))
         settingsState.tab = .profiles

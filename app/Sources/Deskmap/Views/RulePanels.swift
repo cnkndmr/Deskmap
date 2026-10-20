@@ -90,7 +90,8 @@ struct RulePanel: View {
                 DestinationPickers(
                     destination: store.rule(rule.id)?[mode] ?? destination, mode: mode,
                     setDestination: { store.setDestination($0, for: rule.id, mode: mode) })
-                BasicLayoutRow(layout: layoutBinding(destination))
+                BasicLayoutRow(layout: layoutBinding(destination),
+                               aspect: store.screens(for: mode).first { $0.id == destination.screen }?.aspect)
                 if mode == .docked { PlacesList(rule: rule) }
             } else {
                 Text(L("Drag onto a desktop to give it a place in this plan."))
@@ -149,7 +150,7 @@ struct RulePanel: View {
                 for: Routing.Match(destination: destination, ruleID: rule.id, rule: current),
                 screenName: store.screens(for: mode).first {
                     $0.id == (resolved?.destination.screen ?? destination.screen) }?.name,
-                resolved: resolved)
+                resolved: resolved, layouts: store.document.layouts)
         else { return nil }
         guard mode == screens.mode else {
             return (WhyHereBox.sentence(reason),
@@ -380,6 +381,12 @@ struct SessionPinPanel: View {
 
     private var current: Destination { router.sessionPins[window.id] ?? destination }
 
+    /// Hedef ekran (oranı temel satırı ve düzenleyiciyi şekillendirir).
+    private var sessionScreen: KnownScreen? {
+        store.document.screens.first { $0.id == current.screen }
+            ?? store.screens(for: .docked).first { $0.id == current.screen }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             PinPanelHeader(
@@ -401,15 +408,13 @@ struct SessionPinPanel: View {
                 showAdvanced: { ui.showAdvanced = true })
             DestinationPickers(destination: current, mode: screens.mode,
                                setDestination: { router.pinSession(window.id, destination: $0) })
-            BasicLayoutRow(layout: layoutBinding)
+            BasicLayoutRow(layout: layoutBinding, aspect: sessionScreen?.aspect)
             FreeMoveRow(windowIDs: [window.id])
 
             Divider()
             AdvancedToggle(summary: L("every layout, margins, fixed size"))
             if ui.showAdvanced {
-                LayoutEditor(layout: layoutBinding,
-                             screen: store.document.screens.first { $0.id == destination.screen }
-                                ?? store.screens(for: .docked).first { $0.id == destination.screen })
+                LayoutEditor(layout: layoutBinding, screen: sessionScreen)
                 SaveCurrentLayoutRow(
                     window: window,
                     stored: current.layout,
@@ -438,7 +443,8 @@ struct SessionPinPanel: View {
 
             if let reason = Routing.reason(
                 for: Routing.Match(destination: current, ruleID: Routing.sessionRuleID, rule: nil),
-                screenName: store.screens(for: screens.mode).first { $0.id == current.screen }?.name) {
+                screenName: store.screens(for: screens.mode).first { $0.id == current.screen }?.name,
+                layouts: store.document.layouts) {
                 WhyHereBox(reason: WhyHereBox.sentence(reason),
                            note: L("Only this window, for this session. Not saved to the profile."))
             }
@@ -602,6 +608,7 @@ struct SaveCurrentLayoutRow: View {
     let save: (WindowLayout) -> Void
 
     @EnvironmentObject private var screens: ScreenService
+    @EnvironmentObject private var store: Store
 
     /// Pencerenin şu anki düzeni, kaydın türünde (sabit boyutlu kayıtta pt);
     /// okunamıyorsa nil.
@@ -640,7 +647,7 @@ struct SaveCurrentLayoutRow: View {
         if current.fixed != nil {
             return L("Window now: %@ (the anchor sets the position)", current.label)
         }
-        return L("Window now: %@", current.label)
+        return L("Window now: %@", store.document.layouts.label(for: current))
     }
 }
 

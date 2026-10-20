@@ -4,7 +4,8 @@ import SwiftUI
 
 // MARK: - Pencere
 
-/// Ayarlar penceresi (⌘,): Genel, macOS ayarları, Profiller, Yedekler, Kısayollar.
+/// Ayarlar penceresi (⌘,): Genel, Düzenler, macOS ayarları, Profiller, Yedekler,
+/// Kısayollar.
 ///
 /// SwiftUI `Settings` sahnesi menü çubuğu uygulamasında (LSUIElement) macOS
 /// 14+'te yalnızca `SettingsLink`/`openSettings` ile açılıyor ve harita
@@ -18,8 +19,12 @@ final class SettingsWindow {
     private var window: NSWindow?
     private let state = SettingsState()
 
-    func show(tab: SettingsTab = .general, store: Store) {
-        state.tab = tab
+    /// `tab` nil = açık pencerede olduğu sekme, kapalıysa Genel.
+    func show(tab: SettingsTab? = nil, store: Store) {
+        let visible = window.map { $0.isVisible || $0.isMiniaturized } ?? false
+        let opening = Self.opening(requested: tab, current: state.tab, visible: visible)
+        state.tab = opening.tab
+        if opening.newSession { state.session += 1 }
         if window == nil {
             let host = NSHostingController(rootView:
                 SettingsView(state: state).environmentObject(store))
@@ -34,6 +39,16 @@ final class SettingsWindow {
         MapWindow.close()
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Açılışın sekmesi ve yarım taslağın atılıp atılmayacağı (saf). Pencere
+    /// kapatılınca gizlenir, görünümün durumu kalır: yeniden açılış yeni
+    /// oturumdur, kapanan pencerede kalan taslak (Ayarlar › Düzenler) atılır.
+    /// Açık pencere yalnız öne gelir (harita, durum menüsü, pinin "Düzenleri
+    /// düzenle…"): taslak kalır, sekme verilmediyse olduğu sekmede kalınır.
+    nonisolated static func opening(requested: SettingsTab?, current: SettingsTab,
+                                    visible: Bool) -> (tab: SettingsTab, newSession: Bool) {
+        visible ? (requested ?? current, false) : (requested ?? .general, true)
     }
 }
 
@@ -52,7 +67,7 @@ enum MapWindow {
 }
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case general, macOS, profiles, backups, shortcuts
+    case general, layouts, macOS, profiles, backups, shortcuts
 
     /// Görünen sekmeler: yedek servisi yoksa (Shots/demo) Yedekler gizli.
     @MainActor static var visible: [SettingsTab] {
@@ -64,6 +79,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general:   return L("General")
+        case .layouts:   return L("Layouts")
         case .macOS:     return L("macOS Settings")
         case .profiles:  return L("Profiles")
         case .backups:   return L("Backups")
@@ -74,6 +90,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .general:   return "gearshape"
+        case .layouts:   return "rectangle.split.2x2"
         case .macOS:     return "macwindow"
         case .profiles:  return "square.stack.3d.up"
         case .backups:   return "clock.arrow.circlepath"
@@ -85,6 +102,9 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 @MainActor
 final class SettingsState: ObservableObject {
     @Published var tab: SettingsTab = .general
+    /// Pencerenin her açılışında artar; yarım taslak tutan sayfa bununla
+    /// yeniden kurulur.
+    @Published var session = 0
 }
 
 // MARK: - Görünüm
@@ -131,11 +151,16 @@ struct SettingsView: View {
 
             Divider()
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(state.tab.title).font(.title3.weight(.semibold))
+            if state.tab == .layouts {
+                // Kendi kaydırmasını yapar: taslağın Kaydet/İptal çubuğu
+                // kaymaz, pencerenin altında hep görünür.
+                LayoutSettings(title: state.tab.title)
+                    .id(state.session)
+            } else {
+                SettingsPage(title: state.tab.title) {
                     switch state.tab {
                     case .general:   GeneralSettings()
+                    case .layouts:   EmptyView()
                     case .macOS:     MacOSSettings()
                     case .profiles:  ProfileSettings()
                     case .backups:
@@ -145,11 +170,27 @@ struct SettingsView: View {
                     case .shortcuts: ShortcutSettings()
                     }
                 }
-                .padding(20)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .frame(width: Self.size.width, height: Self.size.height)
+    }
+}
+
+/// Ayar sekmesinin kaydırılan gövdesi: başlık ve içerik, 20 pt kenar.
+struct SettingsPage<Content: View>: View {
+
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(title).font(.title3.weight(.semibold))
+                content()
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 

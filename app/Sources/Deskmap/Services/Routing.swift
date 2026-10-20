@@ -251,8 +251,10 @@ enum Routing {
     /// hedefe gönderiyor. Yeni pencere-başı durum tutulmaz; seçim her
     /// seferinde `select` ile yeniden yapılır. Eşleşme yoksa nil.
     static func explanation(for match: Match?, screenName: String?,
-                            resolved: ResolvedPlace? = nil) -> String? {
-        reason(for: match, screenName: screenName, resolved: resolved).map { L("Why here: %@", $0) }
+                            resolved: ResolvedPlace? = nil,
+                            layouts: LayoutLibrary = .defaults) -> String? {
+        reason(for: match, screenName: screenName, resolved: resolved, layouts: layouts)
+            .map { L("Why here: %@", $0) }
     }
 
     /// Açıklamanın "Neden burada:" öneki olmadan gövdesi (saf; ayrıntı
@@ -260,15 +262,17 @@ enum Routing {
     /// `resolved`: monitörlü planda taramanın kullandığı yer (sıralı
     /// yerlerden biri ya da yedek); verilirse hedef o yerdir ve listede
     /// kaçıncı yer olduğu ya da yedek olduğu eklenir. Laptop planında
-    /// verilmez. `screenName`: o yerin ekranının adı.
+    /// verilmez. `screenName`: o yerin ekranının adı. `layouts`: düzen adı
+    /// için kullanıcının kitaplığı (adlandırılmış düzen o adla görünür).
     static func reason(for match: Match?, screenName: String?,
-                       resolved: ResolvedPlace? = nil) -> String? {
+                       resolved: ResolvedPlace? = nil,
+                       layouts: LayoutLibrary = .defaults) -> String? {
         guard let match else { return nil }
         let destination = resolved?.destination ?? match.destination
         let target = L("%@ · Desktop %ld",
                        DisplayRoles.displayName(role: destination.screen, name: screenName),
                        destination.desktop)
-        let layout = L("Layout: %@", destination.layout.label)
+        let layout = L("Layout: %@", layouts.label(for: destination.layout))
         guard let rule = match.rule else {
             return L("temporary pin for this window → %@ (%@)", target, layout)
         }

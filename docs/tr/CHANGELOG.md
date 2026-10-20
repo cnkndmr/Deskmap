@@ -8,6 +8,17 @@ numarası `VERSION` dosyasından gelir.
 
 ### Eklenenler {#added}
 
+- **Kendi düzenlerin.** Ayarlar › Düzenler bütün düzenleri üç grupta
+  listeler: **Temel** (her pinin altındaki döşemeler, en çok altı, Gelişmiş’te
+  de), **Gelişmiş** (ızgaranın yanında) ve **Gizli**. Izgarada ya da kenar
+  boşluklarıyla yeni düzen çiz, ad ver, normal ya da ultra geniş ekranlarla
+  sınırla, hazır düzenleri değiştir ya da yeniden adlandır, ↑ ↓ ile sırala,
+  **Varsayılanlara dön…**. Gelişmiş’te hazır düzenlerin altındaki **Düzenleri
+  düzenle…** sekmeyi açar. Pinler düzenin değerini tutar; düzeni değiştirmek
+  ya da silmek hiçbir pencereyi taşımaz, adlandırılmış düzene uyan pin o adı
+  gösterir. `rules.json`’da (`layouts`, bütün profillerde ortak) durur,
+  yalnız değişince yazılır; geri alınabilir. Yedeği geri yüklemek onun
+  düzenlerini getirir; düzensiz yedek şu ankileri korur.
 - **Mission Control’de başka ekrana sürüklenen masaüstü geri gelir.**
   Deskmap eski yere masaüstü ekler, pencereleri oraya taşır, sürükleneni
   boşsa siler; ad izler, pinler değişmez, kart **Böyle kalsın** sunar.

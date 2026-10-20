@@ -139,6 +139,8 @@ row. Everything else is under
 **Advanced ▸**: the title parts, a grid to drag across, all presets (70/30,
 thirds, quarters, top/bottom half, center), a gap to leave from the edges and
 a fixed size. Advanced stays open for the next window once you open it.
+Which layouts appear as tiles and in Advanced is up to you: **Settings ›
+Layouts** (add your own on the grid, rename, hide, reorder).
 
 ![Layouts: full, halves, 70/30, centred](images/en/03-layout.png)
 

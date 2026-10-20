@@ -61,7 +61,8 @@ struct WindowActions {
             : nil
         let screenID = resolved?.destination.screen ?? match?.destination.screen
         let name = screens.screens.first { $0.id == screenID }?.name
-        return Routing.explanation(for: match, screenName: name, resolved: resolved)
+        return Routing.explanation(for: match, screenName: name, resolved: resolved,
+                                   layouts: store.document.layouts)
     }
 
     var rowHelp: String {

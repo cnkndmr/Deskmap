@@ -1,13 +1,16 @@
 import SwiftUI
 
 /// Düzen düzenleyici: hedef ekranın oranında ızgara (fareyle hücre seçerek
-/// düzen), ekranın şekline göre hazır düzenler, yüzde kenar boşlukları ya da
-/// sabit boyut (pt) + sabitleme noktası.
+/// düzen), kitaplığın ekranın şekline uyan hazır düzenleri (Ayarlar ›
+/// Düzenler), yüzde kenar boşlukları ya da sabit boyut (pt) + sabitleme
+/// noktası.
 struct LayoutEditor: View {
 
     @Binding var layout: WindowLayout
     /// Hedef ekran (oran ve kullanılabilir boyut); bilinmiyorsa 16:10 varsayılır.
     var screen: KnownScreen?
+
+    @EnvironmentObject private var store: Store
 
     private var target: KnownScreen {
         screen ?? KnownScreen(id: "", name: "", aspect: 1.6)
@@ -48,7 +51,7 @@ struct LayoutEditor: View {
     private var gridColumn: some View {
         VStack(spacing: 6) {
             LayoutGrid(layout: $layout, screenSize: target.visibleSize)
-            Text(layout.label)
+            Text(store.document.layouts.label(for: layout))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(L("Drag across the grid to choose an area."))
@@ -60,9 +63,10 @@ struct LayoutEditor: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Hazır düzenler (ekranın şekline göre)
+            // Kitaplığın hazır düzenleri (ekranın şekline göre)
+            let library = store.document.layouts
             FlowLayout(spacing: 4) {
-                ForEach(WindowLayout.presets(aspect: target.aspect), id: \.self) { preset in
+                ForEach(library.advanced(aspect: target.aspect), id: \.self) { preset in
                     let isSelected = preset == layout
                     Button {
                         layout = preset
@@ -77,11 +81,18 @@ struct LayoutEditor: View {
                                                      : Color.primary.opacity(0.04)))
                     }
                     .buttonStyle(.plain)
-                    .help(preset.label)
-                    .accessibilityLabel(preset.label)
+                    .help(library.label(for: preset))
+                    .accessibilityLabel(library.label(for: preset))
                 }
             }
             .frame(maxWidth: RootView.inspectorBudget, alignment: .leading)
+            // Ayarlar penceresi açılınca harita kapanır; panel UIState'te kalır.
+            Button(L("Edit layouts…")) {
+                SettingsWindow.shared.show(tab: .layouts, store: store)
+            }
+            .buttonStyle(.link)
+            .font(.caption)
+            .help(L("Add, change or hide layouts in Settings"))
 
             Toggle(L("Fixed size"), isOn: fixedBinding)
                 .toggleStyle(.checkbox)
@@ -109,24 +120,7 @@ struct LayoutEditor: View {
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             } else {
-                // Kenar boşlukları
-                Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
-                    GridRow {
-                        PercentField(L("Left"), systemImage: "arrow.left.to.line",
-                                     value: leftBinding)
-                        PercentField(L("Right"), systemImage: "arrow.right.to.line",
-                                     value: rightBinding)
-                    }
-                    GridRow {
-                        PercentField(L("Top"), systemImage: "arrow.up.to.line",
-                                     value: topBinding)
-                        PercentField(L("Bottom"), systemImage: "arrow.down.to.line",
-                                     value: bottomBinding)
-                    }
-                }
-                Text(L("Gap to leave from each edge, within the display's usable area."))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+                MarginFields(layout: $layout)
             }
         }
     }
@@ -146,13 +140,17 @@ struct LayoutEditor: View {
                     back.fixed = nil
                     layout = back
                 } else {
-                    layout = Self.toggledFixed(layout, on: on, screenSize: target.visibleSize)
+                    layout = Self.toggledFixed(layout, on: on, screenSize: target.visibleSize,
+                                               library: store.document.layouts)
                 }
             })
     }
 
-    /// Sabit boyut aç/kapa dönüşümü (saf).
-    static func toggledFixed(_ layout: WindowLayout, on: Bool, screenSize: CGSize) -> WindowLayout {
+    /// Sabit boyut aç/kapa dönüşümü (saf). Kapatınca yakın aday önce
+    /// kitaplıktan (kullanıcının ya da değiştirilmiş hazır düzen), sonra
+    /// yerleşik hazır düzenlerden.
+    static func toggledFixed(_ layout: WindowLayout, on: Bool, screenSize: CGSize,
+                             library: LayoutLibrary = .defaults) -> WindowLayout {
         let area = CGRect(origin: .zero, size: screenSize)
         if on {
             guard layout.fixed == nil else { return layout }
@@ -175,9 +173,13 @@ struct LayoutEditor: View {
         }
         guard layout.fixed != nil else { return layout }
         let back = WindowLayout(frame: layout.rect(in: area), in: area)
-        // Hazır düzene 1 pt'den yakınsa onun kendisi (Tam, Sol yarım …).
-        let presets = WindowLayout.presets(aspect: Double(screenSize.width / max(screenSize.height, 1)))
-            + WindowLayout.presets
+        // Hazır düzene 1 pt'den yakınsa onun kendisi (Tam, Sol yarım …);
+        // kitaplıktaki giriş de (adı ve döşemesi geri gelsin).
+        let aspect = Double(screenSize.width / max(screenSize.height, 1))
+        let presets = library.entries
+            .filter { !$0.isDesktopOnly && $0.fit.accepts(aspect: aspect) }
+            .map(\.layout)
+            + WindowLayout.presets(aspect: aspect) + WindowLayout.presets
         // Açarken kenara dayanan boyut 10 pt'ye aşağı yuvarlanır; bu kadar
         // yakın hazır düzen varsa en yakını geri gelir (Sol yarım → Sol yarım).
         func distance(_ a: CGRect, _ b: CGRect) -> CGFloat {
@@ -237,19 +239,6 @@ struct LayoutEditor: View {
         }
     }
 
-    private func margin(_ keyPath: WritableKeyPath<Margins, Int>,
-                        opposite: KeyPath<Margins, Int>) -> Binding<Int> {
-        Binding(
-            get: { Margins(layout)[keyPath: keyPath] },
-            set: { newValue in
-                let margins = Margins(layout)
-                // Alt sınır en son: dar ızgara seçiminde karşı kenar %90'ı
-                // aşsa da kenar boşluğu eksiye düşmez.
-                let value = max(0, min(newValue, 90 - margins[keyPath: opposite]))
-                layout = Self.settingMargin(keyPath, to: value, of: layout)
-            })
-    }
-
     /// Yalnız değişen kenarı yazar (saf); diğer üç kenar tam değerini korur
     /// (üçte bir gibi yüzdeye tam oturmayan düzenler yana kaymasın).
     static func settingMargin(_ keyPath: WritableKeyPath<Margins, Int>, to value: Int,
@@ -270,11 +259,50 @@ struct LayoutEditor: View {
         }
         return result
     }
+}
 
-    private var leftBinding: Binding<Int> { margin(\.left, opposite: \.right) }
-    private var rightBinding: Binding<Int> { margin(\.right, opposite: \.left) }
-    private var topBinding: Binding<Int> { margin(\.top, opposite: \.bottom) }
-    private var bottomBinding: Binding<Int> { margin(\.bottom, opposite: \.top) }
+/// Dört kenar boşluğu (%) alanı ve açıklaması. Izgaranın klavyeyle
+/// kullanılabilen karşılığı; pin düzenleyicisi ve Ayarlar › Düzenler ortak.
+struct MarginFields: View {
+
+    @Binding var layout: WindowLayout
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Grid(alignment: .leading, horizontalSpacing: 14, verticalSpacing: 6) {
+                GridRow {
+                    PercentField(L("Left"), systemImage: "arrow.left.to.line",
+                                 value: margin(\.left, opposite: \.right))
+                    PercentField(L("Right"), systemImage: "arrow.right.to.line",
+                                 value: margin(\.right, opposite: \.left))
+                }
+                GridRow {
+                    PercentField(L("Top"), systemImage: "arrow.up.to.line",
+                                 value: margin(\.top, opposite: \.bottom))
+                    PercentField(L("Bottom"), systemImage: "arrow.down.to.line",
+                                 value: margin(\.bottom, opposite: \.top))
+                }
+            }
+            Text(L("Gap to leave from each edge, within the display's usable area."))
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private typealias Margins = LayoutEditor.Margins
+
+    private func margin(_ keyPath: WritableKeyPath<Margins, Int>,
+                        opposite: KeyPath<Margins, Int>) -> Binding<Int> {
+        Binding(
+            get: { Margins(layout)[keyPath: keyPath] },
+            set: { newValue in
+                let margins = Margins(layout)
+                // Alt sınır en son: dar ızgara seçiminde karşı kenar %90'ı
+                // aşsa da kenar boşluğu eksiye düşmez.
+                let value = max(0, min(newValue, 90 - margins[keyPath: opposite]))
+                layout = LayoutEditor.settingMargin(keyPath, to: value, of: layout)
+            })
+    }
 }
 
 /// "Left  [ 10 ] %  −/+" biçiminde tek satırlık sayı alanı (yüzde ya da
@@ -336,6 +364,15 @@ struct LayoutGrid: View {
 
     @Binding var layout: WindowLayout
     let screenSize: CGSize
+    /// Çizimin en çok genişliği; varsayılan sağ sütuna sığan genişlik.
+    let maxWidth: CGFloat
+
+    init(layout: Binding<WindowLayout>, screenSize: CGSize,
+         maxWidth: CGFloat = RootView.inspectorBudget) {
+        _layout = layout
+        self.screenSize = screenSize
+        self.maxWidth = maxWidth
+    }
 
     struct Cell: Equatable {
         var col: Int
@@ -381,7 +418,7 @@ struct LayoutGrid: View {
 
     var body: some View {
         let dims = Self.dimensions(aspect: aspect)
-        let size = Self.size(aspect: aspect)
+        let size = Self.size(aspect: aspect, maxWidth: maxWidth)
         let selection = start.flatMap { s in
             current.map { Self.layout(from: s, to: $0, cols: dims.cols, rows: dims.rows) }
         }
