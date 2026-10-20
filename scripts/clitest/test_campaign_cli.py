@@ -332,7 +332,6 @@ class CheckTests(FakeApp):
         self.assertEqual(code, 0, out)
 
     # campaign: desks filtresi ilk yerden kurulur, gerçek gidilen yerden değil
-    @unittest.expectedFailure
     def test_d7_exposure_looks_at_the_real_destination_not_the_first_listed_place(self):
         # İki pencere de ilk yeri (bağlı olmayan external-2) listeler ama gerçekte
         # external/1'e gider: tam örtülme external/1 üzerinden raporlanmalı.

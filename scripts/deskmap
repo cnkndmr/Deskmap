@@ -1003,8 +1003,9 @@ def apply_layout(args):
     pending = [e for e in plan["launches"] if not app_running(e, status)]
     for e in pending:
         print(f"  launch {e['app']}" + (f" ({e['launch']})" if e["launch"] is not True else ""))
-    desks = {(r[status["mode"]]["screen"], r[status["mode"]]["desktop"])
-             for r in plan["rules"] if r.get(status["mode"])}
+    # Gerçek hedefe göre (exposure_issues ile aynı yer kavramı)
+    desks = {(d["screen"], d["desktop"]) for d in
+             (effective_place(status, r) for r in plan["rules"] if r.get(status["mode"])) if d}
     for issue in exposure_issues(status, rules, desks):
         print(f"  ⚠ {issue}")
     if args.dry_run:
@@ -1129,8 +1130,9 @@ def check_layout(args):
     ok_count, total, rows = report(status, rules, only=set(ids))
     print(f"{ok_count}/{total} window(s) in place ({status['mode']})")
     print("\n".join(rows))
-    desks = {(r[status["mode"]]["screen"], r[status["mode"]]["desktop"])
-             for r in plan["rules"] if r.get(status["mode"])}
+    # Gerçek hedefe göre (exposure_issues ile aynı yer kavramı)
+    desks = {(d["screen"], d["desktop"]) for d in
+             (effective_place(status, r) for r in plan["rules"] if r.get(status["mode"])) if d}
     issues = exposure_issues(status, rules, desks)
     for issue in issues:
         print(f"  ⚠ {issue}")
