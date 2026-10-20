@@ -543,18 +543,34 @@ struct CampaignPersistTests {
     }
 
     /// Profil olmayan ama geçerli bir JSON nesnesi "Bu bir Deskmap profili
-    /// değil" hatasını vermeli; kind alanı yokken varsayılan değere
-    /// düştüğü için koruma hiç tetiklenmiyor, boş bir "Imported" profili
-    /// eklenip etkinleştiriliyor.
+    /// değil" hatasını verir; belge değişmez.
     @Test func importOfForeignJSONObjectIsRejectedWithoutChangingDocument() throws {
         var target = document(rules: [safari(places: [Self.dell, Self.lg])])
         let before = target
-        withKnownIssue("campaign: foreign JSON object imports as an empty profile (kind defaults)") {
+        for json in [#"{"hello":"world"}"#, #"{"name":"x","rules":[{"bogus":1}]}"#,
+                     #"{"kind":"other-app","rules":[]}"#] {
             #expect(throws: (any Error).self) {
-                try target.importProfile(from: Data(#"{"hello":"world"}"#.utf8))
+                try target.importProfile(from: Data(json.utf8))
             }
-            #expect(target == before)
         }
+        #expect(target == before)
+    }
+
+    /// Sıkı denetim eski dosyaları kırmaz: türü olmayan sürüm 1 dosyası
+    /// kurallarıyla, SpaceRouter dosyası kuralsız da olsa açılır.
+    @Test func importStillAcceptsLegacyProfileFiles() throws {
+        let rule = #"{"id":"x","appName":"Safari","bundleID":"b","tokens":[],"docked":{"screen":"external","desktop":1,"layout":{"x":0,"y":0,"w":1,"h":1}}}"#
+        var target = Document()
+        let noKind = try target.importProfile(from: Data(#"{"name":"V1","rules":[\#(rule)]}"#.utf8))
+        #expect(noKind.rules.count == 1)
+        let spaceRouter = try target.importProfile(from: Data(
+            #"{"kind":"spacerouter-profile","version":1,"name":"SR","rules":[\#(rule)]}"#.utf8))
+        #expect(spaceRouter.rules[0].places(.docked).count == 1)
+        let empty = try target.importProfile(from: Data(
+            #"{"kind":"spacerouter-profile","version":1,"name":"Empty","rules":[]}"#.utf8))
+        #expect(empty.rules.isEmpty)
+        let current = try target.importProfile(from: Data(#"{"kind":"deskmap-profile","name":"Blank","rules":[]}"#.utf8))
+        #expect(current.rules.isEmpty)
     }
 
     @MainActor @Test func storeImportIsOneUndoStepAndKeepsLists() throws {

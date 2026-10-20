@@ -835,7 +835,11 @@ struct Document: Codable, Equatable {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         let payload = try decoder.decode(ProfileExport.self, from: data)
-        guard payload.kind == ProfileExport.kind || !payload.rules.isEmpty else {
+        // Tanınan tür ya da bir uygulamaya bağlı en az bir kural: türü olmayan
+        // eski dosyalar kurallarıyla açılır, yabancı JSON reddedilir (Rule
+        // çözücüsü hoşgörülü, `{"bogus":1}` boş kural olur).
+        let hasAppRule = payload.rules.contains { !$0.appName.isEmpty || !$0.bundleID.isEmpty }
+        guard ProfileExport.knownKinds.contains(payload.kind) || hasAppRule else {
             throw NSError(domain: "Deskmap", code: 2,
                           userInfo: [NSLocalizedDescriptionKey: L("This is not a Deskmap profile")])
         }
@@ -917,6 +921,8 @@ struct ProfileExport: Codable {
     var droppedRuleCount = 0
 
     static let kind = "deskmap-profile"
+    /// SpaceRouter dönemi dosyaları `spacerouter-profile` yazar.
+    static let knownKinds: Set<String> = [kind, "spacerouter-profile"]
     static let fileExtension = "deskmap.json"
 
     private enum CodingKeys: String, CodingKey {
@@ -932,7 +938,8 @@ struct ProfileExport: Codable {
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        kind = try c.decodeIfPresent(String.self, forKey: .kind) ?? Self.kind
+        // Tür yoksa boş kalır; içe aktarma kural arar (yabancı JSON'u ayırır).
+        kind = try c.decodeIfPresent(String.self, forKey: .kind) ?? ""
         version = try c.decodeIfPresent(Int.self, forKey: .version) ?? 1
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? L("Imported")
         exportedAt = try c.decodeIfPresent(Date.self, forKey: .exportedAt) ?? Date()
