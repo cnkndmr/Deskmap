@@ -786,6 +786,16 @@ final class Store: ObservableObject {
         } }
     }
 
+    /// Tablo E: geri alma yapıldı. Adlar içerikle (R5, bütün profiller),
+    /// izlemenin taşıdığı plan girdisi eski yerine; pinler değişmez.
+    func commitRevert(spaceMap: [UInt64: UInt64], from source: String, desktop: Int,
+                      to target: String, at index: Int, mode: Mode) {
+        labeled(L("Desktop moved back to its display"), coalesce: true) { mutate { doc in
+            doc.applySpaceMap(spaceMap)
+            doc.returnPlanEntry(from: source, desktop: desktop, to: target, at: index, mode: mode)
+        } }
+    }
+
     /// Plan ya da pin satırı silindi: o kurulumda gerçek silme yok.
     func clearPendingRemovals(mode: Mode, screen: String) {
         labeled(L("Desktop plan updated"), coalesce: true) {

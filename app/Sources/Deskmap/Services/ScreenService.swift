@@ -52,6 +52,9 @@ final class ScreenService: ObservableObject {
     /// yeniden düzenler; Router listelemeyi sürdürür ama hiçbir pencereyi
     /// taşımaz (yarım düzenlenmiş ekrana göre yanlış yere yerleşmesin).
     @Published private(set) var isSettling = false
+    /// Son ekran değişimi bildirimi (Tablo E: bundan 15 sn sonraya dek
+    /// Mission Control'de ekran değiştiren masaüstü geri alınmaz).
+    private(set) var lastChangeAt: Date?
 
     /// Ekran değişimi yatıştıktan sonra tetiklenir.
     let settled = PassthroughSubject<Void, Never>()
@@ -225,6 +228,7 @@ final class ScreenService: ObservableObject {
     private func screensChanged() {
         refresh()
         let now = Date()
+        lastChangeAt = now
         if !isSettling {
             isSettling = true
             settleEpisodeStart = now

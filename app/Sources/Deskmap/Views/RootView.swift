@@ -253,6 +253,11 @@ struct RootView: View {
                         PlanStatusCard(status: status, retry: { router.retryPlan() },
                                        dismiss: { router.dismissPlanStatus() })
                     }
+                    if let offer = router.revertOffer {
+                        RevertOfferCard(offer: offer, moveBack: { router.acceptRevertOffer() },
+                                        keep: { router.keepRevertedDesktops() },
+                                        dismiss: { router.dismissRevertOffer() })
+                    }
                     if !MacSettings.allRequiredOK(settingChecks) || !store.document.setupNoticeDismissed {
                         SetupCard(checks: settingChecks)
                     }

@@ -133,6 +133,10 @@ enum MissionControl {
         return []
     }
 
+    /// Mission Control şu an açık mı (ağacı görünüyor). Tablo E: kullanıcı
+    /// Mission Control'deyken geri alma başlamaz.
+    static var isOpen: Bool { !displayGroups().isEmpty }
+
     /// Son Escape'in gönderildiği an. Kapanış geçişi bitmeden gelen açma
     /// isteğini WindowManager yutar (13.10.2026 ölçüldü: kapanıştan 16 ms
     /// sonra gönderilen istek alındı ama Mission Control açılmadı).

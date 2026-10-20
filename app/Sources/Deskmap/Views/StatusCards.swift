@@ -356,3 +356,36 @@ struct PlanStatusCard: View {
             .fill((status.failed ? Color.orange : Color.accentColor).opacity(0.10)))
     }
 }
+
+/// Tablo E: Mission Control'de başka ekrana sürüklenen masaüstü kartı.
+struct RevertOfferCard: View {
+
+    let offer: Router.RevertOffer
+    let moveBack: () -> Void
+    let keep: () -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 10) {
+            Image(systemName: offer.failed ? "exclamationmark.triangle.fill" : "rectangle.2.swap")
+                .foregroundStyle(offer.failed ? Color.orange : Color.accentColor)
+            Text(offer.message)
+                .font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            switch offer.kind {
+            case .ask: Button(L("Move back"), action: moveBack).controlSize(.small)
+            case .reverted: Button(L("Keep it there"), action: keep).controlSize(.small)
+                .help(L("Put the desktop back where you dragged it"))
+            case .info: EmptyView()
+            }
+            Button(action: dismiss) { Image(systemName: "xmark") }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help(L("Close"))
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10)
+            .fill((offer.failed ? Color.orange : Color.accentColor).opacity(0.10)))
+    }
+}

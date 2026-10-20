@@ -538,6 +538,7 @@ final class Router: ObservableObject {
         }
         if !paused, reason == NSWorkspace.didWakeNotification.rawValue {
             extendQuietWindow(seconds: 10)
+            lastWakeAt = Date()
         }
         guard paused != isPaused else { return }
         isPaused = paused
@@ -1411,6 +1412,37 @@ final class Router: ObservableObject {
         var since: Date
     }
     private var pendingChange: PendingChange?
+    /// Tablo E: son uyanma (geri alma bundan 60 sn sonraya dek yok, E3.4).
+    private var lastWakeAt: Date?
+    /// Kayıtlı durum canlı durumla en az bir kez karşılaştırıldı ya da
+    /// kaydedildi: bundan sonraki fark Deskmap çalışırken oldu (E1.6).
+    private var liveSeen = false
+    /// Onay bekleyen fark Deskmap açılmadan önce olmuştu (SE2: kart).
+    private var catchUpDiff = false
+    /// Geri almanın açtığı space → zamanı (SE3).
+    private var recentReverts: [UInt64: Date] = [:]
+    /// Ekran değiştiren masaüstü onay ya da geri alma bekliyor: bu ana dek
+    /// yönlendirme bekler (E2.9; sayı pinli pencereler gidip gelmesin).
+    private var revertHoldUntil: Date?
+    /// Tablo E kartı.
+    @Published private(set) var revertOffer: RevertOffer?
+
+    struct RevertOffer: Equatable {
+        enum Kind: Equatable {
+            /// "Geri al" düğmesi (Sor ayarı ya da Deskmap kapalıyken, SE2).
+            case ask
+            /// Geri alındı; "Böyle kalsın" düğmesi (E4.4).
+            case reverted
+            /// Bilgi (kısmen, yapılamadı, taşıma kapalı).
+            case info
+        }
+        var kind: Kind
+        var message: String
+        /// `ask`: geri alınacaklar; `reverted`: "Böyle kalsın"ın ters taşımaları.
+        var crossings: [DesktopRevert.Crossing]
+        var failed: Bool
+        var at: Date
+    }
     nonisolated static let changeConfirmDelay: TimeInterval = 1.5
     /// Açılıştan beri kararlı bir tarama pencere içeriğini okudu (ad geçişi
     /// ve geçiş kanıtı bu okumaya dayanır).
@@ -1517,6 +1549,7 @@ final class Router: ObservableObject {
         desktopState = state
         store.setLive(LiveDesktops(mode: screens.mode, spaces: Self.spaces(displays)))
         writeDesktopState()
+        liveSeen = true
     }
 
     private func writeDesktopState() {
@@ -1598,6 +1631,8 @@ final class Router: ObservableObject {
         let displaysChanged = !saved.sameDisplays(as: displays) || saved.mode != mode
         guard displaysChanged || saved.spaces != spaces else {
             pendingChange = nil
+            liveSeen = true
+            revertHoldUntil = nil
             let live = Set(spaces.values.joined())
             let contents = DesktopStateFile.encodeContents(lastContents.filter { live.contains($0.key) })
             if contents != saved.contents {
@@ -1608,12 +1643,21 @@ final class Router: ObservableObject {
             cleanupIfNeeded(spaces: spaces, mode: mode)
             return
         }
+        if !liveSeen { catchUpDiff = true }
+        // Tablo E: ekran değiştiren masaüstü onay beklerken yönlendirme
+        // bekler (E2.9); karar `handleCrossings`'te.
+        let crossings = displaysChanged ? [] : DesktopRevert.crossings(before: saved.spaces, after: spaces)
+        if !crossings.isEmpty, store.document.missionControlMoves != .leave {
+            revertHoldUntil = Date().addingTimeInterval(10)
+        }
         let check = Self.confirmChange(pending: pendingChange, observed: displays, now: Date())
         pendingChange = check.pending
         guard check.confirmed else {
             scheduleFollowUp(after: UInt64(Self.changeConfirmDelay * 1000) + 100)
             return
         }
+        let catchUp = catchUpDiff
+        catchUpDiff = false
         if store.isReadOnly {
             commitSnapshot()
             return
@@ -1642,6 +1686,7 @@ final class Router: ObservableObject {
         }
         ownRemovals = ownRemovals.filter { space in spaces.values.contains { $0.contains(space) } }
         commitSnapshot()
+        handleCrossings(crossings, catchUp: catchUp)
     }
 
     /// Masaüstü değişikliği onayı (saf): aynı liste en az `changeConfirmDelay`
@@ -1695,6 +1740,7 @@ final class Router: ObservableObject {
     /// 60 sn; takılan geçiş yönlendirmeyi sonsuza dek durdurmasın).
     private func planHoldsRouting(now: Date) -> Bool {
         if transitionRunning { return true }
+        if let until = revertHoldUntil, now < until { return true }
         guard let transition else { return false }
         return now.timeIntervalSince(transition.startedAt) < 60
     }
@@ -2091,10 +2137,17 @@ final class Router: ObservableObject {
         guard !plan.isEmpty else { return PlanExecutor.Outcome() }
         desktopOpInFlight = true
         defer { desktopOpInFlight = false }
+        return await PlanExecutor.run(plan, expected: expected, windowSpaces: windowSpaces,
+                                      allowRemovals: allowRemovals, world: planWorld(refs: refs))
+    }
+
+    /// Yürütücünün gerçek dünyası: Mission Control, SkyLight; ekran değişince,
+    /// duraklatılınca ya da 30 sn sonra durur.
+    private func planWorld(refs: [CGWindowID: DesktopStateFile.WindowRef]) -> PlanExecutor.World {
         let startScreens = screens.screens
         let deadline = Date().addingTimeInterval(30)
         let pids = refs.mapValues(\.pid)
-        let world = PlanExecutor.World(
+        return PlanExecutor.World(
             liveSpaces: { [unowned self] in Self.spaces(self.readLiveDisplays()) },
             addDesktop: { [unowned self] role in await self.addDesktopNow(on: role) },
             move: { [unowned self] moves in
@@ -2124,8 +2177,6 @@ final class Router: ObservableObject {
                 self.transition?.spaceMap = Dictionary(uniqueKeysWithValues: spaceMap.map { (String($0.key), $0.value) })
                 self.writeDesktopState()
             })
-        return await PlanExecutor.run(plan, expected: expected, windowSpaces: windowSpaces,
-                                      allowRemovals: allowRemovals, world: world)
     }
 
     /// Pencereleri hedef space'lerine taşır: önce hepsi, sonra 200 ms sonra
@@ -2207,6 +2258,176 @@ final class Router: ObservableObject {
     }
 
     func dismissPlanStatus() { planStatus = nil }
+
+    // MARK: - Tablo E: Mission Control'de ekran değiştiren masaüstü
+
+    /// Onaylanmış farkta ekran değiştiren masaüstüleri (izleme bitti,
+    /// durum kaydedildi): ayara ve koşullara göre geri al, sor ya da bırak.
+    private func handleCrossings(_ crossings: [DesktopRevert.Crossing], catchUp: Bool) {
+        guard !crossings.isEmpty else {
+            revertHoldUntil = nil
+            return
+        }
+        let now = Date()
+        recentReverts = recentReverts.filter { now.timeIntervalSince($0.value) < DesktopRevert.repeatWindow }
+        let context = DesktopRevert.Context(
+            setting: store.document.missionControlMoves, observedLive: !catchUp,
+            movesAllowed: moveHealth.movesAllowed && SkyLight.shared.canMove,
+            readOnly: store.isReadOnly, heldRoles: screens.heldRoles,
+            lastScreenChange: screens.lastChangeAt, lastWake: lastWakeAt,
+            recentReverts: recentReverts, now: now)
+        var reverts: [DesktopRevert.Crossing] = [], asks: [DesktopRevert.Crossing] = []
+        var blocked: [DesktopRevert.Crossing] = []
+        for crossing in crossings {
+            let decision = DesktopRevert.decide(crossing, context)
+            Log.app.notice("Desktop \(crossing.fromDesktop) on \(crossing.from, privacy: .public) (space \(crossing.space)) moved to desktop \(crossing.toDesktop) on \(crossing.to, privacy: .public) in Mission Control\(catchUp ? " while Deskmap was not running" : "", privacy: .public); \(String(describing: decision), privacy: .public)")
+            switch decision {
+            case .revert: reverts.append(crossing)
+            case .ask: asks.append(crossing)
+            case .blocked: blocked.append(crossing)
+            case .leave: break
+            }
+        }
+        if let first = blocked.first {
+            revertOffer = RevertOffer(
+                kind: .info,
+                message: L("“%@” stays on %@: desktop moves are off, so it could not be moved back",
+                           desktopLabel(first, newSpace: first.space), screenName(first.to)),
+                crossings: [], failed: true, at: now)
+        }
+        if !asks.isEmpty {
+            let message = asks.count == 1
+                ? L("“%@” was moved from %@ to %@ in Mission Control",
+                    desktopLabel(asks[0], newSpace: asks[0].space), screenName(asks[0].from), screenName(asks[0].to))
+                : L("%ld desktops were moved to another display in Mission Control", asks.count)
+            revertOffer = RevertOffer(kind: .ask, message: message, crossings: asks, failed: false, at: now)
+        }
+        guard !reverts.isEmpty else {
+            revertHoldUntil = nil
+            return
+        }
+        Task { await runReverts(reverts, keeping: false) }
+    }
+
+    /// Kart: "Geri al" (SE2, Sor ayarı).
+    func acceptRevertOffer() {
+        guard let offer = revertOffer, offer.kind == .ask else { return }
+        revertOffer = nil
+        Task { await runReverts(offer.crossings, keeping: false) }
+    }
+
+    /// Kart: "Böyle kalsın" (E4.4): geri alınanı kullanıcının bıraktığı
+    /// yere, aynı pin kaydırmasız yolla.
+    func keepRevertedDesktops() {
+        guard let offer = revertOffer, offer.kind == .reverted else { return }
+        revertOffer = nil
+        Task { await runReverts(offer.crossings, keeping: true) }
+    }
+
+    func dismissRevertOffer() { revertOffer = nil }
+
+    /// Geri almayı (ya da "Böyle kalsın"ı) yürütür; bitene dek yönlendirme
+    /// bekler. Mission Control kullanıcıda açıksa kapanması beklenir (E1.2):
+    /// açıkken açma isteği onu kapatırdı.
+    private func runReverts(_ list: [DesktopRevert.Crossing], keeping: Bool) async {
+        guard transition == nil, !transitionRunning, !desktopOpInFlight, !screens.isSettling,
+              !store.isReadOnly, SkyLight.shared.canRead else {
+            revertHoldUntil = nil
+            if !keeping {
+                revertOffer = RevertOffer(kind: .ask, message: L("A desktop was moved to another display in Mission Control"),
+                                          crossings: list, failed: false, at: Date())
+            }
+            return
+        }
+        transitionRunning = true
+        defer {
+            transitionRunning = false
+            revertHoldUntil = nil
+        }
+        for _ in 0..<150 where MissionControl.isOpen {
+            try? await Task.sleep(nanoseconds: 200_000_000)
+        }
+        guard !MissionControl.isOpen else {
+            Log.app.notice("Revert: Mission Control stayed open; offering it on a card instead")
+            revertOffer = RevertOffer(kind: .ask, message: L("A desktop was moved to another display in Mission Control"),
+                                      crossings: list, failed: false, at: Date())
+            return
+        }
+        let mode = screens.mode
+        var done: [DesktopRevert.Crossing] = []
+        var message: String?
+        var failed = false
+        for crossing in list {
+            let live = Self.spaces(readLiveDisplays())
+            guard let index = live[crossing.to]?.firstIndex(of: crossing.space) else {
+                Log.app.notice("Revert: space \(crossing.space) is no longer on \(crossing.to, privacy: .public); left alone")
+                continue
+            }
+            var current = crossing
+            current.toDesktop = index + 1
+            let label = desktopLabel(current, newSpace: current.space)
+            let fresh = await withCheckedContinuation { continuation in
+                queue.async { continuation.resume(returning: Self.readWindowSpaces()) }
+            }
+            var refs: [CGWindowID: DesktopStateFile.WindowRef] = [:]
+            for refsOnSpace in fresh.contents.values { for ref in refsOnSpace { refs[ref.id] = ref } }
+            desktopOpInFlight = true
+            let outcome = await DesktopRevert.run(
+                current, contents: fresh.contents.mapValues { $0.map(\.id) },
+                windowSpaces: fresh.windowSpaces, world: planWorld(refs: refs))
+            desktopOpInFlight = false
+            let result = outcome.map { DesktopRevert.result($0, crossing: current) } ?? .failed
+            switch result {
+            case .reverted(let newSpace), .partial(let newSpace, _):
+                store.commitRevert(spaceMap: outcome?.spaceMap ?? [:], from: current.to,
+                                   desktop: current.toDesktop, to: current.from, at: current.fromDesktop,
+                                   mode: mode)
+                if !keeping { recentReverts[newSpace] = Date() }
+                done.append(DesktopRevert.reverse(current, newSpace: newSpace))
+                if case .partial(_, let stayed) = result {
+                    failed = true
+                    message = L("“%@” moved back to %@; %ld windows stayed on %@, so that desktop was kept",
+                                label, screenName(current.from), stayed, screenName(current.to))
+                }
+                Log.app.notice("Revert: space \(current.space) on \(current.to, privacy: .public) → desktop \(current.fromDesktop) on \(current.from, privacy: .public) (space \(newSpace))\(keeping ? " (kept where the user put it)" : "", privacy: .public); \(String(describing: result), privacy: .public)")
+            case .failed:
+                failed = true
+                message = L("Could not move “%@” back to %@; it stays on %@",
+                            label, screenName(current.from), screenName(current.to))
+                Log.app.error("Revert: space \(current.space) could not be moved back (\(outcome?.abortReason ?? "no plan", privacy: .public)); it stays on \(current.to, privacy: .public)")
+            }
+            commitSnapshot()
+        }
+        if let message {
+            revertOffer = RevertOffer(kind: .info, message: message, crossings: [], failed: failed, at: Date())
+        } else if !done.isEmpty {
+            let first = done[0]
+            if keeping {
+                revertOffer = RevertOffer(kind: .info,
+                                          message: L("“%@” stays on %@", desktopLabel(first, newSpace: first.space),
+                                                     screenName(first.from)),
+                                          crossings: [], failed: false, at: Date())
+            } else {
+                revertOffer = RevertOffer(
+                    kind: .reverted,
+                    message: done.count == 1
+                        ? L("“%@” moved back to %@", desktopLabel(first, newSpace: first.space), screenName(first.to))
+                        : L("%ld desktops moved back to their displays", done.count),
+                    crossings: done, failed: false, at: Date())
+            }
+        }
+        reapplyAll()
+        scheduleFollowUp(after: 300)
+    }
+
+    /// Kart metni: adlı masaüstünün adı, değilse "Masaüstü N" (eski sırası).
+    private func desktopLabel(_ crossing: DesktopRevert.Crossing, newSpace: UInt64) -> String {
+        store.document.nameRecord(space: newSpace)?.name ?? L("Desktop %ld", crossing.fromDesktop)
+    }
+
+    private func screenName(_ role: String) -> String {
+        screens.screens.first { $0.id == role }?.name ?? role
+    }
 
     /// "Yeniden dene": planı şimdi uygular (silme yok).
     func retryPlan() {

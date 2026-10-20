@@ -130,6 +130,9 @@ struct Document: Codable, Equatable {
     /// Kurulum hatırlatması (Dock "Assign To" vb.) kullanıcı tarafından
     /// kapatıldı mı? Canlı denetlenen ayarlar bozuksa kart yine görünür.
     var setupNoticeDismissed: Bool = false
+    /// Mission Control'de başka ekrana sürüklenen masaüstü (Tablo E):
+    /// geri al (varsayılan), sor ya da bırak. Varsayılan yazılmaz.
+    var missionControlMoves: DesktopRevert.Setting = .defaultValue
     /// Eski sürümlerin sıraya aldığı gerçek masaüstü silmeleri (anahtar
     /// `planKey`); bütün profillerde ortak. Şema 6 yenisini eklemez.
     var pendingRemovals: [String: [PendingRemoval]] = [:]
@@ -173,7 +176,7 @@ struct Document: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case version, enabled, screens, rules, profiles, activeProfileID, settings
         case setupNoticeDismissed, plannedDesktops, pendingRemovals, desktopNames
-        case desktopNameSpaces, ghostDesktops, displayRoles
+        case desktopNameSpaces, ghostDesktops, displayRoles, missionControlMoves
     }
 
     private struct LegacySettings: Decodable { var enabled: Bool? }
@@ -224,6 +227,8 @@ struct Document: Codable, Equatable {
         droppedRuleCount += records.reduce(0) { $0 + $1.rules.droppedCount }
         activeProfileID = try c.decodeIfPresent(String.self, forKey: .activeProfileID) ?? ""
         setupNoticeDismissed = try c.decodeIfPresent(Bool.self, forKey: .setupNoticeDismissed) ?? false
+        missionControlMoves = (try? c.decodeIfPresent(DesktopRevert.Setting.self,
+                                                      forKey: .missionControlMoves)) ?? .defaultValue
         displayRoles = (try? c.decodeIfPresent(DisplayRoles.self, forKey: .displayRoles)) ?? DisplayRoles()
         pendingRemovals = (try? c.decodeIfPresent(
             [String: [PendingRemoval]].self, forKey: .pendingRemovals)) ?? [:]
@@ -385,6 +390,9 @@ struct Document: Codable, Equatable {
         try c.encode(activeProfileID, forKey: .activeProfileID)
         try c.encode(setupNoticeDismissed, forKey: .setupNoticeDismissed)
         if displayRoles != DisplayRoles() { try c.encode(displayRoles, forKey: .displayRoles) }
+        if missionControlMoves != .defaultValue {
+            try c.encode(missionControlMoves, forKey: .missionControlMoves)
+        }
         // Adlar, planlar ve hayaletler profil kayıtlarında; yazarken aktif
         // profilin çalışma kopyası kayda işlenir.
         var written = self

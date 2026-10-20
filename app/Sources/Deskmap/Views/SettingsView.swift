@@ -211,6 +211,16 @@ private struct GeneralSettings: View {
                         .labelsHidden()
                 }
             }
+            SettingRow(title: L("Desktop dragged to another display"),
+                       detail: L("In Mission Control. Move back: Deskmap returns it to its display and place. Ask: a card offers to move it back. Leave: it stays on the new display and its name follows it.")) {
+                Picker("", selection: $store.document.missionControlMoves) {
+                    Text(L("Move back")).tag(DesktopRevert.Setting.revert)
+                    Text(L("Ask")).tag(DesktopRevert.Setting.ask)
+                    Text(L("Leave")).tag(DesktopRevert.Setting.leave)
+                }
+                .labelsHidden()
+                .fixedSize()
+            }
             SettingRow(title: L("Monitor roles"),
                        detail: L("Each monitor keeps its role (Extra monitor, Monitor 2) wherever it is placed. Forget: roles follow the left-to-right order again.")) {
                 Button(L("Forget")) { store.forgetDisplayRoles() }
