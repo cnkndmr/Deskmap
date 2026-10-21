@@ -42,7 +42,9 @@ struct LayoutLibraryTests {
 
     @Test func defaultsAdvancedMatchesPresetsForEveryAspect() {
         for aspect in [1.6, 16.0 / 9, 2.19, 2.2, 21.0 / 9, 3.56, 5120.0 / 1440] {
-            #expect(LayoutLibrary.defaults.advanced(aspect: aspect) == WindowLayout.presets(aspect: aspect),
+            let basic = LayoutLibrary.defaults.basic()
+            #expect(LayoutLibrary.defaults.advanced(aspect: aspect)
+                    == WindowLayout.presets(aspect: aspect).filter { !basic.contains($0) },
                     "aspect \(aspect)")
         }
     }
@@ -180,6 +182,7 @@ struct LayoutLibraryTests {
         check(library.setList("center", to: .basic))
         #expect(ids(library, .basic) == ["full", "left-half", "right-half", "as-is", "center"])
         #expect(library.basic() == [.full, .leftHalf, .rightHalf, .anyFrame, .center])
+        #expect(!library.advanced(aspect: 1.6).contains(.center))
         check(!library.setList("center", to: .basic))
         check(library.setList("full", to: .hidden))
         #expect(ids(library, .hidden) == ["full"])
@@ -301,8 +304,12 @@ struct LayoutLibraryTests {
         #expect(library.basic(aspect: 3.56).contains(column))
         #expect(!library.basic(aspect: 1.6).contains(column))
         #expect(library.basic(aspect: nil).contains(column))
-        #expect(library.advanced(aspect: 3.56).contains(column))
-        #expect(!library.advanced(aspect: 1.6).contains(column))
+        // Temel satırdaki düzen gelişmiş ızgarada tekrarlanmaz.
+        #expect(!library.advanced(aspect: 3.56).contains(column))
+        let wideColumn = WindowLayout(x: 0, y: 0, w: 0.45, h: 1)
+        _ = try require(library.add(wideColumn, name: "Wide column", list: .advanced, fit: .ultrawide))
+        #expect(library.advanced(aspect: 3.56).contains(wideColumn))
+        #expect(!library.advanced(aspect: 1.6).contains(wideColumn))
         #expect(ScreenFit.ultrawide.accepts(aspect: 2.2))
         #expect(!ScreenFit.regular.accepts(aspect: 2.2))
         #expect(ScreenFit.regular.accepts(aspect: 2.19))

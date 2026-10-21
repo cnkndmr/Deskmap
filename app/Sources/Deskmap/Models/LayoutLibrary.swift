@@ -2,8 +2,8 @@ import Foundation
 
 // MARK: - Düzen kitaplığı
 
-/// Düzenin gösterildiği liste. `basic` aynı zamanda gelişmiş ızgarada da
-/// görünür (eskiden beri Tam / Sol yarı / Sağ yarı ikisinde de).
+/// Düzenin gösterildiği liste. Her giriş tek yerde görünür: temel satırdaki
+/// düzen gelişmiş ızgarada tekrarlanmaz.
 enum LayoutList: String, Codable, CaseIterable, Identifiable {
     case basic, advanced, hidden
 
@@ -20,7 +20,7 @@ enum LayoutList: String, Codable, CaseIterable, Identifiable {
     /// Ayarlar'da bölüm başlığının altındaki açıklama.
     var detail: String {
         switch self {
-        case .basic:    return L("Tiles under every pin, also shown in Advanced. Up to %ld.",
+        case .basic:    return L("Tiles under every pin. Up to %ld.",
                                  LayoutLibrary.maxBasic)
         case .advanced: return L("In the Advanced section, next to the grid.")
         case .hidden:   return L("Not offered anywhere. Pins that use them keep them.")
@@ -204,12 +204,11 @@ struct LayoutLibrary: Codable, Equatable {
         entries(in: .basic).filter { $0.fit.accepts(aspect: aspect) }.map(\.layout)
     }
 
-    /// Gelişmiş ızgaranın hazır düzenleri: temel ve gelişmiş girişler (yalnız
-    /// masaüstü hariç; onun gelişmiş bölümde kendi onay kutusu var), ekranın
-    /// şekline uyanlar, global sırayla.
+    /// Gelişmiş ızgaranın hazır düzenleri: yalnız gelişmiş girişler (temel
+    /// satırdakiler zaten onun üstünde), ekranın şekline uyanlar, global sırayla.
     func advanced(aspect: Double) -> [WindowLayout] {
-        entries
-            .filter { $0.list != .hidden && !$0.isDesktopOnly && $0.fit.accepts(aspect: aspect) }
+        entries(in: .advanced)
+            .filter { !$0.isDesktopOnly && $0.fit.accepts(aspect: aspect) }
             .map(\.layout)
     }
 

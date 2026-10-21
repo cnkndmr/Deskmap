@@ -693,7 +693,7 @@
 "Hidden layouts" = "Gizli düzenler";
 "Basic" = "Temel";
 "Hidden" = "Gizli";
-"Tiles under every pin, also shown in Advanced. Up to %ld." = "Her sabitlemenin altındaki döşemeler; Gelişmiş'te de görünür. En çok %ld.";
+"Tiles under every pin. Up to %ld." = "Her sabitlemenin altındaki döşemeler. En çok %ld.";
 "In the Advanced section, next to the grid." = "Gelişmiş bölümünde, ızgaranın yanında.";
 "Not offered anywhere. Pins that use them keep them." = "Hiçbir yerde önerilmez. Bunları kullanan sabitlemeler korur.";
 "No layouts here." = "Burada düzen yok.";
