@@ -90,8 +90,7 @@ struct RulePanel: View {
                 DestinationPickers(
                     destination: store.rule(rule.id)?[mode] ?? destination, mode: mode,
                     setDestination: { store.setDestination($0, for: rule.id, mode: mode) })
-                BasicLayoutRow(layout: layoutBinding(destination),
-                               aspect: store.screens(for: mode).first { $0.id == destination.screen }?.aspect)
+                BasicLayoutRow(layout: layoutBinding(destination))
                 if mode == .docked { PlacesList(rule: rule) }
             } else {
                 Text(L("Drag onto a desktop to give it a place in this plan."))
@@ -408,7 +407,7 @@ struct SessionPinPanel: View {
                 showAdvanced: { ui.showAdvanced = true })
             DestinationPickers(destination: current, mode: screens.mode,
                                setDestination: { router.pinSession(window.id, destination: $0) })
-            BasicLayoutRow(layout: layoutBinding, aspect: sessionScreen?.aspect)
+            BasicLayoutRow(layout: layoutBinding)
             FreeMoveRow(windowIDs: [window.id])
 
             Divider()

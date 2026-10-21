@@ -141,8 +141,8 @@ Sabit bir pencerenin kutusuna ya da çipine tıkla. Cümlenin altında dört dü
 Deskmap pencereyi orada hiç taşımaz, boyutuna dokunmaz). Pencerenin başka bir
 düzeni varsa beşinci döşeme **Özel** onu gösterir, tam adı satırın altında
 yazar. Gerisi **Gelişmiş ▸**
-altında: başlık parçaları, üzerinde sürükleyerek alan seçilen ızgara, bütün
-hazır düzenler (%70/%30, üçte birler, çeyrekler, üst/alt yarı, orta),
+altında: başlık parçaları, üzerinde sürükleyerek alan seçilen ızgara, öbür
+hazır düzenler (%70/%30, üst/alt yarı, köşeler, orta; her ekranda aynı set),
 kenarlardan bırakılacak boşluk ve sabit boyut. Gelişmiş’i bir kez açarsan
 sonraki pencerede de açık kalır. Hangi düzenlerin döşeme olarak, hangilerinin
 Gelişmiş’te görüneceğine sen karar verirsin: **Ayarlar › Düzenler** (ızgarada

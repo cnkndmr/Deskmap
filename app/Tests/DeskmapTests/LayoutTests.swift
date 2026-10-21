@@ -139,11 +139,9 @@ struct LayoutToolTests {
         #expect(!json.contains("fixed"))
     }
 
-    @Test func presetsFollowTheDisplayShape() {
-        let wide = WindowLayout.presets(aspect: 5120.0 / 1440)
-        #expect(wide.contains(.leftThird) && wide.contains(.centerHalf) && !wide.contains(.topHalf))
-        let laptop = WindowLayout.presets(aspect: 1.6)
-        #expect(laptop.contains(.topLeft) && laptop.contains(.topHalf) && !laptop.contains(.leftThird))
+    @Test func standardPresetsAreTheLaptopSet() {
+        let presets = WindowLayout.standardPresets
+        #expect(presets.contains(.topLeft) && presets.contains(.topHalf) && !presets.contains(.leftThird))
     }
 
     @Test func presetListsAreMirrorSymmetric() {
@@ -153,12 +151,9 @@ struct LayoutToolTests {
         func close(_ a: WindowLayout, _ b: WindowLayout) -> Bool {
             abs(a.x - b.x) < 1e-9 && abs(a.y - b.y) < 1e-9 && abs(a.w - b.w) < 1e-9 && abs(a.h - b.h) < 1e-9
         }
-        for aspect in [1.6, 16.0 / 9, 5120.0 / 1440] {
-            let presets = WindowLayout.presets(aspect: aspect)
-            for preset in presets {
-                #expect(presets.contains { close($0, mirrored(preset)) },
-                        "\(preset.label) has no mirror at aspect \(aspect)")
-            }
+        let presets = WindowLayout.standardPresets
+        for preset in presets {
+            #expect(presets.contains { close($0, mirrored(preset)) }, "\(preset.label) has no mirror")
         }
     }
 
@@ -342,10 +337,11 @@ struct BugFixTests {
                 LayoutEditor.toggledFixed(preset, on: true, screenSize: size), on: false, screenSize: size)
             #expect(back == preset, "\(preset.label)")
         }
+        // Ultra geniş ekranda da aynı (laptop) set: %70 geri gelir.
         let wide = CGSize(width: 5120, height: 1410)
-        let third = LayoutEditor.toggledFixed(
-            LayoutEditor.toggledFixed(.centerThird, on: true, screenSize: wide), on: false, screenSize: wide)
-        #expect(third == .centerThird)
+        let seventy = LayoutEditor.toggledFixed(
+            LayoutEditor.toggledFixed(.left70, on: true, screenSize: wide), on: false, screenSize: wide)
+        #expect(seventy == .left70)
     }
 
     /// Kapatınca kitaplıktaki yakın giriş de geri gelir: kullanıcının düzeni
@@ -364,11 +360,6 @@ struct BugFixTests {
         #expect(library.entry(matching: back)?.id == id)
         // Kitaplıksız yalnız yuvarlanmış oran kalır.
         #expect(LayoutEditor.toggledFixed(on, on: false, screenSize: size) != code)
-        // Ekran şekline uymayan giriş aday değil.
-        var wideOnly = LayoutLibrary.defaults
-        let wideID = wideOnly.add(code, name: "Code", list: .advanced, fit: .ultrawide)
-        #expect(wideID != nil)
-        #expect(LayoutEditor.toggledFixed(on, on: false, screenSize: size, library: wideOnly) != code)
     }
 
     @Test func editingOneMarginKeepsTheOtherEdgesExact() {

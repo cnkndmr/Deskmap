@@ -66,7 +66,7 @@ struct LayoutEditor: View {
             // Kitaplığın hazır düzenleri (ekranın şekline göre)
             let library = store.document.layouts
             FlowLayout(spacing: 4) {
-                ForEach(library.advanced(aspect: target.aspect), id: \.self) { preset in
+                ForEach(library.advanced(), id: \.self) { preset in
                     let isSelected = preset == layout
                     Button {
                         layout = preset
@@ -175,11 +175,10 @@ struct LayoutEditor: View {
         let back = WindowLayout(frame: layout.rect(in: area), in: area)
         // Hazır düzene 1 pt'den yakınsa onun kendisi (Tam, Sol yarım …);
         // kitaplıktaki giriş de (adı ve döşemesi geri gelsin).
-        let aspect = Double(screenSize.width / max(screenSize.height, 1))
         let presets = library.entries
-            .filter { !$0.isDesktopOnly && $0.fit.accepts(aspect: aspect) }
+            .filter { !$0.isDesktopOnly }
             .map(\.layout)
-            + WindowLayout.presets(aspect: aspect) + WindowLayout.presets
+            + WindowLayout.standardPresets + WindowLayout.presets
         // Açarken kenara dayanan boyut 10 pt'ye aşağı yuvarlanır; bu kadar
         // yakın hazır düzen varsa en yakını geri gelir (Sol yarım → Sol yarım).
         func distance(_ a: CGRect, _ b: CGRect) -> CGFloat {

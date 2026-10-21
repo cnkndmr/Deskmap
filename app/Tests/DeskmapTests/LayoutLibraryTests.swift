@@ -40,13 +40,10 @@ struct LayoutLibraryTests {
         #expect(LayoutLibrary.defaults.basic() == [.full, .leftHalf, .rightHalf, .anyFrame])
     }
 
-    @Test func defaultsAdvancedMatchesPresetsForEveryAspect() {
-        for aspect in [1.6, 16.0 / 9, 2.19, 2.2, 21.0 / 9, 3.56, 5120.0 / 1440] {
-            let basic = LayoutLibrary.defaults.basic()
-            #expect(LayoutLibrary.defaults.advanced(aspect: aspect)
-                    == WindowLayout.presets(aspect: aspect).filter { !basic.contains($0) },
-                    "aspect \(aspect)")
-        }
+    @Test func defaultsAdvancedMatchesStandardPresets() {
+        let basic = LayoutLibrary.defaults.basic()
+        #expect(LayoutLibrary.defaults.advanced()
+                == WindowLayout.standardPresets.filter { !basic.contains($0) })
     }
 
     @Test func defaultsHaveNoNamesAndLabelsAreBuiltIn() {
@@ -74,11 +71,11 @@ struct LayoutLibraryTests {
 
     @Test func addCustomAppendsToSectionAndIsLookedUpByName() throws {
         var library = LayoutLibrary.defaults
-        let id = try require(library.add(code, name: "Code", list: .advanced, fit: .any))
+        let id = try require(library.add(code, name: "Code", list: .advanced))
         #expect(library.entries(in: .advanced).last?.id == id)
         #expect(library.label(for: code) == "Code")
-        #expect(library.advanced(aspect: 1.6).last == code)
-        #expect(library.advanced(aspect: 3.56).last == code)
+        #expect(library.advanced().last == code)
+        #expect(library.advanced().last == code)
         #expect(!(library.entry(id)?.isBuiltIn ?? true))
         // Gelişmişteki düzen temel döşemede "Özel".
         #expect(library.shortLabel(for: code) == "Custom")
@@ -145,7 +142,7 @@ struct LayoutLibraryTests {
         var library = LayoutLibrary.defaults
         let last = LayoutGrid.layout(from: .init(col: 23, row: 0), to: .init(col: 23, row: 5),
                                      cols: 24, rows: 6)
-        let id = try require(library.add(last, name: "Strip", list: .advanced, fit: .ultrawide))
+        let id = try require(library.add(last, name: "Strip", list: .advanced))
         #expect(library.entry(id)?.layout == last)
         #expect(library.label(for: last) == "Strip")
         // Yerleştirme de tek sütunu kırpmaz.
@@ -182,15 +179,15 @@ struct LayoutLibraryTests {
         check(library.setList("center", to: .basic))
         #expect(ids(library, .basic) == ["full", "left-half", "right-half", "as-is", "center"])
         #expect(library.basic() == [.full, .leftHalf, .rightHalf, .anyFrame, .center])
-        #expect(!library.advanced(aspect: 1.6).contains(.center))
+        #expect(!library.advanced().contains(.center))
         check(!library.setList("center", to: .basic))
         check(library.setList("full", to: .hidden))
         #expect(ids(library, .hidden) == ["full"])
         #expect(!library.basic().contains(.full))
-        #expect(!library.advanced(aspect: 1.6).contains(.full))
+        #expect(!library.advanced().contains(.full))
         check(library.setList("full", to: .advanced))
         #expect(library.entries(in: .advanced).last?.id == "full")
-        #expect(library.advanced(aspect: 1.6).contains(.full))
+        #expect(library.advanced().contains(.full))
         #expect(!library.basic().contains(.full))
     }
 
@@ -234,15 +231,15 @@ struct LayoutLibraryTests {
     @Test func updateEditsGeometryAndRestoreReverts() {
         var library = LayoutLibrary.defaults
         let narrower = WindowLayout(x: 0, y: 0, w: 0.45, h: 1)
-        check(library.update("left-half", layout: narrower, name: nil, fit: .any))
+        check(library.update("left-half", layout: narrower, name: nil))
         #expect(library.isModified("left-half"))
         #expect(library.label(for: narrower) == "45% × 100%")
         #expect(library.shortLabel(for: narrower) == "45% × 100%")
         #expect(library.basic().contains(narrower) && !library.basic().contains(.leftHalf))
-        check(!library.update("left-half", layout: narrower, name: nil, fit: .any))
-        check(!library.update("left-half", layout: .rightHalf, name: nil, fit: .any))
-        check(!library.update("as-is", layout: code, name: nil, fit: .any))
-        check(!library.update("missing", layout: code, name: nil, fit: .any))
+        check(!library.update("left-half", layout: narrower, name: nil))
+        check(!library.update("left-half", layout: .rightHalf, name: nil))
+        check(!library.update("as-is", layout: code, name: nil))
+        check(!library.update("missing", layout: code, name: nil))
         check(library.setList("left-half", to: .hidden))
         check(library.restore("left-half"))
         #expect(library.entry("left-half")?.layout == .leftHalf)
@@ -254,7 +251,7 @@ struct LayoutLibraryTests {
 
     @Test func restoreRefusesWhenOriginalAreaIsTaken() throws {
         var library = LayoutLibrary.defaults
-        check(library.update("left-half", layout: code, name: nil, fit: .any))
+        check(library.update("left-half", layout: code, name: nil))
         let mine = try require(library.add(.leftHalf, name: "Mine", list: .advanced))
         // Ayarlar "Özgüne dön"ü kapatır ve engelleyen girişi adlandırır.
         let left = try require(library.entry("left-half"))
@@ -297,27 +294,36 @@ struct LayoutLibraryTests {
         #expect(!json.contains("\"layouts\""))
     }
 
-    @Test func fitFiltersBothLists() throws {
+    @Test func everyLayoutIsOfferedOnEveryDisplay() throws {
         var library = LayoutLibrary.defaults
         let column = WindowLayout(x: 0, y: 0, w: 0.4, h: 1)
-        _ = try require(library.add(column, name: "Column", list: .basic, fit: .ultrawide))
-        #expect(library.basic(aspect: 3.56).contains(column))
-        #expect(!library.basic(aspect: 1.6).contains(column))
-        #expect(library.basic(aspect: nil).contains(column))
+        _ = try require(library.add(column, name: "Column", list: .basic))
+        #expect(library.basic().contains(column))
         // Temel satırdaki düzen gelişmiş ızgarada tekrarlanmaz.
-        #expect(!library.advanced(aspect: 3.56).contains(column))
+        #expect(!library.advanced().contains(column))
         let wideColumn = WindowLayout(x: 0, y: 0, w: 0.45, h: 1)
-        _ = try require(library.add(wideColumn, name: "Wide column", list: .advanced, fit: .ultrawide))
-        #expect(library.advanced(aspect: 3.56).contains(wideColumn))
-        #expect(!library.advanced(aspect: 1.6).contains(wideColumn))
-        #expect(ScreenFit.ultrawide.accepts(aspect: 2.2))
-        #expect(!ScreenFit.regular.accepts(aspect: 2.2))
-        #expect(ScreenFit.regular.accepts(aspect: 2.19))
-        #expect(!ScreenFit.ultrawide.accepts(aspect: 2.19))
-        #expect(ScreenFit.any.accepts(aspect: 9) && ScreenFit.regular.accepts(aspect: nil))
-        // Ekrana uymadığı için satırda olmayan temel düzen orada "Özel".
-        #expect(library.shortLabel(for: column, aspect: 1.6) == "Custom")
-        #expect(library.shortLabel(for: column, aspect: 3.56) == "Column")
+        _ = try require(library.add(wideColumn, name: "Wide column", list: .advanced))
+        #expect(library.advanced().contains(wideColumn))
+        #expect(library.shortLabel(for: column) == "Column")
+    }
+
+    @Test func retiredUltrawideBuiltInsAreDroppedOnRead() throws {
+        let json = """
+        {"version": 1, "entries": [
+          {"id": "full", "layout": {"x": 0, "y": 0, "w": 1, "h": 1}, "list": "basic"},
+          {"id": "left-70", "fit": "regular", "layout": {"x": 0, "y": 0, "w": 0.7, "h": 1}, "list": "basic"},
+          {"id": "left-third", "fit": "ultrawide", "layout": {"x": 0, "y": 0, "w": 0.3333333333333333, "h": 1}, "list": "advanced"},
+          {"id": "u1", "fit": "ultrawide", "layout": {"x": 0, "y": 0, "w": 0.4, "h": 1}, "list": "advanced"}
+        ]}
+        """
+        let library = try JSONDecoder().decode(LayoutLibrary.self, from: Data(json.utf8))
+        #expect(library.entry("left-third") == nil)
+        #expect(library.entry("left-70")?.list == .basic)
+        // Kullanıcının ultra geniş düzeni kalır, artık her ekranda.
+        #expect(library.advanced().contains(WindowLayout(x: 0, y: 0, w: 0.4, h: 1)))
+        #expect(LayoutLibrary.retiredBuiltInIDs.allSatisfy { library.entry($0) == nil })
+        let encoded = String(decoding: try JSONEncoder().encode(library), as: UTF8.self)
+        #expect(!encoded.contains("\"fit\""))
     }
 
     @Test func shortLabelRules() {
@@ -348,7 +354,7 @@ struct LayoutLibraryTests {
     @Test func codableRoundTrip() throws {
         var library = LayoutLibrary.defaults
         let id = try require(library.add(WindowLayout(x: 0, y: 0, w: 0.5833, h: 1), name: "Code",
-                                          list: .basic, fit: .ultrawide))
+                                          list: .basic))
         check(library.setList("center", to: .hidden))
         check(library.move("right-half", by: -1))
         let data = try JSONEncoder().encode(library)
@@ -360,7 +366,7 @@ struct LayoutLibraryTests {
         #expect(full["fit"] == nil && full["name"] == nil)
         #expect(full["list"] as? String == "basic")
         let custom = try #require(entries.first { $0["id"] as? String == id })
-        #expect(custom["fit"] as? String == "ultrawide" && custom["name"] as? String == "Code")
+        #expect(custom["fit"] == nil && custom["name"] as? String == "Code")
     }
 
     @Test func decodeIsLenient() throws {
@@ -375,7 +381,6 @@ struct LayoutLibraryTests {
         """
         let library = try JSONDecoder().decode(LayoutLibrary.self, from: Data(json.utf8))
         #expect(library.entry("a")?.list == .advanced)
-        #expect(library.entry("a")?.fit == ScreenFit.any)
         #expect(library.entry("b")?.list == .advanced)
         #expect(library.entries.count == LayoutLibrary.builtIns.count + 2)
         #expect(!library.entries.contains { $0.layout == WindowLayout(x: 0, y: 0, w: 0.3, h: 0.3) })
@@ -477,12 +482,12 @@ struct LayoutLibraryTests {
         #expect(shifted != .right30 && LayoutLibrary.sameArea(shifted, .right30))
 
         var library = LayoutLibrary.defaults
-        check(!library.update("right-30", layout: shifted, name: nil, fit: .regular))
+        check(!library.update("right-30", layout: shifted, name: nil))
         #expect(library.entry("right-30")?.layout == .right30)
         #expect(!library.isModified("right-30"))
 
         // Adla birlikte kaydedilince de alan özgün kalır; pin adı görür.
-        check(library.update("right-30", layout: shifted, name: "Chat", fit: .regular))
+        check(library.update("right-30", layout: shifted, name: "Chat"))
         #expect(library.entry("right-30")?.layout == .right30)
         #expect(library.label(for: .right30) == "Chat")
         check(library.setList("right-30", to: .basic))
@@ -491,9 +496,9 @@ struct LayoutLibraryTests {
         // Değiştirilmiş hazır düzen özgününe neredeyse dönünce özgüne oturur.
         let wider = WindowLayout(x: 0.55, y: 0, w: 0.45, h: 1)
         check(library.update("left-30", layout: WindowLayout(x: 0, y: 0, w: 0.4, h: 1),
-                             name: nil, fit: .regular))
+                             name: nil))
         check(library.update("left-30", layout: WindowLayout(x: 0, y: 0, w: (1 - 0.7) - 0, h: 1),
-                             name: nil, fit: .regular))
+                             name: nil))
         #expect(library.entry("left-30")?.layout == .left30)
         #expect(!library.isModified("left-30"))
 
@@ -501,7 +506,7 @@ struct LayoutLibraryTests {
         let id = try require(library.add(wider, name: nil, list: .advanced))
         let nudged = WindowLayout(x: 0.55, y: 0, w: 1.0 - 0.55, h: 1)
         #expect(nudged != wider)
-        check(!library.update(id, layout: nudged, name: nil, fit: .any))
+        check(!library.update(id, layout: nudged, name: nil))
         #expect(library.entry(id)?.layout == wider)
     }
 
@@ -529,7 +534,7 @@ struct LayoutLibraryTests {
         let library = LayoutLibrary.defaults
         let fresh = LayoutDraft.new(in: library)
         #expect(fresh.conflict(in: library) == nil && fresh.problem(in: library) == nil)
-        #expect(fresh.list == .advanced && fresh.fit == .any && fresh.id == nil && fresh.name.isEmpty)
+        #expect(fresh.list == .advanced && fresh.id == nil && fresh.name.isEmpty)
         let leftHalf = try #require(library.entry("left-half"))
         let editing = LayoutDraft.editing(leftHalf)
         #expect(editing.conflict(in: library) == nil)
@@ -567,15 +572,14 @@ struct LayoutLibraryTests {
     }
 
     @Test func draftPreviewSize() {
-        let ultra = LayoutDraft.previewSize(fit: .ultrawide, screens: [])
-        #expect(ultra.width / ultra.height >= WindowLayout.ultrawideAspect)
-        let known = KnownScreen(id: "external", name: "LG", aspect: 3440.0 / 1440,
+        #expect(LayoutDraft.previewSize(screens: []) == CGSize(width: 1600, height: 1000))
+        let ultra = KnownScreen(id: "external", name: "LG", aspect: 3440.0 / 1440,
                                 visibleWidth: 3440, visibleHeight: 1415)
-        #expect(LayoutDraft.previewSize(fit: .ultrawide, screens: [known])
-                == CGSize(width: 3440, height: 1415))
-        #expect(LayoutDraft.previewSize(fit: .regular, screens: [known])
-                == CGSize(width: 1600, height: 1000))
-        #expect(LayoutDraft.previewSize(fit: .any, screens: [known]) == CGSize(width: 3440, height: 1415))
+        // Düzenler laptop ekranına göre çizilir; ultra geniş ekran önizleme olmaz.
+        #expect(LayoutDraft.previewSize(screens: [ultra]) == CGSize(width: 1600, height: 1000))
+        let laptop = KnownScreen(id: "builtin", name: "Built-in", aspect: 1512.0 / 949,
+                                 visibleWidth: 1512, visibleHeight: 949)
+        #expect(LayoutDraft.previewSize(screens: [ultra, laptop]) == CGSize(width: 1512, height: 949))
     }
 
     @Test func layoutGridSizeHonoursMaxWidth() {
@@ -591,8 +595,6 @@ struct LayoutLibraryTests {
         library.rename("left-half", to: "Docs")
         let left = try #require(library.entry("left-half"))
         #expect(LayoutSettings.subtitle(left, in: library) == "Left half · Changed")
-        #expect(LayoutSettings.subtitle(try #require(library.entry("left-third")), in: library)
-                == "Ultrawide displays only")
         let id = try require(library.add(code, name: nil, list: .advanced))
         #expect(LayoutSettings.subtitle(try #require(library.entry(id)), in: library) == "Your layout")
         let full = fullBasic()

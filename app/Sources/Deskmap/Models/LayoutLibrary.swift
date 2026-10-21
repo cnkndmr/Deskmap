@@ -37,41 +37,6 @@ enum LayoutList: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// Düzenin hangi ekran şeklinde önerildiği.
-enum ScreenFit: String, Codable, CaseIterable, Identifiable {
-    case any, regular, ultrawide
-
-    var id: String { rawValue }
-
-    /// Bu en-boy oranındaki ekranda önerilir mi (saf); nil oran = bilinmiyor,
-    /// her zaman kabul.
-    func accepts(aspect: Double?) -> Bool {
-        guard let aspect else { return true }
-        switch self {
-        case .any:       return true
-        case .regular:   return aspect < WindowLayout.ultrawideAspect
-        case .ultrawide: return aspect >= WindowLayout.ultrawideAspect
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .any:       return L("All displays")
-        case .regular:   return L("Regular displays")
-        case .ultrawide: return L("Ultrawide displays")
-        }
-    }
-
-    /// Satır alt yazısında kısıt ("yalnız normal ekranlar"); her ekranda nil.
-    var restriction: String? {
-        switch self {
-        case .any:       return nil
-        case .regular:   return L("Regular displays only")
-        case .ultrawide: return L("Ultrawide displays only")
-        }
-    }
-}
-
 /// Kitaplıktaki bir düzen.
 struct LayoutEntry: Codable, Equatable, Hashable, Identifiable {
     /// Kalıcı kimlik: hazırlarda sabit ("full", "left-half" … "as-is"),
@@ -81,15 +46,12 @@ struct LayoutEntry: Codable, Equatable, Hashable, Identifiable {
     var name: String?
     var layout: WindowLayout
     var list: LayoutList
-    var fit: ScreenFit = .any
 
-    init(id: String, name: String? = nil, layout: WindowLayout, list: LayoutList,
-         fit: ScreenFit = .any) {
+    init(id: String, name: String? = nil, layout: WindowLayout, list: LayoutList) {
         self.id = id
         self.name = name
         self.layout = layout
         self.list = list
-        self.fit = fit
     }
 
     var isBuiltIn: Bool { LayoutLibrary.builtIn(id) != nil }
@@ -99,11 +61,12 @@ struct LayoutEntry: Codable, Equatable, Hashable, Identifiable {
     var displayName: String { name ?? (isDesktopOnly ? L("As it is") : layout.label) }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, layout, list, fit
+        case id, name, layout, list
     }
 
     /// Hoşgörülü okuma: kimlik ve düzen şart (yoksa `LossyArray` atlar);
-    /// bilinmeyen liste gelişmiş, bilinmeyen ekran şekli "her ekran" okunur.
+    /// bilinmeyen liste gelişmiş okunur. Eski sürümlerin ekran şekli alanı
+    /// (`fit`) yok sayılır: her düzen her ekranda önerilir.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let id = try c.decode(String.self, forKey: .id)
@@ -114,17 +77,15 @@ struct LayoutEntry: Codable, Equatable, Hashable, Identifiable {
         layout = try c.decode(WindowLayout.self, forKey: .layout)
         name = try? c.decodeIfPresent(String.self, forKey: .name)
         list = (try? c.decode(LayoutList.self, forKey: .list)) ?? .advanced
-        fit = (try? c.decode(ScreenFit.self, forKey: .fit)) ?? .any
     }
 
-    /// Ad yoksa, ekran şekli "her ekran"sa yazılmaz.
+    /// Ad yoksa yazılmaz.
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id)
         try c.encodeIfPresent(name, forKey: .name)
         try c.encode(layout, forKey: .layout)
         try c.encode(list, forKey: .list)
-        if fit != .any { try c.encode(fit, forKey: .fit) }
     }
 }
 
@@ -152,36 +113,35 @@ struct LayoutLibrary: Codable, Equatable {
         self.entries = Self.normalized(entries)
     }
 
-    /// Hazır düzenler, varsayılan sırasıyla. Gelişmiş ızgara bunları ekranın
-    /// şekline göre süzerek eski `WindowLayout.presets(aspect:)` listelerini
-    /// birebir verir (testler denetler).
+    /// Hazır düzenler, varsayılan sırasıyla: tek set (laptop düzenleri), her
+    /// ekranda; ultra geniş ekranda da aynıları önerilir.
     static let builtIns: [LayoutEntry] = [
         LayoutEntry(id: "full", layout: .full, list: .basic),
         LayoutEntry(id: "left-half", layout: .leftHalf, list: .basic),
         LayoutEntry(id: "right-half", layout: .rightHalf, list: .basic),
         LayoutEntry(id: asIsID, layout: .anyFrame, list: .basic),
-        LayoutEntry(id: "left-70", layout: .left70, list: .advanced, fit: .regular),
-        LayoutEntry(id: "right-70", layout: .right70, list: .advanced, fit: .regular),
-        LayoutEntry(id: "left-30", layout: .left30, list: .advanced, fit: .regular),
-        LayoutEntry(id: "right-30", layout: .right30, list: .advanced, fit: .regular),
-        LayoutEntry(id: "top-half", layout: .topHalf, list: .advanced, fit: .regular),
-        LayoutEntry(id: "bottom-half", layout: .bottomHalf, list: .advanced, fit: .regular),
-        LayoutEntry(id: "top-left", layout: .topLeft, list: .advanced, fit: .regular),
-        LayoutEntry(id: "top-right", layout: .topRight, list: .advanced, fit: .regular),
-        LayoutEntry(id: "bottom-left", layout: .bottomLeft, list: .advanced, fit: .regular),
-        LayoutEntry(id: "bottom-right", layout: .bottomRight, list: .advanced, fit: .regular),
-        LayoutEntry(id: "left-third", layout: .leftThird, list: .advanced, fit: .ultrawide),
-        LayoutEntry(id: "center-third", layout: .centerThird, list: .advanced, fit: .ultrawide),
-        LayoutEntry(id: "right-third", layout: .rightThird, list: .advanced, fit: .ultrawide),
-        LayoutEntry(id: "left-two-thirds", layout: .leftTwoThirds, list: .advanced, fit: .ultrawide),
-        LayoutEntry(id: "right-two-thirds", layout: .rightTwoThirds, list: .advanced, fit: .ultrawide),
-        LayoutEntry(id: "center-half", layout: .centerHalf, list: .advanced, fit: .ultrawide),
-        LayoutEntry(id: "left-quarter", layout: .leftQuarter, list: .advanced, fit: .ultrawide),
-        LayoutEntry(id: "right-quarter", layout: .rightQuarter, list: .advanced, fit: .ultrawide),
+        LayoutEntry(id: "left-70", layout: .left70, list: .advanced),
+        LayoutEntry(id: "right-70", layout: .right70, list: .advanced),
+        LayoutEntry(id: "left-30", layout: .left30, list: .advanced),
+        LayoutEntry(id: "right-30", layout: .right30, list: .advanced),
+        LayoutEntry(id: "top-half", layout: .topHalf, list: .advanced),
+        LayoutEntry(id: "bottom-half", layout: .bottomHalf, list: .advanced),
+        LayoutEntry(id: "top-left", layout: .topLeft, list: .advanced),
+        LayoutEntry(id: "top-right", layout: .topRight, list: .advanced),
+        LayoutEntry(id: "bottom-left", layout: .bottomLeft, list: .advanced),
+        LayoutEntry(id: "bottom-right", layout: .bottomRight, list: .advanced),
         LayoutEntry(id: "center", layout: .center, list: .advanced),
     ]
 
     static let defaults = LayoutLibrary(entries: builtIns)
+
+    /// Kaldırılan hazır düzenler (eski ultra geniş sütunları): kayıtlı
+    /// kitaplıktan okurken atılır. Bunları kullanan kurallar çerçevelerini
+    /// kendileri taşıdığı için etkilenmez.
+    static let retiredBuiltInIDs: Set<String> = [
+        "left-third", "center-third", "right-third", "left-two-thirds",
+        "right-two-thirds", "center-half", "left-quarter", "right-quarter",
+    ]
 
     static func builtIn(_ id: String) -> LayoutEntry? {
         builtIns.first { $0.id == id }
@@ -198,17 +158,16 @@ struct LayoutLibrary: Codable, Equatable {
         entries.filter { $0.list == list }
     }
 
-    /// Temel satır ("olduğu gibi" dahil). Hedef ekranın oranı verilirse o
-    /// ekrana uymayan düzenler süzülür; nil = hepsi.
-    func basic(aspect: Double? = nil) -> [WindowLayout] {
-        entries(in: .basic).filter { $0.fit.accepts(aspect: aspect) }.map(\.layout)
+    /// Temel satır ("olduğu gibi" dahil); her ekranda aynı.
+    func basic() -> [WindowLayout] {
+        entries(in: .basic).map(\.layout)
     }
 
     /// Gelişmiş ızgaranın hazır düzenleri: yalnız gelişmiş girişler (temel
-    /// satırdakiler zaten onun üstünde), ekranın şekline uyanlar, global sırayla.
-    func advanced(aspect: Double) -> [WindowLayout] {
+    /// satırdakiler zaten onun üstünde), global sırayla; her ekranda aynı.
+    func advanced() -> [WindowLayout] {
         entries(in: .advanced)
-            .filter { !$0.isDesktopOnly && $0.fit.accepts(aspect: aspect) }
+            .filter { !$0.isDesktopOnly }
             .map(\.layout)
     }
 
@@ -228,9 +187,9 @@ struct LayoutLibrary: Codable, Equatable {
 
     /// Döşeme yazısı: "Olduğu gibi", temel satırdaki girişin adı, başka bir
     /// düzen için kısa "Özel" (tam adı ipucunda ve satırın altında).
-    func shortLabel(for layout: WindowLayout, aspect: Double? = nil) -> String {
+    func shortLabel(for layout: WindowLayout) -> String {
         if layout.isDesktopOnly { return L("As it is") }
-        guard basic(aspect: aspect).contains(layout),
+        guard basic().contains(layout),
               let entry = entry(matching: layout) else { return L("Custom") }
         return entry.displayName
     }
@@ -252,11 +211,10 @@ struct LayoutLibrary: Codable, Equatable {
         return conflict(for: original.layout, excluding: id)
     }
 
-    /// Hazır düzenin alanı, adı ya da ekran şekli varsayılandan farklı mı.
+    /// Hazır düzenin alanı ya da adı varsayılandan farklı mı.
     func isModified(_ id: String) -> Bool {
         guard let original = Self.builtIn(id), let current = entry(id) else { return false }
         return current.layout != original.layout || current.name != nil
-            || current.fit != original.fit
     }
 
     static func sameArea(_ a: WindowLayout, _ b: WindowLayout) -> Bool {
@@ -271,28 +229,26 @@ struct LayoutLibrary: Codable, Equatable {
     /// satır, var olan kimlik).
     @discardableResult
     mutating func add(_ layout: WindowLayout, name: String?, list: LayoutList,
-                      fit: ScreenFit = .any, id: String = UUID().uuidString) -> String? {
+                      id: String = UUID().uuidString) -> String? {
         guard !id.isEmpty, entry(id) == nil, !layout.isDesktopOnly,
               let clean = Self.sanitized(layout),
               conflict(for: clean, excluding: nil) == nil,
               !(list == .basic && isBasicFull) else { return nil }
         entries = Self.normalized(entries + [
-            LayoutEntry(id: id, name: Self.cleanName(name), layout: clean, list: list, fit: fit),
+            LayoutEntry(id: id, name: Self.cleanName(name), layout: clean, list: list),
         ])
         return id
     }
 
-    /// Alanı, adı ve ekran şeklini değiştirir; liste ve sıra kalır.
+    /// Alanı ve adı değiştirir; liste ve sıra kalır.
     @discardableResult
-    mutating func update(_ id: String, layout: WindowLayout, name: String?,
-                         fit: ScreenFit) -> Bool {
+    mutating func update(_ id: String, layout: WindowLayout, name: String?) -> Bool {
         guard id != Self.asIsID, let index = entries.firstIndex(where: { $0.id == id }),
               !layout.isDesktopOnly, let clean = Self.sanitized(layout),
               conflict(for: clean, excluding: id) == nil else { return false }
         var updated = entries[index]
         updated.layout = Self.snapped(clean, to: [Self.builtIn(id)?.layout, updated.layout])
         updated.name = Self.cleanName(name)
-        updated.fit = fit
         guard updated != entries[index] else { return false }
         entries[index] = updated
         entries = Self.normalized(entries)
@@ -359,7 +315,6 @@ struct LayoutLibrary: Codable, Equatable {
               restoreConflict(id) == nil else { return false }
         entries[index].layout = original.layout
         entries[index].name = nil
-        entries[index].fit = original.fit
         entries = Self.normalized(entries)
         return true
     }
@@ -413,11 +368,11 @@ struct LayoutLibrary: Codable, Equatable {
         var ids = Set<String>()
         var result: [LayoutEntry] = []
         for var entry in input {
-            guard !entry.id.isEmpty, ids.insert(entry.id).inserted else { continue }
+            guard !entry.id.isEmpty, !retiredBuiltInIDs.contains(entry.id),
+                  ids.insert(entry.id).inserted else { continue }
             if entry.id == asIsID {
                 entry.layout = .anyFrame
                 entry.name = nil
-                entry.fit = .any
                 if entry.list == .advanced { entry.list = .hidden }
             } else {
                 guard let clean = sanitized(entry.layout) else { continue }
@@ -474,21 +429,19 @@ struct LayoutDraft: Equatable {
     /// Ad alanının ham metni; boşsa otomatik ad.
     var name: String
     var list: LayoutList
-    var fit: ScreenFit
 
-    /// Yeni taslak: kitaplıkta olmayan ilk ortalı alan, gelişmiş listede,
-    /// her ekranda.
+    /// Yeni taslak: kitaplıkta olmayan ilk ortalı alan, gelişmiş listede.
     static func new(in library: LayoutLibrary) -> LayoutDraft {
         let candidates = [WindowLayout(x: 0.15, y: 0.1, w: 0.7, h: 0.8),
                           WindowLayout(x: 0.25, y: 0, w: 0.5, h: 1),
                           WindowLayout(x: 0.2, y: 0.1, w: 0.6, h: 0.8)]
         let layout = candidates.first { library.conflict(for: $0, excluding: nil) == nil } ?? .center
-        return LayoutDraft(id: nil, layout: layout, name: "", list: .advanced, fit: .any)
+        return LayoutDraft(id: nil, layout: layout, name: "", list: .advanced)
     }
 
     static func editing(_ entry: LayoutEntry) -> LayoutDraft {
         LayoutDraft(id: entry.id, layout: entry.layout, name: entry.name ?? "",
-                    list: entry.list, fit: entry.fit)
+                    list: entry.list)
     }
 
     /// Aynı alanı kaplayan başka giriş (taslağın kendisi hariç).
@@ -519,25 +472,24 @@ struct LayoutDraft: Equatable {
     func apply(to library: inout LayoutLibrary) -> String? {
         guard problem(in: library) == nil else { return nil }
         guard let id else {
-            return library.add(layout, name: name, list: list, fit: fit)
+            return library.add(layout, name: name, list: list)
         }
         guard let entry = library.entry(id) else { return nil }
         var copy = library
         if id != LayoutLibrary.asIsID {
-            copy.update(id, layout: layout, name: name, fit: fit)
+            copy.update(id, layout: layout, name: name)
         }
         if entry.list != list, !copy.setList(id, to: list) { return nil }
         library = copy
         return id
     }
 
-    /// Izgara ve önizleme için ekran boyutu: ekran şekline uyan ilk bilinen
-    /// ekran, yoksa 16:10 (her ekran / normal) ya da 32:9 (ultra geniş).
-    static func previewSize(fit: ScreenFit, screens: [KnownScreen]) -> CGSize {
-        if let screen = screens.first(where: { fit.accepts(aspect: $0.aspect) }) {
+    /// Izgara ve önizleme için ekran boyutu: düzenler laptop ekranına göre
+    /// kurulur; ultra geniş olmayan ilk bilinen ekran, yoksa 16:10.
+    static func previewSize(screens: [KnownScreen]) -> CGSize {
+        if let screen = screens.first(where: { $0.aspect < WindowLayout.ultrawideAspect }) {
             return screen.visibleSize
         }
-        return fit == .ultrawide ? CGSize(width: 5120, height: 1440)
-                                 : CGSize(width: 1600, height: 1000)
+        return CGSize(width: 1600, height: 1000)
     }
 }

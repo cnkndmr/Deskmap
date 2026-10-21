@@ -93,7 +93,7 @@ struct LayoutSettings: View {
     private func row(_ entry: LayoutEntry, isFirst: Bool, isLast: Bool,
                      library: LayoutLibrary) -> some View {
         HStack(spacing: 8) {
-            LayoutGlyph(layout: entry.layout, size: Self.glyphSize(entry.fit))
+            LayoutGlyph(layout: entry.layout, size: CGSize(width: 30, height: 20))
                 .foregroundStyle(.secondary)
                 .frame(width: 50)
                 .accessibilityHidden(true)
@@ -204,12 +204,11 @@ struct LayoutSettings: View {
         library.isModified(entry.id) && library.restoreConflict(entry.id) == nil
     }
 
-    /// Satır alt yazısı (saf): adlandırılmışsa alanı, ekran kısıtı, kullanıcının
+    /// Satır alt yazısı (saf): adlandırılmışsa alanı, kullanıcının
     /// düzeni mi, hazır düzen değiştirildi mi.
     nonisolated static func subtitle(_ entry: LayoutEntry, in library: LayoutLibrary) -> String {
         var parts: [String] = []
         if entry.name != nil { parts.append(entry.layout.label) }
-        if let restriction = entry.fit.restriction { parts.append(restriction) }
         if !entry.isBuiltIn { parts.append(L("Your layout")) }
         if library.isModified(entry.id) { parts.append(L("Changed")) }
         return parts.joined(separator: " · ")
@@ -228,16 +227,11 @@ struct LayoutSettings: View {
     nonisolated static func menuLabel(_ entry: LayoutEntry) -> String {
         L("Edit, move or delete: %@", entry.displayName)
     }
-
-    /// Satır simgesi: ultra geniş düzen geniş çerçevede (sütunlar seçilsin).
-    static func glyphSize(_ fit: ScreenFit) -> CGSize {
-        fit == .ultrawide ? LayoutGlyph.presetSize(aspect: 32.0 / 9) : CGSize(width: 30, height: 20)
-    }
 }
 
 // MARK: - Taslak düzenleyici
 
-/// Yeni ya da var olan düzenin taslağı: ad, ekran şekli, liste, ızgara ve
+/// Yeni ya da var olan düzenin taslağı: ad, liste, ızgara ve
 /// kenar boşlukları. Kaydet kitaplığa işler; İptal (sekmeden çıkmak ya da
 /// pencereyi kapatmak) taslağı atar: yarım çizilmiş alan sessizce kaydedilmez.
 /// Kaydet/İptal kaydırılan alanın dışında, pencerenin altında sabit.
@@ -294,16 +288,6 @@ struct LayoutDraftEditor: View {
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 220)
                 }
-                row(L("Displays")) {
-                    Picker(L("Displays"), selection: $draft.fit) {
-                        ForEach(ScreenFit.allCases) { fit in
-                            Text(fit.title).tag(fit)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .fixedSize()
-                    .help(L("Ultrawide: 21:9 or wider. The grid takes that shape."))
-                }
                 row(L("Show in")) {
                     Picker(L("Show in"), selection: $draft.list) {
                         ForEach(lists) { list in
@@ -318,8 +302,7 @@ struct LayoutDraftEditor: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 LayoutGrid(layout: $draft.layout,
-                           screenSize: LayoutDraft.previewSize(fit: draft.fit,
-                                                               screens: store.document.screens),
+                           screenSize: LayoutDraft.previewSize(screens: store.document.screens),
                            maxWidth: 420)
                 Text(draft.layout.label)
                     .font(.caption)

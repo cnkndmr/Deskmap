@@ -67,8 +67,7 @@ struct PinPanel: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            BasicLayoutRow(layout: $layout,
-                           aspect: store.screens(for: mode).first { $0.id == placement.screen }?.aspect)
+            BasicLayoutRow(layout: $layout)
 
             Divider()
             AdvancedToggle(summary: L("every layout, margins, fixed size"))

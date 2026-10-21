@@ -125,8 +125,7 @@ struct RuleSentence<MatchMenu: View>: View {
 
     @ViewBuilder private var layoutItems: some View {
         let library = store.document.layouts
-        let aspect = store.screens(for: mode).first { $0.id == destination.screen }?.aspect
-        ForEach(library.basic(aspect: aspect), id: \.self) { layout in
+        ForEach(library.basic(), id: \.self) { layout in
             MenuCheck(library.label(for: layout), checked: layout == destination.layout) {
                 var updated = destination
                 updated.layout = layout
@@ -282,14 +281,12 @@ struct WhyHereBox: View {
 struct BasicLayoutRow: View {
 
     @Binding var layout: WindowLayout
-    /// Hedef ekranın en-boy oranı; bilinirse ekrana uymayan temel düzenler gizlenir.
-    var aspect: Double? = nil
 
     @EnvironmentObject private var store: Store
 
     var body: some View {
         let library = store.document.layouts
-        let basic = library.basic(aspect: aspect)
+        let basic = library.basic()
         let shown = basic.contains(layout) ? basic : basic + [layout]
         VStack(alignment: .leading, spacing: 4) {
         HStack(spacing: 6) {
@@ -301,7 +298,7 @@ struct BasicLayoutRow: View {
                     VStack(spacing: 3) {
                         glyph(candidate)
                             .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
-                        Text(Self.shortLabel(candidate, in: library, aspect: aspect))
+                        Text(Self.shortLabel(candidate, in: library))
                             .font(.caption2)
                             .lineLimit(1)
                             .foregroundStyle(isSelected ? Color.primary : Color.secondary)
@@ -334,9 +331,9 @@ struct BasicLayoutRow: View {
 
     /// Döşeme yazısı (saf): temel düzenlerin adı, başka bir düzen için kısa
     /// "Özel" (tam adı ipucunda ve satırın altında).
-    nonisolated static func shortLabel(_ layout: WindowLayout, in library: LayoutLibrary = .defaults,
-                           aspect: Double? = nil) -> String {
-        library.shortLabel(for: layout, aspect: aspect)
+    nonisolated static func shortLabel(_ layout: WindowLayout,
+                                       in library: LayoutLibrary = .defaults) -> String {
+        library.shortLabel(for: layout)
     }
 
     @ViewBuilder private func glyph(_ layout: WindowLayout) -> some View {

@@ -220,20 +220,13 @@ struct WindowLayout: Codable, Equatable, Hashable {
         .topHalf, .bottomHalf, .center,
     ]
 
-    /// Hedef ekranın şekline göre hazır düzenler: ultra genişte sütunlar
-    /// (üçte bir, üçte iki, çeyrek, ortada yarım), normal ekranda yarımlar,
-    /// köşeler ve orta. Varsayılan kitaplığın gelişmiş listesidir ve
-    /// `LayoutLibrary.defaults` için ölçüdür (testler eşitliği denetler);
-    /// seçici kullanıcının `LayoutLibrary`'sini gösterir.
-    static func presets(aspect: Double) -> [WindowLayout] {
-        if aspect >= ultrawideAspect {
-            return [.full, .leftHalf, .rightHalf, .leftThird, .centerThird, .rightThird,
-                    .leftTwoThirds, .rightTwoThirds, .centerHalf, .leftQuarter, .rightQuarter,
-                    .center]
-        }
-        return [.full, .leftHalf, .rightHalf, .left70, .right70, .left30, .right30,
-                .topHalf, .bottomHalf, .topLeft, .topRight, .bottomLeft, .bottomRight, .center]
-    }
+    /// Hazır düzenler (laptop seti; her ekranda aynı): yarımlar, %70/%30,
+    /// köşeler ve orta. `LayoutLibrary.defaults` için ölçüdür (testler
+    /// eşitliği denetler); seçici kullanıcının `LayoutLibrary`'sini gösterir.
+    static let standardPresets: [WindowLayout] = [
+        .full, .leftHalf, .rightHalf, .left70, .right70, .left30, .right30,
+        .topHalf, .bottomHalf, .topLeft, .topRight, .bottomLeft, .bottomRight, .center,
+    ]
 
     var label: String {
         if isDesktopOnly { return L("Desktop only") }

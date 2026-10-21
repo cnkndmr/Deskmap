@@ -698,11 +698,6 @@
 "Not offered anywhere. Pins that use them keep them." = "Hiçbir yerde önerilmez. Bunları kullanan sabitlemeler korur.";
 "No layouts here." = "Burada düzen yok.";
 "Choose the layouts a pin offers and draw your own on the grid. Changing a layout here moves no window: pins keep the layout they have." = "Sabitlemenin önerdiği düzenleri seç, kendi düzenini ızgarada çiz. Burada düzen değiştirmek hiçbir pencereyi taşımaz: sabitlemeler kendi düzenlerini korur.";
-"All displays" = "Bütün ekranlar";
-"Regular displays" = "Normal ekranlar";
-"Ultrawide displays" = "Ultra geniş ekranlar";
-"Regular displays only" = "Yalnız normal ekranlar";
-"Ultrawide displays only" = "Yalnız ultra geniş ekranlar";
 "Your layout" = "Senin düzenin";
 "Changed" = "Değiştirildi";
 "Edit…" = "Düzenle…";
@@ -716,8 +711,6 @@
 "New layout" = "Yeni düzen";
 "Edit layout" = "Düzeni düzenle";
 "Name" = "Ad";
-"Displays" = "Ekranlar";
-"Ultrawide: 21:9 or wider. The grid takes that shape." = "Ultra geniş: 21:9 ya da daha geniş. Izgara o şekli alır.";
 "Same area as “%@”." = "“%@” ile aynı alan.";
 "This layout no longer exists." = "Bu düzen artık yok.";
 "The original area is now used by “%@”." = "Özgün alanı şimdi “%@” kullanıyor.";

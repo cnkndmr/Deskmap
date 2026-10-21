@@ -136,8 +136,8 @@ Click a pinned window's box or chip. Under the sentence are four layouts: **Full
 Deskmap never moves or resizes the window there). If the window has some
 other layout, a fifth tile, **Custom**, shows it, with its full name under the
 row. Everything else is under
-**Advanced ▸**: the title parts, a grid to drag across, all presets (70/30,
-thirds, quarters, top/bottom half, center), a gap to leave from the edges and
+**Advanced ▸**: the title parts, a grid to drag across, the other presets
+(70/30, top/bottom half, corners, center; the same set on every display), a gap to leave from the edges and
 a fixed size. Advanced stays open for the next window once you open it.
 Which layouts appear as tiles and in Advanced is up to you: **Settings ›
 Layouts** (add your own on the grid, rename, hide, reorder).
