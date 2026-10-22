@@ -200,6 +200,33 @@ enum AX {
         return unsafeBitCast(pointer, to: CreateWithRemoteTokenFn.self)
     }()
 
+    private typealias RemoteTokenCreateFn =
+        @convention(c) (AXUIElement) -> Unmanaged<CFData>?
+
+    /// `_AXUIElementRemoteTokenCreate`: öğeden belirteç (tersi). Görünen
+    /// masaüstündeki pencerelerin öğe kimliği buradan okunur; uzak
+    /// taramanın ne kadar ileri gitmesi gerektiğini söyler.
+    private static let remoteTokenCreate: RemoteTokenCreateFn? = {
+        guard let pointer = dlsym(dlopen(nil, RTLD_NOW), "_AXUIElementRemoteTokenCreate")
+        else { return nil }
+        return unsafeBitCast(pointer, to: RemoteTokenCreateFn.self)
+    }()
+
+    /// Öğenin AX öğe kimliği (belirtecin 12–20. baytları); okunamazsa nil.
+    private static func elementID(of element: AXUIElement) -> UInt64? {
+        guard let remoteTokenCreate,
+              let data = remoteTokenCreate(element)?.takeRetainedValue() as Data?
+        else { return nil }
+        return elementID(token: data)
+    }
+
+    /// Belirteçten öğe kimliği (saf): 20 bayt ve "coco" işareti şart.
+    nonisolated static func elementID(token: Data) -> UInt64? {
+        let bytes = [UInt8](token)
+        guard bytes.count == 20, bytes[8..<12] == [0x6f, 0x63, 0x6f, 0x63] else { return nil }
+        return bytes[12..<20].reversed().reduce(UInt64(0)) { $0 << 8 | UInt64($1) }
+    }
+
     /// Pencere numarasından AX öğesi. Belirteç 20 bayt: pid (4), 0 (4),
     /// "coco" 0x636f636f (4), AX öğe kimliği (8). Öğe kimliği pencere
     /// numarası DEĞİL (eskiden öyle sanılıyordu; çoğu uygulamada -25201
@@ -218,10 +245,24 @@ enum AX {
     /// geçiş hepsi için karar verir, her biri ayrı tarama başlatmaz.
     static func element(pid: pid_t, windowID: CGWindowID,
                         unlisted: Set<CGWindowID> = []) -> AXUIElement? {
-        guard createWithRemoteToken != nil, let getWindowID else { return nil }
+        guard let getWindowID else { return nil }
+        // Pencere görünen masaüstündeyken alınan öğe, başka masaüstüne
+        // geçince de geçerli: tarama gerekmez.
+        remoteLock.lock()
+        let known = knownElements[windowID]
+        remoteLock.unlock()
+        if let known, known.pid == pid {
+            AXUIElementSetMessagingTimeout(known.element, 0.2)
+            var found: CGWindowID = 0
+            if getWindowID(known.element, &found) == .success, found == windowID {
+                return known.element
+            }
+        }
+        guard createWithRemoteToken != nil else { return nil }
         let now = Date()
         remoteLock.lock()
         let gate = remoteGates[pid] ?? RemoteScanGate()
+        let limit = scanLimit(highestSeen: highestElementIDs[pid])
         remoteLock.unlock()
 
         if let cached = gate.ids[windowID],
@@ -237,7 +278,7 @@ enum AX {
         // Kesilen geçiş kaldığı yerden sürer.
         let start = gate.resumeFrom
         var reached = start
-        for id in start..<remoteScanLimit {
+        for id in start..<max(start, limit) {
             reached = id
             if Date().timeIntervalSince(now) > remoteScanBudget { aborted = true; break }
             guard let element = remoteElement(pid: pid, elementID: id) else { continue }
@@ -256,12 +297,37 @@ enum AX {
         remoteGates[pid, default: RemoteScanGate()].record(
             discovered, aborted: aborted, wanted: unlisted.union([windowID]), now: now,
             stoppedAt: reached)
-        let known = remoteGates[pid]?.ids[windowID]
+        let gateID = remoteGates[pid]?.ids[windowID]
+        if let highest = discovered.values.max() {
+            highestElementIDs[pid] = max(highestElementIDs[pid] ?? 0, highest)
+        }
         remoteLock.unlock()
         if aborted {
             Log.ax.notice("Remote window scan cut short for pid \(pid) (timeout or budget)")
         }
-        return (discovered[windowID] ?? known).flatMap { remoteElement(pid: pid, elementID: $0) }
+        guard let element = (discovered[windowID] ?? gateID)
+            .flatMap({ remoteElement(pid: pid, elementID: $0) }) else { return nil }
+        remember(element, pid: pid, windowID: windowID)
+        return element
+    }
+
+    /// Görünen masaüstünde (ya da taramada) bulunan pencere öğesini saklar;
+    /// öğe kimliği uygulamanın tarama sınırını yükseltir.
+    private static func remember(_ element: AXUIElement, pid: pid_t, windowID: CGWindowID) {
+        let id = elementID(of: element)
+        remoteLock.lock(); defer { remoteLock.unlock() }
+        knownElements[windowID] = (pid, element)
+        if let id { highestElementIDs[pid] = max(highestElementIDs[pid] ?? 0, id) }
+    }
+
+    /// Uygulamanın tarama sınırı (saf). Öğe kimlikleri uygulama açık
+    /// kaldıkça büyür (Safari 9102, ölçüldü 22.10): görülen en yüksek
+    /// kimliğin `remoteScanMargin` ötesine kadar taranır, en az
+    /// `remoteScanLimit`, en çok `remoteScanCeiling`. Yalnız sabit sınırla
+    /// başka masaüstündeki rapor penceresi (kimlik 8538) hiç bulunmuyordu.
+    nonisolated static func scanLimit(highestSeen: UInt64?) -> UInt64 {
+        let wanted = (highestSeen ?? 0) + remoteScanMargin
+        return min(remoteScanCeiling, max(remoteScanLimit, wanted))
     }
 
     private static func remoteElement(pid: pid_t, elementID: UInt64) -> AXUIElement? {
@@ -277,11 +343,16 @@ enum AX {
         return createWithRemoteToken(Data(token) as CFData)?.takeRetainedValue()
     }
 
-    /// Taranan en yüksek öğe kimliği. alt-tab-macos 1000 kullanıyor, ama
-    /// uzun süredir açık uygulamada numaralar bunu geçiyor (Preview 1151,
-    /// ölçüldü 08.10): o pencereler listelenmiyor, pinleri korunmuyordu.
-    /// 1000 numara ~20 ms.
-    private static let remoteScanLimit: UInt64 = 5000
+    /// Taranan en yüksek öğe kimliğinin alt sınırı. alt-tab-macos 1000
+    /// kullanıyor, ama uzun süredir açık uygulamada numaralar bunu geçiyor
+    /// (Preview 1151, ölçüldü 08.10): o pencereler listelenmiyor, pinleri
+    /// korunmuyordu. 1000 numara ~20 ms (penceresi yanıt vermeyen
+    /// uygulamada ~55 ms). Üstü için bkz. `scanLimit`.
+    static let remoteScanLimit: UInt64 = 5000
+    /// Görülen en yüksek kimliğin ötesinde taranan pay.
+    static let remoteScanMargin: UInt64 = 2000
+    /// Tek uygulamada taranan en yüksek kimlik.
+    static let remoteScanCeiling: UInt64 = 50000
     /// Bulunamayan numaraların yeniden taranmadığı süre (bir tarama ~20 ms, ölçüldü).
     static let remoteRescan: TimeInterval = 30
     /// Kesilen taramadan sonra yeniden deneme.
@@ -293,6 +364,10 @@ enum AX {
     /// Bütçeye sığmayan geçiş sonraki turda kaldığı yerden sürer.
     private static let remoteScanBudget: TimeInterval = 0.3
     nonisolated(unsafe) private static var remoteGates: [pid_t: RemoteScanGate] = [:]
+    /// Pencere numarası → bir kez bulunmuş öğesi (pencere kapanınca budanır).
+    nonisolated(unsafe) private static var knownElements: [CGWindowID: (pid: pid_t, element: AXUIElement)] = [:]
+    /// Uygulama başına görülen en yüksek öğe kimliği (`scanLimit` için).
+    nonisolated(unsafe) private static var highestElementIDs: [pid_t: UInt64] = [:]
     private static let remoteLock = NSLock()
 
     /// Bir uygulamanın uzak tarama durumu ve kapısı (saf). Kapı pencere
@@ -346,9 +421,15 @@ enum AX {
     }
 
     /// Kapanmış uygulamaların öğe kimliği önbelleğini atar.
-    static func pruneRemoteCache(running: Set<pid_t>) {
+    /// `live`: pencere sunucusunun bildiği numaralar; verilirse kapanmış
+    /// pencerelerin öğeleri de atılır.
+    static func pruneRemoteCache(running: Set<pid_t>, live: Set<CGWindowID>? = nil) {
         remoteLock.lock(); defer { remoteLock.unlock() }
         remoteGates = remoteGates.filter { running.contains($0.key) }
+        highestElementIDs = highestElementIDs.filter { running.contains($0.key) }
+        knownElements = knownElements.filter {
+            running.contains($0.value.pid) && (live?.contains($0.key) ?? true)
+        }
     }
 
     /// Dock'ta görünen bir uygulama.
@@ -417,8 +498,9 @@ enum AX {
         var seen: Set<CGWindowID> = []
         let apps = runningApps()
         let now = Date()
+        let serverList = server ?? windowServerList()
         pruneBackoffs(running: Set(apps.map(\.pid)))
-        pruneRemoteCache(running: Set(apps.map(\.pid)))
+        pruneRemoteCache(running: Set(apps.map(\.pid)), live: Set(serverList.live.keys))
         /// Bu taramada uygulama başına AX çağrı süreleri (yanıt vermeyeni bulmak için).
         var timings: [pid_t: AppTiming] = [:]
         let active = apps.filter { !isBackedOff($0.pid, now: now) }
@@ -445,6 +527,8 @@ enum AX {
                         .measure({ getWindowID(element, &windowID) }) == .success,
                       windowID != 0, !seen.contains(windowID) else { continue }
                 seen.insert(windowID)
+                timings[pid, default: AppTiming()]
+                    .measure({ remember(element, pid: pid, windowID: windowID) })
 
                 result.append(AXWindow(
                     id: windowID,
@@ -460,7 +544,7 @@ enum AX {
         //    pencere sunucusundan numaralarını alıp uzak belirteçle AX
         //    öğesi üret.
         let byPID = Dictionary(uniqueKeysWithValues: active.map { ($0.pid, $0) })
-        let serverWindows = (server ?? windowServerList()).windows
+        let serverWindows = serverList.windows
         // Uygulama başına listelenmeyen numaralar: tek tam geçiş hepsini
         // yanıtlar (yardımcı pencereler sırayla ayrı tarama başlatmasın).
         var unlisted: [pid_t: Set<CGWindowID>] = [:]
