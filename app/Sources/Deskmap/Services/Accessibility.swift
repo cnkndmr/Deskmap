@@ -842,10 +842,66 @@ enum AX {
         // çerçeve okuması yine süreç geneli süreyle (1 sn) çalışsın.
         AXUIElementSetMessagingTimeout(window.element, setFrameTimeout)
         defer { AXUIElementSetMessagingTimeout(window.element, 0) }
+        // AXEnhancedUserInterface açıkken uygulama her yazımı canlandırır
+        // (Chrome'da taşıma ~0,8 sn); yazım boyunca kapatılır.
+        if disableEnhancedUI(pid: window.pid),
+           restoresEnhancedUI(bundleID: window.bundleID) {
+            defer { setEnhancedUI(true, pid: window.pid) }
+            writeFrame(sizeValue, positionValue, of: window.element)
+            return
+        }
+        writeFrame(sizeValue, positionValue, of: window.element)
+    }
+
+    private static func writeFrame(_ sizeValue: AXValue, _ positionValue: AXValue,
+                                   of element: AXUIElement) {
         // Boyutu iki kez vermek, ekran sınırına takılan pencereler için gerekir.
-        AXUIElementSetAttributeValue(window.element, kAXSizeAttribute as CFString, sizeValue)
-        AXUIElementSetAttributeValue(window.element, kAXPositionAttribute as CFString, positionValue)
-        AXUIElementSetAttributeValue(window.element, kAXSizeAttribute as CFString, sizeValue)
+        AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeValue)
+        AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, positionValue)
+        AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeValue)
+    }
+
+    // MARK: - AXEnhancedUserInterface
+
+    /// Rectangle (AccessibilityElement.swift), yabai ve Hammerspoon'un yolu:
+    /// uygulama özniteliği açıksa yazımdan önce kapatılır. Ölçüm (perf/):
+    /// Chrome'da taşıma 832 → 43 ms, öznitelik kapalıyken ek maliyet 1 okuma.
+    private static let enhancedUIAttribute = "AXEnhancedUserInterface"
+
+    /// Öznitelik açıksa kapatır; kapattıysa true.
+    private static func disableEnhancedUI(pid: pid_t) -> Bool {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        guard let enabled: Bool = attribute(app, enhancedUIAttribute), enabled
+        else { return false }
+        AXUIElementSetAttributeValue(app, enhancedUIAttribute as CFString, kCFBooleanFalse)
+        return true
+    }
+
+    private static func setEnhancedUI(_ enabled: Bool, pid: pid_t) {
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 1.0)
+        AXUIElementSetAttributeValue(app, enhancedUIAttribute as CFString,
+                                     enabled ? kCFBooleanTrue : kCFBooleanFalse)
+    }
+
+    /// Rectangle `.automatic` kuralı: Chromium tarayıcıları özniteliği
+    /// kendileri yeniden açmaz ve açık kaldıkça her taşıma yavaşlar, bu yüzden
+    /// kapalı bırakılır; VoiceOver ya da Switch Control açıksa her uygulamada
+    /// geri açılır.
+    static func restoresEnhancedUI(bundleID: String) -> Bool {
+        let workspace = NSWorkspace.shared
+        if workspace.isVoiceOverEnabled || workspace.isSwitchControlEnabled { return true }
+        return !isKnownChromium(bundleID)
+    }
+
+    static let chromiumBundleIDs = [
+        "com.google.Chrome", "org.chromium.Chromium", "com.microsoft.edgemac", "com.brave.Browser",
+    ]
+
+    /// Ön ek eşleşmesi: Chrome Canary/Beta (`com.google.Chrome.canary`) da sayılır.
+    nonisolated static func isKnownChromium(_ bundleID: String) -> Bool {
+        chromiumBundleIDs.contains { bundleID == $0 || bundleID.hasPrefix($0 + ".") }
     }
 
     // MARK: - Öne getirme
