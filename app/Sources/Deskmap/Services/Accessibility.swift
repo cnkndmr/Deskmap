@@ -272,6 +272,8 @@ enum AX {
             if getWindowID(element, &found) == .success, found == windowID { return element }
         }
         guard gate.shouldScan(for: windowID, now: now) else { return nil }
+        let perfScan = PerfStats.now()
+        defer { PerfStats.shared.add("remoteScan", PerfStats.ms(since: perfScan)) }
 
         var discovered: [CGWindowID: UInt64] = [:]
         var aborted = false

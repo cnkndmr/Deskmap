@@ -2788,6 +2788,7 @@ final class Router: ObservableObject {
         if isSweeping {
             // Tarama sürerken gelen olay kaybolmasın; bitince bir tur daha.
             sweepRequested = true
+            PerfStats.shared.count("sweepCoalesced")
             return
         }
 
@@ -2826,8 +2827,13 @@ final class Router: ObservableObject {
         isSweeping = true
         sweepRequested = false
         lastSweepAt = Date()
+        let perfRequested = PerfStats.now()
 
         queue.async { [weak self] in
+            PerfStats.shared.add("queueWait", PerfStats.ms(since: perfRequested))
+            let perfRoute = PerfStats.now()
+            let perfState = PerfStats.signposter.beginInterval("route")
+            defer { PerfStats.signposter.endInterval("route", perfState) }
             let outcome = Self.route(rules: rules, sessionPins: sessionPins,
                                      sessionIDs: sessionIDs, free: free,
                                      mode: mode, screens: connected,
@@ -2838,8 +2844,13 @@ final class Router: ObservableObject {
                                      heldRoles: heldRoles,
                                      bindings: bindings, firstSeen: firstSeen, initial: initial,
                                      token: token)
+            PerfStats.shared.add("route", PerfStats.ms(since: perfRoute))
+            let perfHop = PerfStats.now()
             Task { @MainActor in
                 guard let self else { return }
+                PerfStats.shared.add("mainHop", PerfStats.ms(since: perfHop))
+                let perfMerge = PerfStats.now()
+                defer { PerfStats.shared.add("mainMerge", PerfStats.ms(since: perfMerge)) }
                 self.isSweeping = false
                 var applied = Self.acceptApplied(
                     outcome.applied, floors: self.appliedFloor,
@@ -3050,8 +3061,12 @@ final class Router: ObservableObject {
         func spaceType(_ id: UInt64) -> Int? { spaceTypes[id] ?? sky.type(of: id) }
         // Pencere sunucusu taramada bir kez okunur: 2. aşama listeleme ve
         // yaşam denetimi aynı sonuçtan türer.
+        let perfList = PerfStats.now()
         let server = AX.windowServerList()
+        PerfStats.shared.add("windowList", PerfStats.ms(since: perfList))
+        let perfAll = PerfStats.now()
         let windows = AX.allWindows(alwaysInclude: sessionIDs, server: server)
+        PerfStats.shared.add("allWindows", PerfStats.ms(since: perfAll))
         outcome.unresponsive = AX.unresponsiveApps()
         // Oturum pinlerinin yaşam denetimi ve kapalı pencere kayıtlarının
         // budanması için.

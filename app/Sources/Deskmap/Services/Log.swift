@@ -33,4 +33,6 @@ enum Log {
     static let screens = Logger(subsystem: subsystem, category: "screens")
     /// Uygulama yaşam döngüsü (ör. eski veri klasöründen göç).
     static let app = Logger(subsystem: subsystem, category: "app")
+    /// M0: tarama hattı süre özeti (PerfStats, 5 dk'da bir).
+    static let perf = Logger(subsystem: subsystem, category: "perf")
 }

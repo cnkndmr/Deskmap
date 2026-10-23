@@ -156,6 +156,8 @@ final class StatusFile {
     }
 
     func write(request: String?) {
+        let perfWrite = PerfStats.now()
+        defer { PerfStats.shared.add("statusWrite", PerfStats.ms(since: perfWrite)) }
         let pins = router.sessionPins
         let primary: ScreenInfo? = screens.screens.first { $0.frame.origin == CGPoint.zero }
         let primaryHeight: Double? = primary.map { Double($0.frame.height) }
