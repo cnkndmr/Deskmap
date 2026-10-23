@@ -370,6 +370,14 @@ final class Router: ObservableObject {
         loadSessionPins()
         loadDesktopState()
         loadReopenTargets()
+        // Arka plan uzak taraması yeni pencere bulunca bir tur (perf §3.1);
+        // zamanlayıcı turu sunucu imzası değişmedikçe taramaz.
+        AX.onRemoteFound = { [weak self] in
+            Task { @MainActor in
+                self?.countSweepReason("remote-found")
+                self?.sweep()
+            }
+        }
 
         let timer = Timer.scheduledTimer(withTimeInterval: Self.tickInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }

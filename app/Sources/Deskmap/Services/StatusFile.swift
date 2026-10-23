@@ -81,6 +81,8 @@ final class StatusFile {
         /// Onay bekleyen roller: monitör bu rolde hatırlanmıyor, düzen
         /// uygulanmıyor (`deskmap screen-role` ile onaylanır).
         let heldRoles: [String]
+        /// Açık performans bayrakları (`perf.*`, perf/PLAN-perf.md §1.2).
+        let perfFlags: [String]
     }
     struct Name: Codable {
         let id: String
@@ -200,7 +202,9 @@ final class StatusFile {
             names: Self.names(store.document, live: store.live),
             plans: store.document.plans,
             displayRoles: store.document.displayRoles,
-            heldRoles: screens.heldRoles.sorted())
+            heldRoles: screens.heldRoles.sorted(),
+            perfFlags: [("remoteOffSweep", AX.remoteOffSweep),
+                        ("remoteMissBackoff", AX.missBackoff)].filter(\.1).map(\.0))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

@@ -317,6 +317,8 @@ def show_status(args):
         print(f"  {sc['id']:<11} {sc['name']:<28} {n} window(s)")
     pins = sum(1 for w in s["windows"] if w.get("pinned"))
     print(f"  {len(s['windows'])} windows, {pins} pinned, {len(s['rules'])} rules")
+    if s.get("perfFlags"):
+        print(f"  perf flags on: {', '.join(s['perfFlags'])}")
 
 
 def show_windows(args):

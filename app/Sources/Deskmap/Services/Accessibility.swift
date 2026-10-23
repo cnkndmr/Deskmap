@@ -243,8 +243,11 @@ enum AX {
     /// yeniden denenir.
     /// `unlisted`: aynı uygulamanın bu turda aranacak öbür numaraları; tam
     /// geçiş hepsi için karar verir, her biri ayrı tarama başlatmaz.
+    /// `cacheOnly`: yalnız önbellek; tarama gerekiyorsa arka plan kuyruğuna
+    /// yazılır ve nil döner (tarama yolu beklemesin, bkz. `deferRemoteScan`).
     static func element(pid: pid_t, windowID: CGWindowID,
-                        unlisted: Set<CGWindowID> = []) -> AXUIElement? {
+                        unlisted: Set<CGWindowID> = [],
+                        cacheOnly: Bool = false) -> AXUIElement? {
         guard let getWindowID else { return nil }
         // Pencere görünen masaüstündeyken alınan öğe, başka masaüstüne
         // geçince de geçerli: tarama gerekmez.
@@ -272,6 +275,10 @@ enum AX {
             if getWindowID(element, &found) == .success, found == windowID { return element }
         }
         guard gate.shouldScan(for: windowID, now: now) else { return nil }
+        if cacheOnly {
+            deferRemoteScan(pid: pid, wanted: unlisted.union([windowID]))
+            return nil
+        }
         let perfScan = PerfStats.now()
         defer { PerfStats.shared.add("remoteScan", PerfStats.ms(since: perfScan)) }
 
@@ -298,7 +305,7 @@ enum AX {
         remoteLock.lock()
         remoteGates[pid, default: RemoteScanGate()].record(
             discovered, aborted: aborted, wanted: unlisted.union([windowID]), now: now,
-            stoppedAt: reached)
+            stoppedAt: reached, backoff: missBackoff ? serverSignatures : nil)
         let gateID = remoteGates[pid]?.ids[windowID]
         if let highest = discovered.values.max() {
             highestElementIDs[pid] = max(highestElementIDs[pid] ?? 0, highest)
@@ -311,6 +318,79 @@ enum AX {
             .flatMap({ remoteElement(pid: pid, elementID: $0) }) else { return nil }
         remember(element, pid: pid, windowID: windowID)
         return element
+    }
+
+    // MARK: - Arka plan uzak taraması (perf/PLAN-perf.md §3.1)
+
+    /// Bayrak `perf.remoteOffSweep`: tarama yolu uzak taramayı beklemez.
+    /// Kapı dolunca tam tarama 2,7 sn'den ~0,1 sn'ye iniyor (ölçüldü 23.10);
+    /// bedeli: başka masaüstündeki pencere bir tur (1-3 sn) geç listelenir.
+    static var remoteOffSweep: Bool { UserDefaults.standard.bool(forKey: "perf.remoteOffSweep") }
+    /// Arka plan taraması yeni pencere bulunca çağrılır (Router bir tur ister).
+    nonisolated(unsafe) static var onRemoteFound: (@Sendable () -> Void)?
+    /// Router kuyruğu değil: route bunu beklerse kazanç kâğıtta kalır.
+    private static let remoteQueue = DispatchQueue(label: "deskmap.remote", qos: .utility)
+    /// Taranmayı bekleyen numaralar, pid başına (`remoteLock` ile).
+    nonisolated(unsafe) private static var deferredScans: [pid_t: Set<CGWindowID>] = [:]
+    nonisolated(unsafe) private static var runningScans: Set<pid_t> = []
+
+    private static func deferRemoteScan(pid: pid_t, wanted: Set<CGWindowID>) {
+        remoteLock.lock()
+        deferredScans[pid, default: []].formUnion(wanted)
+        let start = runningScans.insert(pid).inserted
+        remoteLock.unlock()
+        PerfStats.shared.count("remoteDeferred")
+        if start { remoteQueue.async { runDeferredScans(pid: pid) } }
+    }
+
+    /// Bekleyenleri bitene kadar tarar; tek tam geçiş hepsini yanıtlar,
+    /// sonraki numaralar kapıdan (önbellek ya da `misses`) hızlı döner.
+    private static func runDeferredScans(pid: pid_t) {
+        var found = false
+        while true {
+            remoteLock.lock()
+            let wanted = deferredScans.removeValue(forKey: pid) ?? []
+            if wanted.isEmpty { runningScans.remove(pid) }
+            remoteLock.unlock()
+            if wanted.isEmpty { break }
+            for id in wanted.sorted() where element(pid: pid, windowID: id, unlisted: wanted) != nil {
+                found = true
+            }
+        }
+        if found {
+            PerfStats.shared.count("remoteFound")
+            onRemoteFound?()
+        }
+    }
+
+    // MARK: - Bulunamayan pencereye üstel bekleme (perf/PLAN-perf.md §3.2)
+
+    /// Bayrak `perf.remoteMissBackoff`. Bugün aynı yardımcı pencereler
+    /// (Reminders, Word, Calendar …) ~30-40 sn'de bir yeniden taranıyor.
+    static var missBackoff: Bool { UserDefaults.standard.bool(forKey: "perf.remoteMissBackoff") }
+    /// Art arda `count`. kez bulunamayan numaranın bekleme süresi (saf):
+    /// 30, 60, 120 … en çok 600 sn.
+    nonisolated static func missBackoffDelay(_ count: Int) -> TimeInterval {
+        min(remoteMissCeiling, remoteRescan * pow(2, Double(max(0, count - 1))))
+    }
+    static let remoteMissCeiling: TimeInterval = 600
+    /// Son taramadaki sunucu satırlarının imzası (sınırlar, ekranda mı).
+    /// Satır değişen numara beklemeden çıkar: yardımcı pencere gerçek
+    /// pencereye dönüşebilir.
+    nonisolated(unsafe) private static var serverSignatures: [CGWindowID: Int] = [:]
+
+    private static func refreshMissBackoff(_ windows: [ServerWindow], enabled: Bool) {
+        remoteLock.lock(); defer { remoteLock.unlock() }
+        guard enabled else {
+            if !serverSignatures.isEmpty { serverSignatures = [:] }
+            for pid in remoteGates.keys where !(remoteGates[pid]?.backoff.isEmpty ?? true) {
+                remoteGates[pid]?.backoff = [:]
+            }
+            return
+        }
+        serverSignatures = Dictionary(windows.map { ($0.id, $0.signature) },
+                                      uniquingKeysWith: { a, _ in a })
+        for pid in remoteGates.keys { remoteGates[pid]?.dropStaleBackoff(serverSignatures) }
     }
 
     /// Görünen masaüstünde (ya da taramada) bulunan pencere öğesini saklar;
@@ -390,16 +470,36 @@ enum AX {
         /// geçişlerin bulduğu kimlikler `partial`'da birikir.
         var resumeFrom: UInt64 = 0
         var partial: [CGWindowID: UInt64] = [:]
+        /// Art arda tam geçişlerde bulunamayan numaralar (§3.2): süre dolana
+        /// kadar yeni geçiş başlatmazlar (başka numaranın geçişi onları da
+        /// yanıtlar). Sunucu satırı değişince düşer.
+        var backoff: [CGWindowID: MissBackoff] = [:]
+
+        struct MissBackoff: Equatable {
+            var count: Int
+            var until: Date
+            /// Bulunamadığı andaki sunucu satırı imzası.
+            var signature: Int
+        }
 
         func shouldScan(for windowID: CGWindowID, now: Date) -> Bool {
+            if let wait = backoff[windowID], now < wait.until { return false }
             guard let nextScan, now < nextScan else { return true }
             return !cutShort && !misses.contains(windowID)
         }
 
+        /// Satırı değişen ya da kapanan numaraların beklemesini kaldırır.
+        mutating func dropStaleBackoff(_ signatures: [CGWindowID: Int]) {
+            let stale = backoff.filter { signatures[$0.key] != $0.value.signature }
+            for id in stale.keys { backoff[id] = nil }
+        }
+
         /// Biten taramayı işler. `wanted`: bu geçişin yanıtladığı numaralar
         /// (aranan pencere ve aynı uygulamanın listelenmeyen öbür pencereleri).
+        /// `backoff`: üstel bekleme açıksa sunucu satırı imzaları.
         mutating func record(_ discovered: [CGWindowID: UInt64], aborted: Bool,
-                             wanted: Set<CGWindowID>, now: Date, stoppedAt: UInt64 = 0) {
+                             wanted: Set<CGWindowID>, now: Date, stoppedAt: UInt64 = 0,
+                             backoff signatures: [CGWindowID: Int]? = nil) {
             let expired = nextScan.map { now >= $0 } ?? true
             cutShort = aborted
             if aborted {
@@ -419,6 +519,20 @@ enum AX {
             // süre içindeki geçiş öncekileri de yeniden aramış sayılır.
             misses = (expired ? [] : misses).union(wanted).subtracting(complete.keys)
             nextScan = now.addingTimeInterval(AX.remoteRescan)
+            guard let signatures else {
+                backoff = [:]
+                return
+            }
+            for id in complete.keys { backoff[id] = nil }
+            // Süresi içindeki numara başka geçişte yeniden bulunamazsa sayı
+            // artmaz: bekleme yalnız kendi süresi dolunca uzar.
+            for id in wanted where complete[id] == nil {
+                if let wait = backoff[id], now < wait.until { continue }
+                let count = (backoff[id]?.count ?? 0) + 1
+                backoff[id] = MissBackoff(
+                    count: count, until: now.addingTimeInterval(AX.missBackoffDelay(count)),
+                    signature: signatures[id] ?? 0)
+            }
         }
     }
 
@@ -503,6 +617,8 @@ enum AX {
         let serverList = server ?? windowServerList()
         pruneBackoffs(running: Set(apps.map(\.pid)))
         pruneRemoteCache(running: Set(apps.map(\.pid)), live: Set(serverList.live.keys))
+        refreshMissBackoff(serverList.windows, enabled: missBackoff)
+        let deferRemote = remoteOffSweep
         /// Bu taramada uygulama başına AX çağrı süreleri (yanıt vermeyeni bulmak için).
         var timings: [pid_t: AppTiming] = [:]
         let active = apps.filter { !isBackedOff($0.pid, now: now) }
@@ -561,7 +677,8 @@ enum AX {
             if let timing = timings[pid],
                isUnresponsive(maxSingleCall: timing.maxCall, total: timing.total) { continue }
             guard let element = timings[pid, default: AppTiming()]
-                .measure({ element(pid: pid, windowID: info.id, unlisted: unlisted[pid] ?? []) })
+                .measure({ element(pid: pid, windowID: info.id, unlisted: unlisted[pid] ?? [],
+                                  cacheOnly: deferRemote) })
             else { continue }
             AXUIElementSetMessagingTimeout(element, timeout)
             guard alwaysInclude.contains(info.id)
@@ -607,6 +724,9 @@ enum AX {
         let id: CGWindowID
         let pid: pid_t
         let name: String
+        /// Sınırlar ve ekranda olup olmadığı (bulunamayan pencerenin
+        /// beklemesi satır değişince düşsün, §3.2).
+        var signature = 0
     }
 
     /// Tek bir `CGWindowListCopyWindowInfo` okumasından türeyen iki görünüm.
@@ -709,7 +829,14 @@ enum AX {
             return nil
         }
         let name = entry[kCGWindowName as String] as? String ?? ""
-        return ServerWindow(id: number, pid: pid, name: name)
+        var hasher = Hasher()
+        if let bounds = entry[kCGWindowBounds as String] as? [String: Any] {
+            for key in ["X", "Y", "Width", "Height"] {
+                hasher.combine(Int(((bounds[key] as? Double) ?? 0).rounded()))
+            }
+        }
+        hasher.combine(entry[kCGWindowIsOnscreen as String] as? Bool ?? false)
+        return ServerWindow(id: number, pid: pid, name: name, signature: hasher.finalize())
     }
 
     /// Bir uygulamanın en öndeki normal penceresi (saf). `list` önden arkaya
