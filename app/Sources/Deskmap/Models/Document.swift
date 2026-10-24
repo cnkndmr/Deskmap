@@ -15,12 +15,16 @@ struct Profile: Codable, Equatable, Identifiable, Hashable {
     var plans = DesktopPlans()
     /// Bu profilin hayalet (silinmiş) masaüstüleri.
     var ghostDesktops: [GhostDesktop] = []
+    /// Bu profilin pin grupları (üyelik kurallarda, `Rule.groupID`). İsteğe
+    /// bağlı ek alan: boşsa yazılmaz, eski sürüm yok sayar.
+    var pinGroups: [PinGroup] = []
     /// Şema 5'in ad tabloları (yalnız okunur, geçiş sonrası nil; yazılmaz).
     var legacy: LegacyNames?
 
     init(id: String = UUID().uuidString, name: String, rules: [Rule] = [],
          names: [DesktopName] = [], plans: DesktopPlans = DesktopPlans(),
-         ghostDesktops: [GhostDesktop] = [], legacy: LegacyNames? = nil) {
+         ghostDesktops: [GhostDesktop] = [], legacy: LegacyNames? = nil,
+         pinGroups: [PinGroup] = []) {
         self.id = id
         self.name = name
         self.rules = rules
@@ -28,10 +32,11 @@ struct Profile: Codable, Equatable, Identifiable, Hashable {
         self.plans = plans
         self.ghostDesktops = ghostDesktops
         self.legacy = legacy
+        self.pinGroups = pinGroups
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, name, rules, names, plans, ghostDesktops
+        case id, name, rules, names, plans, ghostDesktops, pinGroups
         case desktopNames, desktopNameSpaces, plannedDesktops
     }
 
@@ -43,6 +48,8 @@ struct Profile: Codable, Equatable, Identifiable, Hashable {
         names = (try? c.decodeIfPresent([DesktopName].self, forKey: .names)) ?? []
         plans = (try? c.decodeIfPresent(DesktopPlans.self, forKey: .plans)) ?? DesktopPlans()
         ghostDesktops = (try? c.decodeIfPresent([GhostDesktop].self, forKey: .ghostDesktops)) ?? []
+        pinGroups = PinGroup.deduplicated(
+            (try? c.decodeIfPresent(LossyArray<PinGroup>.self, forKey: .pinGroups))?.elements ?? [])
         let old = LegacyNames(
             desktopNames: (try? c.decodeIfPresent([String: [String: String]].self, forKey: .desktopNames)) ?? [:],
             desktopNameSpaces: (try? c.decodeIfPresent([String: [String: UInt64]].self,
@@ -60,6 +67,7 @@ struct Profile: Codable, Equatable, Identifiable, Hashable {
         if !names.isEmpty { try c.encode(names, forKey: .names) }
         if !plans.isEmpty { try c.encode(plans, forKey: .plans) }
         if !ghostDesktops.isEmpty { try c.encode(ghostDesktops, forKey: .ghostDesktops) }
+        if !pinGroups.isEmpty { try c.encode(pinGroups, forKey: .pinGroups) }
     }
 }
 
@@ -198,6 +206,8 @@ struct Document: Codable, Equatable {
         var desktopNameSpaces: [String: [String: UInt64]]?
         var ghostDesktops: [GhostDesktop]?
         var plannedDesktops: [String: Int]?
+        /// Hoşgörülü: bozuk grup kaydı profili (ve belgeyi) düşürmez.
+        var pinGroups: LenientPinGroups?
     }
 
     init(from decoder: Decoder) throws {
@@ -227,7 +237,8 @@ struct Document: Codable, Equatable {
             return Profile(id: $0.id, name: $0.name, rules: $0.rules.elements,
                            names: $0.names ?? [], plans: $0.plans ?? DesktopPlans(),
                            ghostDesktops: $0.ghostDesktops ?? [],
-                           legacy: old.isEmpty ? nil : old)
+                           legacy: old.isEmpty ? nil : old,
+                           pinGroups: $0.pinGroups?.groups ?? [])
         }
         droppedRuleCount += records.reduce(0) { $0 + $1.rules.droppedCount }
         activeProfileID = try c.decodeIfPresent(String.self, forKey: .activeProfileID) ?? ""

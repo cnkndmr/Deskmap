@@ -366,6 +366,11 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     /// sırasıyla). Taramada listede bağlı olan ilk yer kazanır; ekran rolü
     /// başına en çok bir yer. İsteğe bağlı alan: eski sürüm yok sayar.
     var dockedNext: [Destination] = []
+    /// Kullanıcının pin grubu (`Profile.pinGroups` içindeki kimlik); nil =
+    /// grupsuz. Yönlendirmeyi etkilemez. İsteğe bağlı alan: eski sürüm yok
+    /// sayar, boşsa yazılmaz. Bilinmeyen kimlik okunurken korunur, arayüz onu
+    /// grupsuz sayar.
+    var groupID: String? = nil
 
     /// `tokens`'ın küçük harfli kopyası; `matches` her çağrıda yeniden
     /// küçültmesin (her taramada ve her arayüz çiziminde kural × pencere kez
@@ -384,7 +389,8 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         path: String? = nil,
         docked: Destination? = nil,
         undocked: Destination? = nil,
-        dockedNext: [Destination] = []
+        dockedNext: [Destination] = [],
+        groupID: String? = nil
     ) {
         self.id = id
         self.appName = appName
@@ -395,7 +401,12 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         self.docked = docked
         self.undocked = undocked
         self.dockedNext = docked == nil ? [] : dockedNext
+        self.groupID = groupID
     }
+
+    /// Yönlendirmeyi etkilemeyen alanlar (grup üyeliği) atılmış kopya. Router
+    /// aboneliği bununla karşılaştırır; grup değişimi pencereleri yerinden oynatmaz.
+    var routingProjection: Rule { var r = self; r.groupID = nil; return r }
 
     /// Boş `tokens` = uygulamanın bütün pencereleri.
     var isAppWide: Bool { tokens.isEmpty && path == nil }
@@ -496,7 +507,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     // MARK: Çözümleme (eski şemayı da okur)
 
     private enum CodingKeys: String, CodingKey {
-        case id, appName, bundleID, tokens, path, docked, undocked, dockedNext
+        case id, appName, bundleID, tokens, path, docked, undocked, dockedNext, groupID
         // v1 alanları
         case app, match
     }
@@ -516,6 +527,9 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
             dockedNext = next
         }
         path = try c.decodeIfPresent(String.self, forKey: .path)
+        // Okunamayan ya da boş grup kimliği grupsuz sayılır (kural düşmez).
+        let group = (try? c.decodeIfPresent(String.self, forKey: .groupID)) ?? nil
+        groupID = group?.isEmpty == false ? group : nil
 
         let decodedTokens: [String]
         if let name = try c.decodeIfPresent(String.self, forKey: .appName) {
@@ -550,6 +564,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         try c.encodeIfPresent(docked, forKey: .docked)
         try c.encodeIfPresent(undocked, forKey: .undocked)
         if !dockedNext.isEmpty { try c.encode(dockedNext, forKey: .dockedNext) }
+        try c.encodeIfPresent(groupID, forKey: .groupID)
     }
 
     private struct LegacyApp: Decodable {
