@@ -2190,7 +2190,7 @@ final class Router: ObservableObject {
                 let connected = self.screens.screens
                 let batch = moves.map { (window: $0.window, space: $0.space) }
                 return await withCheckedContinuation { continuation in
-                    self.queue.async {
+                    (Self.planMovesFast ? Self.moveQueue : self.queue).async {
                         continuation.resume(returning: Self.performMoves(batch, pids: pids,
                                                                          screens: connected))
                     }
@@ -2228,6 +2228,14 @@ final class Router: ObservableObject {
             guard let display = displays.first(where: { $0.spaces.contains { $0.id == space } }) else { return nil }
             return connected.first { $0.uuid == display.displayUUID }
         }
+        if planMovesFast {
+            return performMovesFast(
+                moves, pids: pids, screens: connected, screenOf: screen(of:),
+                spaces: { sky.spaces(of: $0) }, move: { _ = sky.move(window: $0, to: $1) },
+                bounds: { serverBounds($0) },
+                refit: { refitFrame(window: $0, pid: $1, to: $2, screens: connected) },
+                sleep: { usleep(useconds_t($0 * 1_000_000)) }, now: { Date() })
+        }
         var remaining = moves.filter { sky.spaces(of: $0.window) != [$0.space] }
         for move in remaining {
             if let pid = pids[move.window], let target = screen(of: move.space) {
@@ -2254,6 +2262,114 @@ final class Router: ObservableObject {
     /// Plan okumasının kuyruğu: bayrak kapalıyken bugünkü gibi tarama kuyruğu.
     nonisolated static func planQueue(router: DispatchQueue, ownQueue: Bool = transitionOwnQueue) -> DispatchQueue {
         ownQueue ? planReadQueue : router
+    }
+
+    /// Bayrak `perf.planMovesFast` (B5): plan taşımaları ayrı kuyrukta; refit
+    /// yalnız ekran değiştiren pencereye (pencere sunucusu sınırlarıyla, AX'siz
+    /// karar), uygulama başına paralel; 200 ms uyku yerine 20 ms yoklama + 200 ms
+    /// sonra onay okuması; refit edilen pencerenin çerçevesi oturana kadar
+    /// (≤1 sn) beklenir (düzenekte çerçeve masaüstü varışından sonra oturuyordu).
+    nonisolated static var planMovesFast: Bool {
+        UserDefaults.standard.bool(forKey: "perf.planMovesFast")
+    }
+    nonisolated static let moveQueue = DispatchQueue(label: "deskmap.moves", qos: .userInitiated)
+    nonisolated static let movePollInterval: TimeInterval = 0.02
+    nonisolated static let moveRoundCeiling: TimeInterval = 0.2
+    nonisolated static let moveConfirmDelay: TimeInterval = 0.2
+    nonisolated static let frameSettleCeiling: TimeInterval = 1.0
+
+    /// Pencere sunucusundaki sınırlar (AX koordinatı: sol üst), AX'siz.
+    nonisolated static func serverBounds(_ ids: [CGWindowID]) -> [CGWindowID: CGRect] {
+        guard !ids.isEmpty else { return [:] }
+        var pointers: [UnsafeRawPointer?] = ids.map { UnsafeRawPointer(bitPattern: Int($0)) }
+        guard let array = CFArrayCreate(nil, &pointers, ids.count, nil),
+              let list = CGWindowListCreateDescriptionFromArray(array) as? [[String: Any]] else { return [:] }
+        var out: [CGWindowID: CGRect] = [:]
+        for entry in list {
+            guard let number = entry[kCGWindowNumber as String] as? UInt32,
+                  let dict = entry[kCGWindowBounds as String] as? NSDictionary,
+                  let rect = CGRect(dictionaryRepresentation: dict as CFDictionary) else { continue }
+            out[number] = rect
+        }
+        return out
+    }
+
+    /// Refit gerekir mi (saf): sunucu sınırı bilinmiyorsa evet (bugünkü yol AX
+    /// ile karar verir), biliniyorsa yalnız orta noktası hedef ekranda değilse.
+    nonisolated static func needsRefit(bounds: CGRect?, target: ScreenInfo, screens connected: [ScreenInfo]) -> Bool {
+        guard let bounds else { return true }
+        let area = Coordinates.axRect(fromCocoa: target.frame, screens: connected)
+        return !area.contains(CGPoint(x: bounds.midX, y: bounds.midY))
+    }
+
+    /// B5 taşıma yolu (dış dünya kapanışlarla verilir: birim test taklit eder).
+    nonisolated static func performMovesFast(
+        _ moves: [(window: CGWindowID, space: UInt64)], pids: [CGWindowID: pid_t], screens connected: [ScreenInfo],
+        screenOf: (UInt64) -> ScreenInfo?, spaces: (CGWindowID) -> [UInt64]?,
+        move: (CGWindowID, UInt64) -> Void, bounds: ([CGWindowID]) -> [CGWindowID: CGRect],
+        refit: @escaping @Sendable (CGWindowID, pid_t, ScreenInfo) -> CGRect?,
+        sleep: (TimeInterval) -> Void, now: () -> Date
+    ) -> [CGWindowID] {
+        var remaining = moves.filter { spaces($0.window) != [$0.space] }
+        let before = bounds(remaining.map(\.window))
+        var byPid: [pid_t: [(CGWindowID, ScreenInfo)]] = [:]
+        for move in remaining {
+            guard let pid = pids[move.window], let target = screenOf(move.space),
+                  needsRefit(bounds: before[move.window], target: target, screens: connected) else { continue }
+            byPid[pid, default: []].append((move.window, target))
+        }
+        let groups = Array(byPid)
+        let lock = NSLock()
+        final class Box: @unchecked Sendable { var written: [CGWindowID: CGRect] = [:] }
+        let box = Box()
+        DispatchQueue.concurrentPerform(iterations: groups.count) { index in
+            let (pid, items) = groups[index]
+            for (window, target) in items {
+                guard let frame = refit(window, pid, target) else { continue }
+                lock.lock(); box.written[window] = frame; lock.unlock()
+            }
+        }
+        for _ in 0..<3 where !remaining.isEmpty {
+            for item in remaining { move(item.window, item.space) }
+            let start = now()
+            repeat {
+                sleep(movePollInterval)
+                remaining = remaining.filter { spaces($0.window) != [$0.space] }
+            } while !remaining.isEmpty && now().timeIntervalSince(start) < moveRoundCeiling
+            if remaining.isEmpty {
+                // Onay okuması: varıp geri seken pencere (bugünkü 200 ms'nin yakaladığı durum).
+                sleep(moveConfirmDelay)
+                remaining = moves.filter { spaces($0.window) != [$0.space] }
+            }
+        }
+        let written = box.written
+        if !written.isEmpty {
+            let start = now()
+            while now().timeIntervalSince(start) < frameSettleCeiling {
+                let live = bounds(Array(written.keys))
+                if written.allSatisfy({ id, frame in live[id].map { Coordinates.close($0, frame) } ?? true }) { break }
+                sleep(movePollInterval)
+            }
+        }
+        return remaining.map(\.window)
+    }
+
+    /// `refit` ile aynı, yazılan çerçeveyi döndürür (B5 oturma yoklaması için).
+    nonisolated static func refitFrame(window id: CGWindowID, pid: pid_t, to target: ScreenInfo,
+                                       screens connected: [ScreenInfo]) -> CGRect? {
+        guard let element = AX.element(pid: pid, windowID: id) else { return nil }
+        AXUIElementSetMessagingTimeout(element, 1.0)
+        let window = AXWindow(id: id, pid: pid, appName: "", bundleID: "", title: "", element: element)
+        guard let frame = AX.frame(of: window),
+              let source = connected.first(where: { screen in
+                  Coordinates.axRect(fromCocoa: screen.frame, screens: connected)
+                      .contains(CGPoint(x: frame.midX, y: frame.midY))
+              }), source.id != target.id else { return nil }
+        let sourceArea = Coordinates.axRect(fromCocoa: source.visibleFrame, screens: connected)
+        let targetArea = Coordinates.axRect(fromCocoa: target.visibleFrame, screens: connected)
+        let rect = WindowLayout(frame: frame, in: sourceArea).rect(in: targetArea)
+        AX.setFrame(rect, of: window)
+        return rect
     }
 
     /// Pencere başka ekrandaysa çerçevesi hedef ekranda aynı oranlara
