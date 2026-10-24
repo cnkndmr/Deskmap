@@ -3260,11 +3260,11 @@ final class Router: ObservableObject {
         // §3.3: SLS okumaları seri, AX durum okumaları uygulama başına eşzamanlı.
         var slsReads: [CGWindowID: [UInt64]?] = [:]
         var axReads: [CGWindowID: AX.WindowRead] = [:]
-        if AX.perPidParallel {
+        if AX.perPidParallel || AX.multiAttr {
             for window in windows { slsReads[window.id] = sky.canRead ? sky.spaces(of: window.id) : nil }
             axReads = AX.readStates(windows.filter {
                 !Self.isSpaceless(slsReads[$0.id] ?? nil, pinned: sessionIDs.contains($0.id))
-            })
+            }, parallel: AX.perPidParallel)
         }
         for window in windows {
             let read = slsReads[window.id] ?? (sky.canRead ? sky.spaces(of: window.id) : nil)

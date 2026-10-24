@@ -651,10 +651,9 @@ enum AX {
             else { continue }
 
             for element in windows {
-                guard timings[pid, default: AppTiming()].measure({ isStandardWindow(element) })
-                else { continue }
-                let title: String = timings[pid, default: AppTiming()]
-                    .measure({ attribute(element, kAXTitleAttribute) }) ?? ""
+                let listed = standardAndTitle(element, strict: false, timing: &timings[pid, default: AppTiming()])
+                guard listed.standard else { continue }
+                let title = listed.title ?? ""
 
                 var windowID: CGWindowID = 0
                 guard let getWindowID,
@@ -698,12 +697,10 @@ enum AX {
                                   cacheOnly: deferRemote) })
             else { continue }
             AXUIElementSetMessagingTimeout(element, timeout)
-            guard alwaysInclude.contains(info.id)
-                    || timings[pid, default: AppTiming()]
-                        .measure({ isStandardWindow(element, strict: true) })
-            else { continue }
-            let title: String = timings[pid, default: AppTiming()]
-                .measure({ attribute(element, kAXTitleAttribute) }) ?? info.name
+            let remote = standardAndTitle(element, strict: true, timing: &timings[pid, default: AppTiming()],
+                                          skipCheck: alwaysInclude.contains(info.id))
+            guard remote.standard else { continue }
+            let title = remote.title ?? info.name
             seen.insert(info.id)
             result.append(AXWindow(
                 id: info.id,
@@ -770,8 +767,9 @@ enum AX {
             AXUIElementSetMessagingTimeout(appElement, timeout)
             if let windows: [AXUIElement] = scan.timing.measure({ attribute(appElement, kAXWindowsAttribute) }) {
                 for element in windows {
-                    guard scan.timing.measure({ isStandardWindow(element) }) else { continue }
-                    let title: String = scan.timing.measure({ attribute(element, kAXTitleAttribute) }) ?? ""
+                    let listed = standardAndTitle(element, strict: false, timing: &scan.timing)
+                    guard listed.standard else { continue }
+                    let title = listed.title ?? ""
                     var windowID: CGWindowID = 0
                     guard let getWindowID,
                           scan.timing.measure({ getWindowID(element, &windowID) }) == .success,
@@ -790,9 +788,10 @@ enum AX {
                     element(pid: pid, windowID: info.id, unlisted: unlisted, cacheOnly: deferRemote)
                 }) else { continue }
                 AXUIElementSetMessagingTimeout(element, timeout)
-                guard alwaysInclude.contains(info.id)
-                        || scan.timing.measure({ isStandardWindow(element, strict: true) }) else { continue }
-                let title: String = scan.timing.measure({ attribute(element, kAXTitleAttribute) }) ?? info.name
+                let remote = standardAndTitle(element, strict: true, timing: &scan.timing,
+                                              skipCheck: alwaysInclude.contains(info.id))
+                guard remote.standard else { continue }
+                let title = remote.title ?? info.name
                 seen.insert(info.id)
                 scan.unlisted[info.id] = AXWindow(id: info.id, pid: pid, appName: app.name,
                                                   bundleID: app.bundleID, title: title, element: element)
@@ -814,19 +813,88 @@ enum AX {
         let document: String?
         let tabGroup: String?
     }
-    static func readStates(_ windows: [AXWindow]) -> [CGWindowID: WindowRead] {
+    static func readStates(_ windows: [AXWindow], parallel: Bool = true) -> [CGWindowID: WindowRead] {
         let groups = Dictionary(grouping: windows, by: \.pid)
         let pids = windows.reduce(into: [pid_t]()) { if !$0.contains($1.pid) { $0.append($1.pid) } }
-        let parts = concurrently(pids) { pid in
-            (groups[pid] ?? []).map { window in
-                (window.id, WindowRead(frame: frame(of: window), isMinimized: isMinimized(window),
-                                       document: document(of: window),
-                                       tabGroup: window.bundleID == "com.apple.Safari" ? safariTabGroup(of: window) : nil))
-            }
+        let multi = multiAttr
+        let read = { (pid: pid_t) in
+            (groups[pid] ?? []).map { window in (window.id, readState(window, multi: multi)) }
         }
+        let parts = parallel ? concurrently(pids, read) : pids.map(read)
         var out: [CGWindowID: WindowRead] = [:]
         for part in parts { for (id, read) in part { out[id] = read } }
         return out
+    }
+
+    // MARK: - Toplu öznitelik okuma (perf/PLAN-perf.md §6.2)
+
+    /// Bayrak `perf.multiAttr`: rol + alt rol + başlık ve konum + boyut +
+    /// küçültülmüş + belge tek `AXUIElementCopyMultipleAttributeValues`
+    /// çağrısında (düzenekte IPC %55-60 az). Değerler tekli okumayla aynı;
+    /// okunamayan öznitelik nil.
+    nonisolated static var multiAttr: Bool { UserDefaults.standard.bool(forKey: "perf.multiAttr") }
+
+    /// Toplu okuma; çağrı bütünüyle başarısızsa nil, öznitelik hatası nil öğe.
+    private static func attributes(_ element: AXUIElement, _ names: [String]) -> [Any?]? {
+        var raw: CFArray?
+        guard AXUIElementCopyMultipleAttributeValues(element, names as CFArray, AXCopyMultipleAttributeOptions(rawValue: 0), &raw) == .success,
+              let values = raw as? [AnyObject], values.count == names.count else { return nil }
+        return values.map(multiValue)
+    }
+
+    /// Toplu okumanın tek değeri (saf): hata değeri (`kAXValueAXErrorType`) nil.
+    nonisolated static func multiValue(_ value: AnyObject) -> Any? {
+        if CFGetTypeID(value) == AXValueGetTypeID(), AXValueGetType(value as! AXValue) == .axError { return nil }
+        return value
+    }
+
+    /// Pencere listesinde mi ve başlığı. Bayrak kapalıyken bugünkü tekli
+    /// okumalar (rol, alt rol, yalnız standartsa başlık); `skipCheck`: rol
+    /// sorulmaz (`alwaysInclude`).
+    private static func standardAndTitle(_ element: AXUIElement, strict: Bool, timing: inout AppTiming,
+                                         skipCheck: Bool = false) -> (standard: Bool, title: String?) {
+        if multiAttr {
+            if let values = timing.measure({ attributes(element, [kAXRoleAttribute, kAXSubroleAttribute, kAXTitleAttribute]) }) {
+                let standard = skipCheck || isStandard(role: values[0] as? String, subrole: values[1] as? String, strict: strict)
+                return (standard, standard ? values[2] as? String : nil)
+            }
+            // Toplu çağrıyı desteklemeyen öğe: tekli yola düş.
+        }
+        guard skipCheck || timing.measure({ isStandardWindow(element, strict: strict) }) else { return (false, nil) }
+        return (true, timing.measure({ attribute(element, kAXTitleAttribute) as String? }))
+    }
+
+    /// Taramanın pencere başına durumu (çerçeve, küçültülmüş, belge, sekme grubu).
+    static func readState(_ window: AXWindow, multi: Bool) -> WindowRead {
+        let tab = window.bundleID == "com.apple.Safari" ? safariTabGroup(of: window) : nil
+        if multi, let values = attributes(window.element, [kAXPositionAttribute, kAXSizeAttribute,
+                                                           kAXMinimizedAttribute, kAXDocumentAttribute]) {
+            var frame: CGRect?
+            if let p = values[0], let z = values[1], CFGetTypeID(p as CFTypeRef) == AXValueGetTypeID(),
+               CFGetTypeID(z as CFTypeRef) == AXValueGetTypeID() {
+                var origin = CGPoint.zero, size = CGSize.zero
+                AXValueGetValue(p as! AXValue, .cgPoint, &origin)
+                AXValueGetValue(z as! AXValue, .cgSize, &size)
+                frame = CGRect(origin: origin, size: size)
+            }
+            return WindowRead(frame: frame, isMinimized: (values[2] as? Bool) ?? false,
+                              document: (values[3] as? String).flatMap(documentPath), tabGroup: tab)
+        }
+        return WindowRead(frame: frame(of: window), isMinimized: isMinimized(window),
+                          document: document(of: window), tabGroup: tab)
+    }
+
+    /// Rol ve alt rolden "standart pencere" kararı (saf; `isStandardWindow` ile aynı).
+    nonisolated static func isStandard(role: String?, subrole: String?, strict: Bool) -> Bool {
+        guard role == kAXWindowRole || (!strict && role == nil) else { return false }
+        if let subrole,
+           subrole == kAXFloatingWindowSubrole
+            || subrole == kAXSystemDialogSubrole
+            || subrole == kAXSystemFloatingWindowSubrole
+            || subrole == kAXUnknownSubrole {
+            return false
+        }
+        return true
     }
 
     /// Rolü pencere olan ve yüzen panel / sistem diyaloğu olmayan öğe.

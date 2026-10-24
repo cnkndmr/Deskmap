@@ -221,7 +221,8 @@ final class StatusFile {
                         ("settlePollShadow", ScreenService.settlePollShadow),
                         ("settlePoll", ScreenService.settlePoll),
                         ("titleThrottle", Router.titleThrottle),
-                        ("statusSkipSame", Self.skipSame)].filter(\.1).map(\.0))
+                        ("statusSkipSame", Self.skipSame),
+                        ("multiAttr", AX.multiAttr)].filter(\.1).map(\.0))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
