@@ -228,16 +228,18 @@ final class StatusFile {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         do {
+            var content: Data?
             if Self.skipSame {
                 // §6.5: içerik (zaman damgası dışında) son yazılanla aynıysa ve
                 // CLI bir isteğin yanıtını beklemiyorsa yazılmaz.
                 var probe = snapshot
                 probe.updated = .distantPast
-                let content = try encoder.encode(probe)
-                if Self.shouldSkip(request: request, content: content, last: lastContent) { return }
-                lastContent = content
+                content = try encoder.encode(probe)
+                if let content, Self.shouldSkip(request: request, content: content, last: lastContent) { return }
             }
             try encoder.encode(snapshot).write(to: url, options: .atomic)
+            // Yalnız yazım başarılıysa: başarısız yazımdan sonra aynı içerik yeniden denenir.
+            if let content { lastContent = content }
         } catch {
             Log.app.error("status.json not written: \(error.localizedDescription, privacy: .public)")
         }
