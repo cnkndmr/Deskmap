@@ -603,6 +603,19 @@ enum AX {
     nonisolated(unsafe) private static var cachedApps: (apps: [App], at: Date)?
     private static let appsLock = NSLock()
     static let runningAppsTTL: TimeInterval = 60
+    nonisolated(unsafe) private static var cachedAppsTTL: TimeInterval?
+
+    /// Bayrak `perf.appsCacheNotify` (24.10): açılışı bitmemiş bir uygulama
+    /// varken liste kısa süre saklanır. Açılış bildirimi önbelleği siliyor,
+    /// ama o anda politikası henüz "normal" değilse uygulama listeye girmiyor
+    /// ve 60 sn boyunca (başka masaüstündeki penceresiyle birlikte) taranmıyordu.
+    nonisolated static var appsCacheNotify: Bool { UserDefaults.standard.bool(forKey: "perf.appsCacheNotify") }
+    static let launchingAppsTTL: TimeInterval = 1
+
+    /// Uygulama listesinin saklanma süresi (saf).
+    nonisolated static func appsCacheTTL(anyLaunching: Bool, notify: Bool) -> TimeInterval {
+        notify && anyLaunching ? launchingAppsTTL : runningAppsTTL
+    }
 
     static func invalidateRunningApps() {
         appsLock.lock(); defer { appsLock.unlock() }
@@ -613,15 +626,29 @@ enum AX {
     static func runningApps() -> [App] {
         let now = Date()
         appsLock.lock()
-        if let cached = cachedApps, now.timeIntervalSince(cached.at) < runningAppsTTL {
+        if let cached = cachedApps, now.timeIntervalSince(cached.at) < (cachedAppsTTL ?? runningAppsTTL) {
             appsLock.unlock()
             return cached.apps
         }
         appsLock.unlock()
-        let apps = freshRunningApps()
+        let (apps, launching) = freshRunningAppsTracked()
         appsLock.lock(); defer { appsLock.unlock() }
         cachedApps = (apps, now)
+        cachedAppsTTL = appsCacheTTL(anyLaunching: launching, notify: appsCacheNotify)
         return apps
+    }
+
+    /// Liste + açılışı bitmemiş uygulama var mı (yalnız bayrak açıkken bakılır).
+    private static func freshRunningAppsTracked() -> ([App], Bool) {
+        guard appsCacheNotify else { return (freshRunningApps(), false) }
+        let ownPID = ProcessInfo.processInfo.processIdentifier
+        let running = NSWorkspace.shared.runningApplications
+        let launching = running.contains { $0.processIdentifier != ownPID && !$0.isFinishedLaunching }
+        let apps = running
+            .filter { $0.processIdentifier != ownPID && ActivationPolicyCache.shared.isRegular($0) }
+            .map { App(pid: $0.processIdentifier, name: $0.localizedName ?? "?", bundleID: $0.bundleIdentifier ?? "") }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        return (apps, launching)
     }
 
     private static func freshRunningApps() -> [App] {

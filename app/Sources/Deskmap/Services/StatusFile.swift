@@ -223,7 +223,8 @@ final class StatusFile {
                         ("titleThrottle", Router.titleThrottle),
                         ("statusSkipSame", Self.skipSame),
                         ("multiAttr", AX.multiAttr),
-                        ("verifyObservedAt", Router.verifyObservedAt)].filter(\.1).map(\.0))
+                        ("verifyObservedAt", Router.verifyObservedAt),
+                        ("appsCacheNotify", AX.appsCacheNotify)].filter(\.1).map(\.0))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
