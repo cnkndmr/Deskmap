@@ -2233,8 +2233,15 @@ final class Router: ObservableObject {
                 let batch = moves.map { (window: $0.window, space: $0.space) }
                 return await withCheckedContinuation { continuation in
                     (Self.planMovesFast ? Self.moveQueue : self.queue).async {
+                        // B5 adımlar arasında planın durması gerekip gerekmediğine bakar
+                        // (ana aktör taşımayı await ile bekliyor, sync güvenli).
+                        let abort: () -> Bool = {
+                            DispatchQueue.main.sync {
+                                MainActor.assumeIsolated { self.planShouldAbort(startScreens: startScreens, deadline: deadline) }
+                            }
+                        }
                         continuation.resume(returning: Self.performMoves(batch, pids: pids,
-                                                                         screens: connected))
+                                                                         screens: connected, abort: abort))
                     }
                 }
             },
@@ -2245,8 +2252,7 @@ final class Router: ObservableObject {
                 return removed
             },
             shouldAbort: { [unowned self] in
-                self.screens.screens != startScreens || self.screens.isSettling || self.isPaused
-                    || !self.store.document.enabled || Date() > deadline || !AXIsProcessTrusted()
+                self.planShouldAbort(startScreens: startScreens, deadline: deadline)
             },
             journal: { [unowned self] moves, rebinds, spaceMap in
                 guard self.transition != nil else { return }
@@ -2257,12 +2263,18 @@ final class Router: ObservableObject {
             })
     }
 
+    private func planShouldAbort(startScreens: [ScreenInfo], deadline: Date) -> Bool {
+        screens.screens != startScreens || screens.isSettling || isPaused
+            || !store.document.enabled || Date() > deadline || !AXIsProcessTrusted()
+    }
+
     /// Pencereleri hedef space'lerine taşır: önce hepsi, sonra 200 ms sonra
     /// doğrulama, olmayanlar yeniden (en çok 3 tur). Ekran değişen pencere
     /// hedef ekrana aynı oranlarla yerleştirilir. Taşınamayanları döndürür.
     nonisolated static func performMoves(_ moves: [(window: CGWindowID, space: UInt64)],
                                          pids: [CGWindowID: pid_t],
-                                         screens connected: [ScreenInfo]) -> [CGWindowID] {
+                                         screens connected: [ScreenInfo],
+                                         abort: () -> Bool = { false }) -> [CGWindowID] {
         let sky = SkyLight.shared
         guard sky.canMove else { return moves.map(\.window) }
         let displays = sky.displaySpaces(mainUUID: primaryUUID(connected))
@@ -2276,7 +2288,7 @@ final class Router: ObservableObject {
                 spaces: { sky.spaces(of: $0) }, move: { _ = sky.move(window: $0, to: $1) },
                 bounds: { serverBounds($0) },
                 refit: { refitFrame(window: $0, pid: $1, to: $2, screens: connected) },
-                sleep: { usleep(useconds_t($0 * 1_000_000)) }, now: { Date() })
+                sleep: { usleep(useconds_t($0 * 1_000_000)) }, now: { Date() }, abort: abort)
         }
         var remaining = moves.filter { sky.spaces(of: $0.window) != [$0.space] }
         for move in remaining {
@@ -2350,9 +2362,10 @@ final class Router: ObservableObject {
         screenOf: (UInt64) -> ScreenInfo?, spaces: (CGWindowID) -> [UInt64]?,
         move: (CGWindowID, UInt64) -> Void, bounds: ([CGWindowID]) -> [CGWindowID: CGRect],
         refit: @escaping @Sendable (CGWindowID, pid_t, ScreenInfo) -> CGRect?,
-        sleep: (TimeInterval) -> Void, now: () -> Date
+        sleep: (TimeInterval) -> Void, now: () -> Date, abort: () -> Bool = { false }
     ) -> [CGWindowID] {
         var remaining = moves.filter { spaces($0.window) != [$0.space] }
+        if abort() { return remaining.map(\.window) }
         let before = bounds(remaining.map(\.window))
         var byPid: [pid_t: [(CGWindowID, ScreenInfo)]] = [:]
         for move in remaining {
@@ -2372,6 +2385,8 @@ final class Router: ObservableObject {
             }
         }
         for _ in 0..<3 where !remaining.isEmpty {
+            // Plan durdu (ekran değişti, duraklatıldı, süre doldu): yeni taşıma verilmez.
+            if abort() { return remaining.map(\.window) }
             for item in remaining { move(item.window, item.space) }
             let start = now()
             repeat {
@@ -2385,15 +2400,32 @@ final class Router: ObservableObject {
             }
         }
         let written = box.written
-        if !written.isEmpty {
+        if !written.isEmpty, !abort() {
             let start = now()
+            var previous: [CGWindowID: CGRect] = [:]
             while now().timeIntervalSince(start) < frameSettleCeiling {
                 let live = bounds(Array(written.keys))
-                if written.allSatisfy({ id, frame in live[id].map { Coordinates.close($0, frame) } ?? true }) { break }
+                if framesSettled(written: written, live: live, previous: previous, before: before) { break }
+                previous = live
                 sleep(movePollInterval)
             }
         }
         return remaining.map(\.window)
+    }
+
+    /// Refit çerçeveleri oturdu mu (saf): her pencere ya istenen çerçevede ya
+    /// da yazımdan önceki çerçeveden farklı bir yerde iki okumadır duruyor
+    /// (en küçük / en büyük boyutlu uygulama istenene hiç varmaz; 1 sn boşa
+    /// beklenmesin). Hiç kıpırdamayan pencere için tavana kadar beklenir
+    /// (çerçeve masaüstü varışından sonra da oturabiliyor).
+    nonisolated static func framesSettled(written: [CGWindowID: CGRect], live: [CGWindowID: CGRect],
+                                          previous: [CGWindowID: CGRect], before: [CGWindowID: CGRect]) -> Bool {
+        written.allSatisfy { id, frame in
+            guard let now = live[id] else { return true }
+            if Coordinates.close(now, frame) { return true }
+            guard let last = previous[id], last == now else { return false }
+            return before[id].map { !Coordinates.close($0, now) } ?? true
+        }
     }
 
     /// `refit` ile aynı, yazılan çerçeveyi döndürür (B5 oturma yoklaması için).

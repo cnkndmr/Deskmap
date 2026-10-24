@@ -49,14 +49,15 @@ struct PlanMovesFastTests {
     }
 
     private func run(_ world: World, moves: [(window: CGWindowID, space: UInt64)], pids: [CGWindowID: pid_t] = [:],
-                     target: ScreenInfo? = nil, refit: @escaping @Sendable (CGWindowID, pid_t, ScreenInfo) -> CGRect? = { _, _, _ in nil })
+                     target: ScreenInfo? = nil, abort: @escaping () -> Bool = { false },
+                     refit: @escaping @Sendable (CGWindowID, pid_t, ScreenInfo) -> CGRect? = { _, _, _ in nil })
         -> (failed: [CGWindowID], slept: TimeInterval) {
         var clock = Date(timeIntervalSinceReferenceDate: 0)
         var slept: TimeInterval = 0
         let failed = Router.performMovesFast(
             moves, pids: pids, screens: screens, screenOf: { _ in target ?? self.builtin },
             spaces: world.spaces, move: world.move, bounds: world.readBounds, refit: refit,
-            sleep: { clock = clock.addingTimeInterval($0); slept += $0 }, now: { clock })
+            sleep: { clock = clock.addingTimeInterval($0); slept += $0 }, now: { clock }, abort: abort)
         return (failed, slept)
     }
 
@@ -110,5 +111,44 @@ struct PlanMovesFastTests {
         #expect(out.failed.isEmpty)
         #expect(calls == [1])
         #expect(world.bounds[1] == written)
+    }
+
+    /// Plan durunca (ekran değişti, duraklatıldı) yeni taşıma verilmez.
+    @Test func abortStopsBeforeTheNextRound() {
+        let world = World(space: [1: 10], lag: 1000)
+        var checks = 0
+        let out = run(world, moves: [(1, 20)], abort: { checks += 1; return checks > 2 })
+        #expect(out.failed == [1])
+        #expect(world.moveCalls == 1)
+    }
+
+    @Test func abortBeforeStartMovesNothing() {
+        let world = World(space: [1: 10])
+        let out = run(world, moves: [(1, 20)], abort: { true })
+        #expect(out.failed == [1])
+        #expect(world.moveCalls == 0)
+    }
+
+    /// En küçük boyutu olan uygulama istenen çerçeveye hiç varmaz: kısıtlı yerde iki okuma durunca biter.
+    @Test func constrainedWindowDoesNotWaitTheFullSecond() {
+        let world = World(space: [1: 10])
+        let written = CGRect(x: 50, y: 60, width: 300, height: 200)
+        let clamped = CGRect(x: 50, y: 60, width: 500, height: 400)
+        world.bounds = [1: CGRect(x: 1700, y: 100, width: 600, height: 400)]
+        world.frameLag = [1: (clamped, 2)]
+        let out = run(world, moves: [(1, 20)], pids: [1: 100], target: builtin) { _, _, _ in written }
+        #expect(out.failed.isEmpty)
+        #expect(out.slept < 0.5)
+    }
+
+    @Test func settledRules() {
+        let before: [CGWindowID: CGRect] = [1: CGRect(x: 1700, y: 100, width: 600, height: 400)]
+        let target: [CGWindowID: CGRect] = [1: CGRect(x: 50, y: 60, width: 300, height: 200)]
+        let clamped = CGRect(x: 50, y: 60, width: 500, height: 400)
+        #expect(Router.framesSettled(written: target, live: target, previous: [:], before: before))
+        #expect(!Router.framesSettled(written: target, live: [1: clamped], previous: [:], before: before))
+        #expect(Router.framesSettled(written: target, live: [1: clamped], previous: [1: clamped], before: before))
+        // Hiç kıpırdamadı: tavana kadar beklenir.
+        #expect(!Router.framesSettled(written: target, live: before, previous: before, before: before))
     }
 }
