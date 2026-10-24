@@ -210,7 +210,8 @@ final class StatusFile {
                         ("planMovesFast", Router.planMovesFast),
                         ("perPidParallel", AX.perPidParallel),
                         ("settlePollShadow", ScreenService.settlePollShadow),
-                        ("settlePoll", ScreenService.settlePoll)].filter(\.1).map(\.0))
+                        ("settlePoll", ScreenService.settlePoll),
+                        ("titleThrottle", Router.titleThrottle)].filter(\.1).map(\.0))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

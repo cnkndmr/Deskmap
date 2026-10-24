@@ -390,9 +390,9 @@ final class Router: ObservableObject {
         // Başlık değişimi (terminal, tarayıcı sekmesi) sürekli gelir; yalnız
         // o uygulama için başlığa bakan bir kural varsa ya da harita açıksa
         // önemli (`titleMatters`), 1 sn toplanır. Diğer olaylar 80 ms.
-        events.titleChanged
+        Self.titleSweeps(events.titleChanged
             .filter { [weak self] pid in self?.titleMatters(pid: pid) ?? false }
-            .debounce(for: .seconds(1), scheduler: DispatchQueue.main)
+            .eraseToAnyPublisher(), throttle: Self.titleThrottle, scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.countSweepReason("event:title")
                 self?.sweep()
@@ -621,6 +621,21 @@ final class Router: ObservableObject {
         tick: AX.WindowServerSignature?, swept: AX.WindowServerSignature?
     ) -> AX.WindowServerSignature? {
         swept ?? tick
+    }
+
+    /// Bayrak `perf.titleThrottle` (PLAN-perf §6.3): başlık 1 sn'den sık
+    /// değişince `debounce` hiç tetiklenmiyordu (düzenekte 10/10 turda 0);
+    /// `throttle(latest:)` en geç 1 sn'de bir tarama ister.
+    nonisolated static var titleThrottle: Bool { UserDefaults.standard.bool(forKey: "perf.titleThrottle") }
+
+    /// Başlık olaylarından tarama isteği (bayrak kapalıyken bugünkü debounce).
+    nonisolated static func titleSweeps<S: Scheduler>(
+        _ upstream: AnyPublisher<pid_t, Never>, throttle: Bool, scheduler: S,
+        interval: S.SchedulerTimeType.Stride = .seconds(1)
+    ) -> AnyPublisher<pid_t, Never> {
+        throttle
+            ? upstream.throttle(for: interval, scheduler: scheduler, latest: true).eraseToAnyPublisher()
+            : upstream.debounce(for: interval, scheduler: scheduler).eraseToAnyPublisher()
     }
 
     /// Zamanlayıcı turunda tam tarama gerekli mi (saf).
