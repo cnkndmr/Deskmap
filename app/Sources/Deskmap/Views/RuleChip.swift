@@ -23,6 +23,8 @@ struct RuleChip: View {
     @EnvironmentObject private var router: Router
 
     private var isSelected: Bool { ui.panel == .rule(rule.id) }
+    /// ⌘-tıklamayla çoklu seçimde (gruplama); seçili pencere satırıyla aynı vurgu.
+    private var isMultiSelected: Bool { !isGhost && ui.selectedRules.contains(rule.id) }
     private var isBeingDragged: Bool { !isGhost && ui.drag?.item == .rule(rule.id) }
     /// Harita şu anki modu gösteriyor mu? Eksik masaüstü rozeti yalnızca o zaman.
     private var isLive: Bool { mode == screens.mode }
@@ -30,6 +32,14 @@ struct RuleChip: View {
     var body: some View {
         HStack(spacing: 5) {
             AppIcon(bundleID: rule.bundleID, size: 14)
+                .overlay(alignment: .bottomTrailing) {
+                    if isMultiSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 8))
+                            .foregroundStyle(Color.white, Color.accentColor)
+                            .offset(x: 3, y: 3)
+                    }
+                }
             Image(systemName: "pin.fill")
                 .font(.system(size: 8))
                 .foregroundStyle(.secondary)
@@ -67,15 +77,21 @@ struct RuleChip: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 3)
-        .background(Capsule().fill(isSelected ? Color.accentColor.opacity(0.18)
-                                              : Color(nsColor: .controlBackgroundColor)))
-        .overlay(Capsule().strokeBorder(isSelected ? Color.accentColor : Color.primary.opacity(0.15),
+        .background(Capsule().fill(chipFill))
+        .overlay(Capsule().strokeBorder(isSelected || isMultiSelected ? Color.accentColor
+                                                                      : Color.primary.opacity(0.15),
                                         lineWidth: 1))
         .contentShape(Capsule())
         .opacity(isBeingDragged ? 0.35 : (shadowedBy == nil ? 1 : 0.5))
         .modifier(RuleInteractions(rule: rule, mode: mode, isGhost: isGhost, inTray: inTray))
         .help(helpText)
         .searchLook(dimmed: searchLook.dimmed, highlighted: searchLook.highlighted, cornerRadius: 12)
+    }
+
+    private var chipFill: Color {
+        if isMultiSelected { return Color.accentColor.opacity(0.28) }
+        if isSelected { return Color.accentColor.opacity(0.18) }
+        return Color(nsColor: .controlBackgroundColor)
     }
 
     private var searchLook: (dimmed: Bool, highlighted: Bool) {

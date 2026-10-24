@@ -39,6 +39,9 @@ enum DragItem: Equatable {
     case desktop(screen: String, desktop: Int)
     /// Bir masaüstündeki uygulama grubunun tamamı (başlıktan sürüklenir).
     case group(screen: String, desktop: Int, app: String, name: String)
+    /// Bir pin grubunun tamamı (kutu başlığından sürüklenir); bırakılan
+    /// masaüstüne grubun bu moddaki bütün üyeleri gider.
+    case pinGroup(screen: String, desktop: Int, id: String, name: String)
 }
 
 extension View {

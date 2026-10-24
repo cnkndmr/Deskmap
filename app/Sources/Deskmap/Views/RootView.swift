@@ -417,6 +417,8 @@ struct RootView: View {
         }
         .onChange(of: mode) { _ in
             ui.panel = nil
+            // Seçili çipler başka planın kartlarında değil; seçim plana bağlı.
+            ui.clearSelection()
             // Sürükleme sürerken sekme değişti: kaynağı görünümden kalkan jestin
             // bitişi gelmez; hayalet, donmuş liste ve kaydırma kalmasın.
             ui.drag = nil
@@ -456,6 +458,11 @@ struct RootView: View {
             if case .rule(let id) = ui.panel, document.rule(id) == nil {
                 ui.panel = nil
             }
+            // Silinen (ya da profil değişince kaybolan) seçili çipler düşer.
+            if !ui.selectedRules.isEmpty {
+                let kept = ui.selectedRules.filter { document.rule($0) != nil }
+                if kept != ui.selectedRules { ui.selectedRules = kept }
+            }
         }
         .task(id: nextFooterDeadline) {
             // Süreli ileti düşeceği anda saati ilerlet; sonraki süre için
@@ -494,7 +501,7 @@ struct RootView: View {
     private func showFrontWindow() {
         ui.panel = nil
         ui.panelSourceWindowID = nil
-        ui.selection = []
+        ui.clearSelection()
         ui.search = ""
         searchFocused = false
         mapShownAt = Date()
@@ -553,7 +560,10 @@ struct RootView: View {
     private static let inspectorTop = "inspectorTop"
 
     /// Çoklu seçim çubuğu mu gösteriliyor.
-    private var showsMultiPin: Bool { !ui.selection.isEmpty && mode == screens.mode }
+    /// Seçili pencere yalnız canlı planda anlamlı; seçili çip (gruplama) her planda.
+    private var showsMultiPin: Bool {
+        (!ui.selection.isEmpty && mode == screens.mode) || !ui.selectedRules.isEmpty
+    }
 
     /// Sütunda neyin gösterildiği (saf): kaydırma yalnız bu değişince başa
     /// döner. Taslağın kendisi değil penceresi sayılır; pencere hareket edince

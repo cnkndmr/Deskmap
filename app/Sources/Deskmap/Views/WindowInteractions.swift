@@ -99,7 +99,7 @@ struct WindowActions {
         }
         // Düz tıklama çoklu seçimi bırakır; yoksa açılan panel çubuğun
         // arkasında kalırdı.
-        ui.selection = []
+        ui.clearSelection()
         // Pinli satıra tıklamak düzen panelini açar (tekrar tıklamak kapatır).
         if sessionPin != nil {
             ui.toggle(.session(window.id))
@@ -278,6 +278,11 @@ struct WindowInteractions: ViewModifier {
            !actions.isLive || window.placement != nil {
             Button(actions.pinButtonHelp + "…") { actions.togglePin() }
         }
+        // Kalıcı kuralı olan pencere gruba girebilir; oturum pini kazanırsa girmez (K8).
+        if !isGhost, actions.sessionPin == nil, let rule = actions.pinnedRule {
+            Divider()
+            PinGroupMenu(ruleID: rule.id, mode: mode, windowID: window.id)
+        }
     }
 
     // MARK: Serbest hareket menüsü
@@ -371,12 +376,34 @@ struct RuleInteractions: ViewModifier {
     @EnvironmentObject private var router: Router
     @Environment(\.dismiss) private var dismiss
 
-    func body(content: Content) -> some View {
-        content
+    @ViewBuilder func body(content: Content) -> some View {
+        let base = content
             .onTapGesture {
-                ui.handleClick(single: { ui.toggle(.rule(rule.id)) }, double: reopen)
+                ui.handleClick(single: click, double: reopen)
             }
             .gesture(dragGesture, including: isGhost ? .none : .all)
+        if isGhost {
+            base
+        } else {
+            // Grup komutları (Gruba ekle, Gruptan çıkar).
+            base.contextMenu { PinGroupMenu(ruleID: rule.id, mode: mode) }
+        }
+    }
+
+    /// Tek tıklama: paneli açar/kapatır. ⌘-tıklama: kalıcı pini çoklu
+    /// seçime ekler/çıkarır (gruplamak için; kapalı pinler dahil).
+    private func click() {
+        if ui.commandAtMouseDown, !isGhost, store.rule(rule.id) != nil {
+            ui.panel = nil
+            if ui.selectedRules.contains(rule.id) {
+                ui.selectedRules.remove(rule.id)
+            } else {
+                ui.selectedRules.insert(rule.id)
+            }
+            return
+        }
+        ui.clearSelection()
+        ui.toggle(.rule(rule.id))
     }
 
     /// Çift tıklama: kapalı pencereyi açar (hatırlanan dosya/klasör/sayfa

@@ -116,8 +116,40 @@ struct DesktopRow: View {
         return ui.windows.filter { $0.placement == placement }
     }
 
-    private var groups: [AppGroup] {
-        AppGroup.grouped(windows: windows, closed: orphanRules)
+    /// Satırın öğeleri: önce pin grubu kutuları, kalanlar uygulama grupları (K9).
+    private var groups: (boxes: [PinGroupBox], apps: [AppGroup]) {
+        grouped(windows: windows, closed: orphanRules)
+    }
+
+    /// Pencerenin kazanan kalıcı kuralı (Router ile aynı seçim); oturum pini
+    /// kazanırsa nil, pencere pin grubuna girmez (K8).
+    private func pinRule(for window: Router.WindowSnapshot) -> Rule? {
+        PinGroupLayout.winningRule(window, rules: store.document.rules,
+                                   sessionPins: router.sessionPins, mode: mode,
+                                   context: router.context(for: mode))
+    }
+
+    /// Pencereleri ve kapalı pinleri böler: pin grubu kutuları ("başka yerde
+    /// de" bilgisiyle) ve kalanların uygulama grupları.
+    private func grouped(windows: [Router.WindowSnapshot],
+                         closed: [Rule]) -> (boxes: [PinGroupBox], apps: [AppGroup]) {
+        let split = PinGroupLayout.split(windows: windows, closed: closed,
+                                         groups: store.document.pinGroups, ruleFor: pinRule)
+        var boxes = split.boxes
+        if !boxes.isEmpty {
+            var places: [String: [Destination]] = [:]
+            for box in boxes {
+                places[box.group.id] = store.document.pinGroupMembers(box.group.id, mode: mode)
+                    .compactMap(winner)
+            }
+            PinGroupLayout.annotate(&boxes, screen: screen.id, desktop: desktop, memberPlaces: places)
+        }
+        return (boxes, AppGroup.grouped(windows: split.restWindows, closed: split.restClosed))
+    }
+
+    private func pinGroupView(_ box: PinGroupBox) -> some View {
+        PinGroupBoxView(box: box, screen: screen, desktop: desktop, mode: mode, isLive: isLive,
+                        shadowed: shadowed, tileCounts: tileCounts)
     }
 
     /// Önizlemedeki kutular: açık pencereler (sabitse kayıtlı düzeninde,
@@ -179,7 +211,7 @@ struct DesktopRow: View {
                 context: router.context(for: mode))?.rule
         guard let panel = UIState.openingPanel(for: window, sessionPinned: sessionPinned,
                                                ruleID: rule?.id) else { return }
-        ui.selection = []
+        ui.clearSelection()
         if isShown(window, ruleID: rule?.id) {
             ui.panel = nil
             ui.panelSourceWindowID = nil
@@ -296,7 +328,8 @@ struct DesktopRow: View {
             }
 
             // Sondaki boşluk yok: satırlar kartın sağ kenarına da 8 pt kalır.
-            if groups.isEmpty && ghostPins.isEmpty {
+            let layout = groups
+            if layout.boxes.isEmpty && layout.apps.isEmpty && ghostPins.isEmpty {
                 Text(exists ? L("empty") : L("doesn't exist yet"))
                     .font(.caption)
                     .foregroundStyle(.quaternary)
@@ -304,7 +337,11 @@ struct DesktopRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(groups) { group in
+                    // Sıra: pin grupları, uygulama grupları, hayalet çipler.
+                    ForEach(layout.boxes) { box in
+                        pinGroupView(box)
+                    }
+                    ForEach(layout.apps) { group in
                         groupView(group)
                     }
                     ghostChips
@@ -774,7 +811,8 @@ extension DesktopRow {
     /// yerine sağ tık masaüstü menüsünü açar.
     var card: some View {
         let items = cardItems
-        let closed = AppGroup.grouped(windows: [], closed: closedRules)
+        let all = groups
+        let closed = grouped(windows: [], closed: closedRules)
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 handle(inline: true, width: nil)
@@ -796,7 +834,7 @@ extension DesktopRow {
                         .fixedSize()
                 }
                 openClosedButton
-                if !groups.isEmpty {
+                if !all.boxes.isEmpty || !all.apps.isEmpty {
                     Button {
                         showsList.toggle()
                     } label: {
@@ -820,14 +858,21 @@ extension DesktopRow {
 
             if showsList {
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(groups) { group in
+                    ForEach(all.boxes) { box in
+                        pinGroupView(box)
+                    }
+                    ForEach(all.apps) { group in
                         groupView(group)
                     }
                 }
-            } else if !closed.isEmpty {
-                // Penceresi kapalı pinler küçük ekranın altında, uygulamaya göre gruplu.
+            } else if !closed.boxes.isEmpty || !closed.apps.isEmpty {
+                // Penceresi kapalı pinler küçük ekranın altında: önce pin
+                // grupları, sonra uygulamaya göre gruplu.
                 VStack(alignment: .leading, spacing: 4) {
-                    ForEach(closed) { group in
+                    ForEach(closed.boxes) { box in
+                        pinGroupView(box)
+                    }
+                    ForEach(closed.apps) { group in
                         groupView(group)
                     }
                 }

@@ -45,6 +45,34 @@ struct MultiPinTests {
         #expect(one.rules.isEmpty && one.sessions.map(\.window) == [1])
     }
 
+    /// Gruplama planı: seçili kapalı çip ve pinli pencere `existing`'e,
+    /// taslağı var olan kurala düşen pencere `existing`'e, yeni pencere
+    /// `rules`'a, ayırt edilemeyen pencere `sessions`'a gider.
+    @Test func groupingPlanSeparatesExistingPins() {
+        let closed = Rule(id: "closed", appName: "Preview", bundleID: "b.Preview", tokens: ["Vega"],
+                          docked: Destination(screen: "external", desktop: 3))
+        let pinned = Rule(id: "pinned", appName: "Code", bundleID: "b.Code", tokens: ["Orion"],
+                          docked: Destination(screen: "external", desktop: 2))
+        let sameKey = Rule(id: "same", appName: "Finder", bundleID: "b.Finder", tokens: ["Nova"],
+                           undocked: Destination(screen: "builtin", desktop: 1))
+        let rules = [closed, pinned, sameKey]
+        let windows = [window(1, "Code", "a.md — Orion"), window(2, "Finder", "Nova"),
+                       window(3, "Mail", "Inbox"),
+                       window(4, "Notes", "Lumen"), window(5, "Notes", "Lumen", desktop: 4)]
+        let ruleFor: (Router.WindowSnapshot) -> Rule? = { $0.id == 1 ? pinned : nil }
+        let result = MultiPinBar.plan(selected: [1, 2, 3, 4, 5], windows: windows,
+                                      existingRules: rules, selectedRules: ["closed", "gone"],
+                                      ruleFor: ruleFor) { _ in .full }
+        #expect(result.existing == ["pinned", "same", "closed"])
+        #expect(result.rules.map(\.rule.appName) == ["Mail", "Notes"])
+        #expect(result.sessions.map(\.window) == [5])
+        // Gruplamasız plan eski davranış: pinli pencere de yeniden pinlenir.
+        let plain = plan([1, 2, 3], windows)
+        #expect(plain.existing.isEmpty)
+        #expect(plain.rules.count == 3)
+        #expect(result != plain)
+    }
+
     @Test func skipsWindowsWithoutAPlace() {
         var full = window(1, "Code", "x")
         full.fullscreen = Router.FullscreenSlot(screen: "external", space: 9, afterDesktop: 1, order: 0)
