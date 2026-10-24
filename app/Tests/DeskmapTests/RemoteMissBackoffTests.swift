@@ -95,3 +95,12 @@ struct RemoteFoundTests {
         #expect(AX.newlyResolved([], knownBefore: []).isEmpty)
     }
 }
+
+/// Üst sınır 120 sn (inceleme 24.10).
+struct RemoteMissCeilingTests {
+    @Test func ceilingIsTwoMinutes() {
+        #expect(AX.missBackoffDelay(3) == 120)
+        #expect(AX.missBackoffDelay(4) == 120)
+        #expect(AX.remoteMissCeiling == 120)
+    }
+}

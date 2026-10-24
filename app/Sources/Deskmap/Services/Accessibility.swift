@@ -404,11 +404,15 @@ enum AX {
     /// (Reminders, Word, Calendar …) ~30-40 sn'de bir yeniden taranıyor.
     static var missBackoff: Bool { UserDefaults.standard.bool(forKey: "perf.remoteMissBackoff") }
     /// Art arda `count`. kez bulunamayan numaranın bekleme süresi (saf):
-    /// 30, 60, 120 … en çok 600 sn.
+    /// 30, 60, 120, en çok 120 sn.
     nonisolated static func missBackoffDelay(_ count: Int) -> TimeInterval {
         min(remoteMissCeiling, remoteRescan * pow(2, Double(max(0, count - 1))))
     }
-    static let remoteMissCeiling: TimeInterval = 600
+    /// Üst sınır (inceleme 24.10): 600 sn'de, satırı değişmeden gerçek pencereye
+    /// dönen yardımcı pencere 10 dk listelenmeyebilirdi. 120 sn'de arka plan
+    /// taraması 600'e göre %75 fazla (düzenek GB2: 133 → 233 / 20 dk), bekleme
+    /// olmadan 757; kazancın çoğu kalıyor, en kötü gecikme 2 dk.
+    nonisolated static let remoteMissCeiling: TimeInterval = 120
     /// Son taramadaki sunucu satırlarının imzası (sınırlar, ekranda mı).
     /// Satır değişen numara beklemeden çıkar: yardımcı pencere gerçek
     /// pencereye dönüşebilir.
