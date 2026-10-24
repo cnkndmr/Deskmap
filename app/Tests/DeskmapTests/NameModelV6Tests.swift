@@ -75,11 +75,13 @@ struct NameModelV6Tests {
 
     // MARK: - Dışa / içe aktarma
 
-    @Test func exportV4() throws {
+    /// Sürüm 5 (isteğe bağlı pin grupları) sürüm 4'ün alanlarını aynen taşır.
+    @Test func exportV5KeepsV4Fields() throws {
         let d = richDocument()
         let data = try d.exportData(for: d.activeProfileID)
         let text = String(decoding: data, as: UTF8.self)
-        #expect(text.contains("\"version\" : 4"))
+        #expect(text.contains("\"version\" : 5"))
+        #expect(!text.contains("pinGroups"))
         #expect(!text.contains("\"space\""))
         var other = Document()
         let imported = try other.importProfile(from: data)

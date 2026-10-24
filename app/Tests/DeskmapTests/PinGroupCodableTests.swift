@@ -38,14 +38,16 @@ struct PinGroupCodableTests {
         var doc = Document()
         doc.rules = [Rule(id: "r1", appName: "Preview", bundleID: "p", tokens: ["a"],
                           docked: Destination(screen: "builtin", desktop: 3), groupID: "g1")]
-        var profile = try #require(doc.activeProfile)
-        profile.pinGroups = [PinGroup(id: "g1", name: "Nova drafts")]
-        doc.profiles = [profile]
-        doc.syncActiveProfile()
+        // Çalışma kopyası tek kaynak: yazarken aktif profile işlenir.
+        doc.pinGroups = [PinGroup(id: "g1", name: "Nova drafts")]
         let data = try Store.encode(doc)
         let back = try JSONDecoder().decode(Document.self, from: data)
         #expect(back.rules[0].groupID == "g1")
         #expect(back.activeProfile?.pinGroups == [PinGroup(id: "g1", name: "Nova drafts")])
+        #expect(back.pinGroups == [PinGroup(id: "g1", name: "Nova drafts")])
+        // Üst düzeyde ayrıca yazılmaz.
+        let top = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        #expect(top?["pinGroups"] == nil)
         #expect(back.version == 6 && !back.isFromNewerVersion)
         #expect(back.rules[0].routingProjection.groupID == nil)
     }

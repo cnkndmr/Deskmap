@@ -150,6 +150,9 @@ struct Document: Codable, Equatable {
     var plans = DesktopPlans()
     /// Aktif profilin hayalet masaüstüleri (çalışma kopyası).
     var ghostDesktops: [GhostDesktop] = []
+    /// Aktif profilin pin grupları (çalışma kopyası). Üst düzeyde yazılmaz;
+    /// tek kaynak `profiles[i].pinGroups` (adlar ve planlar gibi).
+    var pinGroups: [PinGroup] = []
     /// Harici ekran rolleri ve fiziksel monitörler (`DisplayRoles`). Bütün
     /// profillerde ortak: monitörler profile göre değişmez. İsteğe bağlı ek
     /// alan, şema 6 değişmez.
@@ -453,6 +456,9 @@ struct Document: Codable, Equatable {
     mutating func upsertProfile(_ incoming: Profile, activate: Bool) -> Profile {
         let target: Profile
         if let i = profiles.firstIndex(where: { $0.name == incoming.name }) {
+            // Önce çalışma kopyası kayda: aktif profilin kaydı eskiyse
+            // (senkronize edilmemiş gruplar) kurallardan başka alan kaybolmasın.
+            syncActiveProfile()
             profiles[i].rules = incoming.rules
             if profiles[i].id == activeProfileID { rules = incoming.rules }
             target = profiles[i]
@@ -490,24 +496,41 @@ struct Document: Codable, Equatable {
         guard let i = profiles.firstIndex(where: { $0.id == activeProfileID }) else {
             let profile = Profile(
                 name: Self.uniqueName(Self.defaultProfileName, in: profiles), rules: rules,
-                names: names, plans: plans, ghostDesktops: ghostDesktops)
+                names: names, plans: plans, ghostDesktops: ghostDesktops, pinGroups: pinGroups)
             profiles.append(profile)
             activeProfileID = profile.id
             return
         }
-        if profiles[i].rules != rules { profiles[i].rules = rules }
-        if profiles[i].names != names { profiles[i].names = names }
-        if profiles[i].plans != plans { profiles[i].plans = plans }
-        if profiles[i].ghostDesktops != ghostDesktops { profiles[i].ghostDesktops = ghostDesktops }
+        var profile = profiles[i]
+        writeProfileFields(into: &profile)
+        if profile != profiles[i] { profiles[i] = profile }
+    }
+
+    /// Çalışma kopyasının profil alanlarını (kurallar, adlar, planlar,
+    /// hayaletler, pin grupları) `profile`'a yazar (yalnız farklıysa). Aktif
+    /// profille çalışma kopyası arasında taşınan her alan buradan geçer; yeni
+    /// alan tek yerde eklenir, bir yol onu unutup kaybetmez.
+    func writeProfileFields(into profile: inout Profile) {
+        if profile.rules != rules { profile.rules = rules }
+        if profile.names != names { profile.names = names }
+        if profile.plans != plans { profile.plans = plans }
+        if profile.ghostDesktops != ghostDesktops { profile.ghostDesktops = ghostDesktops }
+        if profile.pinGroups != pinGroups { profile.pinGroups = pinGroups }
+    }
+
+    /// `profile`'ın alanlarını çalışma kopyasına yükler (yalnız farklıysa).
+    mutating func readProfileFields(from profile: Profile) {
+        if rules != profile.rules { rules = profile.rules }
+        if names != profile.names { names = profile.names }
+        if plans != profile.plans { plans = profile.plans }
+        if ghostDesktops != profile.ghostDesktops { ghostDesktops = profile.ghostDesktops }
+        if pinGroups != profile.pinGroups { pinGroups = profile.pinGroups }
     }
 
     /// Profilin kurallarını ve masaüstü durumunu çalışma kopyasına yükler
-    /// (`pendingRemovals` ortaktır, dokunulmaz).
+    /// (`pendingRemovals` ortaktır, dokunulmaz). Grup kaydı budanmaz (K7).
     mutating func loadProfileState(_ profile: Profile) {
-        rules = profile.rules
-        names = profile.names
-        plans = profile.plans
-        ghostDesktops = profile.ghostDesktops
+        readProfileFields(from: profile)
     }
 
     /// `body`'yi tek profile daraltılmış belgede çalıştırır: o profilin
@@ -519,12 +542,7 @@ struct Document: Codable, Equatable {
     mutating func inProfileScope<R>(_ id: String, _ body: (inout Document) -> R) -> R? {
         guard let i = profiles.firstIndex(where: { $0.id == id }) else { return nil }
         var profile = profiles[i]
-        if id == activeProfileID {
-            profile.rules = rules
-            profile.names = names
-            profile.plans = plans
-            profile.ghostDesktops = ghostDesktops
-        }
+        if id == activeProfileID { writeProfileFields(into: &profile) }
         var scope = self
         scope.profiles = [profile]
         scope.activeProfileID = id
@@ -536,12 +554,7 @@ struct Document: Codable, Equatable {
         if scope.pendingRemovals != pendingRemovals { pendingRemovals = scope.pendingRemovals }
         guard let updated = scope.profiles.first(where: { $0.id == id }) else { return result }
         if updated != profiles[i] { profiles[i] = updated }
-        if id == activeProfileID {
-            if rules != updated.rules { rules = updated.rules }
-            if names != updated.names { names = updated.names }
-            if plans != updated.plans { plans = updated.plans }
-            if ghostDesktops != updated.ghostDesktops { ghostDesktops = updated.ghostDesktops }
-        }
+        if id == activeProfileID { readProfileFields(from: updated) }
         return result
     }
 
@@ -782,11 +795,21 @@ struct Document: Codable, Equatable {
     /// `source`'un kurallarını ve masaüstü durumunu yeni profile kopyalar:
     /// kural kimlikleri yenilenir, hayalet pinleri yeni profile ve yeni
     /// kurallara bakar. Adlar (kimlik ve bağlarıyla) ve planlar aynen gelir.
+    /// Pin gruplarının kimlikleri de yenilenir; kopyalanan kurallar (hayalet
+    /// pin kopyaları dahil) yeni gruplara bakar, eşlenmeyen grup kimliği düşer.
     static func copyState(of source: Profile, into profile: inout Profile) {
         var idMap: [String: String] = [:]
+        var groupMap: [String: String] = [:]
+        profile.pinGroups = source.pinGroups.map { group in
+            var copy = group
+            copy.id = UUID().uuidString
+            groupMap[group.id] = copy.id
+            return copy
+        }
         profile.rules = source.rules.map { rule in
             var copy = rule
             copy.id = UUID().uuidString
+            copy.groupID = rule.groupID.flatMap { groupMap[$0] }
             idMap[rule.id] = copy.id
             return copy
         }
@@ -800,6 +823,7 @@ struct Document: Codable, Equatable {
                 var pin = pin
                 pin.profileID = newID
                 pin.rule.id = idMap[pin.rule.id] ?? pin.rule.id
+                pin.rule.groupID = pin.rule.groupID.flatMap { groupMap[$0] }
                 return pin
             }
             return copy
@@ -849,6 +873,7 @@ struct Document: Codable, Equatable {
         var payload = ProfileExport(name: profile.name, screens: doc.screens, rules: profile.rules)
         payload.names = profile.names.map { ProfileExport.Name(id: $0.id, name: $0.name) }
         payload.plans = profile.plans
+        payload.pinGroups = profile.pinGroups
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601
@@ -910,8 +935,17 @@ struct Document: Codable, Equatable {
             plans = converted.plans
             rules = converted.rules
         }
+        // Pin grupları yeni kimlik alır; kuralların grup kimliği eşlenir,
+        // dosyada grubu olmayan kimlik düşer.
+        var groupMap: [String: String] = [:]
+        let groups = payload.pinGroups.map { group -> PinGroup in
+            let fresh = PinGroup(name: group.name)
+            groupMap[group.id] = fresh.id
+            return fresh
+        }
+        for i in rules.indices { rules[i].groupID = rules[i].groupID.flatMap { groupMap[$0] } }
         let profile = Profile(name: Self.uniqueName(payload.name, in: profiles), rules: rules,
-                              names: names, plans: plans)
+                              names: names, plans: plans, pinGroups: groups)
         profiles.append(profile)
         activeProfileID = profile.id
         loadProfileState(profile)
@@ -934,7 +968,8 @@ struct ProfileExport: Codable {
     var kind: String = ProfileExport.kind
     /// 2: düzenlerde `fixed`. 3: masaüstü adları ve plan sayısı (eski
     /// tablolar). 4: `names`, `plans`, kurallarda `nameID` (şema 6).
-    var version: Int = 4
+    /// 5: isteğe bağlı `pinGroups`, kurallarda `groupID` (4 okuyucusu yok sayar).
+    var version: Int = 5
     var name: String
     var exportedAt: Date = Date()
     /// Kuralların hangi ekran rollerine yazıldığını anlamak için.
@@ -942,6 +977,8 @@ struct ProfileExport: Codable {
     var rules: [Rule]
     var names: [Name] = []
     var plans = DesktopPlans()
+    /// Sürüm 5: profilin pin grupları (boşsa yazılmaz).
+    var pinGroups: [PinGroup] = []
     /// Sürüm 3: profilin masaüstü adları (anahtar `Document.planKey`).
     var desktopNames: [String: [String: String]] = [:]
     /// Sürüm 3: profilin masaüstü planı (anahtar `Document.planKey`).
@@ -955,7 +992,7 @@ struct ProfileExport: Codable {
     static let fileExtension = "deskmap.json"
 
     private enum CodingKeys: String, CodingKey {
-        case kind, version, name, exportedAt, screens, rules, names, plans
+        case kind, version, name, exportedAt, screens, rules, names, plans, pinGroups
         case desktopNames, plannedDesktops
     }
 
@@ -978,6 +1015,7 @@ struct ProfileExport: Codable {
         droppedRuleCount = lossyRules?.droppedCount ?? 0
         names = (try? c.decodeIfPresent([Name].self, forKey: .names)) ?? []
         plans = (try? c.decodeIfPresent(DesktopPlans.self, forKey: .plans)) ?? DesktopPlans()
+        pinGroups = (try? c.decodeIfPresent(LenientPinGroups.self, forKey: .pinGroups))?.groups ?? []
         desktopNames = (try? c.decodeIfPresent([String: [String: String]].self,
                                                forKey: .desktopNames)) ?? [:]
         plannedDesktops = (try? c.decodeIfPresent([String: Int].self, forKey: .plannedDesktops)) ?? [:]
@@ -993,5 +1031,6 @@ struct ProfileExport: Codable {
         try c.encode(rules, forKey: .rules)
         if !names.isEmpty { try c.encode(names, forKey: .names) }
         if !plans.isEmpty { try c.encode(plans, forKey: .plans) }
+        if !pinGroups.isEmpty { try c.encode(pinGroups, forKey: .pinGroups) }
     }
 }
