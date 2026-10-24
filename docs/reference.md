@@ -539,6 +539,10 @@ running, macOS starts it first.
 | `deskmap://screen-role-forget/<monitor>` | Forget one connected monitor: its role waits on hold, its layout is not applied |
 | `deskmap://backup-now` | Run the automatic backup now |
 | `deskmap://backup-restore/<id>` | Restore a backup by id (e.g. `daily-2026-10-12`); see [Backups](#backups) |
+| `deskmap://group-add?name=<name>&rules=<id,id>` | Make a pin group of the active profile from rule ids (no name: *Group N*); pins in another group move to the new one |
+| `deskmap://group-rename/<group>?name=<name>` | Rename a pin group; `<group>` is its id or its exact name (case-insensitive). An empty name is refused |
+| `deskmap://group-remove/<group>` | Ungroup: the group goes, its pins stay |
+| `deskmap://group-set/<group>?add=<ids>&remove=<ids>` | Add and/or remove members in one undo step |
 
 Any command accepts `?req=<id>`: after handling it Deskmap writes
 `status.json` with `"request": "<id>"`, so a script can wait for the command
@@ -585,7 +589,16 @@ deskmap backup-now
 deskmap backup-restore daily-2026-10-12
 deskmap save-layout Safari [--window 12345] # keep the size you just dragged
 deskmap rule copy-layout Safari --from docked # laptop plan takes the monitor plan's layout (same place only)
+deskmap group list [--json]                # pin groups, their pins and places ("(empty)" if none is left)
+deskmap group create "Nova drafts" Orion_report Vega_notes   # rule ids or unique fragments; prints the id
+deskmap group rename "Nova drafts" Drafts  # GROUP: id, name or a unique part of a name
+deskmap group add Drafts Nova_Conf | deskmap group remove Drafts Vega_notes
+deskmap group rm Drafts                    # ungroup; the pins stay
 ```
+
+`deskmap rules` marks a grouped rule with `[group: name]`. `status.json` lists
+the active profile's groups in `pinGroups` (`id`, `name`, `rules`: member ids,
+empty groups included); each member rule carries `groupID`.
 
 ### Layout files (`deskmap apply`)
 

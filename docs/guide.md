@@ -129,6 +129,40 @@ here*; the last card, **+ Add desktop**, adds one to the map.
   details).
 - Dragging an **unpinned** window moves it once and saves nothing.
 
+### Pin groups
+
+A desktop can hold many pins; a **pin group** collects some of them under a
+name. Example: a desktop has ten pinned PDFs, four of them belong to one
+paper. Group those four and they move, open and close together.
+
+- **Make a group.** ⌘-click windows and pin chips (closed pins too), then
+  press **Pin as group** in the side column (it reads **Group N pins** when
+  everything you selected is already pinned). Pins that already exist keep
+  their places; new windows are pinned where they are. Or right-click a chip
+  or a pinned window › **Add to group** › an existing group or **New group…**.
+  A pin is in at most one group: adding it to another group moves it there.
+- **Name it.** A new group starts as *Group 1* with its name field open;
+  double-click the group's header (or right-click › **Rename group…**) to
+  rename it later. An empty name is not accepted.
+- **Open and close.** The button at the right of the header opens every
+  closed pin of the group, or closes every open pinned window of it (in the
+  current plan). Right-click › **Open all** / **Close all** does the same.
+- **Move it.** Drag the group by its header onto another desktop, or
+  right-click › **Send group to**. Every pin of the group goes there, even
+  ones that sit on other desktops: a scattered group comes back together.
+  Moving to a named desktop works like moving a single pin: members without a
+  place in the other plan get that name there too.
+- **One pin moved alone stays in its group.** The header then shows *also on
+  Desktop N* (or *also on another screen*). To take a pin out, right-click it ›
+  **Remove from group**. **Ungroup (keeps pins)** removes the group, never the
+  pins.
+- **Temporary pins are not grouped**; they are pinned the usual way.
+- Undo (⌘Z) covers every group change. Restoring a backup made before you
+  grouped also removes the groups.
+- Groups are optional fields in `rules.json`. An older Deskmap ignores them,
+  and if an older version saves the file, the groups are lost (the pins stay).
+  Don't run two Deskmap versions at the same time.
+
 ## 5. Give it a size
 
 Click a pinned window's box or chip. Under the sentence are four layouts: **Full**,

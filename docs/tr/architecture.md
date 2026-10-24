@@ -186,7 +186,8 @@ Bütün dosyalar `~/Library/Application Support/Deskmap/` içinde durur.
       "docked":   { "nameID": "N-Nova", "screen": "external", "desktop": 2,
                     "layout": { "x": 0, "y": 0, "w": 0.5, "h": 1 } },
       "undocked": { "screen": "builtin",  "desktop": 1,
-                    "layout": { "x": 0, "y": 0, "w": 1,   "h": 1 } }
+                    "layout": { "x": 0, "y": 0, "w": 1,   "h": 1 } },
+      "groupID": "G-Drafts"
     }
   ],
   "profiles": [ { "id": "…", "name": "Default", "rules": [ … ],
@@ -194,7 +195,8 @@ Bütün dosyalar `~/Library/Application Support/Deskmap/` içinde durur.
                   "plans": { "docked":   { "builtin": ["", "N-AI"],
                                            "external": ["N-Nova", "", ""] },
                              "undocked": { "builtin": ["", "N-AI", "N-Nova"] } },
-                  "ghostDesktops": [ … ] } ],
+                  "ghostDesktops": [ … ],
+                  "pinGroups": [ { "id": "G-Drafts", "name": "Nova drafts" } ] } ],
   "pendingRemovals": { … }
 }
 ```
@@ -220,6 +222,20 @@ Bütün dosyalar `~/Library/Application Support/Deskmap/` içinde durur.
 - Yukarıdaki anahtarlar kararlı bir biçimdir; yeni bir arayüz dili onları
   değiştirmez. Profil adları kullanıcı verisidir ve yazıldığı gibi saklanır.
 
+Pin grupları: `profiles[].pinGroups` (`id`, `name`; dizi sırası çizim
+sırasıdır) ve `rules[].groupID` (üyelik; bir pin en çok bir grupta). İkisi de
+isteğe bağlıdır; eski sürümler yok sayar, dosyayı kaydederlerse düşürür; boş
+liste ve `nil` yazılmaz. Etkin profilin gruplarının çalışma kopyası
+(`Document.pinGroups`) üst düzeyde yazılmaz; çalışma kopyasıyla profil
+arasında taşınan her alan `writeProfileFields` / `readProfileFields`’ten
+geçer. Değişmez (K7): boş grup hiçbir örtük yolda budanmaz (yükleme,
+`mutate`, Mission Control silmesi, `profile-set`, geri yükleme); yalnız açık
+grup işlemleri `dropEmptyPinGroups()` ile biter, o da üyeleri `rules`’ta **ve**
+`ghostDesktops[*].pins[*].rule`’da sayar; silinen masaüstünün grubu hayaletle
+geri gelir. Okuyan taraf bilinmeyen `groupID`’yi grupsuz sayar. Router
+`Rule.routingProjection`’ı (`groupID`’siz kurallar) karşılaştırır; grup
+değişimi pencereleri yeniden yerleştirmez (K11).
+
 ### desktop-state.json {#desktop-statejson}
 
 Bütün profillerin paylaştığı fiziksel bilgiler; yedeklere ve dışa aktarmalara
@@ -242,13 +258,16 @@ getirilir.
 ### Profil dışa aktarma (`<name>.deskmap.json`) {#profile-export-namedeskmapjson}
 
 ```json
-{ "kind": "deskmap-profile", "version": 4, "name": "Office",
+{ "kind": "deskmap-profile", "version": 5, "name": "Office",
   "exportedAt": "2026-09-14T10:00:00Z", "screens": [ … ], "rules": [ … ],
   "names": [ { "id": "N-Nova", "name": "Nova" } ],
   "plans": { "docked": { "external": ["N-Nova", "", ""] } } }
 ```
 
-Sürüm 3 dosyaları (`desktopNames`, `plannedDesktops`) hâlâ içe aktarılabilir.
+Sürüm 5 isteğe bağlı `pinGroups` ekler (içe aktarmada grup kimlikleri
+yenilenir, kuralların `groupID`’leri eşlenir; bilinmeyen `groupID` düşer).
+Sürüm 4 ve sürüm 3 dosyaları (`desktopNames`, `plannedDesktops`) hâlâ içe
+aktarılabilir.
 Adlar masaüstleri olmadan dışa aktarılır. İçe aktarırken kural ID’leri
 yeniden üretilir, adlar masaüstü olmadan başlar (bir sonraki plan
 uygulamasında plandaki sıralarına göre yerleşir), profil adı benzersiz yapılır
@@ -262,7 +281,10 @@ edilir.
 olmalıdır; komut, büyük/küçük harf ayırt edilmeden ya ana makine kısmından
 (`deskmap://reapply`) ya da ilk yol bileşeninden (`deskmap:reapply`) alınır.
 `profile`, adı `name` sorgu öğesinden ya da yolun geri kalanından
-(yüzde kodlaması çözülmüş olarak) alır. URL’ler
+(yüzde kodlaması çözülmüş olarak) alır. Pin grubu komutları (`group-add`,
+`group-rename`, `group-remove`, `group-set`) `<grup>`’u
+`Document.resolvePinGroup` ile çözer (önce kimlik, sonra büyük/küçük harf
+duyarsız tam ad; aynı adlı birden çok grup hatadır). URL’ler
 `NSApplicationDelegate.application(_:open:)` üzerinden gelir; bu, bir menü
 çubuğu uygulamasında soğuk açılışta bile çalışır.
 
@@ -321,6 +343,8 @@ Pencere başlıkları `.private` olarak yazılır.
 | `ChangeHistoryTests` | Çok adımlı geri al/yinele, atılan yineleme dalı ve onun geri alınması, bir satıra dönme, 50 kayıt sınırı, gürültü ile izlenmeyen değişiklikler, eşlik eden kayıtlar |
 | `MapLogicTests` | Gölgede kalan sabitlemeler, eksik masaüstü rozeti |
 | `TokenEditingTests` | `Document.setTokens` (kimlik, anahtar çakışmaları) ve başlık parçası seçici yardımcıları |
+| `PinGroupCodableTests`, `PinGroupModelTests`, `PinGroupStoreTests` | Pin grubu alanları (eski dosyalar bayt düzeyinde aynı, hoşgörülü okuma), belge işlemleri (K7, hayaletler, profil kapsamı, kopya/içe aktarma), işlem başına tek geri alma adımı |
+| `PinGroupLayoutTests`, `RouterProjectionTests`, `PinGroupURLTests` | Haritadaki grup kutuları, Router'ın gruba kör kural anahtarı, URL komutları ve `status.json` |
 | `LocalizationTests` | Anahtar/çeviri tutarlılığı (yukarıya bak) |
 
 Testler hiçbir zaman bir `Store` ya da `Router` oluşturmaz; bu yüzden
