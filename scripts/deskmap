@@ -471,8 +471,10 @@ def resolve_group(status, text):
 
 
 def group_lines(status):
-    """`group list`: "ad (n pins)  kimlik", altında her üye ve bu kurulumdaki
-    yeri; üyesi kalmamış grup "(empty)"."""
+    """`group list`: "ad (n pins)  kimlik", altında her üye ve bu kurulumda
+    gideceği yer (`effective_place`: sıralı liste, tutulan ekran, yedek,
+    masaüstü sınırı); gidecek yeri yoksa ilk yeri "(not connected)" ile.
+    Üyesi kalmamış grup "(empty)"."""
     rules = {r["id"]: r for r in status.get("rules", [])}
     mode = status.get("mode", "docked")
     out = []
@@ -481,8 +483,16 @@ def group_lines(status):
         count = "(empty)" if not members else f"({len(members)} pin{'s' if len(members) != 1 else ''})"
         out.append(f"{g['name']} {count}  {g['id']}")
         for r in members:
-            d = r.get(mode)
-            place = desktop_label(status, d["screen"], d["desktop"]) if d else f"- (no {mode} place)"
+            first, d = r.get(mode), effective_place(status, r)
+            if d:
+                place = desktop_label(status, d["screen"], d["desktop"])
+            elif first:
+                # Ekran bilgisi olmayan (eski) durumda ilk yer; varsa bağlı değil.
+                place = desktop_label(status, first["screen"], first["desktop"])
+                if "screens" in status:
+                    place += " (not connected)"
+            else:
+                place = f"- (no {mode} place)"
             title = " ".join(r.get("tokens", [])) or os.path.basename(r.get("path") or "") or "all windows"
             out.append(f"    {r['appName']} {title}  {place}")
     return out
@@ -510,7 +520,10 @@ def group_create(args):
 def group_rename(args):
     s = fresh_status()
     gid = resolve_group(s, args.group)
-    send(f"group-rename/{urllib.parse.quote(gid, safe='')}", name=args.name)
+    after = send(f"group-rename/{urllib.parse.quote(gid, safe='')}", name=args.name)
+    # Uygulama sessizce yapmadıysa (eski sürüm ya da kayıp grup) söyle.
+    if not any(g["id"] == gid and g["name"] == args.name.strip() for g in after.get("pinGroups", [])):
+        die("pin group was not renamed")
 
 
 def group_rm(args):
@@ -525,6 +538,12 @@ def group_members(args, key):
     s = fresh_status()
     gid = resolve_group(s, args.group)
     ids = [resolve_rule(s, r) for r in args.rules]
+    if key == "remove":
+        # Grubun üyesi olmayan kural sessizce "çıkarılmış" sayılmasın.
+        members = {r["id"] for r in s.get("rules", []) if r.get("groupID") == gid}
+        stray = [i for i in ids if i not in members]
+        if stray:
+            die(f"not in this pin group: {', '.join(stray)}")
     send(f"group-set/{urllib.parse.quote(gid, safe='')}", **{key: ",".join(ids)})
 
 

@@ -420,7 +420,7 @@
 "Click: details and layout" = "Tık: ayrıntı ve düzen";
 "Drag onto a desktop: move it there" = "Bir masaüstüne sürükle: oraya taşı";
 "Right-click: send it elsewhere or free it for a while" = "Sağ tık: başka yere gönder ya da bir süre serbest bırak";
-"⌘-click: select several and pin them at once" = "⌘-tık: birkaçını seç, hepsini birden sabitle";
+"⌘-click windows or pins to select several; pin them at once or pin them as a group" = "Pencereleri ya da pinleri ⌘-tıklayarak birkaçını seç; hepsini birden sabitle ya da grup olarak pinle";
 "Which windows this applies to" = "Hangi pencerelere uyar";
 "Display" = "Ekran";
 "Desktop" = "Masaüstü";
@@ -748,6 +748,7 @@
 "Group %ld pins" = "%ld pini grupla";
 "Group 1 pin" = "1 pini grupla";
 "Pin as group" = "Grup olarak pinle";
+"Pin %@ is not in this group" = "%@ pini bu grupta değil";
 "Pin group %@" = "Pin grubu %@";
 "Group name" = "Grup adı";
 "Group name can't be empty" = "Grup adı boş olamaz";

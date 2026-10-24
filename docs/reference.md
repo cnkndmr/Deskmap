@@ -542,7 +542,7 @@ running, macOS starts it first.
 | `deskmap://group-add?name=<name>&rules=<id,id>` | Make a pin group of the active profile from rule ids (no name: *Group N*); pins in another group move to the new one |
 | `deskmap://group-rename/<group>?name=<name>` | Rename a pin group; `<group>` is its id or its exact name (case-insensitive). An empty name is refused |
 | `deskmap://group-remove/<group>` | Ungroup: the group goes, its pins stay |
-| `deskmap://group-set/<group>?add=<ids>&remove=<ids>` | Add and/or remove members in one undo step |
+| `deskmap://group-set/<group>?add=<ids>&remove=<ids>` | Add and/or remove members in one undo step; removing a pin that is not in the group is an error and nothing changes |
 
 Any command accepts `?req=<id>`: after handling it Deskmap writes
 `status.json` with `"request": "<id>"`, so a script can wait for the command

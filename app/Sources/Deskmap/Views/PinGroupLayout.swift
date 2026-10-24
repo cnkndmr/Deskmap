@@ -73,17 +73,39 @@ enum PinGroupLayout {
         return (boxes, restWindows, restClosed)
     }
 
-    /// Kutuların gruplarındaki üyelerin bu moddaki kazanan yerleri (saf):
-    /// grup kimliği → yerler. `winner` haritanın gösterdiği yeri verir
-    /// (`MapPlaces.winner`); ilk yer (`rule[mode]`) monitör sıralı listede
-    /// yanlış "Masaüstü N üzerinde de" ipucu verirdi.
+    /// Kutuların gruplarındaki üyelerin bu modda haritada çizildiği yerler
+    /// (saf): grup kimliği → yerler. Kutularla aynı kaynak: açık üye
+    /// penceresinin gerçek yerinde (`openAt`, kural kimliği → pencerenin
+    /// yeri; kural o pencerenin kazananı), kapalı üye kazanan yerinde
+    /// (`winner`, `MapPlaces.winner`), kazananı yoksa (bağlı olmayan
+    /// monitör) ilk yerinde (soluk kart; `GroupMovePlan.forPinGroup` de
+    /// onu taşır). İlk yer (`rule[mode]`) monitör sıralı listede yanlış
+    /// "Masaüstü N üzerinde de" ipucu verirdi.
     static func memberPlaces(for boxes: [PinGroupBox], document: Document, mode: Mode,
+                             openAt: [String: Router.Placement] = [:],
                              winner: (Rule) -> Destination?) -> [String: [Destination]] {
         var places: [String: [Destination]] = [:]
         for box in boxes {
-            places[box.group.id] = document.pinGroupMembers(box.group.id, mode: mode).compactMap(winner)
+            places[box.group.id] = document.pinGroupMembers(box.group.id, mode: mode).compactMap { rule in
+                if let open = openAt[rule.id] { return Destination(screen: open.screen, desktop: open.desktop) }
+                return winner(rule) ?? rule[mode]
+            }
         }
         return places
+    }
+
+    /// Açık pencerelerin kazanan kuralı → pencerenin yeri (saf). Aynı kural
+    /// birden çok pencerenin kazananıysa hepsi sayılmaz, ilki yeter: ipucu
+    /// yalnız "başka yerde de var mı" der.
+    static func openPlacements(_ windows: [Router.WindowSnapshot],
+                               ruleFor: (Router.WindowSnapshot) -> Rule?) -> [String: Router.Placement] {
+        var out: [String: Router.Placement] = [:]
+        for window in windows {
+            guard let placement = window.placement, let rule = ruleFor(window), rule.groupID != nil,
+                  out[rule.id] == nil else { continue }
+            out[rule.id] = placement
+        }
+        return out
     }
 
     /// Kutuların "başka yerde de" bilgisi: üyelerin bu moddaki kazanan

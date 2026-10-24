@@ -83,6 +83,62 @@ class GroupLinesTests(unittest.TestCase):
     def test_old_status_without_groups(self):
         self.assertEqual(dm.group_lines({"rules": []}), [])
 
+    def test_member_shows_where_it_actually_goes(self):
+        # İlk yer (external) bağlı değil; sıralı listedeki builtin/2 kazanır.
+        s = status()
+        s["screens"] = [{"id": "builtin", "desktops": 4}]
+        s["rules"][0]["docked"]["screen"] = "external"
+        s["rules"][0]["dockedNext"] = [{"screen": "builtin", "desktop": 2,
+                                         "layout": {"x": 0, "y": 0, "w": 1, "h": 1}}]
+        self.assertEqual(dm.group_lines(s)[1], "    Preview Orion_report_v3  builtin/2")
+        # Gidecek yer yoksa ilk yer "(not connected)" ile.
+        del s["rules"][0]["dockedNext"]
+        self.assertEqual(dm.group_lines(s)[1], "    Preview Orion_report_v3  external/3 (not connected)")
+
+
+class GroupCommandTests(unittest.TestCase):
+
+    def run_cmd(self, fn, args, after=None):
+        sent = []
+        dm.fresh_status = lambda: status()
+        dm.send = lambda command, **q: sent.append((command, q)) or (after or status())
+        err = io.StringIO()
+        try:
+            with redirect_stderr(err):
+                fn(*args)
+            code = 0
+        except SystemExit as e:
+            code = e.code
+        return code, err.getvalue(), sent
+
+    def setUp(self):
+        self._saved = (dm.fresh_status, dm.send)
+
+    def tearDown(self):
+        dm.fresh_status, dm.send = self._saved
+
+    def ns(self, **kw):
+        import argparse
+        return argparse.Namespace(**kw)
+
+    def test_remove_refuses_a_non_member(self):
+        code, err, sent = self.run_cmd(dm.group_members, (self.ns(group="g1", rules=["r3"]), "remove"))
+        self.assertEqual(code, 1)
+        self.assertIn("not in this pin group: r3", err)
+        self.assertEqual(sent, [])
+        code, _, sent = self.run_cmd(dm.group_members, (self.ns(group="g1", rules=["r1"]), "remove"))
+        self.assertEqual(code, 0)
+        self.assertEqual(sent[0][1], {"remove": "r1"})
+
+    def test_rename_checks_the_result(self):
+        renamed = status()
+        renamed["pinGroups"][0]["name"] = "Drafts"
+        code, _, _ = self.run_cmd(dm.group_rename, (self.ns(group="g1", name="Drafts"),), after=renamed)
+        self.assertEqual(code, 0)
+        code, err, _ = self.run_cmd(dm.group_rename, (self.ns(group="g1", name="Drafts"),))
+        self.assertEqual(code, 1)
+        self.assertIn("was not renamed", err)
+
 
 class RuleLinesTests(unittest.TestCase):
 

@@ -213,14 +213,15 @@ All files live in `~/Library/Application Support/Deskmap/`.
   file; empty lists and `nil` are not written. The active profile's groups
   have a working copy (`Document.pinGroups`, never written at the top level);
   every field that moves between the working copy and a profile goes through
-  `writeProfileFields` / `readProfileFields`. Invariant (K7): an empty group
-  is never pruned implicitly (load, `mutate`, Mission Control deletion,
-  `profile-set`, restore); only explicit group actions end with
+  `writeProfileFields` / `readProfileFields`. Invariant (empty groups): an
+  empty group is never pruned implicitly (load, `mutate`, Mission Control
+  deletion, `profile-set`, restore, rename); only the other explicit group
+  actions (create, add, remove, group-set, ungroup, group move) end with
   `dropEmptyPinGroups()`, which counts members in `rules` **and** in
   `ghostDesktops[*].pins[*].rule`, so a deleted desktop's group comes back
   with its ghost. Readers treat an unknown `groupID` as ungrouped. The Router
   compares `Rule.routingProjection` (rules without `groupID`), so a group
-  change never re-places windows (K11).
+  change never re-places windows.
 - `tokens: []` means "all windows of the app".
 - Reading is lenient: a single broken rule is skipped (the file is copied to
   `rules.json.bak` first and the footer shows how many were skipped).
@@ -326,7 +327,7 @@ logged per sweep. Window titles are logged as `.private`.
 | `ChangeHistoryTests` | Multi-step undo/redo, discarded redo branch and its undo, return to a row, 50-entry limit, noise vs. untracked changes, companion entries |
 | `MapLogicTests` | Shadowed pins, missing-desktop badge |
 | `TokenEditingTests` | `Document.setTokens` (identity, key collisions) and token picker helpers |
-| `PinGroupCodableTests`, `PinGroupModelTests`, `PinGroupStoreTests` | Pin group fields (old files byte-identical, lenient reading), document operations (K7, ghosts, profile scope, copy/import), one undo step per action |
+| `PinGroupCodableTests`, `PinGroupModelTests`, `PinGroupStoreTests` | Pin group fields (old files byte-identical, lenient reading), document operations (empty groups, ghosts, profile scope, copy/import), one undo step per action |
 | `PinGroupLayoutTests`, `RouterProjectionTests`, `PinGroupURLTests` | Group boxes on the map, the Router's group-blind rule key, URL commands and `status.json` |
 | `LocalizationTests` | Key/translation consistency (see above) |
 

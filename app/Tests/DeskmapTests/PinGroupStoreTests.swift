@@ -64,6 +64,24 @@ struct PinGroupStoreTests {
         #expect(s.document.pinGroup(id)?.name == "G")
     }
 
+    /// Adı değiştirmeyen onay başka bir boş grubu düşürüp "Pin group
+    /// renamed" kaydı bırakmaz; gerçek yeniden adlandırma da öbür boş
+    /// grubu silmez.
+    @Test func sameNameRenameKeepsOtherEmptyGroups() throws {
+        let s = store([pdf("a"), pdf("b")])
+        let empty = try #require(s.createPinGroup(name: "Empty", ruleIDs: ["a"]))
+        let kept = try #require(s.createPinGroup(name: "Kept", ruleIDs: ["b"]))
+        s.document.unpin("a", mode: .docked)
+        #expect(s.document.pinGroup(empty) != nil)
+        let entries = s.history.entries.count
+        #expect(s.renamePinGroup(kept, to: " Kept "))
+        #expect(s.history.entries.count == entries)
+        #expect(s.document.pinGroup(empty) != nil)
+        #expect(s.renamePinGroup(kept, to: "Kept 2"))
+        #expect(s.history.undoEntry?.label == "Pin group renamed")
+        #expect(s.document.pinGroup(empty) != nil)
+    }
+
     @Test func movingAPinGroupIsOneStep() throws {
         let s = store([pdf("a"), pdf("b", desktop: 2)])
         let made = s.createPinGroup(name: "G", ruleIDs: ["a", "b"])

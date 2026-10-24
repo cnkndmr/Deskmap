@@ -227,11 +227,13 @@ struct PinGroupModelTests {
         let name = try #require(d.activeProfile?.name)
         let g = try req(d.createPinGroup(name: "G", ruleIDs: ["a"]))
         let incoming = Profile(name: name, rules: [pdf("a", group: g.id), pdf("b"), pdf("n", group: g.id)])
-        d.upsertProfile(incoming, activate: false)
+        let target = d.upsertProfile(incoming, activate: false)
+        // Önce-senkron (§1.3): elle senkron olmadan profil kaydı ve dönen
+        // profil grupları taşımalı; o satır silinirse ikisi de boş kalır.
+        #expect(target.pinGroups.map(\.id) == [g.id])
+        #expect(d.activeProfile?.pinGroups.map(\.id) == [g.id])
         #expect(d.pinGroup(g.id)?.name == "G")
         #expect(Set(d.pinGroupMembers(g.id, mode: .docked).map(\.id)) == ["a", "n"])
-        d.syncActiveProfile()
-        #expect(d.activeProfile?.pinGroups.map(\.id) == [g.id])
         // Kaydedilip okununca da durur.
         let back = try JSONDecoder().decode(Document.self, from: Store.encode(d))
         #expect(back.pinGroup(g.id) != nil)

@@ -113,6 +113,42 @@ struct PinGroupURLRunTests {
         #expect(Set(store.document.pinGroupMembers(id, mode: .docked).map(\.id)) == ["a", "b"])
     }
 
+    /// Grubun üyesi olmayan kuralı çıkarmak sessiz başarı değil: hata
+    /// bildirilir, komutun tamamı uygulanmaz.
+    @Test func removingANonMemberIsReported() throws {
+        let (store, router) = make()
+        URLCommands.run(.groupAdd(name: "Nova", rules: ["a"]), store: store, router: router)
+        URLCommands.run(.groupAdd(name: "Vega", rules: ["b"]), store: store, router: router)
+        let nova = try #require(store.document.pinGroups.first { $0.name == "Nova" }?.id)
+        store.clearError()
+        let entries = store.history.entries.count
+        // "b" başka grupta, "c" grupsuz.
+        for stray in ["b", "c"] {
+            URLCommands.run(.groupMembers(group: nova, add: ["c"], remove: [stray]), store: store, router: router)
+            #expect(store.lastError == "Pin \(stray) is not in this group")
+            #expect(store.document.pinGroupMembers(nova, mode: .docked).map(\.id) == ["a"])
+            store.clearError()
+        }
+        #expect(store.history.entries.count == entries)
+        URLCommands.run(.groupMembers(group: nova, add: [], remove: ["a"]), store: store, router: router)
+        #expect(store.lastError == nil)
+    }
+
+    /// Boş grubu (K7: son pini kaldırılınca kayıt kalır) yeniden adlandırmak
+    /// onu silmez.
+    @Test func renamingAnEmptyGroupKeepsIt() throws {
+        let (store, router) = make()
+        URLCommands.run(.groupAdd(name: "Nova", rules: ["a"]), store: store, router: router)
+        let id = try #require(store.document.pinGroups.first?.id)
+        store.document.unpin("a", mode: .docked)
+        #expect(store.document.pinGroup(id) != nil)
+        #expect(store.document.pinGroupMembers(id, mode: .docked).isEmpty)
+        URLCommands.run(.groupRename(group: id, name: "Drafts"), store: store, router: router)
+        #expect(store.lastError == nil)
+        #expect(store.document.pinGroup(id)?.name == "Drafts")
+        #expect(StatusFile.pinGroups(store.document).map(\.name) == ["Drafts"])
+    }
+
     @Test func statusListsGroupsIncludingEmptyOnes() throws {
         var d = Document()
         d.rules = [pdf("a"), pdf("b")]

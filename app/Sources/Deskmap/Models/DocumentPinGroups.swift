@@ -9,7 +9,8 @@ import Foundation
 ///   olan kurallardır (K2).
 /// - Boş grup kendiliğinden silinmez: yükleme, masaüstü silme, profil ve
 ///   geri yükleme yolları kayda dokunmaz. Yalnız açık grup işlemlerinin
-///   sonunda `dropEmptyPinGroups` düşürür (K7).
+///   sonunda `dropEmptyPinGroups` düşürür (K7); yeniden adlandırma hariç
+///   (boş grubu adlandırmak onu silmesin).
 /// - Okuyan taraf bilinmeyen `groupID`'yi grupsuz sayar.
 extension Document {
 
@@ -80,13 +81,14 @@ extension Document {
     }
 
     /// Grubu yeniden adlandırır. Boş ad ya da olmayan grup: false, belge
-    /// değişmez. Yinelenen ad kabul edilir (kimlik UUID).
+    /// değişmez. Yinelenen ad kabul edilir (kimlik UUID). Budama yok: aynı
+    /// adla onay belgeyi değiştirmez (geri alma kaydı düşmez) ve boş bir
+    /// grubu yeniden adlandırmak onu silmez; başka boş grupları da düşürmez.
     @discardableResult
     mutating func renamePinGroup(_ id: String, to raw: String) -> Bool {
         guard let name = Self.normalizedGroupName(raw),
               let i = pinGroups.firstIndex(where: { $0.id == id }) else { return false }
         if pinGroups[i].name != name { pinGroups[i].name = name }
-        dropEmptyPinGroups()
         return true
     }
 

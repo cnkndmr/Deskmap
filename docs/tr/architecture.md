@@ -228,13 +228,14 @@ isteğe bağlıdır; eski sürümler yok sayar, dosyayı kaydederlerse düşür�
 liste ve `nil` yazılmaz. Etkin profilin gruplarının çalışma kopyası
 (`Document.pinGroups`) üst düzeyde yazılmaz; çalışma kopyasıyla profil
 arasında taşınan her alan `writeProfileFields` / `readProfileFields`’ten
-geçer. Değişmez (K7): boş grup hiçbir örtük yolda budanmaz (yükleme,
-`mutate`, Mission Control silmesi, `profile-set`, geri yükleme); yalnız açık
-grup işlemleri `dropEmptyPinGroups()` ile biter, o da üyeleri `rules`’ta **ve**
+geçer. Değişmez (boş gruplar): boş grup hiçbir örtük yolda budanmaz (yükleme,
+`mutate`, Mission Control silmesi, `profile-set`, geri yükleme, yeniden
+adlandırma); yalnız öbür açık grup işlemleri (kurma, ekleme, çıkarma,
+group-set, dağıtma, grup taşıma) `dropEmptyPinGroups()` ile biter, o da üyeleri `rules`’ta **ve**
 `ghostDesktops[*].pins[*].rule`’da sayar; silinen masaüstünün grubu hayaletle
 geri gelir. Okuyan taraf bilinmeyen `groupID`’yi grupsuz sayar. Router
 `Rule.routingProjection`’ı (`groupID`’siz kurallar) karşılaştırır; grup
-değişimi pencereleri yeniden yerleştirmez (K11).
+değişimi pencereleri yeniden yerleştirmez.
 
 ### desktop-state.json {#desktop-statejson}
 
@@ -343,7 +344,7 @@ Pencere başlıkları `.private` olarak yazılır.
 | `ChangeHistoryTests` | Çok adımlı geri al/yinele, atılan yineleme dalı ve onun geri alınması, bir satıra dönme, 50 kayıt sınırı, gürültü ile izlenmeyen değişiklikler, eşlik eden kayıtlar |
 | `MapLogicTests` | Gölgede kalan sabitlemeler, eksik masaüstü rozeti |
 | `TokenEditingTests` | `Document.setTokens` (kimlik, anahtar çakışmaları) ve başlık parçası seçici yardımcıları |
-| `PinGroupCodableTests`, `PinGroupModelTests`, `PinGroupStoreTests` | Pin grubu alanları (eski dosyalar bayt düzeyinde aynı, hoşgörülü okuma), belge işlemleri (K7, hayaletler, profil kapsamı, kopya/içe aktarma), işlem başına tek geri alma adımı |
+| `PinGroupCodableTests`, `PinGroupModelTests`, `PinGroupStoreTests` | Pin grubu alanları (eski dosyalar bayt düzeyinde aynı, hoşgörülü okuma), belge işlemleri (boş gruplar, hayaletler, profil kapsamı, kopya/içe aktarma), işlem başına tek geri alma adımı |
 | `PinGroupLayoutTests`, `RouterProjectionTests`, `PinGroupURLTests` | Haritadaki grup kutuları, Router'ın gruba kör kural anahtarı, URL komutları ve `status.json` |
 | `LocalizationTests` | Anahtar/çeviri tutarlılığı (yukarıya bak) |
 

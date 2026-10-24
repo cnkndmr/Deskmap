@@ -80,7 +80,8 @@ struct PinGroupBoxView: View {
         .background(RoundedRectangle(cornerRadius: 6).fill(.quaternary))
         .overlay(RoundedRectangle(cornerRadius: 6)
             .strokeBorder(Color.accentColor.opacity(0.35), lineWidth: 1))
-        .opacity(ui.drag?.item == dragItem ? 0.4 : 1)
+        // K3/K4: dağınık grubun öbür kutuları da taşınır, onlar da soluklaşır.
+        .opacity(ui.drag?.item.pinGroupID == groupID ? 0.4 : 1)
         .onAppear { takeRenameRequest() }
         .onChange(of: ui.renamePinGroupRequest) { _ in takeRenameRequest() }
     }
@@ -217,7 +218,10 @@ struct PinGroupBoxView: View {
             }
             return
         }
-        store.renamePinGroup(groupID, to: nameDraft)
+        // Ad değişmediyse belgeye hiç gitme (boş onay kayıt bırakmasın).
+        if Document.normalizedGroupName(nameDraft) != name {
+            store.renamePinGroup(groupID, to: nameDraft)
+        }
         endRenaming()
     }
 

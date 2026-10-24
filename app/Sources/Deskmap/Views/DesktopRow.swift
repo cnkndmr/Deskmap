@@ -137,8 +137,11 @@ struct DesktopRow: View {
                                          groups: store.document.pinGroups, ruleFor: pinRule)
         var boxes = split.boxes
         if !boxes.isEmpty {
+            // Açık üyeler pencerelerinin gerçek yerinde sayılır (kutu da
+            // orada çizilir); soluk kartta ve öbür planda canlı pencere yok.
+            let open = isLive ? PinGroupLayout.openPlacements(ui.windows, ruleFor: pinRule) : [:]
             let places = PinGroupLayout.memberPlaces(for: boxes, document: store.document, mode: mode,
-                                                     winner: winner)
+                                                     openAt: open, winner: winner)
             PinGroupLayout.annotate(&boxes, screen: screen.id, desktop: desktop, memberPlaces: places)
         }
         return (boxes, AppGroup.grouped(windows: split.restWindows, closed: split.restClosed))

@@ -27,7 +27,7 @@ struct InspectorPlaceholder: View {
             tip("cursorarrow.click", L("Click: details and layout"))
             tip("hand.draw", L("Drag onto a desktop: move it there"))
             tip("contextualmenu.and.cursorarrow", L("Right-click: send it elsewhere or free it for a while"))
-            tip("command", L("⌘-click: select several and pin them at once"))
+            tip("command", L("⌘-click windows or pins to select several; pin them at once or pin them as a group"))
         }
         .foregroundStyle(.secondary)
     }

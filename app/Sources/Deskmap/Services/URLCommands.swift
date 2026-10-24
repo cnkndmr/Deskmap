@@ -359,6 +359,15 @@ enum URLCommands {
         return false
     }
 
+    /// Çıkarılacak kimliklerin hepsi bu grubun üyesiyse true; değilse ilk
+    /// üye olmayanı bildirir ve komut uygulanmaz (değişiklik olmadan başarı
+    /// betikleri yanıltırdı).
+    private static func allMembers(_ ids: [String], of group: String, store: Store) -> Bool {
+        guard let stray = ids.first(where: { store.rule($0)?.groupID != group }) else { return true }
+        store.report(L("Pin %@ is not in this group", stray))
+        return false
+    }
+
     static func run(_ command: URLCommand, store: Store, router: Router) {
         switch command {
         case .groupAdd(let name, let ids):
@@ -376,7 +385,8 @@ enum URLCommands {
             store.dissolvePinGroup(id)
         case .groupMembers(let text, let add, let remove):
             guard let id = pinGroup(text, store: store),
-                  allKnown(add, store: store), allKnown(remove, store: store) else { return }
+                  allKnown(add, store: store), allKnown(remove, store: store),
+                  allMembers(remove, of: id, store: store) else { return }
             store.editPinGroupMembers(id, add: add, remove: remove, reportPulled: false)
         case .reapply:
             router.reapplyAll()

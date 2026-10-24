@@ -562,7 +562,7 @@ Hammerspoon, Keyboard Maestro ya da bir terminal onu yönetebilir. Uygulama
 | `deskmap://group-add?name=<ad>&rules=<kimlik,kimlik>` | Etkin profilde kural kimliklerinden pin grubu kur (ad yoksa *Grup N*); başka gruptaki pinler yeni gruba geçer |
 | `deskmap://group-rename/<grup>?name=<ad>` | Pin grubunu yeniden adlandır; `<grup>` kimliği ya da tam adı (büyük/küçük harf fark etmez). Boş ad reddedilir |
 | `deskmap://group-remove/<grup>` | Grubu dağıt: grup gider, pinleri kalır |
-| `deskmap://group-set/<grup>?add=<kimlikler>&remove=<kimlikler>` | Tek geri alma adımında üye ekle ve/veya çıkar |
+| `deskmap://group-set/<grup>?add=<kimlikler>&remove=<kimlikler>` | Tek geri alma adımında üye ekle ve/veya çıkar; grupta olmayan pini çıkarmak hatadır, hiçbir şey değişmez |
 
 Her komut `?req=<id>` alır: Deskmap komutu işledikten sonra
 `"request": "<id>"` ile `status.json` yazar; böylece bir betik komutu

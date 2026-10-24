@@ -42,6 +42,14 @@ enum DragItem: Equatable {
     /// Bir pin grubunun tamamı (kutu başlığından sürüklenir); bırakılan
     /// masaüstüne grubun bu moddaki bütün üyeleri gider.
     case pinGroup(screen: String, desktop: Int, id: String, name: String)
+
+    /// Sürüklenen pin grubunun kimliği (başka bir şeyse nil). Dağınık grubun
+    /// hangi kutusundan tutulursa tutulsun bütün üyeler gider; soluklaştırma
+    /// bunu kullanır, yer bilgisini değil.
+    var pinGroupID: String? {
+        if case .pinGroup(_, _, let id, _) = self { return id }
+        return nil
+    }
 }
 
 extension View {

@@ -91,6 +91,51 @@ struct PinGroupViewLogicTests {
         #expect(boxes[0].elsewhere == [5])
         #expect(!boxes[0].otherScreens)
     }
+
+    /// Açık üye penceresinin gerçek yerinde sayılır (kuralı başka yeri
+    /// gösterse de); kazananı olmayan (bağlı olmayan monitör) üye ilk
+    /// yerinde sayılır, ipucundan düşmez.
+    @Test func memberPlacesFollowOpenWindowsAndAwayMembers() {
+        var d = Document()
+        d.rules = [rule("a"), rule("b", docked: Destination(screen: "external", desktop: 1))]
+        d.pinGroups = [group]
+        let box = PinGroupBox(group: group, windows: [], closed: [])
+        // "a" kuralı masaüstü 3'ü gösteriyor ama penceresi masaüstü 2'de.
+        var w = window(7, "a")
+        w = Router.WindowSnapshot(id: w.id, pid: 1, appName: w.appName, bundleID: w.bundleID,
+                                  title: w.title, placement: Router.Placement(screen: "builtin", desktop: 2),
+                                  frame: nil, isMinimized: false)
+        let open = PinGroupLayout.openPlacements([w], ruleFor: { _ in d.rules[0] })
+        #expect(open == ["a": Router.Placement(screen: "builtin", desktop: 2)])
+        let places = PinGroupLayout.memberPlaces(for: [box], document: d, mode: .docked, openAt: open,
+                                                 winner: { $0.id == "b" ? nil : $0.docked })
+        #expect(places["g1"] == [Destination(screen: "builtin", desktop: 2),
+                                 Destination(screen: "external", desktop: 1)])
+        var boxes = [box]
+        PinGroupLayout.annotate(&boxes, screen: "builtin", desktop: 2, memberPlaces: places)
+        #expect(boxes[0].elsewhere.isEmpty)
+        #expect(boxes[0].otherScreens)
+    }
+
+    /// Grupsuz kuralın penceresi ve yeri olmayan pencere sayılmaz.
+    @Test func openPlacementsSkipUngroupedAndUnplaced() {
+        let loose = rule("x", group: nil)
+        let unplaced = Router.WindowSnapshot(id: 9, pid: 1, appName: "Preview", bundleID: "com.apple.Preview",
+                                             title: "y", placement: nil, frame: nil, isMinimized: false)
+        let open = PinGroupLayout.openPlacements([window(8, "x"), unplaced], ruleFor: { w in
+            w.id == 8 ? loose : rule("y")
+        })
+        #expect(open.isEmpty)
+    }
+
+    /// Sürüklenen pin grubunun kimliği yerden bağımsız: dağınık grubun
+    /// öbür kutuları da soluklaşır.
+    @Test func dragItemExposesPinGroupID() {
+        #expect(DragItem.pinGroup(screen: "builtin", desktop: 2, id: "g1", name: "N").pinGroupID == "g1")
+        #expect(DragItem.pinGroup(screen: "external", desktop: 4, id: "g1", name: "N").pinGroupID == "g1")
+        #expect(DragItem.rule("g1").pinGroupID == nil)
+        #expect(DragItem.group(screen: "builtin", desktop: 2, app: "g1", name: "N").pinGroupID == nil)
+    }
 }
 
 /// `UIState`'in pin grubu istekleri: adlandırma isteği kendiliğinden düşer,

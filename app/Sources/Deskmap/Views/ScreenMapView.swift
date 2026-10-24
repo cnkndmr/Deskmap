@@ -865,6 +865,8 @@ struct QuickStartCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Button {
                     ui.panel = nil
+                    // Önceden ⌘-seçilmiş pin çipleri seçimde kalmasın.
+                    ui.clearSelection()
                     ui.selection = Set(placeable.map(\.id))
                 } label: {
                     Label(placeable.count == 1 ? L("Pin it where it is…")
