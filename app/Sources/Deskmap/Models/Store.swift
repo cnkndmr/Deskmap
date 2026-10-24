@@ -661,13 +661,20 @@ final class Store: ObservableObject {
     func pinMany(_ items: [(rule: Rule, destination: Destination)], mode: Mode,
                  companion: (() -> Void)? = nil) {
         guard !items.isEmpty else { return }
+        recording(L("Windows pinned"), companion: companion) {
+            pinItems(items, mode: mode)
+        }
+    }
+
+    /// `pinMany`'nin iç döngüsü (kayıt yok): her taslak pinlenir, kural
+    /// kimlikleri sırayla döner (aynı anahtarlı var olan kural kendi kimliğiyle).
+    @discardableResult
+    private func pinItems(_ items: [(rule: Rule, destination: Destination)], mode: Mode) -> [String] {
         let live = live
         let connected = connectedRoles()
-        recording(L("Windows pinned"), companion: companion) {
-            for item in items {
-                document.pin(item.rule, destination: item.destination, mode: mode, live: live,
-                             connected: connected)
-            }
+        return items.map { item in
+            document.pin(item.rule, destination: item.destination, mode: mode, live: live,
+                         connected: connected)
         }
     }
 
@@ -675,15 +682,114 @@ final class Store: ObservableObject {
     /// aynı biçimde yazılır; tek geri alma adımı.
     func moveGroup(_ moves: [GroupMovePlan.RuleMove], mode: Mode,
                    undoingSessionPins: (() -> Void)? = nil) {
-        guard !moves.isEmpty || undoingSessionPins != nil else { return }
+        moveRules(moves, mode: mode, label: L("Group moved"), companion: undoingSessionPins)
+    }
+
+    /// Taşıma gövdesi (uygulama grubu ve pin grubu ortak). `pinGroup`:
+    /// sonunda boş pin grupları düşer (açık grup işlemi, K7).
+    private func moveRules(_ moves: [GroupMovePlan.RuleMove], mode: Mode, label: String,
+                           companion: (() -> Void)?, pinGroup: Bool = false) {
+        guard !moves.isEmpty || companion != nil else { return }
         let live = live
         let connected = connectedRoles()
-        recording(L("Group moved"), companion: undoingSessionPins) {
+        recording(label, companion: companion) {
             for move in moves {
                 document.setDestination(move.destination, for: move.id, mode: mode, live: live,
                                          connected: connected)
             }
+            if pinGroup { document.dropEmptyPinGroups() }
         }
+    }
+
+    // MARK: - Pin grupları
+
+    /// Başka gruptan çekilen pinler alt çubukta bildirilir (`reportPulled`
+    /// false: URL komutu; komut satırı aracı iletiyi hata sanmasın).
+    private func reportPulled(_ count: Int, _ enabled: Bool) {
+        guard enabled, count > 0 else { return }
+        report(L("Moved %ld pins from another group", count))
+    }
+
+    /// Yeni pin grubu (tek geri alma adımı). Geçerli kural yoksa nil, kayıt yok.
+    @discardableResult
+    func createPinGroup(name: String?, ruleIDs: [String], reportPulled report: Bool = true) -> String? {
+        var made: (id: String, pulled: Int)?
+        recording(L("Pin group created")) {
+            made = document.createPinGroup(name: name, ruleIDs: ruleIDs)
+        }
+        reportPulled(made?.pulled ?? 0, report)
+        return made?.id
+    }
+
+    /// Yeniden adlandırma. Boş ad ya da olmayan grup: false, kayıt yok.
+    @discardableResult
+    func renamePinGroup(_ id: String, to name: String) -> Bool {
+        var renamed = false
+        recording(L("Pin group renamed")) {
+            renamed = document.renamePinGroup(id, to: name)
+        }
+        return renamed
+    }
+
+    /// Kuralları gruba ekler (başka gruptakiler oradan çıkar).
+    @discardableResult
+    func addToPinGroup(_ id: String, ruleIDs: [String], reportPulled report: Bool = true) -> Bool {
+        var pulled: Int?
+        recording(L("Added to group")) {
+            pulled = document.addToPinGroup(id, ruleIDs: ruleIDs)
+        }
+        reportPulled(pulled ?? 0, report)
+        return pulled != nil
+    }
+
+    /// Kuralları gruplarından çıkarır (pinler kalır).
+    func removeFromPinGroup(ruleIDs: [String]) {
+        recording(L("Removed from group")) {
+            document.removeFromPinGroup(ruleIDs: ruleIDs)
+        }
+    }
+
+    /// Ekleme ve çıkarma tek adımda (URL `group-set`). Grup yoksa false.
+    @discardableResult
+    func editPinGroupMembers(_ id: String, add: [String], remove: [String],
+                             reportPulled report: Bool = true) -> Bool {
+        var pulled: Int?
+        recording(L("Pin group changed")) {
+            pulled = document.editPinGroupMembers(id, add: add, remove: remove)
+        }
+        reportPulled(pulled ?? 0, report)
+        return pulled != nil
+    }
+
+    /// Grubu dağıtır: pinler kalır, grup silinir.
+    func dissolvePinGroup(_ id: String) {
+        recording(L("Pin group ungrouped")) {
+            document.dissolvePinGroup(id)
+        }
+    }
+
+    /// Pin grubunun bütün üyelerinin taşınması (`GroupMovePlan.forPinGroup`);
+    /// tek geri alma adımı.
+    func movePinGroup(_ moves: [GroupMovePlan.RuleMove], mode: Mode,
+                      undoingSessionPins: (() -> Void)? = nil) {
+        moveRules(moves, mode: mode, label: L("Pin group moved"), companion: undoingSessionPins,
+                  pinGroup: true)
+    }
+
+    /// "Grup olarak pinle": yeni pencereler pinlenir, zaten pinli kurallar
+    /// (`existing`) yerinde kalır (K12), hepsi tek yeni grupta; tek geri
+    /// alma adımı. Yeni grubun kimliği; grup kurulamadıysa nil.
+    @discardableResult
+    func pinAsGroup(new items: [(rule: Rule, destination: Destination)], existing: [String],
+                    mode: Mode, companion: (() -> Void)? = nil) -> String? {
+        guard !items.isEmpty || !existing.isEmpty else { return nil }
+        var made: (id: String, pulled: Int)?
+        recording(L("Windows pinned as group"), companion: companion) {
+            let pinned = pinItems(items, mode: mode)
+            made = document.createPinGroup(name: nil, ruleIDs: pinned + existing)
+        }
+        reportPulled(made?.pulled ?? 0, true)
+        return made?.id
     }
 
     /// Kuralın başlık parçalarını değiştirir (geri alınabilir). Başka bir

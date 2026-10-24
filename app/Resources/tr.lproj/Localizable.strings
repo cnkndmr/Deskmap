@@ -735,3 +735,12 @@
 
 /* PinGroups: pin grupları */
 "Group %ld" = "Grup %ld";
+"Pin group created" = "Pin grubu oluşturuldu";
+"Pin group renamed" = "Pin grubu yeniden adlandırıldı";
+"Added to group" = "Gruba eklendi";
+"Removed from group" = "Gruptan çıkarıldı";
+"Pin group changed" = "Pin grubu değişti";
+"Pin group ungrouped" = "Pin grubu dağıtıldı";
+"Pin group moved" = "Pin grubu taşındı";
+"Windows pinned as group" = "Pencereler grup olarak pinlendi";
+"Moved %ld pins from another group" = "%ld pin başka gruptan alındı";
