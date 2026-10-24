@@ -345,8 +345,15 @@ enum AX {
 
     /// Bekleyenleri bitene kadar tarar; tek tam geçiş hepsini yanıtlar,
     /// sonraki numaralar kapıdan (önbellek ya da `misses`) hızlı döner.
+    /// Router'a tur yalnız önceden bilinmeyen pencere bulununca istenir:
+    /// kümedeki numaraların çoğu öğe önbelleğinden döner, onlar için tur
+    /// gereksiz (düzenekte 80 taramada 523 ek tur isteği, ölçüldü 24.10).
     private static func runDeferredScans(pid: pid_t) {
-        var found = false
+        remoteLock.lock()
+        var knownBefore = Set(knownElements.filter { $0.value.pid == pid }.keys)
+        knownBefore.formUnion(remoteGates[pid]?.ids.keys.map { $0 } ?? [])
+        remoteLock.unlock()
+        var resolved: Set<CGWindowID> = []
         while true {
             remoteLock.lock()
             let wanted = deferredScans.removeValue(forKey: pid) ?? []
@@ -354,13 +361,19 @@ enum AX {
             remoteLock.unlock()
             if wanted.isEmpty { break }
             for id in wanted.sorted() where element(pid: pid, windowID: id, unlisted: wanted) != nil {
-                found = true
+                resolved.insert(id)
             }
         }
-        if found {
+        if !newlyResolved(resolved, knownBefore: knownBefore).isEmpty {
             PerfStats.shared.count("remoteFound")
             onRemoteFound?()
         }
+    }
+
+    /// Arka plan turunda öğesi bulunan ama turdan önce bilinmeyen numaralar (saf).
+    nonisolated static func newlyResolved(_ resolved: Set<CGWindowID>,
+                                          knownBefore: Set<CGWindowID>) -> Set<CGWindowID> {
+        resolved.subtracting(knownBefore)
     }
 
     // MARK: - Bulunamayan pencereye üstel bekleme (perf/PLAN-perf.md §3.2)

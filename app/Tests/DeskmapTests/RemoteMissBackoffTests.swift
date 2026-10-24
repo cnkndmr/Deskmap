@@ -82,3 +82,16 @@ struct RemoteMissBackoffTests {
         #expect(gate.shouldScan(for: helper, now: start.addingTimeInterval(AX.remoteRescan * 2)))
     }
 }
+
+/// Arka plan taraması Router'a yalnız yeni pencere için tur ister (§3.1).
+struct RemoteFoundTests {
+    @Test func cachedWindowsDoNotRequestASweep() {
+        #expect(AX.newlyResolved([40, 41], knownBefore: [40, 41, 42]).isEmpty)
+    }
+    @Test func newWindowRequestsASweep() {
+        #expect(AX.newlyResolved([40, 43], knownBefore: [40, 41]) == [43])
+    }
+    @Test func nothingResolvedNothingNew() {
+        #expect(AX.newlyResolved([], knownBefore: []).isEmpty)
+    }
+}
