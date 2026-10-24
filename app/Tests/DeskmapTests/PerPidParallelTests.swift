@@ -21,12 +21,27 @@ struct PerPidParallelTests {
         func leave() { lock.lock(); now -= 1; lock.unlock() }
     }
 
+    /// Sınır 3: her iş içeride bir eş görene dek bekler (bariyer, süre yok; son iş
+    /// ötekiler bitince geçer), yani en az 2 eşzamanlılık kanıtlanır; tepe 3'ü aşmaz.
     @Test func concurrencyStaysWithinTheLimit() {
         let counter = Counter()
-        _ = AX.concurrently(Array(0..<30), limit: 3) { _ -> Int in
-            counter.enter(); usleep(5_000); counter.leave(); return 0
+        let changed = NSCondition()
+        var finished = 0, timedOut = 0
+        let total = 30
+        _ = AX.concurrently(Array(0..<total), limit: 3) { _ -> Int in
+            changed.lock()
+            counter.enter(); changed.broadcast()
+            let deadline = Date().addingTimeInterval(5)
+            while counter.now < 2 && finished < total - 1 {
+                if !changed.wait(until: deadline) { timedOut += 1; break }
+            }
+            counter.leave(); finished += 1; changed.broadcast()
+            changed.unlock()
+            return 0
         }
         #expect(counter.peak <= 3)
+        #expect(counter.peak >= 2)
+        #expect(timedOut == 0)
     }
 
     /// İşler gerçekten eşzamanlı: her iş bir öbürü başlayana dek bekler.
