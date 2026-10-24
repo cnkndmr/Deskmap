@@ -623,6 +623,21 @@ final class Router: ObservableObject {
         swept ?? tick
     }
 
+    /// Hedefli (tek pencere) okumanın sonucunu son tam taramanın listesine
+    /// katar (saf; PLAN-perf §5.1 ilk adım, henüz bağlı değil). Kapsamdaki
+    /// pencereler güncellenir ya da eklenir, kapsam dışındakilere dokunulmaz;
+    /// kapsamda olup sonuçta olmayan pencere listeden çıkmaz (hedefli okuma
+    /// "yok" diyemez, ancak tam tarama der). Sıra tam taramadaki gibi
+    /// (uygulama adı, numara).
+    nonisolated static func mergeTargeted(_ full: [WindowSnapshot], partial: [WindowSnapshot]) -> [WindowSnapshot] {
+        var byID = Dictionary(uniqueKeysWithValues: full.map { ($0.id, $0) })
+        for window in partial { byID[window.id] = window }
+        return byID.values.sorted {
+            let a = $0.appName.localizedCaseInsensitiveCompare($1.appName)
+            return a == .orderedSame ? $0.id < $1.id : a == .orderedAscending
+        }
+    }
+
     /// Bayrak `perf.titleThrottle` (PLAN-perf §6.3): başlık 1 sn'den sık
     /// değişince `debounce` hiç tetiklenmiyordu (düzenekte 10/10 turda 0);
     /// `throttle(latest:)` en geç 1 sn'de bir tarama ister.
