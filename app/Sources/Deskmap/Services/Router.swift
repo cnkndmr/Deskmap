@@ -604,6 +604,25 @@ final class Router: ObservableObject {
         sweepReasonsSince = now
     }
 
+    /// Bayrak `perf.sweepSignature` (PLAN-perf §5.4 adım 1). İmza yalnız
+    /// zamanlayıcı turunda alınıyordu: Deskmap pencereyi geri taşıdıktan
+    /// sonra kullanıcı onu bir sonraki turdan önce yine başka masaüstüne
+    /// alırsa imza önceki turdakiyle aynı çıkıyor, tarama hiç başlamıyordu
+    /// (gerçek Deskmap'te 9 turun 3'ünde 16 sn içinde dönmedi, ölçüldü 24.10).
+    /// Açıkken her tarama imzayı kendi okuduğu ana çeker.
+    nonisolated static var sweepSignature: Bool {
+        UserDefaults.standard.bool(forKey: "perf.sweepSignature")
+    }
+
+    /// Tarama bitince karşılaştırma imzası (saf): taramanın başında okunan
+    /// imza, turdan eski olsa bile alınır (eski imza en çok bir fazla tarama
+    /// demek; değişim kaçmaz). Bayrak kapalıyken `swept` nil, tur imzası kalır.
+    nonisolated static func signatureAfterSweep(
+        tick: AX.WindowServerSignature?, swept: AX.WindowServerSignature?
+    ) -> AX.WindowServerSignature? {
+        swept ?? tick
+    }
+
     /// Zamanlayıcı turunda tam tarama gerekli mi (saf).
     nonisolated static func shouldSweepOnTick(
         signatureChanged: Bool, mapVisible: Bool, deadline: Date?, now: Date,
@@ -2919,6 +2938,8 @@ final class Router: ObservableObject {
                     self.windows = outcome.snapshots
                 }
                 self.observeIdentity(outcome.snapshots)
+                self.lastSignature = Self.signatureAfterSweep(
+                    tick: self.lastSignature, swept: outcome.signature)
                 self.expireSessionPins(live: outcome.liveWindows)
                 // Önceki taşımaların doğrulaması, sonra bu taramanın taşımaları.
                 let check = PendingMove.verify(pending: self.pendingMoves,
@@ -2984,6 +3005,8 @@ final class Router: ObservableObject {
         var contents: [UInt64: [DesktopStateFile.WindowRef]] = [:]
         /// Bu taramada yapılan masaüstü taşımaları ve sonuçları.
         var moves: [(window: CGWindowID, space: UInt64, result: SkyLight.MoveResult)] = []
+        /// Taramanın başında okunan sunucu imzası (`perf.sweepSignature`).
+        var signature: AX.WindowServerSignature?
         var routed = 0
         var lastAction: String?
         /// Bu taramada başlatılan taşımalar ("Son hareketler" için; yalnız
@@ -3069,6 +3092,8 @@ final class Router: ObservableObject {
         func spaceType(_ id: UInt64) -> Int? { spaceTypes[id] ?? sky.type(of: id) }
         // Pencere sunucusu taramada bir kez okunur: 2. aşama listeleme ve
         // yaşam denetimi aynı sonuçtan türer.
+        // Zamanlayıcı turu imzayı taramanın gördüğüyle karşılaştırsın (§5.4).
+        if sweepSignature { outcome.signature = AX.windowServerSignature() }
         let perfList = PerfStats.now()
         let server = AX.windowServerList()
         PerfStats.shared.add("windowList", PerfStats.ms(since: perfList))

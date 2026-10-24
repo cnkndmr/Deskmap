@@ -204,7 +204,8 @@ final class StatusFile {
             displayRoles: store.document.displayRoles,
             heldRoles: screens.heldRoles.sorted(),
             perfFlags: [("remoteOffSweep", AX.remoteOffSweep),
-                        ("remoteMissBackoff", AX.missBackoff)].filter(\.1).map(\.0))
+                        ("remoteMissBackoff", AX.missBackoff),
+                        ("sweepSignature", Router.sweepSignature)].filter(\.1).map(\.0))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
