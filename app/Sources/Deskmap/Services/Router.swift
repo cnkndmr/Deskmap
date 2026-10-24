@@ -1878,7 +1878,7 @@ final class Router: ObservableObject {
             return
         }
         let fresh = await withCheckedContinuation { continuation in
-            queue.async { continuation.resume(returning: Self.readWindowSpaces()) }
+            Self.planQueue(router: queue).async { continuation.resume(returning: Self.readWindowSpaces()) }
         }
         guard transition?.id == current.id else { return }
         resumeJournal(current, windowSpaces: fresh.windowSpaces)
@@ -2050,7 +2050,7 @@ final class Router: ObservableObject {
         guard !displays.isEmpty else { return }
         let live = LiveDesktops(mode: mode, spaces: Self.spaces(displays))
         let fresh = await withCheckedContinuation { continuation in
-            queue.async { continuation.resume(returning: Self.readWindowSpaces()) }
+            Self.planQueue(router: queue).async { continuation.resume(returning: Self.readWindowSpaces()) }
         }
         guard transition == nil, !screens.isSettling, Self.spaces(readLiveDisplays()) == live.spaces else {
             Log.app.notice("Leftover cleanup (\(reason, privacy: .public)) skipped: desktops changed while reading")
@@ -2129,7 +2129,7 @@ final class Router: ObservableObject {
         let live = LiveDesktops(mode: mode, spaces: Self.spaces(displays))
         store.setLive(live)
         let fresh = await withCheckedContinuation { continuation in
-            queue.async { continuation.resume(returning: Self.readWindowSpaces()) }
+            Self.planQueue(router: queue).async { continuation.resume(returning: Self.readWindowSpaces()) }
         }
         var refs: [CGWindowID: DesktopStateFile.WindowRef] = [:]
         for list in fresh.contents.values { for ref in list { refs[ref.id] = ref } }
@@ -2240,6 +2240,20 @@ final class Router: ObservableObject {
             remaining = remaining.filter { sky.spaces(of: $0.window) != [$0.space] }
         }
         return remaining.map(\.window)
+    }
+
+    // MARK: - perf §4.1 A1 ve §4.2 B5
+
+    /// Bayrak `perf.transitionOwnQueue` (A1): geçişin pencere-masaüstü okuması
+    /// (`readWindowSpaces`, AX yok) tarama kuyruğunda settle taramasının
+    /// arkasında beklemez (düzenekte S→P 3574 → 38 ms).
+    nonisolated static var transitionOwnQueue: Bool {
+        UserDefaults.standard.bool(forKey: "perf.transitionOwnQueue")
+    }
+    nonisolated static let planReadQueue = DispatchQueue(label: "deskmap.spaces", qos: .userInitiated)
+    /// Plan okumasının kuyruğu: bayrak kapalıyken bugünkü gibi tarama kuyruğu.
+    nonisolated static func planQueue(router: DispatchQueue, ownQueue: Bool = transitionOwnQueue) -> DispatchQueue {
+        ownQueue ? planReadQueue : router
     }
 
     /// Pencere başka ekrandaysa çerçevesi hedef ekranda aynı oranlara
@@ -2403,7 +2417,7 @@ final class Router: ObservableObject {
             current.toDesktop = index + 1
             let label = desktopLabel(current, newSpace: current.space)
             let fresh = await withCheckedContinuation { continuation in
-                queue.async { continuation.resume(returning: Self.readWindowSpaces()) }
+                Self.planQueue(router: queue).async { continuation.resume(returning: Self.readWindowSpaces()) }
             }
             var refs: [CGWindowID: DesktopStateFile.WindowRef] = [:]
             for refsOnSpace in fresh.contents.values { for ref in refsOnSpace { refs[ref.id] = ref } }
