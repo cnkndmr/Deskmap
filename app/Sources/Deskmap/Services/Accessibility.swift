@@ -255,10 +255,14 @@ enum AX {
         let known = knownElements[windowID]
         remoteLock.unlock()
         if let known, known.pid == pid {
-            AXUIElementSetMessagingTimeout(known.element, 0.2)
+            // Öteki kuyruklar (arka plan taraması, plan taşımaları, paralel
+            // okuma) aynı öğeyi kullanırken zaman aşımı yazımı birbirine
+            // sızmasın: bayraklardan biri açıksa öğenin kendi kopyası.
+            let element = isolateTimeouts ? privateCopy(known.element) : known.element
+            AXUIElementSetMessagingTimeout(element, 0.2)
             var found: CGWindowID = 0
-            if getWindowID(known.element, &found) == .success, found == windowID {
-                return known.element
+            if getWindowID(element, &found) == .success, found == windowID {
+                return element
             }
         }
         guard createWithRemoteToken != nil else { return nil }
@@ -318,6 +322,24 @@ enum AX {
             .flatMap({ remoteElement(pid: pid, elementID: $0) }) else { return nil }
         remember(element, pid: pid, windowID: windowID)
         return element
+    }
+
+    /// Önbellekteki öğeye zaman aşımı yazan kuyruk birden çoksa (inceleme 24.10).
+    nonisolated static var isolateTimeouts: Bool {
+        isolatesTimeouts(remoteOffSweep: remoteOffSweep, planMovesFast: Router.planMovesFast,
+                         perPidParallel: perPidParallel)
+    }
+    nonisolated static func isolatesTimeouts(remoteOffSweep: Bool, planMovesFast: Bool, perPidParallel: Bool) -> Bool {
+        remoteOffSweep || planMovesFast || perPidParallel
+    }
+
+    /// Aynı AX öğesinin ayrı nesnesi (belirteçten yeniden üretilir, IPC yok):
+    /// zaman aşımı nesne başına tutulur. Üretilemezse öğenin kendisi.
+    static func privateCopy(_ element: AXUIElement) -> AXUIElement {
+        guard let remoteTokenCreate, let createWithRemoteToken,
+              let token = remoteTokenCreate(element)?.takeRetainedValue(),
+              let copy = createWithRemoteToken(token)?.takeRetainedValue() else { return element }
+        return copy
     }
 
     // MARK: - Arka plan uzak taraması (perf/PLAN-perf.md §3.1)
