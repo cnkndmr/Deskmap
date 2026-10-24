@@ -23,9 +23,12 @@ struct MultiPinBar: View {
         /// pencereler, taslağı var olan kurala (`sameKey`) düşen pencereler.
         /// Gruplamada yerleri değişmez (K12); `rules` yalnız gerçekten yeniler.
         var existing: [String] = []
+        /// Gruplamada atlanan, oturum pini (geçici sabitleme) olan seçili
+        /// pencereler (K8: gruba girmez, kutuda görünmezdi).
+        var temporary: [CGWindowID] = []
 
         static func == (a: Plan, b: Plan) -> Bool {
-            a.existing == b.existing
+            a.existing == b.existing && a.temporary == b.temporary
                 && a.rules.map(\.rule.tokens) == b.rules.map(\.rule.tokens)
                 && a.rules.map(\.rule.path) == b.rules.map(\.rule.path)
                 && a.rules.map(\.destination) == b.rules.map(\.destination)
@@ -42,20 +45,30 @@ struct MultiPinBar: View {
     /// oturum pini. Yeri bilinmeyen ya da tam ekran pencere atlanır.
     ///
     /// Gruplama planı (`existingRules` verilince): kalıcı kuralı olan
-    /// (`ruleFor`, oturum pini kazanırsa nil) ya da taslağı var olan kurala
-    /// düşen pencere ve seçili çipler (`selectedRules`) `existing`'e gider,
-    /// yeniden pinlenmez.
+    /// (`ruleFor`, oturum pini kazanırsa nil) ya da taslağı bu modda yeri
+    /// olan bir kurala düşen pencere ve bu modda yeri olan seçili çipler
+    /// (`selectedRules`) `existing`'e gider, yeniden pinlenmez. Taslağı
+    /// yalnız öbür planda yeri olan kurala düşen pencere `rules`'a gider:
+    /// `Document.pin` o kurala bu planın yerini ekler (yazılı yer yok, K12
+    /// bozulmaz). Oturum pini olan pencere (`sessionPinned`) `temporary`'ye
+    /// gider, gruba girmez (K8). `mode` nil: yer denetimi yok.
     static func plan(selected ids: Set<CGWindowID>, windows: [Router.WindowSnapshot],
                      history: WindowIdentity.Observations = .init(),
                      existingRules: [Rule]? = nil, selectedRules: Set<String> = [],
+                     mode: Mode? = nil, sessionPinned: Set<CGWindowID> = [],
                      ruleFor: ((Router.WindowSnapshot) -> Rule?)? = nil,
                      layout: (Router.WindowSnapshot) -> WindowLayout) -> Plan {
         var plan = Plan()
         func keep(_ id: String) { if !plan.existing.contains(id) { plan.existing.append(id) } }
+        func hasPlace(_ rule: Rule) -> Bool { mode.map { rule[$0] != nil } ?? true }
         let known = Set(existingRules?.map(\.id) ?? [])
         let selected = windows.filter { ids.contains($0.id) }
         for window in selected {
             guard let placement = window.placement, window.fullscreen == nil else { continue }
+            if existingRules != nil, sessionPinned.contains(window.id) {
+                plan.temporary.append(window.id)
+                continue
+            }
             if existingRules != nil, let rule = ruleFor?(window), known.contains(rule.id) {
                 keep(rule.id)
                 continue
@@ -67,7 +80,7 @@ struct MultiPinBar: View {
             if let rule = WindowIdentity.resolve(window, others: others, history: history)
                 .rule(appName: window.appName, bundleID: window.bundleID),
                !plan.rules.contains(where: { $0.rule.sameKey(as: rule) }) {
-                if let match = existingRules?.first(where: { $0.sameKey(as: rule) }) {
+                if let match = existingRules?.first(where: { $0.sameKey(as: rule) }), hasPlace(match) {
                     keep(match.id)
                 } else {
                     plan.rules.append((rule, destination))
@@ -76,7 +89,10 @@ struct MultiPinBar: View {
                 plan.sessions.append((window.id, destination))
             }
         }
-        for rule in existingRules ?? [] where selectedRules.contains(rule.id) { keep(rule.id) }
+        // Öbür planın tepsi çipi bu planda kutu çizmezdi: yalnız yeri olanlar.
+        for rule in existingRules ?? [] where selectedRules.contains(rule.id) && hasPlace(rule) {
+            keep(rule.id)
+        }
         return plan
     }
 
@@ -92,6 +108,7 @@ struct MultiPinBar: View {
         let context = router.context(for: mode)
         return Self.plan(selected: ui.selection, windows: ui.windows, history: router.identity,
                          existingRules: rules, selectedRules: ui.selectedRules,
+                         mode: mode, sessionPinned: Set(sessions.keys),
                          ruleFor: { PinGroupLayout.winningRule($0, rules: rules, sessionPins: sessions,
                                                                mode: mode, context: context) }) {
             $0.currentLayout(screens: screens.screens) ?? .full
@@ -149,16 +166,17 @@ struct MultiPinBar: View {
                 Button {
                     pinAsGroup(grouping)
                 } label: {
-                    Label(grouping.rules.isEmpty ? L("Group %ld pins", grouping.existing.count)
-                                                 : L("Pin as group"),
+                    Label(!grouping.rules.isEmpty ? L("Pin as group")
+                          : grouping.existing.count == 1 ? L("Group 1 pin")
+                          : L("Group %ld pins", grouping.existing.count),
                           systemImage: "square.stack")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.large)
                 .help(L("Collect the selection in a new pin group; pins that already exist keep their places"))
-                if !grouping.sessions.isEmpty {
-                    Text(L("Session pins are not grouped"))
+                if !grouping.sessions.isEmpty || !grouping.temporary.isEmpty {
+                    Text(L("Temporary pins are not grouped"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -200,7 +218,7 @@ struct MultiPinBar: View {
         for item in plan.sessions {
             router.pinSession(item.window, destination: item.destination)
         }
-        if let id { ui.renamePinGroupRequest = id }
+        if let id { ui.requestPinGroupRename(id) }
         ui.clearSelection()
     }
 

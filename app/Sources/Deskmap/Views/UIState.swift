@@ -115,8 +115,38 @@ final class UIState: ObservableObject {
     /// pinler dahil). Pencere seçimiyle birlikte gruplanır ("Grup olarak pinle").
     @Published var selectedRules: Set<String> = []
     /// Bu kimlikli pin grubunun kutusu adlandırmaya girsin (yeni grup
-    /// kurulunca); kutu isteği görünce nil yapar.
+    /// kurulunca); kutu isteği görünce nil yapar. `requestPinGroupRename`
+    /// ile kurulur: hiçbir kutu almazsa kısa süre sonra kendiliğinden düşer
+    /// (kutu sonradan çizilince bağlamsız adlandırmaya girmesin).
     @Published var renamePinGroupRequest: String?
+    private var renameRequestSeq = 0
+
+    /// Yeni grubun adlandırma isteği; `expiresAfter` saniye içinde kutu
+    /// almazsa düşer.
+    func requestPinGroupRename(_ id: String, expiresAfter seconds: Double = 1) {
+        renameRequestSeq += 1
+        let seq = renameRequestSeq
+        renamePinGroupRequest = id
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard let self, self.renameRequestSeq == seq, self.renamePinGroupRequest == id else { return }
+            self.renamePinGroupRequest = nil
+        }
+    }
+
+    /// "Tümünü aç" süren pin grupları. Kutu başına değil grup başına:
+    /// dağınık grubun her masaüstündeki kutusu bütün üyeleri açar (K3, K4),
+    /// ikinci kutudan basış aynı pinleri yeniden açmasın.
+    @Published private(set) var openingPinGroups: Set<String> = []
+
+    /// Grup için açma başlar; zaten sürüyorsa false.
+    func beginOpeningPinGroup(_ id: String) -> Bool {
+        openingPinGroups.insert(id).inserted
+    }
+
+    func endOpeningPinGroup(_ id: String) {
+        openingPinGroups.remove(id)
+    }
 
     /// Çoklu seçimin ikisini de (pencereler, çipler) bırakır.
     func clearSelection() {

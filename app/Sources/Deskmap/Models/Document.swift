@@ -938,7 +938,11 @@ struct Document: Codable, Equatable {
         // Pin grupları yeni kimlik alır; kuralların grup kimliği eşlenir,
         // dosyada grubu olmayan kimlik düşer.
         var groupMap: [String: String] = [:]
-        let groups = payload.pinGroups.map { group -> PinGroup in
+        // Ad kırpılır, boşsa varsayılan ad (okuma zaten yapar; kodla kurulan yük için de).
+        let named = PinGroup.withNames(payload.pinGroups.map {
+            PinGroup(id: $0.id, name: Self.normalizedGroupName($0.name) ?? "")
+        })
+        let groups = named.map { group -> PinGroup in
             let fresh = PinGroup(name: group.name)
             groupMap[group.id] = fresh.id
             return fresh

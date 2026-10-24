@@ -98,7 +98,7 @@ struct PinGroupStoreTests {
         #expect(s.document.rule("new")?.docked?.desktop == 3)
         #expect(Set(s.document.pinGroupMembers(id, mode: .docked).map(\.id)) == ["a", "b", "new"])
         #expect(s.document.pinGroup(old) == nil)
-        #expect(s.lastError == "Moved 1 pins from another group")
+        #expect(s.lastError == "Moved 1 pin from another group")
         s.undo()
         #expect(s.document.rule("new") == nil)
         #expect(s.document.pinGroup(old) != nil)

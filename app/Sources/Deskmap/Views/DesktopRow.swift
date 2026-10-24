@@ -137,11 +137,8 @@ struct DesktopRow: View {
                                          groups: store.document.pinGroups, ruleFor: pinRule)
         var boxes = split.boxes
         if !boxes.isEmpty {
-            var places: [String: [Destination]] = [:]
-            for box in boxes {
-                places[box.group.id] = store.document.pinGroupMembers(box.group.id, mode: mode)
-                    .compactMap(winner)
-            }
+            let places = PinGroupLayout.memberPlaces(for: boxes, document: store.document, mode: mode,
+                                                     winner: winner)
             PinGroupLayout.annotate(&boxes, screen: screen.id, desktop: desktop, memberPlaces: places)
         }
         return (boxes, AppGroup.grouped(windows: split.restWindows, closed: split.restClosed))
@@ -149,7 +146,7 @@ struct DesktopRow: View {
 
     private func pinGroupView(_ box: PinGroupBox) -> some View {
         PinGroupBoxView(box: box, screen: screen, desktop: desktop, mode: mode, isLive: isLive,
-                        shadowed: shadowed, tileCounts: tileCounts)
+                        shadowed: shadowed, tileCounts: tileCounts, onAwayCard: onAwayCard)
     }
 
     /// Önizlemedeki kutular: açık pencereler (sabitse kayıtlı düzeninde,
@@ -697,7 +694,7 @@ struct DesktopRow: View {
     private func moveGroup(_ group: AppGroup, to target: Router.Placement) {
         let plan = GroupMovePlan.make(group: group, to: target, mode: mode, isLive: isLive,
                                       rules: store.document.rules, sessionPins: router.sessionPins,
-                                      context: router.context(for: mode))
+                                      context: router.context(for: mode), winner: winner)
         guard !plan.isEmpty else { return }
         switch ui.panel {
         case .rule, .session: ui.panel = nil

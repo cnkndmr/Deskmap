@@ -15,10 +15,7 @@ extension Document {
 
     /// Yeni grubun varsayılan adı: "Grup N", N ilk boş numara (>= 1).
     func defaultPinGroupName() -> String {
-        let taken = Set(pinGroups.map { $0.name.lowercased() })
-        var n = 1
-        while taken.contains(L("Group %ld", n).lowercased()) { n += 1 }
-        return L("Group %ld", n)
+        PinGroup.defaultName(taken: Set(pinGroups.map { $0.name.lowercased() }))
     }
 
     /// Ad baştan ve sondan kırpılır; boşsa nil (saf).

@@ -536,6 +536,13 @@ struct RootView: View {
             let group = window.bundleID.isEmpty ? window.appName : window.bundleID
             ui.collapsed.remove(UIState.collapseKey(mode: screens.mode, screen: placement.screen,
                                                     desktop: placement.desktop, group: group))
+            // Kazanan kural bir pin grubundaysa satır o grubun kutusunda çizilir;
+            // kutu katlıysa açılmazsa kaydırma satırı bulamaz.
+            if !sessionPinned, let groupID = rule?.groupID {
+                ui.collapsed.remove(UIState.collapseKey(mode: screens.mode, screen: placement.screen,
+                                                        desktop: placement.desktop,
+                                                        group: PinGroupBox.idPrefix + groupID))
+            }
         }
         revealSeq += 1
         ui.reveal = RevealRequest(window: window.id, seq: revealSeq)

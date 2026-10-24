@@ -744,7 +744,9 @@
 "Pin group moved" = "Pin grubu taşındı";
 "Windows pinned as group" = "Pencereler grup olarak pinlendi";
 "Moved %ld pins from another group" = "%ld pin başka gruptan alındı";
+"Moved 1 pin from another group" = "1 pin başka gruptan alındı";
 "Group %ld pins" = "%ld pini grupla";
+"Group 1 pin" = "1 pini grupla";
 "Pin as group" = "Grup olarak pinle";
 "Pin group %@" = "Pin grubu %@";
 "Group name" = "Grup adı";
@@ -758,7 +760,7 @@
 "Open all" = "Tümünü aç";
 "Close all" = "Tümünü kapat";
 "Ungroup (keeps pins)" = "Grubu dağıt (pinler kalır)";
-"Session pins are not grouped" = "Oturum pinleri gruplanmaz";
+"Temporary pins are not grouped" = "Geçici sabitlemeler gruplanmaz";
 "Open all closed pins in %@" = "%@ içindeki bütün kapalı pinleri aç";
 "Close all open pins in %@" = "%@ içindeki bütün açık pinleri kapat";
 "Drag to move every pin of the group to another desktop; click to collapse; double-click to rename" = "Grubun bütün pinlerini başka masaüstüne taşımak için sürükle; daraltmak için tıkla; adlandırmak için çift tıkla";

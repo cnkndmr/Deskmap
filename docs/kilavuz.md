@@ -140,6 +140,8 @@ Bir masaüstünde çok sayıda pin olabilir; **pin grubu** bunların bir kısmı
 bir ad altında toplar. Örnek: bir masaüstünde on PDF pinli, dördü aynı
 makaleye ait. O dördünü grupla; birlikte taşınır, açılır ve kapanırlar.
 
+![Masaüstü 3’te bir pin grubu: başlıkta ad, sayı ve açma düğmesi, altında üyeler](images/tr/09-pin-group.png)
+
 - **Grup kur.** Pencerelere ve pin çiplerine (kapalı pinler dahil) ⌘ ile
   tıkla, sonra yan sütunda **Grup olarak pinle**’ye bas (seçtiğin her şey
   zaten pinliyse düğme **N pini grupla** der). Var olan pinler yerinde kalır;
@@ -161,7 +163,10 @@ makaleye ait. O dördünü grupla; birlikte taşınır, açılır ve kapanırlar
   üzerinde de* (ya da *başka ekranda da*) der. Bir pini gruptan çıkarmak için
   ona sağ tıkla › **Gruptan çıkar**. **Grubu dağıt (pinler kalır)** grubu
   siler, pinlere dokunmaz.
-- **Geçici sabitlemeler gruplanmaz**; her zamanki gibi sabitlenirler.
+- **Geçici sabitlemeler gruplanmaz.** Zaten geçici sabitlemesi olan seçili
+  pencere onu korur, gruba girmez; başlığı başka açık pencerelere de uyan
+  pencere her zamanki gibi geçici sabitlenir. Öbür planın pinleri (tepsi) bu
+  plandan grup başlatamaz.
 - Geri al (⌘Z) her grup değişikliğini kapsar. Gruplamadan önce alınmış bir
   yedeği geri yüklemek grupları da kaldırır.
 - Gruplar `rules.json`’da isteğe bağlı alanlardır. Eski bir Deskmap onları

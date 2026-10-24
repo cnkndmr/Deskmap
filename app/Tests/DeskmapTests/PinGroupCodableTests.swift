@@ -80,6 +80,20 @@ struct PinGroupCodableTests {
         #expect(!doc.isFromNewerVersion)
     }
 
+    /// K10: boş ya da yalnız boşluk olan ad okunurken kırpılır ve ilk
+    /// boşta varsayılan adı alır; dolu ad kırpılır, kayıt düşmez.
+    @Test func blankGroupNamesGetDefaultNames() throws {
+        let json = """
+        {"version": 6, "activeProfileID": "p", "rules": [],
+         "profiles": [{"id": "p", "name": "Desk", "rules": [],
+                       "pinGroups": [{"id": "g1", "name": ""}, {"id": "g2", "name": "Group 1"},
+                                     {"id": "g3", "name": "   "}, {"id": "g4", "name": "  Nova  "}]}]}
+        """
+        let doc = try decode(json)
+        #expect(doc.activeProfile?.pinGroups.map(\.name) == ["Group 2", "Group 1", "Group 3", "Nova"])
+        #expect(doc.activeProfile?.pinGroups.map(\.id) == ["g1", "g2", "g3", "g4"])
+    }
+
     @Test func deduplicatedKeepsTheFirst() {
         let groups = [PinGroup(id: "a", name: "1"), PinGroup(id: "b", name: "2"), PinGroup(id: "a", name: "3")]
         #expect(PinGroup.deduplicated(groups) == [PinGroup(id: "a", name: "1"), PinGroup(id: "b", name: "2")])

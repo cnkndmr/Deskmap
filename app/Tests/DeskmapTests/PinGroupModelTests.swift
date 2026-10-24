@@ -280,6 +280,22 @@ struct PinGroupModelTests {
         #expect(d.pinGroup(group.id) != nil)
     }
 
+    /// İçe aktarılan dosyadaki boş grup adı varsayılan adla gelir (K10).
+    @Test func importFillsBlankGroupNames() throws {
+        let json = """
+        {"kind": "deskmap-profile", "version": 5, "name": "Blank", "exportedAt": "2026-01-01T00:00:00Z",
+         "screens": [], "pinGroups": [{"id": "g", "name": "  "}],
+         "rules": [{"id": "r", "appName": "Preview", "bundleID": "p", "tokens": ["x"], "groupID": "g",
+                    "docked": {"screen": "builtin", "desktop": 1,
+                               "layout": {"x": 0, "y": 0, "w": 1, "h": 1}}}]}
+        """
+        var d = Document()
+        let imported = try d.importProfile(from: Data(json.utf8))
+        let group = try #require(imported.pinGroups.first)
+        #expect(group.name == "Group 1")
+        #expect(imported.rules[0].groupID == group.id)
+    }
+
     @Test func v4ExportImportsWithoutGroups() throws {
         let json = """
         {"kind": "deskmap-profile", "version": 4, "name": "Old", "exportedAt": "2026-01-01T00:00:00Z",

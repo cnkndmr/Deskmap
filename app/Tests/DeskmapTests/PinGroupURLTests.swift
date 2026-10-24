@@ -93,6 +93,26 @@ struct PinGroupURLRunTests {
         #expect(store.document.pinGroups.map(\.name).contains("Third"))
     }
 
+    /// Bilinmeyen bir kimlik komutun tamamını reddeder: hata bildirip
+    /// değişikliği yine yapmak komut satırı aracını yanıltırdı.
+    @Test func unknownRuleRejectsTheWholeCommand() throws {
+        let (store, router) = make()
+        URLCommands.run(.groupAdd(name: "Nova", rules: ["a", "stale"]), store: store, router: router)
+        #expect(store.lastError == "Rule not found: stale")
+        #expect(store.document.pinGroups.isEmpty)
+        #expect(store.history.undoEntry == nil)
+        store.clearError()
+        URLCommands.run(.groupAdd(name: "Nova", rules: ["a", "b"]), store: store, router: router)
+        let id = try #require(store.document.pinGroups.first?.id)
+        URLCommands.run(.groupMembers(group: id, add: ["stale"], remove: ["a"]), store: store, router: router)
+        #expect(store.lastError == "Rule not found: stale")
+        #expect(Set(store.document.pinGroupMembers(id, mode: .docked).map(\.id)) == ["a", "b"])
+        store.clearError()
+        URLCommands.run(.groupMembers(group: id, add: ["c"], remove: ["stale"]), store: store, router: router)
+        #expect(store.lastError == "Rule not found: stale")
+        #expect(Set(store.document.pinGroupMembers(id, mode: .docked).map(\.id)) == ["a", "b"])
+    }
+
     @Test func statusListsGroupsIncludingEmptyOnes() throws {
         var d = Document()
         d.rules = [pdf("a"), pdf("b")]

@@ -135,6 +135,8 @@ A desktop can hold many pins; a **pin group** collects some of them under a
 name. Example: a desktop has ten pinned PDFs, four of them belong to one
 paper. Group those four and they move, open and close together.
 
+![A pin group on Desktop 3: its header with the name, the count and the open button, the members below](images/en/09-pin-group.png)
+
 - **Make a group.** ⌘-click windows and pin chips (closed pins too), then
   press **Pin as group** in the side column (it reads **Group N pins** when
   everything you selected is already pinned). Pins that already exist keep
@@ -156,7 +158,10 @@ paper. Group those four and they move, open and close together.
   Desktop N* (or *also on another screen*). To take a pin out, right-click it ›
   **Remove from group**. **Ungroup (keeps pins)** removes the group, never the
   pins.
-- **Temporary pins are not grouped**; they are pinned the usual way.
+- **Temporary pins are not grouped.** A selected window that already has a
+  temporary pin keeps it and stays out of the group; a window whose title also
+  matches other open windows gets a temporary pin the usual way. Pins of the
+  other plan (the tray) can't start a group from this plan.
 - Undo (⌘Z) covers every group change. Restoring a backup made before you
   grouped also removes the groups.
 - Groups are optional fields in `rules.json`. An older Deskmap ignores them,

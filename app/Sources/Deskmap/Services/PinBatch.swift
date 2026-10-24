@@ -41,6 +41,18 @@ enum PinBatch {
         return (openPinned, reopenable(closed, shadowed: shadowed))
     }
 
+    /// Açılınca haritadaki yerine konabilecek pinler (saf): kazanan yeri
+    /// (`winner`) olan ve o masaüstü bağlı ekranda var olan (`desktopCounts`;
+    /// sayısı bilinmeyen ekran engellemez). Takılı olmayan monitöre ya da
+    /// olmayan masaüstüne bakan pin düşer (masaüstünün "Aç" düğmesi gibi).
+    nonisolated static func placeable(_ rules: [Rule], desktopCounts: [String: Int],
+                                      winner: (Rule) -> Destination?) -> [Rule] {
+        rules.filter { rule in
+            guard let place = winner(rule) else { return false }
+            return desktopCounts[place.screen].map { place.desktop <= $0 } ?? true
+        }
+    }
+
     /// Pinleri sırayla açar (aynı uygulamaya art arda belge vermek için
     /// kısa ara). Açılamayanlar tek uyarıda toplanır.
     static func open(_ rules: [Rule], mode: Mode, router: Router, store: Store) {

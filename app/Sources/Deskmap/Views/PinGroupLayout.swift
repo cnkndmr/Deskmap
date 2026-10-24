@@ -73,6 +73,19 @@ enum PinGroupLayout {
         return (boxes, restWindows, restClosed)
     }
 
+    /// Kutuların gruplarındaki üyelerin bu moddaki kazanan yerleri (saf):
+    /// grup kimliği → yerler. `winner` haritanın gösterdiği yeri verir
+    /// (`MapPlaces.winner`); ilk yer (`rule[mode]`) monitör sıralı listede
+    /// yanlış "Masaüstü N üzerinde de" ipucu verirdi.
+    static func memberPlaces(for boxes: [PinGroupBox], document: Document, mode: Mode,
+                             winner: (Rule) -> Destination?) -> [String: [Destination]] {
+        var places: [String: [Destination]] = [:]
+        for box in boxes {
+            places[box.group.id] = document.pinGroupMembers(box.group.id, mode: mode).compactMap(winner)
+        }
+        return places
+    }
+
     /// Kutuların "başka yerde de" bilgisi: üyelerin bu moddaki kazanan
     /// yerleri (`MapPlaces.winner` ile aynı kaynak). `memberPlaces`: grup
     /// kimliği → üyelerin kazanan yerleri.

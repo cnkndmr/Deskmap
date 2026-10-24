@@ -707,7 +707,8 @@ final class Store: ObservableObject {
     /// false: URL komutu; komut satırı aracı iletiyi hata sanmasın).
     private func reportPulled(_ count: Int, _ enabled: Bool) {
         guard enabled, count > 0 else { return }
-        report(L("Moved %ld pins from another group", count))
+        report(count == 1 ? L("Moved 1 pin from another group")
+                          : L("Moved %ld pins from another group", count))
     }
 
     /// Yeni pin grubu (tek geri alma adımı). Geçerli kural yoksa nil, kayıt yok.

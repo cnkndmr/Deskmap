@@ -350,21 +350,20 @@ enum URLCommands {
         return nil
     }
 
-    /// Bilinmeyen kural kimliklerini bildirir (var olan "kural yok" metni); var olanları döner.
-    private static func knownRules(_ ids: [String], store: Store) -> [String] {
-        let known = ids.filter { store.rule($0) != nil }
-        if let missing = ids.first(where: { store.rule($0) == nil }) {
-            store.report(L("Rule not found: %@", missing))
-        }
-        return known
+    /// Bütün kimlikler biliniyorsa true; değilse ilk bilinmeyeni bildirir
+    /// (var olan "kural yok" metni) ve komut hiç uygulanmaz: hata bildirip
+    /// değişikliği yine yapmak komut satırı aracını yanıltırdı.
+    private static func allKnown(_ ids: [String], store: Store) -> Bool {
+        guard let missing = ids.first(where: { store.rule($0) == nil }) else { return true }
+        store.report(L("Rule not found: %@", missing))
+        return false
     }
 
     static func run(_ command: URLCommand, store: Store, router: Router) {
         switch command {
         case .groupAdd(let name, let ids):
-            let rules = knownRules(ids, store: store)
-            guard !rules.isEmpty else { return }
-            store.createPinGroup(name: name, ruleIDs: rules, reportPulled: false)
+            guard !ids.isEmpty, allKnown(ids, store: store) else { return }
+            store.createPinGroup(name: name, ruleIDs: ids, reportPulled: false)
         case .groupRename(let text, let name):
             guard let id = pinGroup(text, store: store) else { return }
             guard Document.normalizedGroupName(name) != nil else {
@@ -376,9 +375,9 @@ enum URLCommands {
             guard let id = pinGroup(text, store: store) else { return }
             store.dissolvePinGroup(id)
         case .groupMembers(let text, let add, let remove):
-            guard let id = pinGroup(text, store: store) else { return }
-            store.editPinGroupMembers(id, add: knownRules(add, store: store), remove: remove,
-                                      reportPulled: false)
+            guard let id = pinGroup(text, store: store),
+                  allKnown(add, store: store), allKnown(remove, store: store) else { return }
+            store.editPinGroupMembers(id, add: add, remove: remove, reportPulled: false)
         case .reapply:
             router.reapplyAll()
         case .pause:

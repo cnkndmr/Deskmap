@@ -18,6 +18,9 @@ struct PinGroupBoxView: View {
     let shadowed: [String: String]
     /// Haritadaki her ekranın satır sayısı ("Grubu gönder" menüsü).
     let tileCounts: [String: Int]
+    /// Takılı olmayan monitörün soluk kartı: aç/kapat düğmesi yok
+    /// (masaüstünün kendi "Aç" düğmesi gibi).
+    var onAwayCard = false
 
     @EnvironmentObject private var store: Store
     @EnvironmentObject private var ui: UIState
@@ -29,8 +32,11 @@ struct PinGroupBoxView: View {
     /// Boş adla Return: düzenleme açık kalır, alan kırmızı kenarlı.
     @State private var nameInvalid = false
     @FocusState private var nameFocused: Bool
-    /// "Tümünü aç" sürerken düğme kapalı (çift basma iki kez açmasın).
-    @State private var isOpening = false
+    /// "Tümünü aç" sürerken düğme kapalı (çift basma ya da dağınık grubun
+    /// öbür kutusu iki kez açmasın); grup başına `UIState`'te.
+    private var isOpening: Bool { ui.openingPinGroups.contains(groupID) }
+    /// Aç/kapat bu kartta sunulur mu: canlı plan, takılı monitör.
+    private var offersToggle: Bool { isLive && !onAwayCard }
 
     private var groupID: String { box.group.id }
     private var name: String { box.group.name }
@@ -156,7 +162,7 @@ struct PinGroupBoxView: View {
 
     /// "3 pencere", "3 + 2 kapalı" ya da "2 kapalı" (uygulama grubuyla aynı metin).
     static func countLabel(windows: Int, closed: Int) -> String {
-        if closed == 0 { return L("%ld windows", windows) }
+        if closed == 0 { return windows == 1 ? L("1 window") : L("%ld windows", windows) }
         if windows == 0 { return L("%ld closed", closed) }
         return L("%ld + %ld closed", windows, closed)
     }
@@ -217,19 +223,26 @@ struct PinGroupBoxView: View {
 
     // MARK: Aç / kapat (K3: grubun bu moddaki bütün üyeleri)
 
-    /// Her basışta güncel belge ve pencerelerden hesaplanır.
+    /// Her basışta güncel belge ve pencerelerden hesaplanır. Kapalı üyeler
+    /// yalnız kazanan yeri kullanılabilir ve var olan masaüstündeyse açılır
+    /// (Router onları haritadaki yere koyamazdı).
     private var toggleInput: (openPinned: [Router.WindowSnapshot], closed: [Rule]) {
         let rules = store.document.rules, sessions = router.sessionPins, mode = mode
         let context = router.context(for: mode)
-        return PinBatch.pinGroupInput(
+        let live = isLive, usable = usable
+        let input = PinBatch.pinGroupInput(
             members: store.document.pinGroupMembers(groupID, mode: mode), windows: ui.windows,
             shadowed: shadowed,
             ruleFor: { PinGroupLayout.winningRule($0, rules: rules, sessionPins: sessions,
                                                   mode: mode, context: context) })
+        let closed = PinBatch.placeable(
+            input.closed, desktopCounts: ui.desktopCounts,
+            winner: { MapPlaces.winner($0, mode: mode, live: live, usable: usable)?.destination })
+        return (input.openPinned, closed)
     }
 
     @ViewBuilder private var toggleButton: some View {
-        if isLive {
+        if offersToggle {
             let input = toggleInput
             switch PinBatch.groupAction(openPinned: input.openPinned.count, closed: input.closed.count) {
             case .open:
@@ -260,14 +273,12 @@ struct PinGroupBoxView: View {
     }
 
     private func openAll() {
-        guard !isOpening else { return }
         let closed = toggleInput.closed
-        guard !closed.isEmpty else { return }
-        isOpening = true
-        let router = router, store = store, mode = mode
+        guard !closed.isEmpty, ui.beginOpeningPinGroup(groupID) else { return }
+        let router = router, store = store, mode = mode, ui = ui, groupID = groupID
         Task {
             await PinBatch.openAll(closed, mode: mode, router: router, store: store)
-            isOpening = false
+            ui.endOpeningPinGroup(groupID)
         }
     }
 
@@ -279,7 +290,7 @@ struct PinGroupBoxView: View {
 
     @ViewBuilder private var menu: some View {
         Button(L("Rename group…")) { startRenaming() }
-        if isLive {
+        if offersToggle {
             let input = toggleInput
             if !input.closed.isEmpty {
                 Button(L("Open all")) { openAll() }
@@ -374,42 +385,63 @@ struct PinGroupMenu: View {
 
     /// Menünün uygulanacağı kural kimlikleri (belge sırasıyla).
     private var targetIDs: [String] {
-        let inSelection = ui.selectedRules.contains(ruleID)
-            || windowID.map { ui.selection.contains($0) } == true
-        guard inSelection else { return [ruleID] }
         let rules = store.document.rules, sessions = router.sessionPins, mode = mode
         let context = router.context(for: mode)
-        var ids = ui.selectedRules
-        for window in ui.windows where ui.selection.contains(window.id) {
-            if let rule = PinGroupLayout.winningRule(window, rules: rules, sessionPins: sessions,
-                                                     mode: mode, context: context) {
-                ids.insert(rule.id)
-            }
+        return Self.targetIDs(ruleID: ruleID, windowID: windowID, rules: rules,
+                              selectedRules: ui.selectedRules, selection: ui.selection,
+                              windows: ui.windows,
+                              ruleFor: { PinGroupLayout.winningRule($0, rules: rules, sessionPins: sessions,
+                                                                     mode: mode, context: context) })
+    }
+
+    /// Tıklanan öğe çoklu seçimdeyse seçimdeki bütün kurallar (seçili
+    /// çipler ve seçili pencerelerin kazanan kuralları), değilse yalnız o;
+    /// belge sırasıyla (saf).
+    static func targetIDs(ruleID: String, windowID: CGWindowID?, rules: [Rule],
+                          selectedRules: Set<String>, selection: Set<CGWindowID>,
+                          windows: [Router.WindowSnapshot],
+                          ruleFor: (Router.WindowSnapshot) -> Rule?) -> [String] {
+        let inSelection = selectedRules.contains(ruleID)
+            || windowID.map { selection.contains($0) } == true
+        guard inSelection else { return [ruleID] }
+        var ids = selectedRules
+        for window in windows where selection.contains(window.id) {
+            if let rule = ruleFor(window) { ids.insert(rule.id) }
         }
         ids.insert(ruleID)
         return rules.map(\.id).filter(ids.contains)
     }
 
+    /// Gruba eklenebilecekler: bu planda yeri olanlar. Öbür planın tepsi
+    /// çipi bu planda kutu çizmez; grubu görünmez olurdu.
+    static func addable(_ ids: [String], rules: [Rule], mode: Mode) -> [String] {
+        let placed = Set(rules.filter { $0[mode] != nil }.map(\.id))
+        return ids.filter(placed.contains)
+    }
+
     var body: some View {
         if let rule = store.rule(ruleID) {
             let ids = targetIDs
+            let addIDs = Self.addable(ids, rules: store.document.rules, mode: mode)
             let targets = PinGroupLayout.addTargets(
                 groups: store.document.pinGroups,
                 members: PinGroupLayout.groupsWithMembers(store.document.rules, mode: mode),
-                excluding: ids.count == 1 ? rule.groupID : nil)
-            Menu(L("Add to group")) {
-                ForEach(targets) { group in
-                    Button(group.name) {
-                        store.addToPinGroup(group.id, ruleIDs: ids)
+                excluding: addIDs.count == 1 ? rule.groupID : nil)
+            if !addIDs.isEmpty {
+                Menu(L("Add to group")) {
+                    ForEach(targets) { group in
+                        Button(group.name) {
+                            store.addToPinGroup(group.id, ruleIDs: addIDs)
+                            ui.clearSelection()
+                        }
+                    }
+                    if !targets.isEmpty { Divider() }
+                    Button(L("New group…")) {
+                        if let id = store.createPinGroup(name: nil, ruleIDs: addIDs) {
+                            ui.requestPinGroupRename(id)
+                        }
                         ui.clearSelection()
                     }
-                }
-                if !targets.isEmpty { Divider() }
-                Button(L("New group…")) {
-                    if let id = store.createPinGroup(name: nil, ruleIDs: ids) {
-                        ui.renamePinGroupRequest = id
-                    }
-                    ui.clearSelection()
                 }
             }
             if ids.contains(where: { id in

@@ -15,10 +15,13 @@ struct PinGroup: Codable, Equatable, Hashable, Identifiable {
     private enum CodingKeys: String, CodingKey { case id, name }
 
     /// Kimliği boş ya da adı olmayan kayıt okunmaz (`LossyArray` atlar).
+    /// Ad kırpılır; boş kalan ad `LenientPinGroups`'ta varsayılan adla
+    /// doldurulur (K10: grup adı hiç boş değil).
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         name = try c.decode(String.self, forKey: .name)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         guard !id.isEmpty else {
             throw DecodingError.dataCorruptedError(forKey: .id, in: c,
                                                    debugDescription: "empty pin group id")
@@ -31,6 +34,26 @@ struct PinGroup: Codable, Equatable, Hashable, Identifiable {
         var seen = Set<String>()
         return groups.filter { seen.insert($0.id).inserted }
     }
+
+    /// İlk boşta "Grup N" adı (büyük/küçük harf duyarsız, saf).
+    static func defaultName(taken: Set<String>) -> String {
+        var n = 1
+        while taken.contains(L("Group %ld", n).lowercased()) { n += 1 }
+        return L("Group %ld", n)
+    }
+
+    /// Boş adlı kayıtlara sırayla boşta varsayılan ad verir (saf): elle
+    /// düzenlenmiş rules.json ya da içe aktarılan dosya başlıksız kutu çizmesin.
+    static func withNames(_ groups: [PinGroup]) -> [PinGroup] {
+        var taken = Set(groups.map { $0.name.lowercased() })
+        return groups.map { group in
+            guard group.name.isEmpty else { return group }
+            var named = group
+            named.name = defaultName(taken: taken)
+            taken.insert(named.name.lowercased())
+            return named
+        }
+    }
 }
 
 /// `pinGroups` alanının hoşgörülü okunuşu: dizi değilse ya da öğeleri
@@ -39,7 +62,8 @@ struct LenientPinGroups: Decodable {
     var groups: [PinGroup] = []
 
     init(from decoder: Decoder) throws {
-        groups = PinGroup.deduplicated((try? LossyArray<PinGroup>(from: decoder))?.elements ?? [])
+        groups = PinGroup.withNames(
+            PinGroup.deduplicated((try? LossyArray<PinGroup>(from: decoder))?.elements ?? []))
     }
 }
 
