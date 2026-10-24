@@ -3242,8 +3242,17 @@ final class Router: ObservableObject {
         /// Pencerenin belge yolu (AXDocument): "bu pencere" pininin anahtarı.
         var documents: [CGWindowID: String] = [:]
         var tabGroups: [CGWindowID: String] = [:]
+        // §3.3: SLS okumaları seri, AX durum okumaları uygulama başına eşzamanlı.
+        var slsReads: [CGWindowID: [UInt64]?] = [:]
+        var axReads: [CGWindowID: AX.WindowRead] = [:]
+        if AX.perPidParallel {
+            for window in windows { slsReads[window.id] = sky.canRead ? sky.spaces(of: window.id) : nil }
+            axReads = AX.readStates(windows.filter {
+                !Self.isSpaceless(slsReads[$0.id] ?? nil, pinned: sessionIDs.contains($0.id))
+            })
+        }
         for window in windows {
-            let read = sky.canRead ? sky.spaces(of: window.id) : nil
+            let read = slsReads[window.id] ?? (sky.canRead ? sky.spaces(of: window.id) : nil)
             outcome.observedSpaces[window.id] = read ?? []
             if Self.isSpaceless(read, pinned: sessionIDs.contains(window.id)) {
                 spaceless.insert(window.id)
@@ -3254,6 +3263,13 @@ final class Router: ObservableObject {
                 outcome.windowSpaces[window.id] = space.spaces[0]
                 outcome.contents[space.spaces[0], default: []].append(
                     .init(id: window.id, pid: window.pid, bundleID: window.bundleID))
+            }
+            if let ax = axReads[window.id] {
+                states[window.id] = WindowState(spaces: space.spaces, isFullscreen: space.isFullscreen,
+                                                frame: ax.frame, isMinimized: ax.isMinimized, spacesKnown: space.known)
+                documents[window.id] = ax.document
+                if let tab = ax.tabGroup { tabGroups[window.id] = tab }
+                continue
             }
             states[window.id] = WindowState(
                 spaces: space.spaces,

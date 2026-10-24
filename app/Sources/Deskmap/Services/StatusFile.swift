@@ -207,7 +207,8 @@ final class StatusFile {
                         ("remoteMissBackoff", AX.missBackoff),
                         ("sweepSignature", Router.sweepSignature),
                         ("transitionOwnQueue", Router.transitionOwnQueue),
-                        ("planMovesFast", Router.planMovesFast)].filter(\.1).map(\.0))
+                        ("planMovesFast", Router.planMovesFast),
+                        ("perPidParallel", AX.perPidParallel)].filter(\.1).map(\.0))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

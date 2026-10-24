@@ -635,6 +635,10 @@ enum AX {
         /// Bu taramada uygulama başına AX çağrı süreleri (yanıt vermeyeni bulmak için).
         var timings: [pid_t: AppTiming] = [:]
         let active = apps.filter { !isBackedOff($0.pid, now: now) }
+        if perPidParallel {
+            return allWindowsParallel(active: active, serverList: serverList, timeout: timeout,
+                                      alwaysInclude: alwaysInclude, deferRemote: deferRemote, now: now)
+        }
 
         // 1. Uygulamanın kendi listesi (görünen masaüstündekiler kesin).
         for app in active {
@@ -714,6 +718,115 @@ enum AX {
             note(pid: app.pid, name: app.name, timing: timings[app.pid] ?? AppTiming(), now: now)
         }
         return result
+    }
+
+    // MARK: - Uygulama başına paralel okuma (perf/PLAN-perf.md §3.3)
+
+    /// Bayrak `perf.perPidParallel`: `allWindows` ve taramanın pencere başına
+    /// AX durum okuması uygulama başına eşzamanlı (pid başına tek iş parçacığı,
+    /// en çok `parallelLimit`). Donan bir uygulama artık ötekileri 1 sn
+    /// bekletmiyor (düzenekte 4,5 sn → 1,0 sn). Sonuç sırası seri yolla aynı.
+    nonisolated static var perPidParallel: Bool { UserDefaults.standard.bool(forKey: "perf.perPidParallel") }
+    nonisolated static let parallelLimit = 6
+
+    /// `keys` her biri için `work`'ü en çok `limit` eşzamanlı çalıştırır;
+    /// sonuçlar `keys` sırasıyla döner.
+    nonisolated static func concurrently<K: Sendable, T>(_ keys: [K], limit: Int = parallelLimit,
+                                                        _ work: (K) -> T) -> [T] {
+        let box = ConcurrentBox<T>(keys.count)
+        let lock = NSLock()
+        let gate = DispatchSemaphore(value: max(1, limit))
+        withoutActuallyEscaping(work) { work in
+            DispatchQueue.concurrentPerform(iterations: keys.count) { index in
+                gate.wait(); defer { gate.signal() }
+                let value = work(keys[index])
+                lock.lock(); box.values[index] = value; lock.unlock()
+            }
+        }
+        return box.values.map { $0! }
+    }
+
+    private final class ConcurrentBox<T>: @unchecked Sendable {
+        var values: [T?]
+        init(_ count: Int) { values = Array(repeating: nil, count: count) }
+    }
+
+    private struct AppScan {
+        var listed: [AXWindow] = []
+        var unlisted: [CGWindowID: AXWindow] = [:]
+        var timing = AppTiming()
+    }
+
+    /// `allWindows`'un iki aşaması, uygulama başına bir iş (seri yolun kopyası).
+    private static func allWindowsParallel(active: [App], serverList: WindowServerList, timeout: Float,
+                                           alwaysInclude: Set<CGWindowID>, deferRemote: Bool,
+                                           now: Date) -> [AXWindow] {
+        let serverByPid = Dictionary(grouping: serverList.windows, by: \.pid)
+        let scans = concurrently(active) { app -> AppScan in
+            var scan = AppScan()
+            var seen: Set<CGWindowID> = []
+            let pid = app.pid
+            let appElement = AXUIElementCreateApplication(pid)
+            AXUIElementSetMessagingTimeout(appElement, timeout)
+            if let windows: [AXUIElement] = scan.timing.measure({ attribute(appElement, kAXWindowsAttribute) }) {
+                for element in windows {
+                    guard scan.timing.measure({ isStandardWindow(element) }) else { continue }
+                    let title: String = scan.timing.measure({ attribute(element, kAXTitleAttribute) }) ?? ""
+                    var windowID: CGWindowID = 0
+                    guard let getWindowID,
+                          scan.timing.measure({ getWindowID(element, &windowID) }) == .success,
+                          windowID != 0, !seen.contains(windowID) else { continue }
+                    seen.insert(windowID)
+                    scan.timing.measure({ remember(element, pid: pid, windowID: windowID) })
+                    scan.listed.append(AXWindow(id: windowID, pid: pid, appName: app.name,
+                                                bundleID: app.bundleID, title: title, element: element))
+                }
+            }
+            let infos = serverByPid[pid] ?? []
+            let unlisted = Set(infos.map(\.id)).subtracting(seen)
+            for info in infos where !seen.contains(info.id) {
+                if isUnresponsive(maxSingleCall: scan.timing.maxCall, total: scan.timing.total) { break }
+                guard let element = scan.timing.measure({
+                    element(pid: pid, windowID: info.id, unlisted: unlisted, cacheOnly: deferRemote)
+                }) else { continue }
+                AXUIElementSetMessagingTimeout(element, timeout)
+                guard alwaysInclude.contains(info.id)
+                        || scan.timing.measure({ isStandardWindow(element, strict: true) }) else { continue }
+                let title: String = scan.timing.measure({ attribute(element, kAXTitleAttribute) }) ?? info.name
+                seen.insert(info.id)
+                scan.unlisted[info.id] = AXWindow(id: info.id, pid: pid, appName: app.name,
+                                                  bundleID: app.bundleID, title: title, element: element)
+            }
+            return scan
+        }
+        var result = scans.flatMap(\.listed)
+        let byPid = Dictionary(uniqueKeysWithValues: zip(active.map(\.pid), scans))
+        for info in serverList.windows { if let window = byPid[info.pid]?.unlisted[info.id] { result.append(window) } }
+        for (app, scan) in zip(active, scans) { note(pid: app.pid, name: app.name, timing: scan.timing, now: now) }
+        return result
+    }
+
+    /// Taramanın pencere başına AX durumu (çerçeve, küçültülmüş, belge, Safari
+    /// sekme grubu), uygulama başına eşzamanlı; `windows` sırasıyla.
+    struct WindowRead {
+        let frame: CGRect?
+        let isMinimized: Bool
+        let document: String?
+        let tabGroup: String?
+    }
+    static func readStates(_ windows: [AXWindow]) -> [CGWindowID: WindowRead] {
+        let groups = Dictionary(grouping: windows, by: \.pid)
+        let pids = windows.reduce(into: [pid_t]()) { if !$0.contains($1.pid) { $0.append($1.pid) } }
+        let parts = concurrently(pids) { pid in
+            (groups[pid] ?? []).map { window in
+                (window.id, WindowRead(frame: frame(of: window), isMinimized: isMinimized(window),
+                                       document: document(of: window),
+                                       tabGroup: window.bundleID == "com.apple.Safari" ? safariTabGroup(of: window) : nil))
+            }
+        }
+        var out: [CGWindowID: WindowRead] = [:]
+        for part in parts { for (id, read) in part { out[id] = read } }
+        return out
     }
 
     /// Rolü pencere olan ve yüzen panel / sistem diyaloğu olmayan öğe.
