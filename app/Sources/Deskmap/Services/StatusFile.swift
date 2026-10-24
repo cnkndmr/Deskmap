@@ -208,7 +208,9 @@ final class StatusFile {
                         ("sweepSignature", Router.sweepSignature),
                         ("transitionOwnQueue", Router.transitionOwnQueue),
                         ("planMovesFast", Router.planMovesFast),
-                        ("perPidParallel", AX.perPidParallel)].filter(\.1).map(\.0))
+                        ("perPidParallel", AX.perPidParallel),
+                        ("settlePollShadow", ScreenService.settlePollShadow),
+                        ("settlePoll", ScreenService.settlePoll)].filter(\.1).map(\.0))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

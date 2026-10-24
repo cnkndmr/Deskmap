@@ -228,6 +228,7 @@ final class ScreenService: ObservableObject {
     private func screensChanged() {
         refresh()
         let now = Date()
+        noteChangeForProbe(at: now)
         lastChangeAt = now
         if !isSettling {
             isSettling = true
@@ -240,15 +241,129 @@ final class ScreenService: ObservableObject {
         settleTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
             guard !Task.isCancelled, let self else { return }
-            self.settleEpisodeStart = nil
-            self.refresh()
-            self.isSettling = false
-            Log.screens.notice("""
-                Displays settled\(forced ? " (hard cap)" : "", privacy: .public): \
-                \(self.screens.map(\.id).joined(separator: ", "), privacy: .public)
-                """)
-            self.settled.send()
+            self.finishSettle(reason: forced ? " (hard cap)" : "")
         }
+        startProbeIfNeeded()
+    }
+
+    private func finishSettle(reason: String) {
+        settleTask?.cancel()
+        settleTask = nil
+        probeTask?.cancel()
+        probeTask = nil
+        if let start = settleEpisodeStart {
+            probeEpisodeLog(settledAfter: Date().timeIntervalSince(start))
+        }
+        settleEpisodeStart = nil
+        refresh()
+        isSettling = false
+        Log.screens.notice("""
+            Displays settled\(reason, privacy: .public): \
+            \(self.screens.map(\.id).joined(separator: ", "), privacy: .public)
+            """)
+        settled.send()
+    }
+
+    // MARK: - Durum yoklamalı yatışma (perf/PLAN-perf.md §4.4 B2)
+
+    /// `perf.settlePollShadow`: yoklama "şimdi yatışırdım" anını ve ondan
+    /// sonra gelen ekran bildirimlerini loglar; karar bugünkü 2,5 sn kuralıyla.
+    /// `perf.settlePoll`: yoklama yatışmayı erken bitirir (10 sn tavan kalır).
+    nonisolated static var settlePollShadow: Bool { UserDefaults.standard.bool(forKey: "perf.settlePollShadow") }
+    nonisolated static var settlePoll: Bool { UserDefaults.standard.bool(forKey: "perf.settlePoll") }
+    nonisolated static let probeInterval: TimeInterval = 0.2
+
+    /// Bir yoklama örneği: NSScreen ekranları (UUID + çerçeve) ve SkyLight'ın
+    /// ekran → masaüstü listesi.
+    struct SettleSample: Equatable {
+        let screens: [String: CGRect]
+        let spaces: [String: [UInt64]]
+        /// NSScreen ve SkyLight aynı ekran kümesini görüyor mu.
+        var consistent: Bool { !screens.isEmpty && Set(screens.keys) == Set(spaces.keys) }
+    }
+
+    /// Yatışma kararı (saf): tutarlı ve en az `stableFor` boyunca değişmeyen örnek.
+    struct SettleProbe {
+        static let stableFor: TimeInterval = 0.5
+        private(set) var sample: SettleSample?
+        private(set) var stableSince: Date?
+
+        /// Yeni örneği işler; yatıştıysa true.
+        mutating func feed(_ next: SettleSample, at now: Date) -> Bool {
+            if next != sample { sample = next; stableSince = now }
+            guard next.consistent, let since = stableSince else { return false }
+            return now.timeIntervalSince(since) >= Self.stableFor
+        }
+
+        /// Ekran bildirimi geldi: kararlılık baştan sayılır.
+        mutating func reset(at now: Date) { stableSince = now }
+    }
+
+    private var probeTask: Task<Void, Never>?
+    private var probe = SettleProbe()
+    /// Bu bölümde yoklamanın yatıştığı an (bölüm başından saniye) ve ondan sonraki bildirim sayısı.
+    private var probeSettledAt: TimeInterval?
+    private var lateNotifications = 0
+
+    static func currentSettleSample() -> SettleSample {
+        let raw = currentDisplays()
+        var screens: [String: CGRect] = [:]
+        for display in raw { screens[display.uuid] = display.frame }
+        let main = raw.first { $0.frame.origin == .zero }?.uuid
+        var spaces: [String: [UInt64]] = [:]
+        for display in SkyLight.shared.displaySpaces(mainUUID: main) {
+            spaces[display.displayUUID] = display.spaces.map(\.id)
+        }
+        return SettleSample(screens: screens, spaces: spaces)
+    }
+
+    private func noteChangeForProbe(at now: Date) {
+        guard Self.settlePollShadow || Self.settlePoll else { return }
+        if isSettling, let start = settleEpisodeStart, let at = probeSettledAt {
+            lateNotifications += 1
+            Log.screens.notice("""
+                Settle probe: display notification \(String(format: "%.2f", now.timeIntervalSince(start) - at), privacy: .public) s \
+                after the probe had settled
+                """)
+        }
+        probe.reset(at: now)
+    }
+
+    private func startProbeIfNeeded() {
+        guard Self.settlePollShadow || Self.settlePoll, probeTask == nil else { return }
+        if settleEpisodeStart != nil, probeSettledAt == nil { lateNotifications = 0 }
+        probeTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(Self.probeInterval * 1_000_000_000))
+                guard !Task.isCancelled, let self, self.isSettling, let start = self.settleEpisodeStart else { return }
+                let now = Date()
+                guard self.probe.feed(Self.currentSettleSample(), at: now) else { continue }
+                if self.probeSettledAt == nil {
+                    self.probeSettledAt = now.timeIntervalSince(start)
+                    Log.screens.notice("""
+                        Settle probe: stable after \(String(format: "%.2f", now.timeIntervalSince(start)), privacy: .public) s\
+                        \(Self.settlePoll ? "" : " (shadow)", privacy: .public)
+                        """)
+                }
+                self.probeTask = nil
+                if Self.settlePoll { self.finishSettle(reason: " (probe)") }
+                return
+            }
+        }
+    }
+
+    /// Bölüm sonu özeti (gölge verisi): yoklama ne zaman yatışırdı, gerçek
+    /// yatışma ne zaman oldu, aradaki bildirim sayısı.
+    private func probeEpisodeLog(settledAfter actual: TimeInterval) {
+        guard Self.settlePollShadow || Self.settlePoll else { return }
+        let at = probeSettledAt.map { String(format: "%.2f", $0) } ?? "-"
+        Log.screens.notice("""
+            Settle probe episode: probe \(at, privacy: .public) s, settled \(String(format: "%.2f", actual), privacy: .public) s, \
+            notifications after probe \(self.lateNotifications)
+            """)
+        probeSettledAt = nil
+        lateNotifications = 0
+        probe = SettleProbe()
     }
 
     /// Bu ekran değişiminden sonra ne kadar beklenir (saf): normalde
