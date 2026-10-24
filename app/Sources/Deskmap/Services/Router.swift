@@ -653,6 +653,18 @@ final class Router: ObservableObject {
             : upstream.debounce(for: interval, scheduler: scheduler).eraseToAnyPublisher()
     }
 
+    /// Bayrak `perf.verifyObservedAt` (inceleme 24.10): taşıma doğrulamasının
+    /// yaşı, space'lerin okunduğu andan ölçülür. Bugün ana aktörde birleştirme
+    /// anı (`Date()`) kullanılıyor: uzun süren taramada okuma taşımadan hemen
+    /// sonra yapılmış olsa da yaş ≥0,5 sn sayılıyor, henüz oturmamış taşıma
+    /// "doğrulanmadı" yazılıp MoveHealth'i yanlış düşürebiliyor.
+    nonisolated static var verifyObservedAt: Bool { UserDefaults.standard.bool(forKey: "perf.verifyObservedAt") }
+
+    /// Doğrulamanın "şimdi"si (saf): bayrak açıksa okuma anı.
+    nonisolated static func verifyTime(observedAt: Date?, merged: Date, enabled: Bool = verifyObservedAt) -> Date {
+        enabled ? (observedAt ?? merged) : merged
+    }
+
     /// Zamanlayıcı turunda tam tarama gerekli mi (saf).
     nonisolated static func shouldSweepOnTick(
         signatureChanged: Bool, mapVisible: Bool, deadline: Date?, now: Date,
@@ -3103,7 +3115,8 @@ final class Router: ObservableObject {
                 self.expireSessionPins(live: outcome.liveWindows)
                 // Önceki taşımaların doğrulaması, sonra bu taramanın taşımaları.
                 let check = PendingMove.verify(pending: self.pendingMoves,
-                                               observed: outcome.observedSpaces, now: Date())
+                                               observed: outcome.observedSpaces,
+                                               now: Self.verifyTime(observedAt: outcome.observedAt, merged: Date()))
                 self.pendingMoves = check.remaining
                 for result in check.results {
                     self.recordMoveCheck(window: result.window, verified: result.verified)
@@ -3167,6 +3180,8 @@ final class Router: ObservableObject {
         var moves: [(window: CGWindowID, space: UInt64, result: SkyLight.MoveResult)] = []
         /// Taramanın başında okunan sunucu imzası (`perf.sweepSignature`).
         var signature: AX.WindowServerSignature?
+        /// Pencere space'lerinin okunmaya başlandığı an (`perf.verifyObservedAt`).
+        var observedAt: Date?
         var routed = 0
         var lastAction: String?
         /// Bu taramada başlatılan taşımalar ("Son hareketler" için; yalnız
@@ -3272,6 +3287,7 @@ final class Router: ObservableObject {
         /// Pencerenin belge yolu (AXDocument): "bu pencere" pininin anahtarı.
         var documents: [CGWindowID: String] = [:]
         var tabGroups: [CGWindowID: String] = [:]
+        outcome.observedAt = Date()
         // §3.3: SLS okumaları seri, AX durum okumaları uygulama başına eşzamanlı.
         var slsReads: [CGWindowID: [UInt64]?] = [:]
         var axReads: [CGWindowID: AX.WindowRead] = [:]
