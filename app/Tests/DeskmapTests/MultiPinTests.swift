@@ -96,9 +96,34 @@ struct MultiPinTests {
         #expect(result.rules.map(\.rule.appName) == ["Finder", "Mail"])
         #expect(result.temporary == [1, 4])
         #expect(result.sessions.isEmpty)
+        // Öbür planın seçili çipi atlanır ama çubuk nedenini söyleyebilsin.
+        #expect(result.otherPlan == ["tray"])
         // Gruplamasız planda oturum pini denetimi yok (eski davranış).
         let plain = MultiPinBar.plan(selected: [1], windows: windows, sessionPinned: [1]) { _ in .full }
         #expect(plain.temporary.isEmpty && plain.rules.count == 1)
+    }
+
+    /// Kazanan kural uygulamanın bütün pencerelerini tutuyorsa seçili
+    /// pencere kendi başlık kuralını alır: seçilmeyen pencereler gruba girmez.
+    @MainActor @Test func groupingPlanGivesWindowsUnderAnAppWideRuleTheirOwnRule() throws {
+        let all = Rule(id: "all", appName: "Preview", bundleID: "b.Preview", tokens: [],
+                       docked: Destination(screen: "external", desktop: 2))
+        var d = Document()
+        d.rules = [all]
+        d.syncActiveProfile()
+        let store = Store(demo: d)
+        let windows = [window(1, "Preview", "Vega.pdf"), window(2, "Preview", "Nova.pdf"),
+                       window(3, "Preview", "Lumen.pdf")]
+        let plan = MultiPinBar.plan(selected: [1, 2], windows: windows,
+                                    existingRules: store.document.rules, mode: .docked,
+                                    ruleFor: { _ in all }) { _ in .full }
+        #expect(plan.existing.isEmpty)
+        #expect(plan.rules.count == 2)
+        let id = try #require(store.pinAsGroup(new: plan.rules, existing: plan.existing, mode: .docked))
+        let members = store.document.pinGroupMembers(id, mode: .docked)
+        #expect(members.count == 2 && !members.contains { $0.id == "all" })
+        #expect(store.document.rule("all")?.groupID == nil)
+        #expect(store.document.rule("all")?.docked?.desktop == 2)
     }
 
     /// Öbür planda yeri olan kurala düşen pencere gruplanınca bu planda da

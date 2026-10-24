@@ -762,6 +762,11 @@
 "Close all" = "Tümünü kapat";
 "Ungroup (keeps pins)" = "Grubu dağıt (pinler kalır)";
 "Temporary pins are not grouped" = "Geçici sabitlemeler gruplanmaz";
+"1 selected pin belongs to the other plan and is not grouped here" = "Seçili 1 pin öbür plana ait, burada gruplanmaz";
+"%ld selected pins belong to the other plan and are not grouped here" = "Seçili %ld pin öbür plana ait, burada gruplanmaz";
+"%@ · 1 pin" = "%@ · 1 pin";
+"%@ · %ld pins" = "%1$@ · %2$ld pin";
+"%@ · %@" = "%1$@ · %2$@";
 "Open all closed pins in %@" = "%@ içindeki bütün kapalı pinleri aç";
 "Close all open pins in %@" = "%@ içindeki bütün açık pinleri kapat";
 "Drag to move every pin of the group to another desktop; click to collapse; double-click to rename" = "Grubun bütün pinlerini başka masaüstüne taşımak için sürükle; daraltmak için tıkla; adlandırmak için çift tıkla";

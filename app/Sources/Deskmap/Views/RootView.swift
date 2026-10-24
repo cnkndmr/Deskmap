@@ -35,6 +35,8 @@ struct RootView: View {
 
     /// Router'ın son işlemi alt çubukta bu kadar kalır; sonra genel ipucu döner.
     static let actionFade: TimeInterval = 30
+    /// Bilgi iletisinin (`Store.notice`) alt çubukta kalma süresi.
+    static let noticeFade: TimeInterval = 8
     /// Pencere boyutu ve sol kenar çubuğunun genişliği.
     /// Pencere boyutu ekranın kullanılabilir alanına oranlıdır (sabit pt
     /// değil): 1710×1074 pt'lik ekranda ≈ 900×750. Alt/üst sınırlar küçük
@@ -480,10 +482,18 @@ struct RootView: View {
     /// Alt çubuktaki süreli iletilerden ilk düşecek olanın zamanı.
     private var nextFooterDeadline: Date? {
         [store.history.discardNoticeExpiry,
-         router.status.lastActionAt.map { $0.addingTimeInterval(Self.actionFade) }]
+         router.status.lastActionAt.map { $0.addingTimeInterval(Self.actionFade) },
+         store.notice.map { $0.at.addingTimeInterval(Self.noticeFade) }]
             .compactMap { $0 }
             .filter { $0 > now }
             .min()
+    }
+
+    /// Store'un bilgi iletisi hâlâ gösterilecek kadar yeni mi?
+    private var recentNotice: String? {
+        guard let notice = store.notice,
+              now.timeIntervalSince(notice.at) < Self.noticeFade else { return nil }
+        return notice.text
     }
 
     /// Son işlem hâlâ gösterilecek kadar yeni mi?
@@ -924,6 +934,8 @@ struct RootView: View {
                 } else if let error = store.lastError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
+                } else if let notice = recentNotice {
+                    Label(notice, systemImage: "info.circle")
                 } else if !router.status.unresponsive.isEmpty {
                     Label(L("%@ not responding; skipped for now",
                             router.status.unresponsive.joined(separator: ", ")),

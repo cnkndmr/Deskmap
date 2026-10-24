@@ -55,6 +55,13 @@ final class Store: ObservableObject {
     /// URL komutu) değişmediyse devam ettirir.
     private(set) var enabledChanges = 0
     @Published private(set) var lastError: String?
+    /// Alt çubukta kısa süre görünen bilgi iletisi (hata değil). Kayıt onu
+    /// silmez; `lastError`'dan ayrı tutulur ki kırmızı uyarı gibi görünmesin.
+    struct Notice: Equatable {
+        let text: String
+        let at: Date
+    }
+    @Published private(set) var notice: Notice?
     /// Oturumluk ayar geçmişi: ⌘Z / ⇧⌘Z ve "Değişiklikler" listesi.
     @Published private(set) var history = ChangeHistory()
     /// >0 iken belge atamaları didSet'te giriş üretmez (`recording`, gezinme).
@@ -89,6 +96,8 @@ final class Store: ObservableObject {
     /// Alt çubukta gösterilecek bir hata; bir sonraki başarılı kayıtta silinir.
     func report(_ message: String) { lastError = message }
     func clearError() { lastError = nil }
+    /// Bilgi iletisi (`notice`); alt çubuk birkaç saniye sonra düşürür.
+    func announce(_ message: String) { notice = Notice(text: message, at: Date()) }
 
     /// Veri klasörü. `DESKMAP_DATA_DIR` ortam değişkeni başka bir klasörü
     /// gösterebilir (geçişi bir kopya üzerinde denemek için).
@@ -703,11 +712,12 @@ final class Store: ObservableObject {
 
     // MARK: - Pin grupları
 
-    /// Başka gruptan çekilen pinler alt çubukta bildirilir (`reportPulled`
-    /// false: URL komutu; komut satırı aracı iletiyi hata sanmasın).
+    /// Başka gruptan çekilen pinler alt çubukta bilgi olarak bildirilir
+    /// (`announce`: hata değil, ardından gelen kayıt silmez). `reportPulled`
+    /// false: URL komutu.
     private func reportPulled(_ count: Int, _ enabled: Bool) {
         guard enabled, count > 0 else { return }
-        report(count == 1 ? L("Moved 1 pin from another group")
+        announce(count == 1 ? L("Moved 1 pin from another group")
                           : L("Moved %ld pins from another group", count))
     }
 

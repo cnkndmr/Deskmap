@@ -116,7 +116,9 @@ struct PinGroupStoreTests {
         #expect(s.document.rule("new")?.docked?.desktop == 3)
         #expect(Set(s.document.pinGroupMembers(id, mode: .docked).map(\.id)) == ["a", "b", "new"])
         #expect(s.document.pinGroup(old) == nil)
-        #expect(s.lastError == "Moved 1 pin from another group")
+        // Bilgi iletisi hata kanalına gitmez: kayıt `lastError`'ı silse de kalır.
+        #expect(s.notice?.text == "Moved 1 pin from another group")
+        #expect(s.lastError == nil)
         s.undo()
         #expect(s.document.rule("new") == nil)
         #expect(s.document.pinGroup(old) != nil)

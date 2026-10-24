@@ -128,6 +128,41 @@ enum PinGroupLayout {
         groups.filter { members.contains($0.id) && $0.id != excluding }
     }
 
+    /// "Gruba ekle" menüsünün satır adları (saf). Ad tekse yalnız ad; aynı
+    /// adlı gruplar (K10) üye sayısıyla, o da aynıysa ilk üyenin başlığıyla
+    /// ayrılır ki kullanıcı pinlerin hangi gruba gideceğini görsün.
+    static func menuTitles(_ groups: [PinGroup], rules: [Rule], mode: Mode) -> [String: String] {
+        func key(_ name: String) -> String { name.lowercased() }
+        var nameCount: [String: Int] = [:]
+        for group in groups { nameCount[key(group.name), default: 0] += 1 }
+        var members: [String: [Rule]] = [:]
+        for rule in rules where rule[mode] != nil {
+            if let id = rule.groupID { members[id, default: []].append(rule) }
+        }
+        func counted(_ group: PinGroup) -> String {
+            let n = members[group.id]?.count ?? 0
+            return n == 1 ? L("%@ · 1 pin", group.name) : L("%@ · %ld pins", group.name, n)
+        }
+        var countedCount: [String: Int] = [:]
+        for group in groups where nameCount[key(group.name), default: 0] > 1 {
+            countedCount[key(counted(group)), default: 0] += 1
+        }
+        var titles: [String: String] = [:]
+        for group in groups {
+            guard nameCount[key(group.name), default: 0] > 1 else {
+                titles[group.id] = group.name
+                continue
+            }
+            let title = counted(group)
+            if countedCount[key(title), default: 0] > 1, let first = members[group.id]?.first {
+                titles[group.id] = L("%@ · %@", title, first.title)
+            } else {
+                titles[group.id] = title
+            }
+        }
+        return titles
+    }
+
     /// Bu modda üyesi olan grupların kimlikleri (saf).
     static func groupsWithMembers(_ rules: [Rule], mode: Mode) -> Set<String> {
         Set(rules.compactMap { $0[mode] == nil ? nil : $0.groupID })

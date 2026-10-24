@@ -612,7 +612,8 @@ deskmap rule copy-layout Safari --from docked # laptop planı monitörlü planı
 deskmap group list [--json]                # pin grupları, pinleri ve yerleri (üyesi kalmadıysa "(empty)")
 deskmap group create "Nova drafts" Orion_report Vega_notes   # kural kimlikleri ya da tekil parçalar; kimliği yazar
 deskmap group rename "Nova drafts" Drafts  # GRUP: kimlik, ad ya da adın tekil bir parçası
-deskmap group add Drafts Nova_Conf | deskmap group remove Drafts Vega_notes
+deskmap group add Drafts Nova_Conf
+deskmap group remove Drafts Vega_notes
 deskmap group rm Drafts                    # grubu dağıt; pinler kalır
 ```
 

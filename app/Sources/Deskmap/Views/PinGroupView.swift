@@ -134,7 +134,8 @@ struct PinGroupBoxView: View {
         }
         .gesture(pinGroupDrag, including: isRenaming ? .none : .all)
         .help(L("Drag to move every pin of the group to another desktop; click to collapse; double-click to rename"))
-        .accessibilityElement(children: .combine)
+        // Adlandırırken alan ayrı öğe kalmalı; birleşik öğe VoiceOver'dan gizlerdi.
+        .accessibilityElement(children: isRenaming ? .contain : .combine)
         .accessibilityLabel(L("Pin group %@", name))
         .contextMenu { menu }
     }
@@ -433,8 +434,10 @@ struct PinGroupMenu: View {
                 excluding: addIDs.count == 1 ? rule.groupID : nil)
             if !addIDs.isEmpty {
                 Menu(L("Add to group")) {
+                    let titles = PinGroupLayout.menuTitles(targets, rules: store.document.rules,
+                                                           mode: mode)
                     ForEach(targets) { group in
-                        Button(group.name) {
+                        Button(titles[group.id] ?? group.name) {
                             store.addToPinGroup(group.id, ruleIDs: addIDs)
                             ui.clearSelection()
                         }

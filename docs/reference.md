@@ -592,7 +592,8 @@ deskmap rule copy-layout Safari --from docked # laptop plan takes the monitor pl
 deskmap group list [--json]                # pin groups, their pins and places ("(empty)" if none is left)
 deskmap group create "Nova drafts" Orion_report Vega_notes   # rule ids or unique fragments; prints the id
 deskmap group rename "Nova drafts" Drafts  # GROUP: id, name or a unique part of a name
-deskmap group add Drafts Nova_Conf | deskmap group remove Drafts Vega_notes
+deskmap group add Drafts Nova_Conf
+deskmap group remove Drafts Vega_notes
 deskmap group rm Drafts                    # ungroup; the pins stay
 ```
 

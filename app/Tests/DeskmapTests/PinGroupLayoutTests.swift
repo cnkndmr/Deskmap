@@ -86,6 +86,22 @@ struct PinGroupLayoutTests {
         #expect(!lone[0].isScattered)
     }
 
+    /// Aynı adlı gruplar menüde üye sayısıyla, o da aynıysa ilk üyeyle ayrılır.
+    @Test func menuTitlesTellApartRepeatedNames() {
+        let paper1 = PinGroup(id: "p1", name: "Paper"), paper2 = PinGroup(id: "p2", name: "paper")
+        let paper3 = PinGroup(id: "p3", name: "Paper"), solo = PinGroup(id: "s", name: "Solo")
+        let rules = [rule("a", group: "p1"), rule("b", group: "p2"), rule("c", group: "p2"),
+                     rule("d", group: "p3"), rule("e", group: "s")]
+        let titles = PinGroupLayout.menuTitles([paper1, paper2, paper3, solo], rules: rules,
+                                               mode: .docked)
+        #expect(titles["s"] == "Solo")
+        #expect(titles["p2"] == "paper · 2 pins")
+        #expect(titles["p1"] == "Paper · 1 pin · a")
+        #expect(titles["p3"] == "Paper · 1 pin · d")
+        let unique = PinGroupLayout.menuTitles([paper1, solo], rules: rules, mode: .docked)
+        #expect(unique == ["p1": "Paper", "s": "Solo"])
+    }
+
     @Test func addTargetsAndIDs() {
         let rules = [rule("a", group: "g1"), rule("b", group: "g2"), rule("c", group: "g3")]
         let withMembers = PinGroupLayout.groupsWithMembers(rules, mode: .docked)

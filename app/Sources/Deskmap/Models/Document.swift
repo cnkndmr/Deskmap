@@ -639,10 +639,13 @@ struct Document: Codable, Equatable {
     }
 
     /// Bu moddaki hedefi (monitörlü modda bütün sıralı listeyi) kaldırır;
-    /// kuralın hiçbir hedefi kalmazsa silinir.
+    /// kuralın hiçbir hedefi kalmazsa silinir. Pin grubu üyeliği de biter
+    /// (K5): öbür planda yeri kalan kural sonra bu planda yeniden pinlenirse
+    /// eski grubuna sessizce dönmesin. Grup kaydına dokunulmaz (K7).
     mutating func unpin(_ id: String, mode: Mode) {
         guard var rule = rule(id) else { return }
         rule.setPlaces([], mode: mode)
+        rule.groupID = nil
         if rule.hasNoPlaces {
             rules.removeAll { $0.id == id }
         } else {

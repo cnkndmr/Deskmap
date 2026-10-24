@@ -329,6 +329,8 @@ logged per sweep. Window titles are logged as `.private`.
 | `TokenEditingTests` | `Document.setTokens` (identity, key collisions) and token picker helpers |
 | `PinGroupCodableTests`, `PinGroupModelTests`, `PinGroupStoreTests` | Pin group fields (old files byte-identical, lenient reading), document operations (empty groups, ghosts, profile scope, copy/import), one undo step per action |
 | `PinGroupLayoutTests`, `RouterProjectionTests`, `PinGroupURLTests` | Group boxes on the map, the Router's group-blind rule key, URL commands and `status.json` |
+| `PinGroupViewLogicTests` | Group header count and *also on* labels, menu targets and names, placeable members, member places and open placements, rename-request expiry, the open guard |
+| `GroupMoveTests`, `PinBatchTests`, `MultiPinTests`, `ShotsTests` (pin group parts) | Moving a whole pin group (`forPinGroup`, winner-based "already there", named desktops), group open/close input (`pinGroupInput`, `groupAction`), the grouping plan of the ⌘-click bar (existing pins, temporary pins, other-plan chips, app-wide pins), the demo group |
 | `LocalizationTests` | Key/translation consistency (see above) |
 
 The tests never create a `Store` or `Router`, so they never touch

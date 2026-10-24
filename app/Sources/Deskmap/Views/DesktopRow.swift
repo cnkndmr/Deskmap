@@ -934,6 +934,7 @@ extension DesktopRow {
                         help: "\(rule.appName) — \(rule.title)" + (why.map { "\n" + $0 } ?? ""),
                         layout: destination.layout.isDesktopOnly ? .full : destination.layout,
                         look: .pinned, isSelected: ui.panel == .rule(rule.id),
+                        isMultiSelected: ui.selectedRules.contains(rule.id),
                         dimmed: look.dimmed, highlighted: look.highlighted)
                 }
         }

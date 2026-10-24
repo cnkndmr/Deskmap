@@ -346,6 +346,8 @@ Pencere başlıkları `.private` olarak yazılır.
 | `TokenEditingTests` | `Document.setTokens` (kimlik, anahtar çakışmaları) ve başlık parçası seçici yardımcıları |
 | `PinGroupCodableTests`, `PinGroupModelTests`, `PinGroupStoreTests` | Pin grubu alanları (eski dosyalar bayt düzeyinde aynı, hoşgörülü okuma), belge işlemleri (boş gruplar, hayaletler, profil kapsamı, kopya/içe aktarma), işlem başına tek geri alma adımı |
 | `PinGroupLayoutTests`, `RouterProjectionTests`, `PinGroupURLTests` | Haritadaki grup kutuları, Router'ın gruba kör kural anahtarı, URL komutları ve `status.json` |
+| `PinGroupViewLogicTests` | Grup başlığının sayı ve *üzerinde de* etiketleri, menü hedefleri ve adları, yerleştirilebilir üyeler, üye yerleri ve açma yerleşimleri, adlandırma isteğinin süresi, açma koruması |
+| `GroupMoveTests`, `PinBatchTests`, `MultiPinTests`, `ShotsTests` (pin grubu bölümleri) | Bütün pin grubunun taşınması (`forPinGroup`, kazanana göre "zaten orada", adlı masaüstleri), grup aç/kapa girdisi (`pinGroupInput`, `groupAction`), ⌘-tık çubuğunun gruplama planı (var olan pinler, geçici sabitlemeler, öbür planın çipleri, uygulama geneli pinler), demo grubu |
 | `LocalizationTests` | Anahtar/çeviri tutarlılığı (yukarıya bak) |
 
 Testler hiçbir zaman bir `Store` ya da `Router` oluşturmaz; bu yüzden

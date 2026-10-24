@@ -124,6 +124,32 @@ struct PinGroupModelTests {
         #expect(d.pinGroup(g.id) == nil)
     }
 
+    @Test func unpinInOnePlanEndsMembershipAndRepinStaysUngrouped() throws {
+        var d = document([pdf("a", undocked: 2), pdf("b", undocked: 2)])
+        let g = try req(d.createPinGroup(name: "G", ruleIDs: ["a", "b"]))
+        d.unpin("a", mode: .docked)
+        // Öbür planda yeri kalır, üyelik biter (K5).
+        #expect(d.rule("a")?.undocked != nil)
+        #expect(d.rule("a")?.groupID == nil)
+        #expect(d.pinGroupMembers(g.id, mode: .undocked).map(\.id) == ["b"])
+        let draft = Rule(id: "fresh", appName: "Preview", bundleID: "com.apple.Preview", tokens: ["a"])
+        let id = d.pin(draft, destination: at("builtin", 3), mode: .docked)
+        #expect(id == "a")
+        #expect(d.rule("a")?.groupID == nil)
+    }
+
+    @Test func defaultNameReusesTheNumberOfAnEmptyGroupDroppedByTheSameAction() throws {
+        var d = document([pdf("a"), pdf("b")])
+        let g1 = try req(d.createPinGroup(name: nil, ruleIDs: ["a"]))
+        #expect(d.pinGroup(g1.id)?.name == "Group 1")
+        d.unpin("a", mode: .docked)
+        #expect(d.pinGroup(g1.id) != nil)
+        let g2 = try req(d.createPinGroup(name: nil, ruleIDs: ["b"]))
+        #expect(d.pinGroup(g1.id) == nil)
+        #expect(d.pinGroups.map(\.name) == ["Group 1"])
+        #expect(d.pinGroup(g2.id)?.name == "Group 1")
+    }
+
     @Test func aGroupReferencedOnlyByAGhostSurvives() throws {
         var d = document([pdf("a", desktop: 3), pdf("b", desktop: 1)])
         let g = try req(d.createPinGroup(name: "Nova drafts", ruleIDs: ["a"]))

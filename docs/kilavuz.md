@@ -148,7 +148,7 @@ makaleye ait. O dördünü grupla; birlikte taşınır, açılır ve kapanırlar
   yeni pencereler bulundukları yere pinlenir. Ya da bir çipe veya pinli
   pencereye sağ tıkla › **Gruba ekle** › var olan bir grup ya da **Yeni grup…**.
   Bir pin en çok bir gruptadır: başka gruba eklemek onu oraya taşır.
-- **Ad ver.** Yeni grup *Grup 1* adıyla, ad alanı açık başlar; sonradan grubun
+- **Ad ver.** Yeni grup *Grup N* adıyla (ilk boş numara), ad alanı açık başlar; sonradan grubun
   başlığına çift tıkla (ya da sağ tık › **Grubu yeniden adlandır…**). Boş ad
   kabul edilmez.
 - **Aç ve kapat.** Başlığın sağındaki düğme grubun bütün kapalı pinlerini açar
@@ -161,12 +161,17 @@ makaleye ait. O dördünü grupla; birlikte taşınır, açılır ve kapanırlar
   orada da o ada bağlanır.
 - **Tek başına taşınan pin grubunda kalır.** Başlık o zaman *Masaüstü N
   üzerinde de* (ya da *başka ekranda da*) der. Bir pini gruptan çıkarmak için
-  ona sağ tıkla › **Gruptan çıkar**. **Grubu dağıt (pinler kalır)** grubu
-  siler, pinlere dokunmaz.
+  ona sağ tıkla › **Gruptan çıkar**. Bir üyenin pinini kaldırmak (ya da onu
+  tepsiye bırakmak) da onu iki planda birden gruptan çıkarır: o pencereyi
+  sonra yeniden pinlemek onu gruba geri koymaz. **Grubu dağıt (pinler kalır)**
+  grubu siler, pinlere dokunmaz. **Gruba ekle** menüsünde aynı adlı gruplar
+  pin sayılarıyla görünür.
 - **Geçici sabitlemeler gruplanmaz.** Zaten geçici sabitlemesi olan seçili
   pencere onu korur, gruba girmez; başlığı başka açık pencerelere de uyan
   pencere her zamanki gibi geçici sabitlenir. Öbür planın pinleri (tepsi) bu
-  plandan grup başlatamaz.
+  plandan grup başlatamaz; birini seçince yan sütun bunu söyler. Uygulamanın
+  bütün pencerelerini tutan bir pinin (*bütün pencereler*) penceresi başlığıyla
+  kendi pinini alır; grupta yalnız seçtiğin pencereler olur.
 - Geri al (⌘Z) her grup değişikliğini kapsar. Gruplamadan önce alınmış bir
   yedeği geri yüklemek grupları da kaldırır.
 - Gruplar `rules.json`’da isteğe bağlı alanlardır. Eski bir Deskmap onları

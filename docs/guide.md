@@ -143,7 +143,8 @@ paper. Group those four and they move, open and close together.
   their places; new windows are pinned where they are. Or right-click a chip
   or a pinned window › **Add to group** › an existing group or **New group…**.
   A pin is in at most one group: adding it to another group moves it there.
-- **Name it.** A new group starts as *Group 1* with its name field open;
+- **Name it.** A new group starts as *Group N* (the first free number) with
+  its name field open;
   double-click the group's header (or right-click › **Rename group…**) to
   rename it later. An empty name is not accepted.
 - **Open and close.** The button at the right of the header opens every
@@ -156,12 +157,17 @@ paper. Group those four and they move, open and close together.
   place in the other plan get that name there too.
 - **One pin moved alone stays in its group.** The header then shows *also on
   Desktop N* (or *also on another screen*). To take a pin out, right-click it ›
-  **Remove from group**. **Ungroup (keeps pins)** removes the group, never the
-  pins.
+  **Remove from group**. Unpinning a member (or dropping it on the tray) also
+  takes it out, in both plans: pinning that window again later does not put it
+  back. **Ungroup (keeps pins)** removes the group, never the pins. In the
+  **Add to group** menu, groups with the same name show their pin count.
 - **Temporary pins are not grouped.** A selected window that already has a
   temporary pin keeps it and stays out of the group; a window whose title also
   matches other open windows gets a temporary pin the usual way. Pins of the
-  other plan (the tray) can't start a group from this plan.
+  other plan (the tray) can't start a group from this plan; the side column
+  says so when you select one. A window held by an app-wide pin (*all
+  windows*) gets its own pin by title, so the group holds only the windows
+  you selected.
 - Undo (⌘Z) covers every group change. Restoring a backup made before you
   grouped also removes the groups.
 - Groups are optional fields in `rules.json`. An older Deskmap ignores them,

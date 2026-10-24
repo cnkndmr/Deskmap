@@ -26,9 +26,12 @@ struct MultiPinBar: View {
         /// Gruplamada atlanan, oturum pini (geçici sabitleme) olan seçili
         /// pencereler (K8: gruba girmez, kutuda görünmezdi).
         var temporary: [CGWindowID] = []
+        /// Gruplamada atlanan, bu planda yeri olmayan seçili çipler (öbür
+        /// planın tepsisi): kutu çizmezlerdi; çubuk nedenini söyler.
+        var otherPlan: [String] = []
 
         static func == (a: Plan, b: Plan) -> Bool {
-            a.existing == b.existing && a.temporary == b.temporary
+            a.existing == b.existing && a.temporary == b.temporary && a.otherPlan == b.otherPlan
                 && a.rules.map(\.rule.tokens) == b.rules.map(\.rule.tokens)
                 && a.rules.map(\.rule.path) == b.rules.map(\.rule.path)
                 && a.rules.map(\.destination) == b.rules.map(\.destination)
@@ -51,7 +54,11 @@ struct MultiPinBar: View {
     /// yalnız öbür planda yeri olan kurala düşen pencere `rules`'a gider:
     /// `Document.pin` o kurala bu planın yerini ekler (yazılı yer yok, K12
     /// bozulmaz). Oturum pini olan pencere (`sessionPinned`) `temporary`'ye
-    /// gider, gruba girmez (K8). `mode` nil: yer denetimi yok.
+    /// gider, gruba girmez (K8). Kazanan kural uygulamanın bütün
+    /// pencerelerini tutuyorsa (`isAppWide`) pencere pinsiz sayılır ve kendi
+    /// başlık kuralını alır: yoksa seçilmeyen pencereler de gruba girerdi.
+    /// Bu planda yeri olmayan seçili çipler `otherPlan`'a gider. `mode` nil:
+    /// yer denetimi yok.
     static func plan(selected ids: Set<CGWindowID>, windows: [Router.WindowSnapshot],
                      history: WindowIdentity.Observations = .init(),
                      existingRules: [Rule]? = nil, selectedRules: Set<String> = [],
@@ -69,7 +76,8 @@ struct MultiPinBar: View {
                 plan.temporary.append(window.id)
                 continue
             }
-            if existingRules != nil, let rule = ruleFor?(window), known.contains(rule.id) {
+            if existingRules != nil, let rule = ruleFor?(window), known.contains(rule.id),
+               !rule.isAppWide {
                 keep(rule.id)
                 continue
             }
@@ -90,8 +98,8 @@ struct MultiPinBar: View {
             }
         }
         // Öbür planın tepsi çipi bu planda kutu çizmezdi: yalnız yeri olanlar.
-        for rule in existingRules ?? [] where selectedRules.contains(rule.id) && hasPlace(rule) {
-            keep(rule.id)
+        for rule in existingRules ?? [] where selectedRules.contains(rule.id) {
+            if hasPlace(rule) { keep(rule.id) } else { plan.otherPlan.append(rule.id) }
         }
         return plan
     }
@@ -180,6 +188,17 @@ struct MultiPinBar: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+            }
+            // Öbür planın çipi seçilebilir ama burada gruplanamaz; yalnız
+            // "Temizle" kalırsa neden boş olduğu görünsün.
+            if !grouping.otherPlan.isEmpty {
+                Text(grouping.otherPlan.count == 1
+                     ? L("1 selected pin belongs to the other plan and is not grouped here")
+                     : L("%ld selected pins belong to the other plan and are not grouped here",
+                         grouping.otherPlan.count))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             // Esc kısayolu odak gerektirmez (onExitCommand gerektirirdi).
             Button(L("Clear")) { ui.clearSelection() }

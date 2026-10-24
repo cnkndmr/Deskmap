@@ -73,6 +73,9 @@ extension Document {
     mutating func createPinGroup(name: String?, ruleIDs: [String]) -> (id: String, pulled: Int)? {
         let ids = knownRuleIDs(ruleIDs)
         guard !ids.isEmpty else { return nil }
+        // Önce boş gruplar düşer: aynı işlemde silinecek boş "Grup 1" yeni
+        // grubun varsayılan adından numara kapmasın.
+        dropEmptyPinGroups()
         let group = PinGroup(name: name.flatMap(Self.normalizedGroupName) ?? defaultPinGroupName())
         pinGroups.append(group)
         let pulled = assign(ids, to: group.id)
