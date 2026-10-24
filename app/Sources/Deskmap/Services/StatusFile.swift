@@ -81,6 +81,15 @@ final class StatusFile {
         /// Onay bekleyen roller: monitör bu rolde hatırlanmıyor, düzen
         /// uygulanmıyor (`deskmap screen-role` ile onaylanır).
         let heldRoles: [String]
+        /// Aktif profilin pin grupları (boş gruplar dahil); üyelik ayrıca
+        /// `rules[*].groupID`'de. Eski araçlar bu alanı tanımaz.
+        let pinGroups: [GroupStatus]
+    }
+    struct GroupStatus: Codable, Equatable {
+        let id: String
+        let name: String
+        /// Üye kural kimlikleri (kural sırasıyla, her iki kurulum).
+        let rules: [String]
     }
     struct Name: Codable {
         let id: String
@@ -89,6 +98,14 @@ final class StatusFile {
         let screen: String?
         let desktop: Int?
         let planned: [String: String]
+    }
+
+    /// `status.json`'daki pin grupları (saf): aktif profilin grupları, üyeleri.
+    nonisolated static func pinGroups(_ document: Document) -> [GroupStatus] {
+        document.pinGroups.map { group in
+            GroupStatus(id: group.id, name: group.name,
+                        rules: document.rules.filter { $0.groupID == group.id }.map(\.id))
+        }
     }
 
     private let url: URL
@@ -198,7 +215,8 @@ final class StatusFile {
             names: Self.names(store.document, live: store.live),
             plans: store.document.plans,
             displayRoles: store.document.displayRoles,
-            heldRoles: screens.heldRoles.sorted())
+            heldRoles: screens.heldRoles.sorted(),
+            pinGroups: Self.pinGroups(store.document))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

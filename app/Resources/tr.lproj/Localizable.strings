@@ -765,3 +765,5 @@
 "1 pin selected" = "1 pin seçili";
 "%ld pins selected" = "%ld pin seçili";
 "Collect the selection in a new pin group; pins that already exist keep their places" = "Seçimi yeni bir pin grubunda topla; zaten pinli olanlar yerlerinde kalır";
+"No pin group %@" = "%@ adlı pin grubu yok";
+"Several pin groups are named %@; use the id" = "%@ adında birden çok pin grubu var; kimliği kullanın";

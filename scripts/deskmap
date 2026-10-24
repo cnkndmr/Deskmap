@@ -81,6 +81,13 @@ COMMANDS:
   pause | resume | toggle | reapply | reload | next-profile | profile NAME
   profile-rename OLD NEW | export FILE [--profile P]
   desktop-move SCREEN N M [--mode M]   reorder desktops (rules/pins/windows follow)
+  group list [--json] | group create NAME RULE... | group rename GROUP NAME | group rm GROUP
+  group add GROUP RULE... | group remove GROUP RULE...
+                                   pin groups of the ACTIVE profile: a named set of pins that
+                                   move, open and close together in the app. A pin is in at most
+                                   one group (adding moves it from its old group); `rm` ungroups,
+                                   the pins stay. GROUP: id, name (case-insensitive) or a unique
+                                   part of a name. Undo: ⌘Z in the app
   backups [--json] | backup-now | backup-restore ID
                                    automatic backups of all profiles (hourly for 24 h,
                                    daily for 7 days, weekly forever); restore first backs
@@ -428,12 +435,97 @@ def show_rules(args):
     s = fresh_status()
     if args.json:
         print(json.dumps(s["rules"], indent=2, ensure_ascii=False)); return
-    for r in s["rules"]:
+    print("\n".join(rule_lines(s)))
+
+
+def rule_lines(status):
+    """`rules` metin çıktısı; pin grubundaki kurala `[group: ad]` eki."""
+    groups = {g["id"]: g["name"] for g in status.get("pinGroups", [])}
+    out = []
+    for r in status["rules"]:
         title = f" title~{' '.join(r['tokens'])}" if r.get("tokens") else ""
         if r.get("path"):
             title += f" file={r['path']}"
-        print(f"{r['id']}  {r['appName']}{title}\n    docked {docked_text(r)}"
-              f"  undocked {dest_text(r.get('undocked'))}")
+        group = f"  [group: {groups[r['groupID']]}]" if r.get("groupID") in groups else ""
+        out.append(f"{r['id']}  {r['appName']}{title}{group}\n    docked {docked_text(r)}"
+                   f"  undocked {dest_text(r.get('undocked'))}")
+    return out
+
+
+def resolve_group(status, text):
+    """Pin grubu: önce kimlik, sonra harf duyarsız tam ad, sonra tek parça
+    eşleşmesi. Belirsizse adaylar listelenir. Dönen her zaman kimliktir."""
+    groups = status.get("pinGroups", [])
+    for g in groups:
+        if g["id"] == text:
+            return g["id"]
+    t = text.strip().lower()
+    hits = [g for g in groups if g["name"].lower() == t] or [g for g in groups if t and t in g["name"].lower()]
+    if len(hits) == 1:
+        return hits[0]["id"]
+    if not hits:
+        names = ", ".join(g["name"] for g in groups)
+        die(f"no pin group '{text}'" + (f"; groups: {names}" if names else ""))
+    lines = "\n".join(f"  {g['id']}  {g['name']}" for g in hits)
+    die(f"'{text}' matches {len(hits)} pin groups, use an id:\n{lines}")
+
+
+def group_lines(status):
+    """`group list`: "ad (n pins)  kimlik", altında her üye ve bu kurulumdaki
+    yeri; üyesi kalmamış grup "(empty)"."""
+    rules = {r["id"]: r for r in status.get("rules", [])}
+    mode = status.get("mode", "docked")
+    out = []
+    for g in status.get("pinGroups", []):
+        members = [rules[i] for i in g.get("rules", []) if i in rules]
+        count = "(empty)" if not members else f"({len(members)} pin{'s' if len(members) != 1 else ''})"
+        out.append(f"{g['name']} {count}  {g['id']}")
+        for r in members:
+            d = r.get(mode)
+            place = desktop_label(status, d["screen"], d["desktop"]) if d else f"- (no {mode} place)"
+            title = " ".join(r.get("tokens", [])) or os.path.basename(r.get("path") or "") or "all windows"
+            out.append(f"    {r['appName']} {title}  {place}")
+    return out
+
+
+def show_groups(args):
+    s = fresh_status()
+    if args.json:
+        print(json.dumps(s.get("pinGroups", []), indent=2, ensure_ascii=False)); return
+    lines = group_lines(s)
+    print("\n".join(lines) if lines else "no pin groups")
+
+
+def group_create(args):
+    s = fresh_status()
+    ids = [resolve_rule(s, r) for r in args.rules]
+    before = {g["id"] for g in s.get("pinGroups", [])}
+    after = send("group-add", name=args.name, rules=",".join(ids))
+    new = [g for g in after.get("pinGroups", []) if g["id"] not in before]
+    if not new:
+        die("pin group was not created")
+    print(new[0]["id"])
+
+
+def group_rename(args):
+    s = fresh_status()
+    gid = resolve_group(s, args.group)
+    send(f"group-rename/{urllib.parse.quote(gid, safe='')}", name=args.name)
+
+
+def group_rm(args):
+    s = fresh_status()
+    gid = resolve_group(s, args.group)
+    after = send(f"group-remove/{urllib.parse.quote(gid, safe='')}")
+    if any(g["id"] == gid for g in after.get("pinGroups", [])):
+        die("pin group is still there")
+
+
+def group_members(args, key):
+    s = fresh_status()
+    gid = resolve_group(s, args.group)
+    ids = [resolve_rule(s, r) for r in args.rules]
+    send(f"group-set/{urllib.parse.quote(gid, safe='')}", **{key: ",".join(ids)})
 
 
 def show_hooks(args):
@@ -759,9 +851,18 @@ def build_plan(spec):
 def merge_rules(old, new, replace):
     """Varsayılan: profilin öteki kuralları kalır; dosyadaki pencerenin kuralı
     (aynı uygulama + başlık parçaları) güncellenir, yoksa eklenir. Güncellenen
-    kural kimliğini korur. `replace` ise liste dosyadakiyle değişir."""
+    kural kimliğini korur. `replace` ise liste dosyadakiyle değişir; dosyadaki
+    kural eski bir kuralla (aynı anahtar) eşleşiyor ve grubu yazmıyorsa eski
+    pin grubu üyeliği (`groupID`) taşınır."""
     if replace or not old:
-        return [dict(r) for r in new], [r["id"] for r in new]
+        groups = {rule_key(r): r["groupID"] for r in old or [] if r.get("groupID")}
+        merged = []
+        for r in new:
+            r = dict(r)
+            if "groupID" not in r and rule_key(r) in groups:
+                r["groupID"] = groups[rule_key(r)]
+            merged.append(r)
+        return merged, [r["id"] for r in new]
     merged = [dict(r) for r in old]
     index = {rule_key(r): i for i, r in enumerate(merged)}
     ids = []
@@ -1297,7 +1398,8 @@ def screen_role(args):
             print(f"{sc['id']:<11} {sc['name']:<28} {sc.get('uuid', '')[:8]}")
 
 
-def main():
+def build_parser():
+    """Komut satırı ayrıştırıcısı (testler alt komutları buradan dener)."""
     p = argparse.ArgumentParser(prog="deskmap", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -1347,6 +1449,18 @@ def main():
     sp.set_defaults(fn=export_profile)
     sp = sub.add_parser("desktop-move"); sp.add_argument("screen"); sp.add_argument("src", type=int)
     sp.add_argument("dst", type=int); sp.add_argument("--mode", choices=MODES); sp.set_defaults(fn=desktop_move)
+    gp = sub.add_parser("group", help="pin groups of the active profile").add_subparsers(
+        dest="gcmd", required=True)
+    sp = gp.add_parser("list"); sp.add_argument("--json", action="store_true"); sp.set_defaults(fn=show_groups)
+    sp = gp.add_parser("create"); sp.add_argument("name"); sp.add_argument("rules", nargs="+")
+    sp.set_defaults(fn=group_create)
+    sp = gp.add_parser("rename"); sp.add_argument("group"); sp.add_argument("name")
+    sp.set_defaults(fn=group_rename)
+    sp = gp.add_parser("rm", help="ungroup (the pins stay)"); sp.add_argument("group")
+    sp.set_defaults(fn=group_rm)
+    for name, key in (("add", "add"), ("remove", "remove")):
+        sp = gp.add_parser(name); sp.add_argument("group"); sp.add_argument("rules", nargs="+")
+        sp.set_defaults(fn=lambda a, k=key: group_members(a, k))
     sp = sub.add_parser("backups"); sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=show_backups)
     sub.add_parser("backup-now").set_defaults(fn=lambda a: (send("backup-now"), print("backed up")))
@@ -1364,6 +1478,11 @@ def main():
     sub.add_parser("layouts").set_defaults(fn=lambda a: print("\n".join(
         f"{k:<18} {','.join(f'{v:g}' for v in xywh)}" for k, xywh in NAMED_LAYOUTS.items())
         + "\ndesktop-only       follow the desktop, keep position and size"))
+    return p
+
+
+def main():
+    p = build_parser()
     if len(sys.argv) == 1:
         p.print_help()
         return

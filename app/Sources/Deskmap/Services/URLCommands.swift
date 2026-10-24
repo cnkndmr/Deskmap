@@ -45,6 +45,12 @@ import Foundation
 ///     deskmap://backup-now           otomatik yedeği şimdi çalıştır
 ///     deskmap://backup-restore/<kimlik>  yedeği geri yükle (önce şimdiki hâli
 ///                                    pre-restore katmanına yedekler; geri alınabilir)
+///     deskmap://group-add?name=<ad>&rules=<kimlik,kimlik>  kurallardan pin grubu kur
+///                                    (ad boşsa "Grup N"; başka gruptakiler oradan çıkar)
+///     deskmap://group-rename/<grup>?name=<ad>   pin grubunu yeniden adlandır
+///     deskmap://group-remove/<grup>  pin grubunu dağıt (pinler kalır)
+///     deskmap://group-set/<grup>?add=<kimlikler>&remove=<kimlikler>  üye ekle/çıkar
+///                                    (tek geri alma adımı). <grup>: kimlik ya da tam ad
 ///
 /// Her komut `?req=<n>` alabilir: işlendikten sonra status.json `request: n`
 /// ile yazılır (`deskmap` komut satırı aracı bununla bekler).
@@ -86,6 +92,10 @@ enum URLCommand: Equatable {
     case forgetScreen(display: String)
     case backupNow
     case restoreBackup(id: String)
+    case groupAdd(name: String?, rules: [String])
+    case groupRename(group: String, name: String)
+    case groupRemove(group: String)
+    case groupMembers(group: String, add: [String], remove: [String])
 
     static let scheme = "deskmap"
 
@@ -122,6 +132,12 @@ enum URLCommand: Equatable {
             return (window, parts[1].lowercased(), desktop)
         }
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        /// Virgüllü kimlik listesi (boşluklar ve boş öğeler atılır).
+        func ids(_ name: String) -> [String] {
+            (query.first { $0.name == name }?.value ?? "").split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        let groupPath = parts.joined(separator: "/").trimmingCharacters(in: .whitespacesAndNewlines)
 
         switch command {
         case "reload":       return .reload
@@ -239,6 +255,21 @@ enum URLCommand: Equatable {
             case 1: return .forgetScreen(display: parts[0])
             default: return nil
             }
+        case "group-add":
+            let rules = ids("rules")
+            guard parts.isEmpty, !rules.isEmpty else { return nil }
+            let name = query.first { $0.name == "name" }?.value
+            return .groupAdd(name: name?.isEmpty == true ? nil : name, rules: rules)
+        case "group-rename":
+            guard !groupPath.isEmpty, let name = query.first(where: { $0.name == "name" })?.value
+            else { return nil }
+            return .groupRename(group: groupPath, name: name)
+        case "group-remove":
+            return groupPath.isEmpty ? nil : .groupRemove(group: groupPath)
+        case "group-set":
+            let add = ids("add"), remove = ids("remove")
+            guard !groupPath.isEmpty, !add.isEmpty || !remove.isEmpty else { return nil }
+            return .groupMembers(group: groupPath, add: add, remove: remove)
         case "reapply":      return .reapply
         case "pause":        return .pause
         case "resume":       return .resume
@@ -306,8 +337,48 @@ enum URLCommands {
         return hits.count == 1 ? hits[0].display.uuid : nil
     }
 
+    /// Komuttaki pin grubu (kimlik ya da harf duyarsız tam ad); bulunamazsa
+    /// ya da ad birden çok gruba uyuyorsa hata bildirilir, nil.
+    private static func pinGroup(_ text: String, store: Store) -> String? {
+        switch store.document.resolvePinGroup(text) {
+        case .found(let id): return id
+        case .missing:
+            store.report(L("No pin group %@", text))
+        case .ambiguous:
+            store.report(L("Several pin groups are named %@; use the id", text))
+        }
+        return nil
+    }
+
+    /// Bilinmeyen kural kimliklerini bildirir (var olan "kural yok" metni); var olanları döner.
+    private static func knownRules(_ ids: [String], store: Store) -> [String] {
+        let known = ids.filter { store.rule($0) != nil }
+        if let missing = ids.first(where: { store.rule($0) == nil }) {
+            store.report(L("Rule not found: %@", missing))
+        }
+        return known
+    }
+
     static func run(_ command: URLCommand, store: Store, router: Router) {
         switch command {
+        case .groupAdd(let name, let ids):
+            let rules = knownRules(ids, store: store)
+            guard !rules.isEmpty else { return }
+            store.createPinGroup(name: name, ruleIDs: rules, reportPulled: false)
+        case .groupRename(let text, let name):
+            guard let id = pinGroup(text, store: store) else { return }
+            guard Document.normalizedGroupName(name) != nil else {
+                store.report(L("Group name can't be empty"))
+                return
+            }
+            store.renamePinGroup(id, to: name)
+        case .groupRemove(let text):
+            guard let id = pinGroup(text, store: store) else { return }
+            store.dissolvePinGroup(id)
+        case .groupMembers(let text, let add, let remove):
+            guard let id = pinGroup(text, store: store) else { return }
+            store.editPinGroupMembers(id, add: knownRules(add, store: store), remove: remove,
+                                      reportPulled: false)
         case .reapply:
             router.reapplyAll()
         case .pause:
