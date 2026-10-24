@@ -167,6 +167,12 @@ now**; the other one says when it applies.
 - **Monitor connected** — at least one external display is attached.
 - **Laptop only** — just the built-in screen.
 
+The two plans are set up separately. If a window sits in the same place in
+both (say Safari on the laptop screen, desktop 2) but with a different
+layout, its panel offers **Use the Laptop only plan's layout** (or the
+Monitor connected one): one click copies it over once, and the plans stay
+separate afterwards.
+
 With two external monitors the map shows a card for each (**Extra monitor**,
 **Monitor 2**). Each monitor keeps its card wherever you place it in System
 Settings › Displays; if the two are the wrong way round, click the title of

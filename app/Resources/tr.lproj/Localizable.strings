@@ -726,3 +726,9 @@
 "Layout moved: %@" = "Düzen taşındı: %@";
 "Layout deleted: %@" = "Düzen silindi: %@";
 "Layouts reset" = "Düzenler sıfırlandı";
+"Layout copied from the other plan" = "Düzen öbür plandan kopyalandı";
+"Same place in the %@ plan, layout: %@" = "%1$@ planında aynı yer, düzen: %2$@";
+"Use the %@ plan's layout" = "%@ planındaki düzeni kullan";
+"Copy the layout from the %@ plan once. The plans stay separate: later changes in one do not change the other (⌘Z undoes)" = "Düzeni %@ planından bir kez kopyala. Planlar ayrı kalır: sonradan birinde yapılan değişiklik öbürünü değiştirmez (⌘Z geri alır)";
+"The two plans of this rule are not on the same display and desktop: %@" = "Bu kuralın iki planı aynı ekranda ve masaüstünde değil: %@";
+"This rule needs a target in both plans: %@" = "Bu kuralın iki planında da hedefi olmalı: %@";

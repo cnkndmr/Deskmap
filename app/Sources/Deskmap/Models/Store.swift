@@ -613,6 +613,31 @@ final class Store: ObservableObject {
         return changed
     }
 
+    /// `adoptLayout(for:from:)` sonucu (URL komutu ve CLI ayırt eder).
+    enum AdoptLayoutResult: Equatable {
+        case copied
+        case alreadyEqual
+        case notSamePlace
+        /// Kuralın iki kurulumundan birinde hedef yok (kopyalanacak yer yok).
+        case missingPlan
+        case ruleNotFound
+    }
+
+    /// "Öbür kurulumdakini kullan" (panel düğmesi, `deskmap rule copy-layout`):
+    /// `source` kurulumunun düzeni öbür kurulumdaki aynı yere bir kez yazılır
+    /// (geri alınabilir). İki kurulum bağlanmaz.
+    @discardableResult
+    func adoptLayout(for id: String, from source: Mode) -> AdoptLayoutResult {
+        guard let rule = rule(id) else { return .ruleNotFound }
+        guard rule.docked != nil, rule.undocked != nil else { return .missingPlan }
+        guard rule.sharedPlace != nil else { return .notSamePlace }
+        guard rule.layoutDiffersAcrossSetups else { return .alreadyEqual }
+        recording(L("Layout copied from the other plan")) {
+            document.adoptLayout(for: id, from: source)
+        }
+        return .copied
+    }
+
     /// Pinler: aynı anahtarlı (uygulama + parçalar) kural varsa onun bu
     /// moddaki hedefi güncellenir (mevcut hedef eziliyorsa geri alınabilir),
     /// yoksa yeni kural eklenir. Kural kimliği döner.

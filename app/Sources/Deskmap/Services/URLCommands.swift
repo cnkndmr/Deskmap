@@ -32,6 +32,8 @@ import Foundation
 ///     deskmap://desktop-move/<ekran>/<n>/<m>[?mode=]  n. masaüstünü m. sıraya taşı
 ///     deskmap://rule-save-layout/<kimlik>[?window=<pencere>]  pencerenin şu anki
 ///                                    boyut/konumunu kuralın yerleşimi yap
+///     deskmap://rule-copy-layout/<kimlik>?from=docked|undocked  o kurulumun düzenini
+///                                    öbür kurulumdaki aynı yere bir kez kopyala
 ///     deskmap://profile-set?json=<profil>&activate=1  profili ada göre ekle/güncelle
 ///     deskmap://plan-desktops/<ekran>/<n>?mode=docked|undocked  ekranda n masaüstü olsun
 ///     deskmap://desktop-name/<ekran>/<n>?name=<ad>[&mode=]  masaüstüne ad ver (boş ad siler)
@@ -77,6 +79,7 @@ enum URLCommand: Equatable {
     case exportProfile(name: String?, path: String)
     case moveDesktop(screen: String, from: Int, to: Int, mode: Mode?)
     case saveLayout(rule: String, window: CGWindowID?)
+    case copyLayout(rule: String, from: Mode)
     case nameDesktop(screen: String, desktop: Int, name: String, mode: Mode? = nil)
     case screenRole(display: String, role: String)
     case forgetScreenRoles
@@ -204,6 +207,11 @@ enum URLCommand: Equatable {
                 window = id
             }
             return .saveLayout(rule: parts[0], window: window)
+        case "rule-copy-layout":
+            guard parts.count == 1, !parts[0].isEmpty,
+                  let raw = query.first(where: { $0.name == "from" })?.value,
+                  let from = Mode(rawValue: raw.lowercased()) else { return nil }
+            return .copyLayout(rule: parts[0], from: from)
         case "desktop-name":
             guard parts.count == 2, let desktop = Int(parts[1]), desktop >= 1 else { return nil }
             let name = query.first { $0.name == "name" }?.value ?? ""
@@ -445,6 +453,10 @@ enum URLCommands {
             moveDesktop(screen: screen, from: from, to: to, mode: mode, store: store, router: router)
         case .saveLayout(let ruleID, let windowID):
             saveLayout(ruleID: ruleID, windowID: windowID, store: store, router: router)
+        case .copyLayout(let ruleID, let from):
+            if let error = copyLayoutError(store.adoptLayout(for: ruleID, from: from), ruleID: ruleID) {
+                store.report(error)
+            }
         case .addDesktop(let screen):
             Task {
                 if await !router.addDesktop(on: screen) {
@@ -514,6 +526,21 @@ enum URLCommands {
             return
         }
         _ = store.saveLayout(layout, for: ruleID, mode: mode)
+    }
+
+    /// `rule-copy-layout` sonucunun hata metni (saf); kopyalandıysa ya da
+    /// düzenler zaten aynıysa nil (komut satırı aracı "zaten aynı"yı kendisi
+    /// yazar).
+    nonisolated static func copyLayoutError(_ result: Store.AdoptLayoutResult,
+                                            ruleID: String) -> String? {
+        switch result {
+        case .copied, .alreadyEqual: return nil
+        case .ruleNotFound: return L("Rule not found: %@", ruleID)
+        case .notSamePlace:
+            return L("The two plans of this rule are not on the same display and desktop: %@", ruleID)
+        case .missingPlan:
+            return L("This rule needs a target in both plans: %@", ruleID)
+        }
     }
 
     /// Önce tam eşleşme, sonra büyük/küçük harfe duyarsız eşleşme.

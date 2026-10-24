@@ -8,6 +8,12 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Use the other plan's layout.** When a pin's two plans put the window in
+  the same place (same display and desktop) with different layouts, its panel
+  shows the other plan's layout and a button that copies it over once (⌘Z
+  undoes; the plans are not linked). Also from the command line:
+  `deskmap rule copy-layout RULE --from docked|undocked`
+  (`deskmap://rule-copy-layout/<id>?from=`).
 - **Your own layouts.** Settings › Layouts lists every layout in three groups:
   **Basic** (the tiles under every pin, up to six, also in Advanced),
   **Advanced** (next to the grid) and **Hidden**. Draw a new layout on the

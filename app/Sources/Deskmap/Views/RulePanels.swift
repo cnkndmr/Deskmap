@@ -91,6 +91,7 @@ struct RulePanel: View {
                     destination: store.rule(rule.id)?[mode] ?? destination, mode: mode,
                     setDestination: { store.setDestination($0, for: rule.id, mode: mode) })
                 BasicLayoutRow(layout: layoutBinding(destination))
+                OtherPlanLayoutRow(rule: store.rule(rule.id) ?? rule, mode: mode)
                 if mode == .docked { PlacesList(rule: rule) }
             } else {
                 Text(L("Drag onto a desktop to give it a place in this plan."))
@@ -648,6 +649,45 @@ struct SaveCurrentLayoutRow: View {
         }
         return L("Window now: %@", store.document.layouts.label(for: current))
     }
+}
+
+// MARK: - Öbür kurulumdakini kullan
+
+/// Pin panelinde düzen satırının altı: kuralın iki kurulumu aynı yerdeyse
+/// (aynı ekran ve masaüstü) ama düzenleri farklıysa öbür kurulumun düzeni
+/// ve onu bu kuruluma bir kez kopyalayan düğme. Koşul tutmuyorsa hiçbir şey
+/// çizilmez. Kopya tek seferlik: iki kurulum bağlanmaz.
+struct OtherPlanLayoutRow: View {
+
+    let rule: Rule
+    let mode: Mode
+
+    @EnvironmentObject private var store: Store
+
+    var body: some View {
+        if rule.layoutDiffersAcrossSetups, let source = rule[other] {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(L("Same place in the %@ plan, layout: %@", other.title,
+                       store.document.layouts.label(for: source.layout)))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Spacer()
+                    Button {
+                        store.adoptLayout(for: rule.id, from: other)
+                    } label: {
+                        Label(L("Use the %@ plan's layout", other.title),
+                              systemImage: other.symbol)
+                    }
+                    .controlSize(.small)
+                    .help(L("Copy the layout from the %@ plan once. The plans stay separate: later changes in one do not change the other (⌘Z undoes)", other.title))
+                }
+            }
+        }
+    }
+
+    private var other: Mode { mode == .docked ? .undocked : .docked }
 }
 
 // MARK: - Sıralı yerler (K3, docs/bug-tables.md §D)

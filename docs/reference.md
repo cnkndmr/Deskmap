@@ -186,6 +186,16 @@ What Deskmap enforces:
   the anchor from the edges the window touches (a window touching no edge
   keeps the saved anchor). Only the layout changes: the pin keeps its
   display and desktop, and no new pin is written. Works for temporary pins too.
+- **Use the other plan's layout**: when a pin's two plans put the window in
+  the same place (same display and desktop, e.g. both on the laptop screen;
+  with monitors, the first place of the list) but with different layouts, the
+  panel shows the other plan's layout under the layout tiles with a button
+  (**Use the Laptop only plan's layout** / **Use the Monitor connected plan's
+  layout**). It copies that layout into this plan once (⌘Z undoes); the two
+  plans are not linked, so later changes in one stay there. A pin aimed at a
+  desktop name counts as the same place only when both plans use the same name
+  on the same display; one name and one number never do. Two *desktop only*
+  layouts count as equal, as do two fixed sizes with the same size and anchor.
 - Windows of full-screen apps are never touched. Windows without a pin are
   never moved by the engine.
 
@@ -519,6 +529,7 @@ running, macOS starts it first.
 | `deskmap://profile-export?path=<absolute path>[&name=<profile>]` | Export a profile (default: active) as `.deskmap.json` |
 | `deskmap://desktop-move/<screen>/<n>/<m>[?mode=docked\|undocked]` | Move desktop *n* to position *m*, like dragging its label: pins follow; in the live mode windows move too |
 | `deskmap://rule-save-layout/<rule id>[?window=<id>]` | Use a matching window's current size and position as the rule's layout (live mode) |
+| `deskmap://rule-copy-layout/<rule id>?from=docked\|undocked` | Copy that plan's layout once into the rule's other plan (both must be the same display and desktop); an error if they are not or one plan has no target, nothing if the layouts are already equal |
 | `deskmap://profile-set?json=<profile>&activate=1` | Create or update a profile by name |
 | `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Make a display have *count* desktops |
 | `deskmap://desktop-name/<screen>/<n>?name=<name>` | Name a desktop (empty name removes it). The name belongs to that desktop: it follows it when it is reordered or moved, also to the other display, and in plug/unplug. A name already used in the profile is refused |
@@ -573,6 +584,7 @@ deskmap backups [--json]                   # automatic backups, newest first
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12
 deskmap save-layout Safari [--window 12345] # keep the size you just dragged
+deskmap rule copy-layout Safari --from docked # laptop plan takes the monitor plan's layout (same place only)
 ```
 
 ### Layout files (`deskmap apply`)

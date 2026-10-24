@@ -173,6 +173,11 @@ işaretlidir; öteki ne zaman geçerli olacağını yazar.
 - **Monitör bağlı** — en az bir harici ekran takılı.
 - **Sadece laptop** — yalnızca dahili ekran.
 
+İki plan ayrı ayarlanır. Bir pencere ikisinde de aynı yerdeyse (örneğin
+Safari laptop ekranında, 2. masaüstünde) ama düzeni farklıysa paneli **Sadece
+laptop planındaki düzeni kullan** (ya da Monitör bağlı olanı) önerir: tek
+tıkla düzen bir kez kopyalanır, planlar sonra yine ayrı kalır.
+
 İki harici monitörle haritada her biri için bir kart görünür (**Ekstra
 monitör**, **2. monitör**). Her monitör, Sistem Ayarları › Ekranlar’da nereye konursa
 konsun kendi kartında kalır; ikisi ters düştüyse 2. monitör kartının başlığına tıkla, öteki

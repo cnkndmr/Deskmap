@@ -439,5 +439,209 @@ class ScreenRoleTest(unittest.TestCase):
         self.assertIn("deskmap screen-role PEBBLE-00 external", out)
 
 
+class CopyLayoutTests(unittest.TestCase):
+    """`rule copy-layout`: same-place check, layout equality and the URL sent
+    (send/fresh_status replaced by a fake app)."""
+
+    LEFT = {"x": 0, "y": 0, "w": 0.5, "h": 1}
+    RIGHT = {"x": 0.5, "y": 0, "w": 0.5, "h": 1}
+
+    def make_rule(self, docked, undocked, **extra):
+        return {"id": "R1", "appName": "Safari", "bundleID": "com.apple.Safari", "tokens": [],
+                "docked": docked, "undocked": undocked, **extra}
+
+    def place(self, screen="builtin", desktop=2, layout=None, nameID=None):
+        d = {"screen": screen, "desktop": desktop, "layout": dict(layout or self.LEFT)}
+        if nameID:
+            d["nameID"] = nameID
+        return d
+
+    def setUp(self):
+        self.sent = []
+        self.after = None
+        self._send, self._fresh = dm.send, dm.fresh_status
+        dm.send = lambda command, **q: (self.sent.append((command, q)), self.after)[1]
+        dm.fresh_status = lambda: self.status
+
+    def tearDown(self):
+        dm.send, dm.fresh_status = self._send, self._fresh
+
+    def run_cli(self, source):
+        out, err = io.StringIO(), io.StringIO()
+        from contextlib import redirect_stdout
+        args = type("Args", (), {"rule": "Safari", "source": source})()
+        code = 0
+        with redirect_stdout(out), redirect_stderr(err):
+            try:
+                dm.copy_layout(args)
+            except SystemExit as e:
+                code = e.code
+        return code, out.getvalue(), err.getvalue()
+
+    def test_same_place(self):
+        self.assertTrue(dm.same_place(self.place(), self.place(layout=self.RIGHT)))
+        self.assertFalse(dm.same_place(self.place(), self.place(desktop=3)))
+        self.assertFalse(dm.same_place(self.place(), self.place(screen="external")))
+        # Name targets: the name decides (the number is only a cache), screen still must match.
+        self.assertTrue(dm.same_place(self.place(nameID="N1"), self.place(desktop=5, nameID="N1")))
+        self.assertFalse(dm.same_place(self.place(nameID="N1"), self.place(nameID="N2")))
+        # Mixed name/number: not the same place.
+        self.assertFalse(dm.same_place(self.place(nameID="N1"), self.place()))
+        self.assertFalse(dm.same_place(None, self.place()))
+
+    def test_layouts_alike(self):
+        self.assertTrue(dm.layouts_alike(self.LEFT, {"x": 0.0, "y": 0, "w": 0.5, "h": 1.0}))
+        self.assertFalse(dm.layouts_alike(self.LEFT, self.RIGHT))
+        self.assertTrue(dm.layouts_alike({**self.LEFT, "desktopOnly": True}, {**self.RIGHT, "desktopOnly": True}))
+        self.assertFalse(dm.layouts_alike({**self.LEFT, "desktopOnly": True}, self.LEFT))
+        fixed = {"width": 800, "height": 600, "anchor": "center"}
+        self.assertTrue(dm.layouts_alike({**self.LEFT, "fixed": fixed}, {**self.RIGHT, "fixed": fixed}))
+        self.assertFalse(dm.layouts_alike({**self.LEFT, "fixed": fixed}, self.LEFT))
+        # Proportional: the app's same-area tolerance (0.0005), not bit equality.
+        self.assertTrue(dm.layouts_alike(self.RIGHT, {"x": 0.50001, "y": 0, "w": 0.49999, "h": 1}))
+        self.assertTrue(dm.layouts_alike({"x": 0.3, "y": 0, "w": 0.7, "h": 1},
+                                         {"x": 1 - 0.7, "y": 0, "w": 0.7, "h": 1}))
+        self.assertFalse(dm.layouts_alike(self.RIGHT, {"x": 0.51, "y": 0, "w": 0.49, "h": 1}))
+
+    def test_float_noise_is_already_equal(self):
+        r = self.make_rule(self.place(layout={"x": 0.50001, "y": 0, "w": 0.49999, "h": 1}),
+                           self.place(layout=self.RIGHT))
+        self.status = {"mode": "docked", "rules": [r]}
+        code, out, _ = self.run_cli("docked")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.sent, [])
+        self.assertIn("already equal", out)
+
+    def test_copies_docked_to_undocked(self):
+        r = self.make_rule(self.place(layout=self.RIGHT), self.place())
+        self.status = {"mode": "docked", "rules": [r]}
+        self.after = {"mode": "docked", "rules": [{**r, "undocked": self.place(layout=self.RIGHT)}]}
+        code, out, _ = self.run_cli("docked")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.sent, [("rule-copy-layout/R1", {"from": "docked"})])
+        self.assertIn("undocked: left-half  →  right-half", out)
+
+    def test_copies_undocked_to_docked(self):
+        r = self.make_rule(self.place(layout=self.RIGHT), self.place())
+        self.status = {"mode": "undocked", "rules": [r]}
+        self.after = {"mode": "undocked", "rules": [{**r, "docked": self.place()}]}
+        code, out, _ = self.run_cli("undocked")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.sent, [("rule-copy-layout/R1", {"from": "undocked"})])
+        self.assertIn("docked: right-half  →  left-half", out)
+
+    def test_already_equal_sends_nothing(self):
+        r = self.make_rule(self.place(), self.place())
+        self.status = {"mode": "docked", "rules": [r]}
+        code, out, _ = self.run_cli("docked")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.sent, [])
+        self.assertIn("already equal", out)
+
+    def test_not_same_place_fails_clearly(self):
+        r = self.make_rule(self.place(screen="external", layout=self.RIGHT), self.place())
+        self.status = {"mode": "docked", "rules": [r]}
+        code, _, err = self.run_cli("docked")
+        self.assertEqual(code, 1)
+        self.assertEqual(self.sent, [])
+        self.assertIn("not the same place", err)
+
+    def test_missing_setup_fails(self):
+        r = self.make_rule(self.place(), None)
+        self.status = {"mode": "docked", "rules": [r]}
+        code, _, err = self.run_cli("docked")
+        self.assertEqual(code, 1)
+        self.assertIn("no undocked place", err)
+
+    def test_app_not_copying_is_an_error(self):
+        r = self.make_rule(self.place(layout=self.RIGHT), self.place())
+        self.status = {"mode": "docked", "rules": [r]}
+        self.after = {"mode": "docked", "rules": [r]}
+        code, _, err = self.run_cli("docked")
+        self.assertEqual(code, 1)
+        self.assertIn("not copied", err)
+
+    def run_main(self, *argv):
+        """Runs the real argparse wiring; copy_layout is swapped for a recorder."""
+        import sys
+        seen, err = [], io.StringIO()
+        saved_argv, saved_fn = sys.argv, dm.copy_layout
+        sys.argv = ["deskmap", *argv]
+        dm.copy_layout = seen.append
+        code = 0
+        try:
+            with redirect_stderr(err):
+                dm.main()
+        except SystemExit as e:
+            code = e.code
+        finally:
+            sys.argv, dm.copy_layout = saved_argv, saved_fn
+        return code, seen, err.getvalue()
+
+    def test_parser_wires_the_subcommand(self):
+        code, seen, _ = self.run_main("rule", "copy-layout", "Safari", "--from", "docked")
+        self.assertEqual(code, 0)
+        self.assertEqual(len(seen), 1)
+        self.assertEqual((seen[0].rule, seen[0].source), ("Safari", "docked"))
+        code, seen, _ = self.run_main("rule", "copy-layout", "R1", "--from", "undocked")
+        self.assertEqual((seen[0].rule, seen[0].source), ("R1", "undocked"))
+
+    def test_parser_rejects_bad_or_missing_from(self):
+        code, seen, err = self.run_main("rule", "copy-layout", "Safari", "--from", "both")
+        self.assertEqual((code, seen), (2, []))
+        self.assertIn("invalid choice", err)
+        code, seen, err = self.run_main("rule", "copy-layout", "Safari")
+        self.assertEqual((code, seen), (2, []))
+        self.assertIn("--from", err)
+
+    def test_unknown_rule_fails(self):
+        self.status = {"mode": "docked", "rules": [
+            {**self.make_rule(self.place(layout=self.RIGHT), self.place()), "appName": "Chrome"}]}
+        code, _, err = self.run_cli("docked")
+        self.assertEqual(code, 1)
+        self.assertEqual(self.sent, [])
+        self.assertIn("no rule matches 'Safari'", err)
+
+    def test_ambiguous_rule_asks_for_an_id(self):
+        a = self.make_rule(self.place(layout=self.RIGHT), self.place())
+        b = {**a, "id": "R2", "tokens": ["Private"]}
+        self.status = {"mode": "docked", "rules": [a, b]}
+        code, _, err = self.run_cli("docked")
+        self.assertEqual(code, 1)
+        self.assertEqual(self.sent, [])
+        self.assertIn("matches 2 rules, use an id", err)
+        self.assertIn("R1", err)
+        self.assertIn("R2", err)
+
+    def test_app_error_reaches_the_user(self):
+        """The CLI's check passed but the app refuses (stale status, or the two
+        same-place checks drifted apart): the real send() surfaces lastError."""
+        r = self.make_rule(self.place(layout=self.RIGHT), self.place())
+        self.status = {"mode": "docked", "rules": [r]}
+        dm.send = self._send  # real send(), fake app underneath
+        urls = []
+
+        def fake_open(cmd, check):
+            urls.append(cmd[-1])
+
+        def fake_read_status():
+            import urllib.parse as up
+            req = up.parse_qs(up.urlsplit(urls[-1]).query)["req"][0]
+            return {"request": req, "mode": "docked", "rules": [r],
+                    "lastError": "The two plans of this rule are not on the same display "
+                                 "and desktop: R1"}
+
+        saved = dm.running, dm.read_status, dm.subprocess.run
+        dm.running, dm.read_status, dm.subprocess.run = (lambda: True), fake_read_status, fake_open
+        try:
+            code, _, err = self.run_cli("docked")
+        finally:
+            dm.running, dm.read_status, dm.subprocess.run = saved
+        self.assertEqual(code, 1)
+        self.assertEqual(len(urls), 1)
+        self.assertTrue(urls[0].startswith("deskmap://rule-copy-layout/R1?from=docked&req="))
+        self.assertIn("not on the same display and desktop: R1", err)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -8,6 +8,11 @@ numarası `VERSION` dosyasından gelir.
 
 ### Eklenenler {#added}
 
+- **Öbür plandaki düzeni kullan.** Bir sabitlemenin iki planı pencereyi aynı
+  yere (aynı ekran ve masaüstü) farklı düzenle koyuyorsa paneli öbür planın
+  düzenini ve onu bir kez kopyalayan düğmeyi gösterir (⌘Z geri alır; planlar
+  bağlanmaz). Komut satırından da: `deskmap rule copy-layout KURAL --from
+  docked|undocked` (`deskmap://rule-copy-layout/<id>?from=`).
 - **Kendi düzenlerin.** Ayarlar › Düzenler bütün düzenleri üç grupta
   listeler: **Temel** (her pinin altındaki döşemeler, en çok altı, Gelişmiş’te
   de), **Gelişmiş** (ızgaranın yanında) ve **Gizli**. Izgarada ya da kenar

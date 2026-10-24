@@ -562,6 +562,72 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     }
 }
 
+// MARK: - Öbür kurulumun düzeni (tek seferlik kopya)
+
+extension Destination {
+    /// İki kurulumdaki hedef aynı yer mi (saf): aynı ekran rolü ve aynı
+    /// masaüstü. Ad hedefinde masaüstü adla (`nameID`), numara hedefinde
+    /// sırayla karşılaştırılır; ekran rolü ikisinde de aynı olmalı (aynı ada
+    /// bağlı ama öbür kurulumda başka ekrana planlanmış masaüstü aynı yer
+    /// değildir). Biri ada biri numaraya bakıyorsa aynı yer sayılmaz: ad
+    /// hedefinin numarası yalnız önbellektir, ad taşınınca ayrılırlar.
+    func isSamePlace(as other: Destination) -> Bool {
+        guard screen == other.screen else { return false }
+        switch (nameID, other.nameID) {
+        case let (mine?, theirs?): return mine == theirs
+        case (nil, nil): return desktop == other.desktop
+        default: return false
+        }
+    }
+}
+
+extension WindowLayout {
+    /// Yerleşimde aynı sonucu veren düzen mi (saf). İkisi de "yalnız
+    /// masaüstü"yse eşittir (oranlar uygulanmaz); biri öyleyse farklıdır.
+    /// İkisi de sabit boyutluysa yalnız `fixed` karşılaştırılır (oranlar eski
+    /// sürümler için yedektir); biri sabitse farklıdır. Oranlı düzenler
+    /// kütüphanenin "aynı alan" toleransıyla (`LayoutLibrary.sameArea`):
+    /// başka kaynaktan gelen aynı yarım son bitlerde ayrılabilir, panelde ikisi
+    /// de aynı görünür, düğme çıkmamalı.
+    func placesLike(_ other: WindowLayout) -> Bool {
+        if isDesktopOnly || other.isDesktopOnly { return isDesktopOnly == other.isDesktopOnly }
+        if fixed != nil || other.fixed != nil { return fixed == other.fixed }
+        return LayoutLibrary.sameArea(self, other)
+    }
+}
+
+extension Rule {
+    /// İki kurulumun aynı yerdeki hedefleri: monitörlü planın ilk yeri
+    /// (`docked`, panelin ve "şu anki boyutu kullan"ın düzenlediği yer) ve
+    /// laptop yeri aynı yerse ikisi, değilse nil. Sıradaki yerlere
+    /// (`dockedNext`) bakılmaz: panelde gösterilen ve düzenlenen ilk yer.
+    var sharedPlace: (docked: Destination, undocked: Destination)? {
+        guard let docked, let undocked, docked.isSamePlace(as: undocked) else { return nil }
+        return (docked, undocked)
+    }
+
+    /// "Öbür kurulumdakini kullan" düğmesinin koşulu (saf, iki mod için aynı):
+    /// iki kurulum aynı yerde ve düzenler yerleşimde farklı.
+    var layoutDiffersAcrossSetups: Bool {
+        guard let shared = sharedPlace else { return false }
+        return !shared.docked.layout.placesLike(shared.undocked.layout)
+    }
+
+    /// Tek seferlik kopya: `source` kurulumunun düzeni öbür kurulumun aynı
+    /// yerdeki hedefine yazılır (ekran, masaüstü, ad hedefi kalır). Bağ
+    /// kurulmaz; sonradan birinde yapılan değişiklik öbürüne geçmez. Aynı yer
+    /// değilse ya da düzenler zaten aynıysa dokunmaz, false döner.
+    @discardableResult
+    mutating func adoptLayout(from source: Mode) -> Bool {
+        guard layoutDiffersAcrossSetups, let from = self[source] else { return false }
+        let target: Mode = source == .docked ? .undocked : .docked
+        guard var destination = self[target] else { return false }
+        destination.layout = from.layout
+        self[target] = destination
+        return true
+    }
+}
+
 // MARK: - Hoşgörülü dizi çözümleme
 
 /// Öğelerinden biri okunamayan dizi: bozuk öğe atlanır, kalanlar okunur.

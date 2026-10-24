@@ -587,6 +587,16 @@ struct Document: Codable, Equatable {
         return true
     }
 
+    /// "Öbür kurulumdakini kullan": `source` kurulumunun düzeni kuralın öbür
+    /// kurulumdaki aynı yerine bir kez kopyalanır (`Rule.adoptLayout`).
+    /// Belge gerçekten değiştiyse true.
+    @discardableResult
+    mutating func adoptLayout(for id: String, from source: Mode) -> Bool {
+        guard var rule = rule(id), rule.adoptLayout(from: source) else { return false }
+        update(rule)
+        return true
+    }
+
     /// Pinler: aynı anahtarlı (uygulama + parçalar) kural varsa onun bu
     /// moddaki hedefi güncellenir, yoksa yeni kural eklenir. Kural kimliği
     /// döner.
