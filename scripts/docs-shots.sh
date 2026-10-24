@@ -19,6 +19,7 @@ trap 'rm -rf "$TMP"' EXIT
 source_name() {
   case "$1" in
     08-open-closed) echo g01c-grid-closed-pins ;;
+    09-pin-group) echo g10-pin-group ;;
     *) echo "$1" ;;
   esac
 }

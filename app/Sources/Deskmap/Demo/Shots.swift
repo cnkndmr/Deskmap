@@ -428,6 +428,15 @@ enum Shots {
         ui.reveal = RevealRequest(window: DemoData.crowdedCometWindowID, seq: 10)
         pump(0.5)
         capture("g01c-grid-closed-pins")
+        // Pin grubu kutusu ("Nova drafts", 3. masaüstü) açık ve katlı.
+        capture("g10-pin-group")
+        let groupKey = UIState.collapseKey(mode: .docked, screen: "builtin", desktop: 3,
+                                           group: PinGroupBox.idPrefix + DemoData.crowdedPinGroupID)
+        ui.collapsed.insert(groupKey)
+        pump(0.2)
+        capture("g10b-pin-group-collapsed")
+        ui.collapsed.remove(groupKey)
+        pump(0.2)
 
         ui.search = "orion"
         ui.reveal = RevealRequest(window: 130, seq: 2)
