@@ -51,7 +51,7 @@ final class StatusFile {
             let desktop: Int
         }
         let pid: Int32
-        let updated: Date
+        var updated: Date
         let request: String?
         let enabled: Bool
         let mode: String
@@ -157,6 +157,15 @@ final class StatusFile {
         }
     }
 
+    /// Bayrak `perf.statusSkipSame` (PLAN-perf §6.5).
+    nonisolated static var skipSame: Bool { UserDefaults.standard.bool(forKey: "perf.statusSkipSame") }
+    private var lastContent: Data?
+
+    /// Yazım atlanır mı (saf): istek yanıtı her zaman yazılır.
+    nonisolated static func shouldSkip(request: String?, content: Data, last: Data?) -> Bool {
+        request == nil && content == last
+    }
+
     func write(request: String?) {
         let perfWrite = PerfStats.now()
         defer { PerfStats.shared.add("statusWrite", PerfStats.ms(since: perfWrite)) }
@@ -211,11 +220,21 @@ final class StatusFile {
                         ("perPidParallel", AX.perPidParallel),
                         ("settlePollShadow", ScreenService.settlePollShadow),
                         ("settlePoll", ScreenService.settlePoll),
-                        ("titleThrottle", Router.titleThrottle)].filter(\.1).map(\.0))
+                        ("titleThrottle", Router.titleThrottle),
+                        ("statusSkipSame", Self.skipSame)].filter(\.1).map(\.0))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         do {
+            if Self.skipSame {
+                // §6.5: içerik (zaman damgası dışında) son yazılanla aynıysa ve
+                // CLI bir isteğin yanıtını beklemiyorsa yazılmaz.
+                var probe = snapshot
+                probe.updated = .distantPast
+                let content = try encoder.encode(probe)
+                if Self.shouldSkip(request: request, content: content, last: lastContent) { return }
+                lastContent = content
+            }
             try encoder.encode(snapshot).write(to: url, options: .atomic)
         } catch {
             Log.app.error("status.json not written: \(error.localizedDescription, privacy: .public)")
