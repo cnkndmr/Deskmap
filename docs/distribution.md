@@ -26,8 +26,8 @@ Measured, not assumed: on 16 September 2026 (macOS 26.6.2) a sandboxed probe
 app with the Accessibility permission granted — `AXIsProcessTrusted()`
 returned true — could not even *read* Finder's windows
 (`kAXErrorCannotComplete`, −25204), while the same binary without the sandbox
-read, moved and restored the window. Details and the tool to repeat it:
-[appstore/probe/README.md](../appstore/probe/README.md).
+read, moved and restored the window. (The probe lived in `appstore/probe/`
+until 0.6.0; it is no longer in the repository.)
 
 Magnet, Moom and BetterSnapTool are on the store while doing similar work
 because they shipped before sandboxing became mandatory and kept a legacy

@@ -51,7 +51,7 @@ undo, automatic backups, a scriptable CLI and a website.
   (default) / **Ask** / **Leave**. Not done after a display change, on wake,
   at launch (a card asks instead) or when desktop moves are off (a card says
   so). Table E in `docs/bug-tables.md`.
-- **Demo GIF.** `docs/media/<lang>/demo.gif` (and `.mp4`) shows the four-step
+- **Demo GIF.** `docs/media/<lang>/demo.gif` shows the four-step
   story in the README and the guide: laptop only, monitor connected, pinned
   windows in place, a second monitor with its own role. Drawn by the shots
   mode (`Deskmap --shots <dir> --scenario demo`, demo data, no real window is
@@ -583,8 +583,8 @@ what it does.
   does not accept.
 - `app/Resources/PrivacyInfo.xcprivacy`: no data collected, no tracking, one
   required-reason API (user defaults). Copied into the bundle by
-  `build-app.sh`, and [docs/app-store-submission.md](appstore/submission.md)
-  lists what else a submission would need.
+  `build-app.sh`, and `docs/app-store-submission.md` (since removed) listed
+  what else a submission would need.
 - New icon: a map marker whose head is a window. It is drawn in code
   (`scripts/make-icons.swift`, one command to regenerate every size and the
   `.icns`), and the sizes below 64 px drop the title bar and its dots, which

@@ -1,7 +1,6 @@
 #!/bin/bash
 # Demo GIF and MP4 for docs/media, in English and Turkish:
 #   docs/media/<lang>/demo.gif    ≤ 8 s, ≤ 3 MB, 960 px wide
-#   docs/media/<lang>/demo.mp4    same frames, H.264
 # Drawn by the app's own `--shots --scenario demo` mode (demo data: no AX,
 # no window moves; a shot window shows briefly on screen while it draws),
 # then assembled with ffmpeg. Needs build/Deskmap.app (make app) and ffmpeg.
@@ -45,10 +44,6 @@ for lang in en tr; do
   ffmpeg -y -loglevel error -f concat -safe 0 -i "$list" -t "$total" \
     -vf "${crop}fps=10,scale=$WIDTH:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=128:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle" \
     -loop 0 "docs/media/$lang/demo.gif"
-  # MP4: even dimensions required by yuv420p.
-  ffmpeg -y -loglevel error -f concat -safe 0 -i "$list" -t "$total" \
-    -vf "${crop}fps=30,scale=$((WIDTH * 2)):-2:flags=lanczos,format=yuv420p" \
-    -c:v libx264 -crf 23 -preset slow -movflags +faststart "docs/media/$lang/demo.mp4"
-  ls -l "docs/media/$lang/demo.gif" "docs/media/$lang/demo.mp4"
+  ls -l "docs/media/$lang/demo.gif"
 done
 echo "docs/media updated (en + tr)."

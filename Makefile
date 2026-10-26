@@ -142,7 +142,7 @@ site-shots: app
 docs-shots: app
 	@./scripts/docs-shots.sh
 
-# README demo dizisi (docs/media/<dil>/demo.gif + .mp4): --shots --scenario demo
+# README demo dizisi (docs/media/<dil>/demo.gif): --shots --scenario demo
 # kareleri, ffmpeg ile birleştirilir. Demo verisi, gerçek pencereye dokunmaz.
 demo-media: app
 	@./scripts/demo-media.sh

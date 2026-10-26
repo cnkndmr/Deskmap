@@ -17,8 +17,6 @@ Package.resolved
 build/
 *.app/
 
-# Üretilen mağaza kareleri (kaynak: docs/images + appstore/make-store-shots.swift)
-appstore/screenshots/
 
 # Editör
 .vscode/

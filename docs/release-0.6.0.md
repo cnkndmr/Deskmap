@@ -177,7 +177,7 @@ is signed the same way (see *Upgrading*).
   privacy and changelog are rendered from the Markdown docs and deployed to
   GitHub Pages by `.github/workflows/pages.yml`. The one-page `docs/site/` is
   gone.
-- **Demo GIF** (`docs/media/<lang>/demo.gif`, also `.mp4`) in the README and
+- **Demo GIF** (`docs/media/<lang>/demo.gif`) in the README and
   the guide: laptop only, monitor connected, pinned windows in place, a second
   monitor with its own role. Drawn by the shots mode with demo data; no real
   window is touched.

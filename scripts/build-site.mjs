@@ -464,7 +464,7 @@ const DOCS_UI = {
   },
 };
 /* Repo files that moved after old docs (mostly the changelog) linked them. */
-const MOVED = { 'docs/app-store-submission.md': 'appstore/submission.md' };
+const MOVED = {};
 
 function pandoc(markdown, source) {
   const bin = process.env.PANDOC || (fs.existsSync('/opt/homebrew/bin/pandoc') ? '/opt/homebrew/bin/pandoc' : 'pandoc');

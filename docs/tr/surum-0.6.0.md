@@ -184,7 +184,7 @@ aynı biçimde imzalandığı sürece geçerli kalır (bkz. *Yükseltme*).
   değişiklik günlüğü Markdown belgelerden derlenip
   `.github/workflows/pages.yml` ile GitHub Pages'e yayımlanır. Tek sayfalık
   `docs/site/` kalktı.
-- **Demo GIF** (`docs/media/<dil>/demo.gif`, `.mp4` de) README ve kılavuzda:
+- **Demo GIF** (`docs/media/<dil>/demo.gif`) README ve kılavuzda:
   sadece laptop, monitör bağlandı, sabit pencereler yerinde, kendi rolüyle
   ikinci monitör. Ekran görüntüsü kipi demo veriyle çizer; gerçek pencereye
   dokunulmaz.

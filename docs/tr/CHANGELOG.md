@@ -51,7 +51,7 @@ yedekler, betiklenebilir bir CLI ve bir web sitesi.
   değişiminden sonra, uyanınca, açılışta (bunun yerine kart sorar) ya da
   masaüstü taşıma kapalıyken (kart söyler) yapılmaz. `docs/tr/bug-tables.md`
   Tablo E.
-- **Demo GIF.** `docs/media/<dil>/demo.gif` (ve `.mp4`) README ile kılavuzdaki
+- **Demo GIF.** `docs/media/<dil>/demo.gif` README ile kılavuzdaki
   dört adımlık hikâyeyi gösterir: sadece laptop, monitör bağlandı, sabitlenen
   pencereler yerinde, kendi rolüyle ikinci monitör. Ekran görüntüsü kipi çizer
   (`Deskmap --shots <dizin> --scenario demo`, demo verisi, gerçek pencereye
@@ -621,8 +621,8 @@ söylüyor.
   1120×1280; App Store Connect bunu kabul etmiyor.
 - `app/Resources/PrivacyInfo.xcprivacy`: veri toplanmaz, izleme yok, gerekçe
   isteyen tek API (user defaults). `build-app.sh` pakete kopyalar;
-  [docs/app-store-submission.md](../../appstore/submission.md) bir başvuru
-  için başka neler gerektiğini listeler.
+  `docs/app-store-submission.md` (sonra kaldırıldı) bir başvuru için başka
+  neler gerektiğini listeliyordu.
 - Yeni simge: başı bir pencere olan bir harita işareti. Kodla çizilir
   (`scripts/make-icons.swift`, her boyutu ve `.icns`’i tek komutla yeniden
   üretir); 64 px’in altındaki boyutlarda başlık çubuğu ve noktaları atılır,
