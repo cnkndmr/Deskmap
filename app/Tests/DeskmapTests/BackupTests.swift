@@ -372,7 +372,7 @@ struct BackupTests {
         #expect(!archive.list().isEmpty)
 
         var service: BackupService? = BackupService(archive: archive)
-        weak let weakService = service
+        weak var weakService = service
         service?.reload()
         for _ in 0..<200 where service?.entries.isEmpty == true {
             try await Task.sleep(nanoseconds: 10_000_000)
