@@ -23,6 +23,11 @@
   </a>
 </p>
 
+<p align="center">
+  <a href="https://cnkndmr.github.io/deskmap/"><img src="https://img.shields.io/badge/Website-cnkndmr.github.io%2Fdeskmap-1C1C1E" alt="Website"></a>
+  <a href="https://paypal.me/mcankandemir"><img src="https://img.shields.io/badge/Donate-PayPal-FF4D6D?logo=paypal&logoColor=white" alt="Donate with PayPal"></a>
+</p>
+
 Or install from the command line with Homebrew:
 
 ```sh
@@ -86,6 +91,16 @@ in or unplug a monitor.
   preset, or set a fixed size.
 - **Two setups.** *Monitor connected* and *Laptop only* have separate targets.
   Plug in or unplug, and every window moves to its place.
+- **More than one monitor.** Each external monitor keeps its own role by its
+  display ID, not by where it stands, so swapping cables never moves pins to
+  the other screen. A pinned window can list fallback places for when a
+  monitor is away.
+- **Desktop names that stick.** A name belongs to one desktop and follows it
+  across displays, reordering and plug/unplug; pins can target a name.
+- **Pin groups.** Collect some pins under a name; move, open or close them as
+  one.
+- **Your own layouts.** Draw layouts on a grid, name them, reorder them in
+  Settings › Layouts.
 - **The map.** Every display, every desktop, every window. Drag a window to move
   it. Add, remove and reorder desktops.
 - **Open or close a workspace at once.** One click opens every closed pinned
@@ -99,7 +114,10 @@ in or unplug a monitor.
   the app. Restore any of them from Settings › Backups; undoable.
 - **Undo instead of dialogs.** Multi-step ⌘Z / ⇧⌘Z and a session history of
   settings changes (Recent moves › Changes) you can jump back or forward in.
-- **Automation.** `deskmap://` URLs for Shortcuts, Raycast or a terminal.
+- **Mission Control slips undone.** A desktop dragged to another display in
+  Mission Control moves back (or asks, or stays; your choice).
+- **Automation.** A `deskmap` command line tool, a `status.json` file and
+  `deskmap://` URLs for Shortcuts, Raycast, scripts or AI agents.
 - **One small app.** No scripts, no config file, no dependencies; System
   Integrity Protection stays on. Nothing is collected or sent.
 
@@ -209,6 +227,7 @@ To build from source: `make app` (needs the Xcode Command Line Tools).
 
 ## Documentation
 
+[Website](https://cnkndmr.github.io/deskmap/) ·
 [User guide](docs/guide.md) ([Türkçe](docs/kilavuz.md)) ·
 [Reference](docs/reference.md) ·
 [Architecture](docs/architecture.md) ·
@@ -226,3 +245,6 @@ To build from source: `make app` (needs the Xcode Command Line Tools).
 ## License
 
 MIT; see [LICENSE](LICENSE).
+
+If Deskmap saves you time, you can [support it with a donation](https://paypal.me/mcankandemir).
+Never required.
