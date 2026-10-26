@@ -74,12 +74,13 @@ css: download
       <div class="tab-panel" role="tabpanel" id="panel-brew" aria-labelledby="tab-brew">
         <div class="split center-y">
           <div>
-            <h3 class="h3">Terminal’de tek satır.</h3>
-            <p class="muted">Deskmap’in kendi Homebrew deposunda (tap) bir cask’ı var. Aynı uygulamayı kurar; aşağıdaki ilk açılış adımları yine geçerli.</p>
+            <h3 class="h3">Terminal’de iki satır.</h3>
+            <p class="muted">Deskmap’in kendi Homebrew deposunda (tap) bir cask’ı var. Aynı uygulamayı kurar; aşağıdaki ilk açılış adımları yine geçerli. Homebrew 7 ve sonrası, dışarıdan bir tap’e bir kez güvenmeni ister.</p>
           </div>
-          <div class="terminal" role="group" aria-label="Terminal: Deskmap’i Homebrew ile kur" data-copy="brew install --cask cnkndmr/tap/deskmap">
+          <div class="terminal" role="group" aria-label="Terminal: Deskmap’i Homebrew ile kur" data-copy="brew trust cnkndmr/tap&#10;brew install --cask cnkndmr/tap/deskmap">
             <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>zsh</span></div>
-<pre><span class="pr">$ </span>brew install --cask cnkndmr/tap/deskmap</pre>
+<pre><span class="pr">$ </span>brew trust cnkndmr/tap
+<span class="pr">$ </span>brew install --cask cnkndmr/tap/deskmap</pre>
           </div>
         </div>
       </div>

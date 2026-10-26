@@ -6,6 +6,19 @@
 #
 set -euo pipefail
 
+# Optional identity guard: set `git config hooks.requiredEmail <address>` in a
+# clone and commits with any other author/committer address are refused.
+REQUIRED_EMAIL="$(git config --get hooks.requiredEmail || true)"
+if [ -n "$REQUIRED_EMAIL" ]; then
+  AUTHOR_EMAIL="$(git var GIT_AUTHOR_IDENT | sed -E 's/.*<([^>]*)>.*/\1/')"
+  COMMITTER_EMAIL="$(git var GIT_COMMITTER_IDENT | sed -E 's/.*<([^>]*)>.*/\1/')"
+  if [ "$AUTHOR_EMAIL" != "$REQUIRED_EMAIL" ] || [ "$COMMITTER_EMAIL" != "$REQUIRED_EMAIL" ]; then
+    echo "pre-commit: author/committer must be $REQUIRED_EMAIL (hooks.requiredEmail), got $AUTHOR_EMAIL / $COMMITTER_EMAIL." >&2
+    exit 1
+  fi
+fi
+
+
 if command -v swift >/dev/null 2>&1 && [[ "$(uname -s)" == "Darwin" ]]; then
   if git diff --cached --name-only --diff-filter=ACM | grep -q '\.swift$'; then
     PACKAGE="$(git rev-parse --show-toplevel)/app"

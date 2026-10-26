@@ -28,9 +28,11 @@
   <a href="https://paypal.me/mcankandemir"><img src="https://img.shields.io/badge/Donate-PayPal-FF4D6D?logo=paypal&logoColor=white" alt="Donate with PayPal"></a>
 </p>
 
-Or install from the command line with Homebrew:
+Or install from the command line with Homebrew (Homebrew 7 and later asks you
+to trust a third-party tap once):
 
 ```sh
+brew trust cnkndmr/tap
 brew install --cask cnkndmr/tap/deskmap
 ```
 

@@ -74,12 +74,13 @@ css: download
       <div class="tab-panel" role="tabpanel" id="panel-brew" aria-labelledby="tab-brew">
         <div class="split center-y">
           <div>
-            <h3 class="h3">One line in Terminal.</h3>
-            <p class="muted">Deskmap has a Homebrew cask in its own tap. It installs the same app; the first launch below still applies.</p>
+            <h3 class="h3">Two lines in Terminal.</h3>
+            <p class="muted">Deskmap has a Homebrew cask in its own tap. It installs the same app; the first launch below still applies. Homebrew 7 and later asks you to trust the tap once.</p>
           </div>
-          <div class="terminal" role="group" aria-label="Terminal: install Deskmap with Homebrew" data-copy="brew install --cask cnkndmr/tap/deskmap">
+          <div class="terminal" role="group" aria-label="Terminal: install Deskmap with Homebrew" data-copy="brew trust cnkndmr/tap&#10;brew install --cask cnkndmr/tap/deskmap">
             <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>zsh</span></div>
-<pre><span class="pr">$ </span>brew install --cask cnkndmr/tap/deskmap</pre>
+<pre><span class="pr">$ </span>brew trust cnkndmr/tap
+<span class="pr">$ </span>brew install --cask cnkndmr/tap/deskmap</pre>
           </div>
         </div>
       </div>
