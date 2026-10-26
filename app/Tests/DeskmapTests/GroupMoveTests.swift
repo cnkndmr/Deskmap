@@ -84,4 +84,87 @@ struct GroupMoveTests {
         #expect(store.document.rules.allSatisfy { $0[.docked]?.screen == "s" })
         #expect(undone)
     }
+
+    // MARK: - Pin grubu (K3)
+
+    private func member(_ id: String, _ screen: String, _ desktop: Int, group: String? = "g",
+                        layout: WindowLayout = .full, undocked: Destination? = nil) -> Rule {
+        Rule(id: id, appName: "Preview", bundleID: "pv", tokens: [id],
+             docked: Destination(screen: screen, desktop: desktop, layout: layout),
+             undocked: undocked, groupID: group)
+    }
+
+    /// Başka masaüstündeki (ve ekrandaki) üyeler de taşınır; grup dışı kural
+    /// taşınmaz; hedefte zaten olan atlanır; düzen korunur; öbür modun
+    /// hedefi değişmez.
+    @Test func pinGroupMovesEveryMemberAndOnlyMembers() {
+        let half = WindowLayout.leftHalf
+        let laptop = Destination(screen: "s", desktop: 4)
+        let rules = [member("a", "s", 1, layout: half, undocked: laptop), member("b", "s", 3),
+                     member("c", "e", 1), member("d", "e", 2),
+                     member("x", "s", 1, group: nil), member("y", "s", 1, group: "other")]
+        let plan = GroupMovePlan.forPinGroup("g", rules: rules, mode: .docked, to: there,
+                                             winner: { $0[.docked] })
+        #expect(plan.rules == [.init(id: "a", destination: Destination(screen: "e", desktop: 2, layout: half)),
+                               .init(id: "b", destination: Destination(screen: "e", desktop: 2)),
+                               .init(id: "c", destination: Destination(screen: "e", desktop: 2))])
+        #expect(plan.sessions.isEmpty && plan.windows.isEmpty)
+        // Öbür modun hedefleri plana girmez; Store'da da değişmez.
+        var d = Document()
+        d.rules = rules
+        for move in plan.rules { d.setDestination(move.destination, for: move.id, mode: .docked) }
+        #expect(d.rule("a")?.undocked == laptop)
+        #expect(d.rule("x")?.docked?.desktop == 1)
+    }
+
+    /// O modda yeri olmayan üyeye yer eklenmez.
+    @Test func pinGroupMemberWithoutAPlaceInThisModeStays() {
+        var onlyLaptop = member("a", "s", 1)
+        onlyLaptop.docked = nil
+        onlyLaptop.undocked = Destination(screen: "s", desktop: 2)
+        let plan = GroupMovePlan.forPinGroup("g", rules: [onlyLaptop, member("b", "s", 1)],
+                                             mode: .docked, to: there, winner: { $0[.docked] })
+        #expect(plan.rules.map(\.id) == ["b"])
+    }
+
+    /// Kazanan yer ilk yer değilken (sıralı yerler) "zaten orada" kazanan
+    /// yere bakar; uygulama grubu da aynı kuralla.
+    @Test func alreadyThereLooksAtTheWinningPlace() {
+        var ordered = member("a", "e", 1)
+        ordered.dockedNext = [Destination(screen: "s", desktop: 2, layout: .rightHalf)]
+        let shown = Router.Placement(screen: "s", desktop: 2)
+        let winner: (Rule) -> Destination? = { $0.places(.docked).last }
+        #expect(GroupMovePlan.forPinGroup("g", rules: [ordered], mode: .docked, to: shown,
+                                          winner: winner).isEmpty)
+        // Kazanan yerin düzeniyle taşınır.
+        let moved = GroupMovePlan.forPinGroup("g", rules: [ordered], mode: .docked,
+                                              to: Router.Placement(screen: "s", desktop: 3), winner: winner)
+        #expect(moved.rules == [.init(id: "a", destination: Destination(screen: "s", desktop: 3,
+                                                                         layout: .rightHalf))])
+        let group = AppGroup(bundleID: "pv", appName: "Preview", windows: [], closed: [ordered])
+        #expect(GroupMovePlan.make(group: group, to: shown, mode: .docked, isLive: true,
+                                   rules: [ordered], sessionPins: [:], winner: winner).isEmpty)
+        // Kazanan verilmezse ilk yer (eski davranış).
+        #expect(!GroupMovePlan.make(group: group, to: shown, mode: .docked, isLive: true,
+                                    rules: [ordered], sessionPins: [:]).isEmpty)
+    }
+
+    /// Adlı masaüstüne taşımada var olan N2 davranışı: öbür kurulumda yeri
+    /// olmayan üye orada da o ada bağlanır.
+    @Test func movingToANamedDesktopPinsTheOtherSetupToo() throws {
+        var d = Document()
+        d.rules = [member("a", "s", 1), member("b", "s", 1, undocked: Destination(screen: "builtin", desktop: 1))]
+        d.syncActiveProfile()
+        let ok = d.setDesktopName("Nova", screen: "e", desktop: 2, mode: .docked)
+        #expect(ok)
+        let nameID = try #require(d.nameID(screen: "e", desktop: 2, mode: .docked))
+        // Öbür kurulumun planında da yeri olsun.
+        d.plans.put(nameID, at: 3, .undocked, "builtin")
+        let plan = GroupMovePlan.forPinGroup("g", rules: d.rules, mode: .docked, to: there,
+                                             winner: { $0[.docked] })
+        for move in plan.rules { d.setDestination(move.destination, for: move.id, mode: .docked) }
+        #expect(d.rule("a")?.docked?.nameID == nameID)
+        #expect(d.rule("a")?.undocked?.nameID == nameID)
+        #expect(d.rule("b")?.undocked == Destination(screen: "builtin", desktop: 1))
+    }
 }

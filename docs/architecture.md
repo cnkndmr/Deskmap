@@ -181,7 +181,8 @@ All files live in `~/Library/Application Support/Deskmap/`.
       "docked":   { "nameID": "N-Nova", "screen": "external", "desktop": 2,
                     "layout": { "x": 0, "y": 0, "w": 0.5, "h": 1 } },
       "undocked": { "screen": "builtin",  "desktop": 1,
-                    "layout": { "x": 0, "y": 0, "w": 1,   "h": 1 } }
+                    "layout": { "x": 0, "y": 0, "w": 1,   "h": 1 } },
+      "groupID": "G-Drafts"
     }
   ],
   "profiles": [ { "id": "…", "name": "Default", "rules": [ … ],
@@ -189,7 +190,8 @@ All files live in `~/Library/Application Support/Deskmap/`.
                   "plans": { "docked":   { "builtin": ["", "N-AI"],
                                            "external": ["N-Nova", "", ""] },
                              "undocked": { "builtin": ["", "N-AI", "N-Nova"] } },
-                  "ghostDesktops": [ … ] } ],
+                  "ghostDesktops": [ … ],
+                  "pinGroups": [ { "id": "G-Drafts", "name": "Nova drafts" } ] } ],
   "pendingRemovals": { … }
 }
 ```
@@ -205,6 +207,21 @@ All files live in `~/Library/Application Support/Deskmap/`.
   stays at the top level and is shared. Schema 5 files (per-slot
   `desktopNames`, `desktopNameSpaces`, `plannedDesktops`) are upgraded once,
   after a backup in `Backups/pre-migration/`.
+- Pin groups: `profiles[].pinGroups` (`id`, `name`; array order is drawing
+  order) and `rules[].groupID` (membership; at most one group per pin). Both
+  are optional, older versions ignore them and drop them if they save the
+  file; empty lists and `nil` are not written. The active profile's groups
+  have a working copy (`Document.pinGroups`, never written at the top level);
+  every field that moves between the working copy and a profile goes through
+  `writeProfileFields` / `readProfileFields`. Invariant (empty groups): an
+  empty group is never pruned implicitly (load, `mutate`, Mission Control
+  deletion, `profile-set`, restore, rename); only the other explicit group
+  actions (create, add, remove, group-set, ungroup, group move) end with
+  `dropEmptyPinGroups()`, which counts members in `rules` **and** in
+  `ghostDesktops[*].pins[*].rule`, so a deleted desktop's group comes back
+  with its ghost. Readers treat an unknown `groupID` as ungrouped. The Router
+  compares `Rule.routingProjection` (rules without `groupID`), so a group
+  change never re-places windows.
 - `tokens: []` means "all windows of the app".
 - Reading is lenient: a single broken rule is skipped (the file is copied to
   `rules.json.bak` first and the footer shows how many were skipped).
@@ -235,13 +252,15 @@ window server with the same process ID are restored.
 ### Profile export (`<name>.deskmap.json`)
 
 ```json
-{ "kind": "deskmap-profile", "version": 4, "name": "Office",
+{ "kind": "deskmap-profile", "version": 5, "name": "Office",
   "exportedAt": "2026-09-14T10:00:00Z", "screens": [ … ], "rules": [ … ],
   "names": [ { "id": "N-Nova", "name": "Nova" } ],
   "plans": { "docked": { "external": ["N-Nova", "", ""] } } }
 ```
 
-Version 3 files (`desktopNames`, `plannedDesktops`) still import. Names are exported without their desktop. On import, rule IDs are regenerated, names start without a desktop (placed by plan position at the next plan application), the name is made unique (`Office (2)`),
+Version 5 adds optional `pinGroups` (group ids are renewed on import and the
+rules' `groupID`s remapped; an unknown `groupID` is dropped). Version 4 and
+version 3 files (`desktopNames`, `plannedDesktops`) still import. Names are exported without their desktop. On import, rule IDs are regenerated, names start without a desktop (placed by plan position at the next plan application), the name is made unique (`Office (2)`),
 and unknown display roles from `screens` are added to the map. A plain
 `rules.json`-style file with a `rules` array is accepted too.
 
@@ -251,7 +270,10 @@ and unknown display roles from `screens` are added to the map. A plain
 `deskmap`; the command comes from the host (`deskmap://reapply`) or
 from the first path component (`deskmap:reapply`), case-insensitively.
 `profile` takes the name from the `name` query item or from the rest of the
-path (percent-decoded). URLs arrive through
+path (percent-decoded). The pin group commands (`group-add`, `group-rename`,
+`group-remove`, `group-set`) resolve `<group>` with
+`Document.resolvePinGroup` (id, then case-insensitive exact name; several
+groups with that name is an error). URLs arrive through
 `NSApplicationDelegate.application(_:open:)`, which works for a menu bar app
 even on a cold start.
 
@@ -305,6 +327,10 @@ logged per sweep. Window titles are logged as `.private`.
 | `ChangeHistoryTests` | Multi-step undo/redo, discarded redo branch and its undo, return to a row, 50-entry limit, noise vs. untracked changes, companion entries |
 | `MapLogicTests` | Shadowed pins, missing-desktop badge |
 | `TokenEditingTests` | `Document.setTokens` (identity, key collisions) and token picker helpers |
+| `PinGroupCodableTests`, `PinGroupModelTests`, `PinGroupStoreTests` | Pin group fields (old files byte-identical, lenient reading), document operations (empty groups, ghosts, profile scope, copy/import), one undo step per action |
+| `PinGroupLayoutTests`, `RouterProjectionTests`, `PinGroupURLTests` | Group boxes on the map, the Router's group-blind rule key, URL commands and `status.json` |
+| `PinGroupViewLogicTests` | Group header count and *also on* labels, menu targets and names, placeable members, member places and open placements, rename-request expiry, the open guard |
+| `GroupMoveTests`, `PinBatchTests`, `MultiPinTests`, `ShotsTests` (pin group parts) | Moving a whole pin group (`forPinGroup`, winner-based "already there", named desktops), group open/close input (`pinGroupInput`, `groupAction`), the grouping plan of the ⌘-click bar (existing pins, temporary pins, other-plan chips, app-wide pins), the demo group |
 | `LocalizationTests` | Key/translation consistency (see above) |
 
 The tests never create a `Store` or `Router`, so they never touch

@@ -8,6 +8,25 @@ number comes from the `VERSION` file.
 
 ### Added
 
+- **Pin groups.** Collect some pins of a desktop under a name: ⌘-click
+  windows and pin chips (closed ones too) › **Pin as group**, or right-click ›
+  **Add to group**. A group moves as a whole (drag its header or **Send group
+  to**; scattered members come back together), opens and closes with one
+  button, and can be renamed (double-click its header). A single pin moved
+  alone stays in its group; **Remove from group** takes it out, **Ungroup**
+  keeps the pins. Undo covers every step. Also `deskmap group …` and
+  `deskmap://group-add`, `group-rename`, `group-remove`, `group-set`;
+  `status.json` lists `pinGroups`. Groups are new optional fields in
+  `rules.json` (`rules[].groupID`, `profiles[].pinGroups`, schema stays 6);
+  **an older Deskmap that saves the file drops the groups** (the pins stay).
+  Profile exports are version 5 (groups included; version 4 still imports).
+
+- **Use the other plan's layout.** When a pin's two plans put the window in
+  the same place (same display and desktop) with different layouts, its panel
+  shows the other plan's layout and a button that copies it over once (⌘Z
+  undoes; the plans are not linked). Also from the command line:
+  `deskmap rule copy-layout RULE --from docked|undocked`
+  (`deskmap://rule-copy-layout/<id>?from=`).
 - **Your own layouts.** Settings › Layouts lists every layout in three groups:
   **Basic** (the tiles under every pin, up to six, also in Advanced),
   **Advanced** (next to the grid) and **Hidden**. Draw a new layout on the

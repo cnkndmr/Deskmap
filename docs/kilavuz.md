@@ -134,6 +134,50 @@ yazar; son kart **+ Masaüstü ekle** haritaya bir tane ekler.
 - **Sabit olmayan** bir pencereyi sürüklemek onu bir kez taşır, hiçbir şey
   kaydetmez.
 
+### Pin grupları
+
+Bir masaüstünde çok sayıda pin olabilir; **pin grubu** bunların bir kısmını
+bir ad altında toplar. Örnek: bir masaüstünde on PDF pinli, dördü aynı
+makaleye ait. O dördünü grupla; birlikte taşınır, açılır ve kapanırlar.
+
+![Masaüstü 3’te bir pin grubu: başlıkta ad, sayı ve açma düğmesi, altında üyeler](images/tr/09-pin-group.png)
+
+- **Grup kur.** Pencerelere ve pin çiplerine (kapalı pinler dahil) ⌘ ile
+  tıkla, sonra yan sütunda **Grup olarak pinle**’ye bas (seçtiğin her şey
+  zaten pinliyse düğme **N pini grupla** der). Var olan pinler yerinde kalır;
+  yeni pencereler bulundukları yere pinlenir. Ya da bir çipe veya pinli
+  pencereye sağ tıkla › **Gruba ekle** › var olan bir grup ya da **Yeni grup…**.
+  Bir pin en çok bir gruptadır: başka gruba eklemek onu oraya taşır.
+- **Ad ver.** Yeni grup *Grup N* adıyla (ilk boş numara), ad alanı açık başlar; sonradan grubun
+  başlığına çift tıkla (ya da sağ tık › **Grubu yeniden adlandır…**). Boş ad
+  kabul edilmez.
+- **Aç ve kapat.** Başlığın sağındaki düğme grubun bütün kapalı pinlerini açar
+  ya da bütün açık pinli pencerelerini kapatır (geçerli planda). Sağ tık ›
+  **Tümünü aç** / **Tümünü kapat** da aynısını yapar.
+- **Taşı.** Grubu başlığından tutup başka bir masaüstüne sürükle ya da sağ
+  tık › **Grubu gönder**. Grubun bütün pinleri oraya gider, başka
+  masaüstlerinde duranlar da: dağılmış grup yeniden bir araya gelir. Adlı bir
+  masaüstüne taşımak tek pin taşımak gibidir: öbür planda yeri olmayan üyeler
+  orada da o ada bağlanır.
+- **Tek başına taşınan pin grubunda kalır.** Başlık o zaman *Masaüstü N
+  üzerinde de* (ya da *başka ekranda da*) der. Bir pini gruptan çıkarmak için
+  ona sağ tıkla › **Gruptan çıkar**. Bir üyenin pinini kaldırmak (ya da onu
+  tepsiye bırakmak) da onu iki planda birden gruptan çıkarır: o pencereyi
+  sonra yeniden pinlemek onu gruba geri koymaz. **Grubu dağıt (pinler kalır)**
+  grubu siler, pinlere dokunmaz. **Gruba ekle** menüsünde aynı adlı gruplar
+  pin sayılarıyla görünür.
+- **Geçici sabitlemeler gruplanmaz.** Zaten geçici sabitlemesi olan seçili
+  pencere onu korur, gruba girmez; başlığı başka açık pencerelere de uyan
+  pencere her zamanki gibi geçici sabitlenir. Öbür planın pinleri (tepsi) bu
+  plandan grup başlatamaz; birini seçince yan sütun bunu söyler. Uygulamanın
+  bütün pencerelerini tutan bir pinin (*bütün pencereler*) penceresi başlığıyla
+  kendi pinini alır; grupta yalnız seçtiğin pencereler olur.
+- Geri al (⌘Z) her grup değişikliğini kapsar. Gruplamadan önce alınmış bir
+  yedeği geri yüklemek grupları da kaldırır.
+- Gruplar `rules.json`’da isteğe bağlı alanlardır. Eski bir Deskmap onları
+  yok sayar; eski sürüm dosyayı kaydederse gruplar kaybolur (pinler kalır).
+  İki Deskmap sürümünü aynı anda çalıştırma.
+
 ## 5. Boyutunu ver
 
 Sabit bir pencerenin kutusuna ya da çipine tıkla. Cümlenin altında dört düzen var: **Tam**,
@@ -172,6 +216,11 @@ işaretlidir; öteki ne zaman geçerli olacağını yazar.
 
 - **Monitör bağlı** — en az bir harici ekran takılı.
 - **Sadece laptop** — yalnızca dahili ekran.
+
+İki plan ayrı ayarlanır. Bir pencere ikisinde de aynı yerdeyse (örneğin
+Safari laptop ekranında, 2. masaüstünde) ama düzeni farklıysa paneli **Sadece
+laptop planındaki düzeni kullan** (ya da Monitör bağlı olanı) önerir: tek
+tıkla düzen bir kez kopyalanır, planlar sonra yine ayrı kalır.
 
 İki harici monitörle haritada her biri için bir kart görünür (**Ekstra
 monitör**, **2. monitör**). Her monitör, Sistem Ayarları › Ekranlar’da nereye konursa

@@ -32,6 +32,8 @@ import Foundation
 ///     deskmap://desktop-move/<ekran>/<n>/<m>[?mode=]  n. masaüstünü m. sıraya taşı
 ///     deskmap://rule-save-layout/<kimlik>[?window=<pencere>]  pencerenin şu anki
 ///                                    boyut/konumunu kuralın yerleşimi yap
+///     deskmap://rule-copy-layout/<kimlik>?from=docked|undocked  o kurulumun düzenini
+///                                    öbür kurulumdaki aynı yere bir kez kopyala
 ///     deskmap://profile-set?json=<profil>&activate=1  profili ada göre ekle/güncelle
 ///     deskmap://plan-desktops/<ekran>/<n>?mode=docked|undocked  ekranda n masaüstü olsun
 ///     deskmap://desktop-name/<ekran>/<n>?name=<ad>[&mode=]  masaüstüne ad ver (boş ad siler)
@@ -43,6 +45,12 @@ import Foundation
 ///     deskmap://backup-now           otomatik yedeği şimdi çalıştır
 ///     deskmap://backup-restore/<kimlik>  yedeği geri yükle (önce şimdiki hâli
 ///                                    pre-restore katmanına yedekler; geri alınabilir)
+///     deskmap://group-add?name=<ad>&rules=<kimlik,kimlik>  kurallardan pin grubu kur
+///                                    (ad boşsa "Grup N"; başka gruptakiler oradan çıkar)
+///     deskmap://group-rename/<grup>?name=<ad>   pin grubunu yeniden adlandır
+///     deskmap://group-remove/<grup>  pin grubunu dağıt (pinler kalır)
+///     deskmap://group-set/<grup>?add=<kimlikler>&remove=<kimlikler>  üye ekle/çıkar
+///                                    (tek geri alma adımı). <grup>: kimlik ya da tam ad
 ///
 /// Her komut `?req=<n>` alabilir: işlendikten sonra status.json `request: n`
 /// ile yazılır (`deskmap` komut satırı aracı bununla bekler).
@@ -77,12 +85,17 @@ enum URLCommand: Equatable {
     case exportProfile(name: String?, path: String)
     case moveDesktop(screen: String, from: Int, to: Int, mode: Mode?)
     case saveLayout(rule: String, window: CGWindowID?)
+    case copyLayout(rule: String, from: Mode)
     case nameDesktop(screen: String, desktop: Int, name: String, mode: Mode? = nil)
     case screenRole(display: String, role: String)
     case forgetScreenRoles
     case forgetScreen(display: String)
     case backupNow
     case restoreBackup(id: String)
+    case groupAdd(name: String?, rules: [String])
+    case groupRename(group: String, name: String)
+    case groupRemove(group: String)
+    case groupMembers(group: String, add: [String], remove: [String])
 
     static let scheme = "deskmap"
 
@@ -119,6 +132,12 @@ enum URLCommand: Equatable {
             return (window, parts[1].lowercased(), desktop)
         }
         let query = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        /// Virgüllü kimlik listesi (boşluklar ve boş öğeler atılır).
+        func ids(_ name: String) -> [String] {
+            (query.first { $0.name == name }?.value ?? "").split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        }
+        let groupPath = parts.joined(separator: "/").trimmingCharacters(in: .whitespacesAndNewlines)
 
         switch command {
         case "reload":       return .reload
@@ -204,6 +223,11 @@ enum URLCommand: Equatable {
                 window = id
             }
             return .saveLayout(rule: parts[0], window: window)
+        case "rule-copy-layout":
+            guard parts.count == 1, !parts[0].isEmpty,
+                  let raw = query.first(where: { $0.name == "from" })?.value,
+                  let from = Mode(rawValue: raw.lowercased()) else { return nil }
+            return .copyLayout(rule: parts[0], from: from)
         case "desktop-name":
             guard parts.count == 2, let desktop = Int(parts[1]), desktop >= 1 else { return nil }
             let name = query.first { $0.name == "name" }?.value ?? ""
@@ -231,6 +255,21 @@ enum URLCommand: Equatable {
             case 1: return .forgetScreen(display: parts[0])
             default: return nil
             }
+        case "group-add":
+            let rules = ids("rules")
+            guard parts.isEmpty, !rules.isEmpty else { return nil }
+            let name = query.first { $0.name == "name" }?.value
+            return .groupAdd(name: name?.isEmpty == true ? nil : name, rules: rules)
+        case "group-rename":
+            guard !groupPath.isEmpty, let name = query.first(where: { $0.name == "name" })?.value
+            else { return nil }
+            return .groupRename(group: groupPath, name: name)
+        case "group-remove":
+            return groupPath.isEmpty ? nil : .groupRemove(group: groupPath)
+        case "group-set":
+            let add = ids("add"), remove = ids("remove")
+            guard !groupPath.isEmpty, !add.isEmpty || !remove.isEmpty else { return nil }
+            return .groupMembers(group: groupPath, add: add, remove: remove)
         case "reapply":      return .reapply
         case "pause":        return .pause
         case "resume":       return .resume
@@ -298,8 +337,57 @@ enum URLCommands {
         return hits.count == 1 ? hits[0].display.uuid : nil
     }
 
+    /// Komuttaki pin grubu (kimlik ya da harf duyarsız tam ad); bulunamazsa
+    /// ya da ad birden çok gruba uyuyorsa hata bildirilir, nil.
+    private static func pinGroup(_ text: String, store: Store) -> String? {
+        switch store.document.resolvePinGroup(text) {
+        case .found(let id): return id
+        case .missing:
+            store.report(L("No pin group %@", text))
+        case .ambiguous:
+            store.report(L("Several pin groups are named %@; use the id", text))
+        }
+        return nil
+    }
+
+    /// Bütün kimlikler biliniyorsa true; değilse ilk bilinmeyeni bildirir
+    /// (var olan "kural yok" metni) ve komut hiç uygulanmaz: hata bildirip
+    /// değişikliği yine yapmak komut satırı aracını yanıltırdı.
+    private static func allKnown(_ ids: [String], store: Store) -> Bool {
+        guard let missing = ids.first(where: { store.rule($0) == nil }) else { return true }
+        store.report(L("Rule not found: %@", missing))
+        return false
+    }
+
+    /// Çıkarılacak kimliklerin hepsi bu grubun üyesiyse true; değilse ilk
+    /// üye olmayanı bildirir ve komut uygulanmaz (değişiklik olmadan başarı
+    /// betikleri yanıltırdı).
+    private static func allMembers(_ ids: [String], of group: String, store: Store) -> Bool {
+        guard let stray = ids.first(where: { store.rule($0)?.groupID != group }) else { return true }
+        store.report(L("Pin %@ is not in this group", stray))
+        return false
+    }
+
     static func run(_ command: URLCommand, store: Store, router: Router) {
         switch command {
+        case .groupAdd(let name, let ids):
+            guard !ids.isEmpty, allKnown(ids, store: store) else { return }
+            store.createPinGroup(name: name, ruleIDs: ids, reportPulled: false)
+        case .groupRename(let text, let name):
+            guard let id = pinGroup(text, store: store) else { return }
+            guard Document.normalizedGroupName(name) != nil else {
+                store.report(L("Group name can't be empty"))
+                return
+            }
+            store.renamePinGroup(id, to: name)
+        case .groupRemove(let text):
+            guard let id = pinGroup(text, store: store) else { return }
+            store.dissolvePinGroup(id)
+        case .groupMembers(let text, let add, let remove):
+            guard let id = pinGroup(text, store: store),
+                  allKnown(add, store: store), allKnown(remove, store: store),
+                  allMembers(remove, of: id, store: store) else { return }
+            store.editPinGroupMembers(id, add: add, remove: remove, reportPulled: false)
         case .reapply:
             router.reapplyAll()
         case .pause:
@@ -445,6 +533,10 @@ enum URLCommands {
             moveDesktop(screen: screen, from: from, to: to, mode: mode, store: store, router: router)
         case .saveLayout(let ruleID, let windowID):
             saveLayout(ruleID: ruleID, windowID: windowID, store: store, router: router)
+        case .copyLayout(let ruleID, let from):
+            if let error = copyLayoutError(store.adoptLayout(for: ruleID, from: from), ruleID: ruleID) {
+                store.report(error)
+            }
         case .addDesktop(let screen):
             Task {
                 if await !router.addDesktop(on: screen) {
@@ -514,6 +606,21 @@ enum URLCommands {
             return
         }
         _ = store.saveLayout(layout, for: ruleID, mode: mode)
+    }
+
+    /// `rule-copy-layout` sonucunun hata metni (saf); kopyalandıysa ya da
+    /// düzenler zaten aynıysa nil (komut satırı aracı "zaten aynı"yı kendisi
+    /// yazar).
+    nonisolated static func copyLayoutError(_ result: Store.AdoptLayoutResult,
+                                            ruleID: String) -> String? {
+        switch result {
+        case .copied, .alreadyEqual: return nil
+        case .ruleNotFound: return L("Rule not found: %@", ruleID)
+        case .notSamePlace:
+            return L("The two plans of this rule are not on the same display and desktop: %@", ruleID)
+        case .missingPlan:
+            return L("This rule needs a target in both plans: %@", ruleID)
+        }
     }
 
     /// Önce tam eşleşme, sonra büyük/küçük harfe duyarsız eşleşme.

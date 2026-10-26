@@ -27,32 +27,63 @@ enum PinBatch {
         rules.filter { shadowed[$0.id] == nil }
     }
 
+    /// Pin grubunun aç/kapat girdisi (saf, K3): grubun bu moddaki bütün
+    /// üyeleri, hangi masaüstünde olurlarsa. `openPinned`: kazanan kuralı
+    /// üye olan açık pencereler (`ruleFor`, oturum pini kazanırsa nil);
+    /// `closed`: hiçbir açık pencereye uymayan, gölgede olmayan üyeler.
+    nonisolated static func pinGroupInput(members: [Rule], windows: [Router.WindowSnapshot],
+                                          shadowed: [String: String],
+                                          ruleFor: (Router.WindowSnapshot) -> Rule?)
+        -> (openPinned: [Router.WindowSnapshot], closed: [Rule]) {
+        let ids = Set(members.map(\.id))
+        let openPinned = windows.filter { ruleFor($0).map { ids.contains($0.id) } ?? false }
+        let closed = members.filter { rule in !windows.contains { rule.matches($0) } }
+        return (openPinned, reopenable(closed, shadowed: shadowed))
+    }
+
+    /// Açılınca haritadaki yerine konabilecek pinler (saf): kazanan yeri
+    /// (`winner`) olan ve o masaüstü bağlı ekranda var olan (`desktopCounts`;
+    /// sayısı bilinmeyen ekran engellemez). Takılı olmayan monitöre ya da
+    /// olmayan masaüstüne bakan pin düşer (masaüstünün "Aç" düğmesi gibi).
+    nonisolated static func placeable(_ rules: [Rule], desktopCounts: [String: Int],
+                                      winner: (Rule) -> Destination?) -> [Rule] {
+        rules.filter { rule in
+            guard let place = winner(rule) else { return false }
+            return desktopCounts[place.screen].map { place.desktop <= $0 } ?? true
+        }
+    }
+
     /// Pinleri sırayla açar (aynı uygulamaya art arda belge vermek için
     /// kısa ara). Açılamayanlar tek uyarıda toplanır.
     static func open(_ rules: [Rule], mode: Mode, router: Router, store: Store) {
         guard !rules.isEmpty else { return }
-        Task { @MainActor in
-            var failed: [String] = []
-            for (i, rule) in rules.enumerated() {
-                if i > 0 { try? await Task.sleep(nanoseconds: 400_000_000) }
-                let target = router.reopenTargets[rule.id]
-                if Reopen.isSafari(rule) {
-                    if await !Reopen.openSafari(rule: rule, target: target,
-                                                destination: rule[mode], router: router) {
-                        failed.append(rule.appName)
-                    }
-                    continue
+        Task { @MainActor in await openAll(rules, mode: mode, router: router, store: store) }
+    }
+
+    /// `open`'ın gövdesi; son pin denenince döner (çift basmayı önleyen
+    /// düğme bitişi bekler).
+    static func openAll(_ rules: [Rule], mode: Mode, router: Router, store: Store) async {
+        guard !rules.isEmpty else { return }
+        var failed: [String] = []
+        for (i, rule) in rules.enumerated() {
+            if i > 0 { try? await Task.sleep(nanoseconds: 400_000_000) }
+            let target = router.reopenTargets[rule.id]
+            if Reopen.isSafari(rule) {
+                if await !Reopen.openSafari(rule: rule, target: target,
+                                            destination: rule[mode], router: router) {
+                    failed.append(rule.appName)
                 }
-                switch Reopen.open(rule: rule, target: target) {
-                case .opened: break
-                case .appOnly: failed.append(rule.title.isEmpty ? rule.appName : rule.title)
-                case .noApp: failed.append(rule.appName)
-                }
+                continue
             }
-            if !failed.isEmpty {
-                store.report(L("Could not open every pin; check: %@",
-                               Array(Set(failed)).sorted().joined(separator: ", ")))
+            switch Reopen.open(rule: rule, target: target) {
+            case .opened: break
+            case .appOnly: failed.append(rule.title.isEmpty ? rule.appName : rule.title)
+            case .noApp: failed.append(rule.appName)
             }
+        }
+        if !failed.isEmpty {
+            store.report(L("Could not open every pin; check: %@",
+                           Array(Set(failed)).sorted().joined(separator: ", ")))
         }
     }
 

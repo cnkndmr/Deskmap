@@ -196,6 +196,17 @@ Deskmap’in uyguladıkları:
   değmeyen pencere kayıtlı yaslama noktasını korur). Yalnız düzen değişir:
   sabitleme ekranını ve masaüstünü korur, yeni bir sabitleme yazılmaz. Geçici
   sabitlemelerde de çalışır.
+- **Öbür plandaki düzeni kullan**: bir sabitlemenin iki planı pencereyi aynı
+  yere koyuyor (aynı ekran ve masaüstü, örneğin ikisi de laptop ekranında;
+  monitörlü planda listenin ilk yeri) ama düzenleri farklıysa panel, düzen
+  döşemelerinin altında öbür planın düzenini ve bir düğme gösterir (**Sadece
+  laptop planındaki düzeni kullan** / **Monitör bağlı planındaki düzeni
+  kullan**). Düğme o düzeni bu plana bir kez kopyalar (⌘Z geri alır); iki plan
+  bağlanmaz, sonradan birinde yapılan değişiklik orada kalır. Masaüstü adına
+  bakan sabitleme yalnız iki planda da aynı ekranda aynı ada bakıyorsa aynı
+  yer sayılır; biri ada biri numaraya bakıyorsa hiçbir zaman. İki *yalnız
+  masaüstü* düzeni eşit sayılır, boyutu ve yaslama noktası aynı iki sabit
+  boyut da.
 - Tam ekran uygulamaların pencerelerine hiç dokunulmaz. Sabitlemesi olmayan
   pencereleri motor hiçbir zaman taşımaz.
 
@@ -538,6 +549,7 @@ Hammerspoon, Keyboard Maestro ya da bir terminal onu yönetebilir. Uygulama
 | `deskmap://profile-export?path=<absolute path>[&name=<profile>]` | Bir profili (varsayılan: etkin olan) `.deskmap.json` olarak dışa aktar |
 | `deskmap://desktop-move/<screen>/<n>/<m>[?mode=docked\|undocked]` | *n*. masaüstünü *m*. sıraya taşı, etiketini sürüklemek gibi: sabitlemeler izler; canlı planda pencereler de taşınır |
 | `deskmap://rule-save-layout/<rule id>[?window=<id>]` | Uyan bir pencerenin şu anki boyutunu ve konumunu kuralın düzeni yap (canlı plan) |
+| `deskmap://rule-copy-layout/<rule id>?from=docked\|undocked` | O planın düzenini kuralın öbür planına bir kez kopyala (ikisi aynı ekran ve masaüstünde olmalı); değilse ya da planlardan birinde hedef yoksa hata, düzenler zaten aynıysa hiçbir şey |
 | `deskmap://profile-set?json=<profile>&activate=1` | Ada göre bir profil oluştur ya da güncelle |
 | `deskmap://plan-desktops/<screen>/<count>[?mode=]` | Bir ekranın *count* masaüstü olmasını sağla |
 | `deskmap://desktop-name/<screen>/<n>?name=<name>` | Bir masaüstüne ad ver (boş ad adı kaldırır). Ad o masaüstüne aittir: masaüstü yeniden sıralanınca ya da taşınınca, öteki ekrana bile, ve takıp çıkarmada onu izler. Profilde zaten kullanılan bir ad reddedilir |
@@ -547,6 +559,10 @@ Hammerspoon, Keyboard Maestro ya da bir terminal onu yönetebilir. Uygulama
 | `deskmap://screen-role-forget/<monitör>` | Bağlı tek bir monitörü unut: rolü beklemeye geçer, düzeni uygulanmaz |
 | `deskmap://backup-now` | Otomatik yedeklemeyi şimdi çalıştır |
 | `deskmap://backup-restore/<id>` | Bir yedeği kimliğiyle geri getir (örn. `daily-2026-10-12`); bkz. [Yedekler](#backups) |
+| `deskmap://group-add?name=<ad>&rules=<kimlik,kimlik>` | Etkin profilde kural kimliklerinden pin grubu kur (ad yoksa *Grup N*); başka gruptaki pinler yeni gruba geçer |
+| `deskmap://group-rename/<grup>?name=<ad>` | Pin grubunu yeniden adlandır; `<grup>` kimliği ya da tam adı (büyük/küçük harf fark etmez). Boş ad reddedilir |
+| `deskmap://group-remove/<grup>` | Grubu dağıt: grup gider, pinleri kalır |
+| `deskmap://group-set/<grup>?add=<kimlikler>&remove=<kimlikler>` | Tek geri alma adımında üye ekle ve/veya çıkar; grupta olmayan pini çıkarmak hatadır, hiçbir şey değişmez |
 
 Her komut `?req=<id>` alır: Deskmap komutu işledikten sonra
 `"request": "<id>"` ile `status.json` yazar; böylece bir betik komutu
@@ -592,7 +608,18 @@ deskmap backups [--json]                   # otomatik yedekler, en yenisi başta
 deskmap backup-now
 deskmap backup-restore daily-2026-10-12
 deskmap save-layout Safari [--window 12345] # az önce sürükleyerek verdiğin boyutu koru
+deskmap rule copy-layout Safari --from docked # laptop planı monitörlü planın düzenini alır (yalnız aynı yerde)
+deskmap group list [--json]                # pin grupları, pinleri ve yerleri (üyesi kalmadıysa "(empty)")
+deskmap group create "Nova drafts" Orion_report Vega_notes   # kural kimlikleri ya da tekil parçalar; kimliği yazar
+deskmap group rename "Nova drafts" Drafts  # GRUP: kimlik, ad ya da adın tekil bir parçası
+deskmap group add Drafts Nova_Conf
+deskmap group remove Drafts Vega_notes
+deskmap group rm Drafts                    # grubu dağıt; pinler kalır
 ```
+
+`deskmap rules` gruptaki kuralı `[group: ad]` ile işaretler. `status.json`
+etkin profilin gruplarını `pinGroups`’ta listeler (`id`, `name`, `rules`: üye
+kimlikleri, boş gruplar dahil); her üye kural `groupID` taşır.
 
 ### Düzen dosyaları (`deskmap apply`) {#layout-files-deskmap-apply}
 

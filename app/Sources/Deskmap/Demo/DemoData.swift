@@ -271,6 +271,10 @@ enum DemoData {
     static let crowdedFreeWindowID: CGWindowID = 131
     static let crowdedCometRuleID = "crowded-rule-comet"
     static let crowdedCometWindowID: CGWindowID = 121
+    /// "Nova drafts" pin grubu: 3. masaüstündeki kapalı Preview pinlerinden
+    /// üçü (Expo_template grupsuz kalır).
+    static let crowdedPinGroupID = "demo-group-nova"
+    static let crowdedPinGroup = PinGroup(id: crowdedPinGroupID, name: "Nova drafts")
 
     private static let retinaScreen = ScreenInfo(
         id: "builtin", uuid: "DEMO-BUILTIN-SCREEN-0002", name: L("Built-in Retina Display"),
@@ -291,12 +295,13 @@ enum DemoData {
             Destination(screen: screen, desktop: desktop, layout: layout)
         }
         func rule(id: String? = nil, _ app: String, _ bundle: String, _ tokens: [String],
-                  docked: Destination?, undocked: Destination? = nil) -> Rule {
+                  docked: Destination?, undocked: Destination? = nil, group: String? = nil) -> Rule {
             if let id {
                 return Rule(id: id, appName: app, bundleID: bundle, tokens: tokens,
-                            docked: docked, undocked: undocked)
+                            docked: docked, undocked: undocked, groupID: group)
             }
-            return Rule(appName: app, bundleID: bundle, tokens: tokens, docked: docked, undocked: undocked)
+            return Rule(appName: app, bundleID: bundle, tokens: tokens, docked: docked, undocked: undocked,
+                        groupID: group)
         }
 
         let rules: [Rule] = [
@@ -325,14 +330,15 @@ enum DemoData {
                  docked: dest("builtin", 3, .leftHalf), undocked: dest("builtin", 4)),
             rule("Visual Studio Code", "com.microsoft.VSCode", ["Nova"],
                  docked: dest("builtin", 3, .rightHalf), undocked: dest("builtin", 4)),
+            // Üçü "Nova drafts" pin grubunda; Expo_template grupsuz.
             rule("Preview", "com.apple.Preview", ["Orion_report_v3"],
-                 docked: dest("builtin", 3), undocked: dest("builtin", 4)),
+                 docked: dest("builtin", 3), undocked: dest("builtin", 4), group: crowdedPinGroupID),
             rule("Preview", "com.apple.Preview", ["Nova_Conf2027_draft"],
-                 docked: dest("builtin", 3), undocked: dest("builtin", 4)),
+                 docked: dest("builtin", 3), undocked: dest("builtin", 4), group: crowdedPinGroupID),
             rule("Preview", "com.apple.Preview", ["Expo_template"],
                  docked: dest("builtin", 3), undocked: dest("builtin", 4)),
             rule("Preview", "com.apple.Preview", ["Vega_notes"],
-                 docked: dest("builtin", 3), undocked: dest("builtin", 4)),
+                 docked: dest("builtin", 3), undocked: dest("builtin", 4), group: crowdedPinGroupID),
             // Masaüstü 5 "Lumen Makale" bu laptopta yok (gerçekte 4 masaüstü).
             rule("Notes", "com.apple.Notes", ["Lumen"], docked: dest("builtin", 5)),
             // Harici · Masaüstü 1 "Orion Projesi".
@@ -349,10 +355,12 @@ enum DemoData {
         document.enabled = true
         document.setupNoticeDismissed = true
         document.screens = [retinaScreen.known, monitorScreen.known]
-        let profile = Profile(id: "crowded-profile", name: L("Desk"), rules: rules)
+        let profile = Profile(id: "crowded-profile", name: L("Desk"), rules: rules,
+                              pinGroups: [crowdedPinGroup])
         document.profiles = [profile]
         document.activeProfileID = profile.id
         document.rules = rules
+        document.pinGroups = [crowdedPinGroup]
         for mode in Mode.allCases {
             _ = document.setDesktopName("AI Setup", screen: "builtin", desktop: 1, mode: mode)
             _ = document.setDesktopName("Notes Hub", screen: "builtin", desktop: 2, mode: mode)

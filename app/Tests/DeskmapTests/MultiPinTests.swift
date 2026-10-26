@@ -45,6 +45,105 @@ struct MultiPinTests {
         #expect(one.rules.isEmpty && one.sessions.map(\.window) == [1])
     }
 
+    /// Gruplama planı: seçili kapalı çip ve pinli pencere `existing`'e,
+    /// taslağı var olan kurala düşen pencere `existing`'e, yeni pencere
+    /// `rules`'a, ayırt edilemeyen pencere `sessions`'a gider.
+    @Test func groupingPlanSeparatesExistingPins() {
+        let closed = Rule(id: "closed", appName: "Preview", bundleID: "b.Preview", tokens: ["Vega"],
+                          docked: Destination(screen: "external", desktop: 3))
+        let pinned = Rule(id: "pinned", appName: "Code", bundleID: "b.Code", tokens: ["Orion"],
+                          docked: Destination(screen: "external", desktop: 2))
+        let sameKey = Rule(id: "same", appName: "Finder", bundleID: "b.Finder", tokens: ["Nova"],
+                           undocked: Destination(screen: "builtin", desktop: 1))
+        let rules = [closed, pinned, sameKey]
+        let windows = [window(1, "Code", "a.md — Orion"), window(2, "Finder", "Nova"),
+                       window(3, "Mail", "Inbox"),
+                       window(4, "Notes", "Lumen"), window(5, "Notes", "Lumen", desktop: 4)]
+        let ruleFor: (Router.WindowSnapshot) -> Rule? = { $0.id == 1 ? pinned : nil }
+        let result = MultiPinBar.plan(selected: [1, 2, 3, 4, 5], windows: windows,
+                                      existingRules: rules, selectedRules: ["closed", "gone"],
+                                      ruleFor: ruleFor) { _ in .full }
+        #expect(result.existing == ["pinned", "same", "closed"])
+        #expect(result.rules.map(\.rule.appName) == ["Mail", "Notes"])
+        #expect(result.sessions.map(\.window) == [5])
+        // Gruplamasız plan eski davranış: pinli pencere de yeniden pinlenir.
+        let plain = plan([1, 2, 3], windows)
+        #expect(plain.existing.isEmpty)
+        #expect(plain.rules.count == 3)
+        #expect(result != plain)
+    }
+
+    /// Plan bu modu bilince: taslağı yalnız öbür planda yeri olan kurala
+    /// düşen pencere pinlenir (`rules`, `Document.pin` o kurala bu planın
+    /// yerini ekler), öbür planın seçili çipi gruba girmez, oturum pini olan
+    /// pencere `temporary`'ye gider (K8).
+    @Test func groupingPlanChecksPlacesInThisModeAndSkipsTemporaryPins() {
+        let docked = Rule(id: "docked", appName: "Code", bundleID: "b.Code", tokens: ["Orion"],
+                          docked: Destination(screen: "external", desktop: 2))
+        let otherPlan = Rule(id: "other", appName: "Finder", bundleID: "b.Finder", tokens: ["Nova"],
+                             undocked: Destination(screen: "builtin", desktop: 1))
+        let tray = Rule(id: "tray", appName: "Preview", bundleID: "b.Preview", tokens: ["Vega"],
+                        undocked: Destination(screen: "builtin", desktop: 2))
+        let rules = [docked, otherPlan, tray]
+        let windows = [window(1, "Code", "a.md — Orion"), window(2, "Finder", "Nova"),
+                       window(3, "Mail", "Inbox"), window(4, "Notes", "Lumen")]
+        // 1 ve 4 oturum pinli: ruleFor nil döner (oturum pini kazanır).
+        let result = MultiPinBar.plan(selected: [1, 2, 3, 4], windows: windows,
+                                      existingRules: rules, selectedRules: ["tray", "docked"],
+                                      mode: .docked, sessionPinned: [1, 4],
+                                      ruleFor: { _ in nil }) { _ in .full }
+        #expect(result.existing == ["docked"])
+        #expect(result.rules.map(\.rule.appName) == ["Finder", "Mail"])
+        #expect(result.temporary == [1, 4])
+        #expect(result.sessions.isEmpty)
+        // Öbür planın seçili çipi atlanır ama çubuk nedenini söyleyebilsin.
+        #expect(result.otherPlan == ["tray"])
+        // Gruplamasız planda oturum pini denetimi yok (eski davranış).
+        let plain = MultiPinBar.plan(selected: [1], windows: windows, sessionPinned: [1]) { _ in .full }
+        #expect(plain.temporary.isEmpty && plain.rules.count == 1)
+    }
+
+    /// Kazanan kural uygulamanın bütün pencerelerini tutuyorsa seçili
+    /// pencere kendi başlık kuralını alır: seçilmeyen pencereler gruba girmez.
+    @MainActor @Test func groupingPlanGivesWindowsUnderAnAppWideRuleTheirOwnRule() throws {
+        let all = Rule(id: "all", appName: "Preview", bundleID: "b.Preview", tokens: [],
+                       docked: Destination(screen: "external", desktop: 2))
+        var d = Document()
+        d.rules = [all]
+        d.syncActiveProfile()
+        let store = Store(demo: d)
+        let windows = [window(1, "Preview", "Vega.pdf"), window(2, "Preview", "Nova.pdf"),
+                       window(3, "Preview", "Lumen.pdf")]
+        let plan = MultiPinBar.plan(selected: [1, 2], windows: windows,
+                                    existingRules: store.document.rules, mode: .docked,
+                                    ruleFor: { _ in all }) { _ in .full }
+        #expect(plan.existing.isEmpty)
+        #expect(plan.rules.count == 2)
+        let id = try #require(store.pinAsGroup(new: plan.rules, existing: plan.existing, mode: .docked))
+        let members = store.document.pinGroupMembers(id, mode: .docked)
+        #expect(members.count == 2 && !members.contains { $0.id == "all" })
+        #expect(store.document.rule("all")?.groupID == nil)
+        #expect(store.document.rule("all")?.docked?.desktop == 2)
+    }
+
+    /// Öbür planda yeri olan kurala düşen pencere gruplanınca bu planda da
+    /// yer alır ve grubun bu moddaki üyesi olur.
+    @MainActor @Test func pinAsGroupPlacesARuleThatOnlyHadTheOtherPlan() throws {
+        var d = Document()
+        d.rules = [Rule(id: "other", appName: "Finder", bundleID: "b.Finder", tokens: ["Nova"],
+                        undocked: Destination(screen: "builtin", desktop: 1))]
+        d.syncActiveProfile()
+        let store = Store(demo: d)
+        let plan = MultiPinBar.plan(selected: [2], windows: [window(2, "Finder", "Nova")],
+                                    existingRules: store.document.rules, mode: .docked,
+                                    ruleFor: { _ in nil }) { _ in .full }
+        let id = try #require(store.pinAsGroup(new: plan.rules, existing: plan.existing, mode: .docked))
+        #expect(store.document.rules.count == 1)
+        #expect(store.document.pinGroupMembers(id, mode: .docked).map(\.id) == ["other"])
+        #expect(store.document.rules[0][.docked]?.desktop == 2)
+        #expect(store.document.rules[0][.undocked]?.desktop == 1)
+    }
+
     @Test func skipsWindowsWithoutAPlace() {
         var full = window(1, "Code", "x")
         full.fullscreen = Router.FullscreenSlot(screen: "external", space: 9, afterDesktop: 1, order: 0)

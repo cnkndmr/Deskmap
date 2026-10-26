@@ -458,8 +458,10 @@ final class Router: ObservableObject {
 
         // @Published willSet'te yayar: tarama bir sonraki turda, yeni kurallar
         // yazıldıktan sonra başlasın (yoksa eski kural listesini okurdu).
+        // Yalnız yönlendirmeyi etkileyen alanlar karşılaştırılır: pin grubu
+        // değişimi (oluşturma, ad, üyelik) pencereleri yerinden oynatmaz (K11).
         store.$document
-            .map(\.rules)
+            .map(Router.routingKey)
             .removeDuplicates()
             .dropFirst()
             .receive(on: DispatchQueue.main)
@@ -498,6 +500,12 @@ final class Router: ObservableObject {
                 Task { @MainActor in self?.setPaused(false, reason: reason) }
             })
         }
+    }
+
+    /// Kural aboneliğinin karşılaştırdığı değer (saf): kuralların
+    /// yönlendirme izdüşümü (`Rule.routingProjection`, grup üyeliği atılmış).
+    nonisolated static func routingKey(_ document: Document) -> [Rule] {
+        document.rules.map(\.routingProjection)
     }
 
     /// Shots modu (`--shots`): tarama yok, zamanlayıcı kurulmaz, AX/SkyLight

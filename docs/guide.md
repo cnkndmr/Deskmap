@@ -129,6 +129,51 @@ here*; the last card, **+ Add desktop**, adds one to the map.
   details).
 - Dragging an **unpinned** window moves it once and saves nothing.
 
+### Pin groups
+
+A desktop can hold many pins; a **pin group** collects some of them under a
+name. Example: a desktop has ten pinned PDFs, four of them belong to one
+paper. Group those four and they move, open and close together.
+
+![A pin group on Desktop 3: its header with the name, the count and the open button, the members below](images/en/09-pin-group.png)
+
+- **Make a group.** ⌘-click windows and pin chips (closed pins too), then
+  press **Pin as group** in the side column (it reads **Group N pins** when
+  everything you selected is already pinned). Pins that already exist keep
+  their places; new windows are pinned where they are. Or right-click a chip
+  or a pinned window › **Add to group** › an existing group or **New group…**.
+  A pin is in at most one group: adding it to another group moves it there.
+- **Name it.** A new group starts as *Group N* (the first free number) with
+  its name field open;
+  double-click the group's header (or right-click › **Rename group…**) to
+  rename it later. An empty name is not accepted.
+- **Open and close.** The button at the right of the header opens every
+  closed pin of the group, or closes every open pinned window of it (in the
+  current plan). Right-click › **Open all** / **Close all** does the same.
+- **Move it.** Drag the group by its header onto another desktop, or
+  right-click › **Send group to**. Every pin of the group goes there, even
+  ones that sit on other desktops: a scattered group comes back together.
+  Moving to a named desktop works like moving a single pin: members without a
+  place in the other plan get that name there too.
+- **One pin moved alone stays in its group.** The header then shows *also on
+  Desktop N* (or *also on another screen*). To take a pin out, right-click it ›
+  **Remove from group**. Unpinning a member (or dropping it on the tray) also
+  takes it out, in both plans: pinning that window again later does not put it
+  back. **Ungroup (keeps pins)** removes the group, never the pins. In the
+  **Add to group** menu, groups with the same name show their pin count.
+- **Temporary pins are not grouped.** A selected window that already has a
+  temporary pin keeps it and stays out of the group; a window whose title also
+  matches other open windows gets a temporary pin the usual way. Pins of the
+  other plan (the tray) can't start a group from this plan; the side column
+  says so when you select one. A window held by an app-wide pin (*all
+  windows*) gets its own pin by title, so the group holds only the windows
+  you selected.
+- Undo (⌘Z) covers every group change. Restoring a backup made before you
+  grouped also removes the groups.
+- Groups are optional fields in `rules.json`. An older Deskmap ignores them,
+  and if an older version saves the file, the groups are lost (the pins stay).
+  Don't run two Deskmap versions at the same time.
+
 ## 5. Give it a size
 
 Click a pinned window's box or chip. Under the sentence are four layouts: **Full**,
@@ -166,6 +211,12 @@ now**; the other one says when it applies.
 
 - **Monitor connected** — at least one external display is attached.
 - **Laptop only** — just the built-in screen.
+
+The two plans are set up separately. If a window sits in the same place in
+both (say Safari on the laptop screen, desktop 2) but with a different
+layout, its panel offers **Use the Laptop only plan's layout** (or the
+Monitor connected one): one click copies it over once, and the plans stay
+separate afterwards.
 
 With two external monitors the map shows a card for each (**Extra monitor**,
 **Monitor 2**). Each monitor keeps its card wherever you place it in System

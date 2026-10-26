@@ -35,6 +35,8 @@ struct RootView: View {
 
     /// Router'ın son işlemi alt çubukta bu kadar kalır; sonra genel ipucu döner.
     static let actionFade: TimeInterval = 30
+    /// Bilgi iletisinin (`Store.notice`) alt çubukta kalma süresi.
+    static let noticeFade: TimeInterval = 8
     /// Pencere boyutu ve sol kenar çubuğunun genişliği.
     /// Pencere boyutu ekranın kullanılabilir alanına oranlıdır (sabit pt
     /// değil): 1710×1074 pt'lik ekranda ≈ 900×750. Alt/üst sınırlar küçük
@@ -417,6 +419,8 @@ struct RootView: View {
         }
         .onChange(of: mode) { _ in
             ui.panel = nil
+            // Seçili çipler başka planın kartlarında değil; seçim plana bağlı.
+            ui.clearSelection()
             // Sürükleme sürerken sekme değişti: kaynağı görünümden kalkan jestin
             // bitişi gelmez; hayalet, donmuş liste ve kaydırma kalmasın.
             ui.drag = nil
@@ -456,6 +460,11 @@ struct RootView: View {
             if case .rule(let id) = ui.panel, document.rule(id) == nil {
                 ui.panel = nil
             }
+            // Silinen (ya da profil değişince kaybolan) seçili çipler düşer.
+            if !ui.selectedRules.isEmpty {
+                let kept = ui.selectedRules.filter { document.rule($0) != nil }
+                if kept != ui.selectedRules { ui.selectedRules = kept }
+            }
         }
         .task(id: nextFooterDeadline) {
             // Süreli ileti düşeceği anda saati ilerlet; sonraki süre için
@@ -473,10 +482,18 @@ struct RootView: View {
     /// Alt çubuktaki süreli iletilerden ilk düşecek olanın zamanı.
     private var nextFooterDeadline: Date? {
         [store.history.discardNoticeExpiry,
-         router.status.lastActionAt.map { $0.addingTimeInterval(Self.actionFade) }]
+         router.status.lastActionAt.map { $0.addingTimeInterval(Self.actionFade) },
+         store.notice.map { $0.at.addingTimeInterval(Self.noticeFade) }]
             .compactMap { $0 }
             .filter { $0 > now }
             .min()
+    }
+
+    /// Store'un bilgi iletisi hâlâ gösterilecek kadar yeni mi?
+    private var recentNotice: String? {
+        guard let notice = store.notice,
+              now.timeIntervalSince(notice.at) < Self.noticeFade else { return nil }
+        return notice.text
     }
 
     /// Son işlem hâlâ gösterilecek kadar yeni mi?
@@ -494,7 +511,7 @@ struct RootView: View {
     private func showFrontWindow() {
         ui.panel = nil
         ui.panelSourceWindowID = nil
-        ui.selection = []
+        ui.clearSelection()
         ui.search = ""
         searchFocused = false
         mapShownAt = Date()
@@ -529,6 +546,13 @@ struct RootView: View {
             let group = window.bundleID.isEmpty ? window.appName : window.bundleID
             ui.collapsed.remove(UIState.collapseKey(mode: screens.mode, screen: placement.screen,
                                                     desktop: placement.desktop, group: group))
+            // Kazanan kural bir pin grubundaysa satır o grubun kutusunda çizilir;
+            // kutu katlıysa açılmazsa kaydırma satırı bulamaz.
+            if !sessionPinned, let groupID = rule?.groupID {
+                ui.collapsed.remove(UIState.collapseKey(mode: screens.mode, screen: placement.screen,
+                                                        desktop: placement.desktop,
+                                                        group: PinGroupBox.idPrefix + groupID))
+            }
         }
         revealSeq += 1
         ui.reveal = RevealRequest(window: window.id, seq: revealSeq)
@@ -553,7 +577,10 @@ struct RootView: View {
     private static let inspectorTop = "inspectorTop"
 
     /// Çoklu seçim çubuğu mu gösteriliyor.
-    private var showsMultiPin: Bool { !ui.selection.isEmpty && mode == screens.mode }
+    /// Seçili pencere yalnız canlı planda anlamlı; seçili çip (gruplama) her planda.
+    private var showsMultiPin: Bool {
+        (!ui.selection.isEmpty && mode == screens.mode) || !ui.selectedRules.isEmpty
+    }
 
     /// Sütunda neyin gösterildiği (saf): kaydırma yalnız bu değişince başa
     /// döner. Taslağın kendisi değil penceresi sayılır; pencere hareket edince
@@ -907,6 +934,8 @@ struct RootView: View {
                 } else if let error = store.lastError {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red)
+                } else if let notice = recentNotice {
+                    Label(notice, systemImage: "info.circle")
                 } else if !router.status.unresponsive.isEmpty {
                     Label(L("%@ not responding; skipped for now",
                             router.status.unresponsive.joined(separator: ", ")),

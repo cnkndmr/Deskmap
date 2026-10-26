@@ -772,7 +772,8 @@ struct SetupDifferenceTray: View {
     private var isTargeted: Bool {
         guard let drag = ui.drag, drag.hover == .tray, !drag.fromTray else { return false }
         switch drag.item {
-        case .desktop, .group:
+        // Grup tepsiye bırakılamaz (pinleri kaldırmaz).
+        case .desktop, .group, .pinGroup:
             return false
         case .rule(let id):
             return store.rule(id)?[mode] != nil
@@ -864,6 +865,8 @@ struct QuickStartCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Button {
                     ui.panel = nil
+                    // Önceden ⌘-seçilmiş pin çipleri seçimde kalmasın.
+                    ui.clearSelection()
                     ui.selection = Set(placeable.map(\.id))
                 } label: {
                     Label(placeable.count == 1 ? L("Pin it where it is…")
@@ -1130,7 +1133,7 @@ struct DragGhost: View {
                         WindowRow(window: window, mode: mode, isGhost: true)
                             .frame(width: 260)
                     }
-                case .group(_, _, _, let name):
+                case .group(_, _, _, let name), .pinGroup(_, _, _, let name):
                     Label(name, systemImage: "square.stack")
                         .font(.caption.weight(.medium))
                         .padding(.horizontal, 8)

@@ -73,9 +73,21 @@ COMMANDS:
   rule add --app A [--title T ...] --screen S [--desktop N] [--layout L|desktop-only]
            [--undocked-screen S --undocked-desktop N] | rule rm ID
   save-layout RULE [--window W]    use the window's current frame as the rule's layout
+  rule copy-layout RULE --from docked|undocked   one-shot: copy that setup's layout to
+                                   the other setup of the same rule (ACTIVE profile). Only
+                                   when both setups are the same place (same screen and
+                                   desktop; the docked list's first place); not linked
+                                   afterwards. Undo: ⌘Z in the app
   pause | resume | toggle | reapply | reload | next-profile | profile NAME
   profile-rename OLD NEW | export FILE [--profile P]
   desktop-move SCREEN N M [--mode M]   reorder desktops (rules/pins/windows follow)
+  group list [--json] | group create NAME RULE... | group rename GROUP NAME | group rm GROUP
+  group add GROUP RULE... | group remove GROUP RULE...
+                                   pin groups of the ACTIVE profile: a named set of pins that
+                                   move, open and close together in the app. A pin is in at most
+                                   one group (adding moves it from its old group); `rm` ungroups,
+                                   the pins stay. GROUP: id, name (case-insensitive) or a unique
+                                   part of a name. Undo: ⌘Z in the app
   backups [--json] | backup-now | backup-restore ID
                                    automatic backups of all profiles (hourly for 24 h,
                                    daily for 7 days, weekly forever); restore first backs
@@ -425,12 +437,116 @@ def show_rules(args):
     s = fresh_status()
     if args.json:
         print(json.dumps(s["rules"], indent=2, ensure_ascii=False)); return
-    for r in s["rules"]:
+    print("\n".join(rule_lines(s)))
+
+
+def rule_lines(status):
+    """`rules` metin çıktısı; pin grubundaki kurala `[group: ad]` eki."""
+    groups = {g["id"]: g["name"] for g in status.get("pinGroups", [])}
+    out = []
+    for r in status["rules"]:
         title = f" title~{' '.join(r['tokens'])}" if r.get("tokens") else ""
         if r.get("path"):
             title += f" file={r['path']}"
-        print(f"{r['id']}  {r['appName']}{title}\n    docked {docked_text(r)}"
-              f"  undocked {dest_text(r.get('undocked'))}")
+        group = f"  [group: {groups[r['groupID']]}]" if r.get("groupID") in groups else ""
+        out.append(f"{r['id']}  {r['appName']}{title}{group}\n    docked {docked_text(r)}"
+                   f"  undocked {dest_text(r.get('undocked'))}")
+    return out
+
+
+def resolve_group(status, text):
+    """Pin grubu: önce kimlik, sonra harf duyarsız tam ad, sonra tek parça
+    eşleşmesi. Belirsizse adaylar listelenir. Dönen her zaman kimliktir."""
+    groups = status.get("pinGroups", [])
+    for g in groups:
+        if g["id"] == text:
+            return g["id"]
+    t = text.strip().lower()
+    hits = [g for g in groups if g["name"].lower() == t] or [g for g in groups if t and t in g["name"].lower()]
+    if len(hits) == 1:
+        return hits[0]["id"]
+    if not hits:
+        names = ", ".join(g["name"] for g in groups)
+        die(f"no pin group '{text}'" + (f"; groups: {names}" if names else ""))
+    lines = "\n".join(f"  {g['id']}  {g['name']}" for g in hits)
+    die(f"'{text}' matches {len(hits)} pin groups, use an id:\n{lines}")
+
+
+def group_lines(status):
+    """`group list`: "ad (n pins)  kimlik", altında her üye ve bu kurulumda
+    gideceği yer (`effective_place`: sıralı liste, tutulan ekran, yedek,
+    masaüstü sınırı); gidecek yeri yoksa ilk yeri "(not connected)" ile.
+    Üyesi kalmamış grup "(empty)"."""
+    rules = {r["id"]: r for r in status.get("rules", [])}
+    mode = status.get("mode", "docked")
+    out = []
+    for g in status.get("pinGroups", []):
+        members = [rules[i] for i in g.get("rules", []) if i in rules]
+        count = "(empty)" if not members else f"({len(members)} pin{'s' if len(members) != 1 else ''})"
+        out.append(f"{g['name']} {count}  {g['id']}")
+        for r in members:
+            first, d = r.get(mode), effective_place(status, r)
+            if d:
+                place = desktop_label(status, d["screen"], d["desktop"])
+            elif first:
+                # Ekran bilgisi olmayan (eski) durumda ilk yer; varsa bağlı değil.
+                place = desktop_label(status, first["screen"], first["desktop"])
+                if "screens" in status:
+                    place += " (not connected)"
+            else:
+                place = f"- (no {mode} place)"
+            title = " ".join(r.get("tokens", [])) or os.path.basename(r.get("path") or "") or "all windows"
+            out.append(f"    {r['appName']} {title}  {place}")
+    return out
+
+
+def show_groups(args):
+    s = fresh_status()
+    if args.json:
+        print(json.dumps(s.get("pinGroups", []), indent=2, ensure_ascii=False)); return
+    lines = group_lines(s)
+    print("\n".join(lines) if lines else "no pin groups")
+
+
+def group_create(args):
+    s = fresh_status()
+    ids = [resolve_rule(s, r) for r in args.rules]
+    before = {g["id"] for g in s.get("pinGroups", [])}
+    after = send("group-add", name=args.name, rules=",".join(ids))
+    new = [g for g in after.get("pinGroups", []) if g["id"] not in before]
+    if not new:
+        die("pin group was not created")
+    print(new[0]["id"])
+
+
+def group_rename(args):
+    s = fresh_status()
+    gid = resolve_group(s, args.group)
+    after = send(f"group-rename/{urllib.parse.quote(gid, safe='')}", name=args.name)
+    # Uygulama sessizce yapmadıysa (eski sürüm ya da kayıp grup) söyle.
+    if not any(g["id"] == gid and g["name"] == args.name.strip() for g in after.get("pinGroups", [])):
+        die("pin group was not renamed")
+
+
+def group_rm(args):
+    s = fresh_status()
+    gid = resolve_group(s, args.group)
+    after = send(f"group-remove/{urllib.parse.quote(gid, safe='')}")
+    if any(g["id"] == gid for g in after.get("pinGroups", [])):
+        die("pin group is still there")
+
+
+def group_members(args, key):
+    s = fresh_status()
+    gid = resolve_group(s, args.group)
+    ids = [resolve_rule(s, r) for r in args.rules]
+    if key == "remove":
+        # Grubun üyesi olmayan kural sessizce "çıkarılmış" sayılmasın.
+        members = {r["id"] for r in s.get("rules", []) if r.get("groupID") == gid}
+        stray = [i for i in ids if i not in members]
+        if stray:
+            die(f"not in this pin group: {', '.join(stray)}")
+    send(f"group-set/{urllib.parse.quote(gid, safe='')}", **{key: ",".join(ids)})
 
 
 def show_hooks(args):
@@ -756,9 +872,18 @@ def build_plan(spec):
 def merge_rules(old, new, replace):
     """Varsayılan: profilin öteki kuralları kalır; dosyadaki pencerenin kuralı
     (aynı uygulama + başlık parçaları) güncellenir, yoksa eklenir. Güncellenen
-    kural kimliğini korur. `replace` ise liste dosyadakiyle değişir."""
+    kural kimliğini korur. `replace` ise liste dosyadakiyle değişir; dosyadaki
+    kural eski bir kuralla (aynı anahtar) eşleşiyor ve grubu yazmıyorsa eski
+    pin grubu üyeliği (`groupID`) taşınır."""
     if replace or not old:
-        return [dict(r) for r in new], [r["id"] for r in new]
+        groups = {rule_key(r): r["groupID"] for r in old or [] if r.get("groupID")}
+        merged = []
+        for r in new:
+            r = dict(r)
+            if "groupID" not in r and rule_key(r) in groups:
+                r["groupID"] = groups[rule_key(r)]
+            merged.append(r)
+        return merged, [r["id"] for r in new]
     merged = [dict(r) for r in old]
     index = {rule_key(r): i for i, r in enumerate(merged)}
     ids = []
@@ -1183,6 +1308,81 @@ def save_layout(args):
     print(f"{place_text(before)}  →  {place_text(now)}")
 
 
+def same_place(a, b):
+    """İki kurulumun hedefi aynı yer mi (Deskmap'in `Destination.isSamePlace`'i):
+    aynı ekran rolü ve aynı masaüstü; ad hedefinde ad, numara hedefinde sıra.
+    Biri ada biri numaraya bakıyorsa aynı yer değil."""
+    if not a or not b or a.get("screen") != b.get("screen"):
+        return False
+    if a.get("nameID") or b.get("nameID"):
+        return a.get("nameID") == b.get("nameID")
+    return a.get("desktop", 1) == b.get("desktop", 1)
+
+
+SAME_AREA_TOLERANCE = 0.0005  # Deskmap'in `LayoutLibrary.tolerance`'ı
+
+
+def layouts_alike(a, b):
+    """Yerleşimde aynı düzen mi (`WindowLayout.placesLike`): ikisi de yalnız
+    masaüstüyse eşit; sabit boyutta yalnız `fixed`; oranlıda x, y, w, h
+    "aynı alan" toleransıyla (`LayoutLibrary.sameArea`)."""
+    a, b = a or {}, b or {}
+    if a.get("desktopOnly") or b.get("desktopOnly"):
+        return bool(a.get("desktopOnly")) == bool(b.get("desktopOnly"))
+    if a.get("fixed") or b.get("fixed"):
+        return a.get("fixed") == b.get("fixed")
+    defaults = {"x": 0, "y": 0, "w": 1, "h": 1}
+    return all(abs(float(a.get(k, v)) - float(b.get(k, v))) <= SAME_AREA_TOLERANCE
+               for k, v in defaults.items())
+
+
+def layout_text(lay):
+    """'left-half', 'desktop-only', '800x600 pt center' ya da 'x,y,w,h'."""
+    name = layout_name(lay or {})
+    if isinstance(name, str):
+        return name
+    if name.get("fixed"):
+        f = name["fixed"]
+        return f"{f['width']:g}x{f['height']:g} pt {f['anchor']}"
+    return ",".join(f"{name[k]:g}" for k in "xywh")
+
+
+def copy_layout_check(r, source):
+    """copy-layout öncesi denetim (saf): (kaynak, hedef) hedefleri, hata metni
+    ya da "equal". Monitörlü kurulumda yalnız ilk yer (`docked`)."""
+    target = "undocked" if source == "docked" else "docked"
+    if not r.get(source) or not r.get(target):
+        missing = source if not r.get(source) else target
+        return None, None, f"rule has no {missing} place"
+    src, dst = r[source], r[target]
+    if not same_place(src, dst):
+        return src, dst, (f"the two setups are not the same place "
+                          f"(docked {dest_text(r['docked'])}, undocked {dest_text(r['undocked'])}); "
+                          "copy-layout needs the same screen and desktop in both")
+    if layouts_alike(src.get("layout"), dst.get("layout")):
+        return src, dst, "equal"
+    return src, dst, None
+
+
+def copy_layout(args):
+    s = fresh_status()
+    rule = resolve_rule(s, args.rule)
+    r = next(x for x in s["rules"] if x["id"] == rule)
+    target = "undocked" if args.source == "docked" else "docked"
+    src, dst, problem = copy_layout_check(r, args.source)
+    if problem == "equal":
+        print(f"already equal: {r['appName']} uses {layout_text(dst.get('layout'))} in both setups")
+        return
+    if problem:
+        die(problem)
+    after = send(f"rule-copy-layout/{rule}", **{"from": args.source})
+    now = next((x for x in after["rules"] if x["id"] == rule), {}).get(target) or {}
+    if not layouts_alike(now.get("layout"), src.get("layout")):
+        die("layout was not copied")
+    print(f"{r['appName']} {target}: {layout_text(dst.get('layout'))}  →  "
+          f"{layout_text(now.get('layout'))} (from {args.source}; the setups stay separate)")
+
+
 def role_name(text):
     """'2' / 'monitor-2' / 'external-2' → 'external-2'; '1' → 'external'."""
     t = text.strip().lower().removeprefix("monitor").strip(" -")
@@ -1219,7 +1419,8 @@ def screen_role(args):
             print(f"{sc['id']:<11} {sc['name']:<28} {sc.get('uuid', '')[:8]}")
 
 
-def main():
+def build_parser():
+    """Komut satırı ayrıştırıcısı (testler alt komutları buradan dener)."""
     p = argparse.ArgumentParser(prog="deskmap", description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -1257,12 +1458,30 @@ def main():
     sp.add_argument("--undocked-screen"); sp.add_argument("--undocked-desktop", type=int)
     sp.set_defaults(fn=rule_add)
     sp = rp.add_parser("rm"); sp.add_argument("id"); sp.set_defaults(fn=rule_rm)
+    sp = rp.add_parser("copy-layout", help="one-shot: copy one setup's layout to the other "
+                       "setup of the rule (both must be the same screen and desktop)")
+    sp.add_argument("rule", help="rule id or a unique app/title fragment")
+    sp.add_argument("--from", dest="source", choices=MODES, required=True,
+                    help="setup whose layout is copied")
+    sp.set_defaults(fn=copy_layout)
     sp = sub.add_parser("profile-rename"); sp.add_argument("old"); sp.add_argument("new")
     sp.set_defaults(fn=lambda a: send(f"profile-rename/{urllib.parse.quote(a.old, safe='')}", name=a.new))
     sp = sub.add_parser("export"); sp.add_argument("file"); sp.add_argument("--profile")
     sp.set_defaults(fn=export_profile)
     sp = sub.add_parser("desktop-move"); sp.add_argument("screen"); sp.add_argument("src", type=int)
     sp.add_argument("dst", type=int); sp.add_argument("--mode", choices=MODES); sp.set_defaults(fn=desktop_move)
+    gp = sub.add_parser("group", help="pin groups of the active profile").add_subparsers(
+        dest="gcmd", required=True)
+    sp = gp.add_parser("list"); sp.add_argument("--json", action="store_true"); sp.set_defaults(fn=show_groups)
+    sp = gp.add_parser("create"); sp.add_argument("name"); sp.add_argument("rules", nargs="+")
+    sp.set_defaults(fn=group_create)
+    sp = gp.add_parser("rename"); sp.add_argument("group"); sp.add_argument("name")
+    sp.set_defaults(fn=group_rename)
+    sp = gp.add_parser("rm", help="ungroup (the pins stay)"); sp.add_argument("group")
+    sp.set_defaults(fn=group_rm)
+    for name, key in (("add", "add"), ("remove", "remove")):
+        sp = gp.add_parser(name); sp.add_argument("group"); sp.add_argument("rules", nargs="+")
+        sp.set_defaults(fn=lambda a, k=key: group_members(a, k))
     sp = sub.add_parser("backups"); sp.add_argument("--json", action="store_true")
     sp.set_defaults(fn=show_backups)
     sub.add_parser("backup-now").set_defaults(fn=lambda a: (send("backup-now"), print("backed up")))
@@ -1280,6 +1499,11 @@ def main():
     sub.add_parser("layouts").set_defaults(fn=lambda a: print("\n".join(
         f"{k:<18} {','.join(f'{v:g}' for v in xywh)}" for k, xywh in NAMED_LAYOUTS.items())
         + "\ndesktop-only       follow the desktop, keep position and size"))
+    return p
+
+
+def main():
+    p = build_parser()
     if len(sys.argv) == 1:
         p.print_help()
         return

@@ -154,4 +154,29 @@ struct ShotsTests {
         }
         #expect(DemoData.demoWindows(.secondMonitor).contains { $0.placement?.screen == "external-2" })
     }
+
+    // MARK: - Pin grubu demosu
+
+    /// Kalabalık senaryonun "Nova drafts" grubu geçerli: 3 üye, ad dolu, aynı
+    /// masaüstünde (laptop 3, monitörlü planda), Expo_template grupsuz;
+    /// kayıt hem profilde hem çalışma kopyasında.
+    @Test func crowdedPinGroupIsValid() throws {
+        let world = DemoData.crowded()
+        let doc = world.document
+        let group = try #require(doc.pinGroup(DemoData.crowdedPinGroupID))
+        #expect(!group.name.isEmpty)
+        #expect(doc.activeProfile?.pinGroups == [group])
+        let members = doc.pinGroupMembers(group.id, mode: .docked)
+        #expect(members.count == 3)
+        #expect(Set(members.compactMap(\.docked).map { "\($0.screen)/\($0.desktop)" }) == ["builtin/3"])
+        let expo = try #require(doc.rules.first { $0.tokens == ["Expo_template"] })
+        #expect(expo.groupID == nil)
+        // Kutu çizilir: kapalı üyeler aynı masaüstünde tek kutuda.
+        let split = PinGroupLayout.split(windows: [], closed: doc.rules.filter { $0.docked?.desktop == 3
+                                                                                  && $0.docked?.screen == "builtin" },
+                                         groups: doc.pinGroups, ruleFor: { _ in nil })
+        #expect(split.boxes.count == 1)
+        #expect(split.boxes.first?.total == 3)
+        #expect(split.restClosed.contains { $0.id == expo.id })
+    }
 }

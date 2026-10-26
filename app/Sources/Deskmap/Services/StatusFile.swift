@@ -83,6 +83,15 @@ final class StatusFile {
         let heldRoles: [String]
         /// Açık performans bayrakları (`perf.*`, perf/PLAN-perf.md §1.2).
         let perfFlags: [String]
+        /// Aktif profilin pin grupları (boş gruplar dahil); üyelik ayrıca
+        /// `rules[*].groupID`'de. Eski araçlar bu alanı tanımaz.
+        let pinGroups: [GroupStatus]
+    }
+    struct GroupStatus: Codable, Equatable {
+        let id: String
+        let name: String
+        /// Üye kural kimlikleri (kural sırasıyla, her iki kurulum).
+        let rules: [String]
     }
     struct Name: Codable {
         let id: String
@@ -91,6 +100,14 @@ final class StatusFile {
         let screen: String?
         let desktop: Int?
         let planned: [String: String]
+    }
+
+    /// `status.json`'daki pin grupları (saf): aktif profilin grupları, üyeleri.
+    nonisolated static func pinGroups(_ document: Document) -> [GroupStatus] {
+        document.pinGroups.map { group in
+            GroupStatus(id: group.id, name: group.name,
+                        rules: document.rules.filter { $0.groupID == group.id }.map(\.id))
+        }
     }
 
     private let url: URL
@@ -224,7 +241,8 @@ final class StatusFile {
                         ("statusSkipSame", Self.skipSame),
                         ("multiAttr", AX.multiAttr),
                         ("verifyObservedAt", Router.verifyObservedAt),
-                        ("appsCacheNotify", AX.appsCacheNotify)].filter(\.1).map(\.0))
+                        ("appsCacheNotify", AX.appsCacheNotify)].filter(\.1).map(\.0),
+            pinGroups: Self.pinGroups(store.document))
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

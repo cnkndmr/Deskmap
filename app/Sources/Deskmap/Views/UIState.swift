@@ -79,7 +79,10 @@ final class UIState: ObservableObject {
     /// seçim varken ayrıntı sütunu toplu pinleme çubuğunu gösterir, açılan
     /// panel görünmezdi (⌘-tıklama önce paneli kapatır, sonra seçer).
     @Published var panel: BottomPanel? {
-        didSet { if panel != nil, !selection.isEmpty { selection = [] } }
+        didSet {
+            if panel != nil, !selection.isEmpty { selection = [] }
+            if panel != nil, !selectedRules.isEmpty { selectedRules = [] }
+        }
     }
     /// Kural paneli bir pencere satırından açıldıysa o pencere; çipten
     /// açıldıysa nil. "Şu anki boyutu kullan" düğmesi ölçüyü bu pencereden
@@ -108,6 +111,48 @@ final class UIState: ObservableObject {
     @Published var desktopCounts: [String: Int] = [:]
     /// ⌘-tıklamayla seçilen pencereler (toplu pinleme).
     @Published var selection: Set<CGWindowID> = []
+    /// ⌘-tıklamayla seçilen pin çipleri (kalıcı kural kimlikleri; kapalı
+    /// pinler dahil). Pencere seçimiyle birlikte gruplanır ("Grup olarak pinle").
+    @Published var selectedRules: Set<String> = []
+    /// Bu kimlikli pin grubunun kutusu adlandırmaya girsin (yeni grup
+    /// kurulunca); kutu isteği görünce nil yapar. `requestPinGroupRename`
+    /// ile kurulur: hiçbir kutu almazsa kısa süre sonra kendiliğinden düşer
+    /// (kutu sonradan çizilince bağlamsız adlandırmaya girmesin).
+    @Published var renamePinGroupRequest: String?
+    private var renameRequestSeq = 0
+
+    /// Yeni grubun adlandırma isteği; `expiresAfter` saniye içinde kutu
+    /// almazsa düşer.
+    func requestPinGroupRename(_ id: String, expiresAfter seconds: Double = 1) {
+        renameRequestSeq += 1
+        let seq = renameRequestSeq
+        renamePinGroupRequest = id
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            guard let self, self.renameRequestSeq == seq, self.renamePinGroupRequest == id else { return }
+            self.renamePinGroupRequest = nil
+        }
+    }
+
+    /// "Tümünü aç" süren pin grupları. Kutu başına değil grup başına:
+    /// dağınık grubun her masaüstündeki kutusu bütün üyeleri açar (K3, K4),
+    /// ikinci kutudan basış aynı pinleri yeniden açmasın.
+    @Published private(set) var openingPinGroups: Set<String> = []
+
+    /// Grup için açma başlar; zaten sürüyorsa false.
+    func beginOpeningPinGroup(_ id: String) -> Bool {
+        openingPinGroups.insert(id).inserted
+    }
+
+    func endOpeningPinGroup(_ id: String) {
+        openingPinGroups.remove(id)
+    }
+
+    /// Çoklu seçimin ikisini de (pencereler, çipler) bırakır.
+    func clearSelection() {
+        if !selection.isEmpty { selection = [] }
+        if !selectedRules.isEmpty { selectedRules = [] }
+    }
     /// Ayrıntı sütununda "Gelişmiş" bölümü açık mı; paneller arasında korunur.
     @Published var showAdvanced = false
     /// Haritada masaüstü önizlemeleri (Görsel) açık mı; kullanıcı tercihi,
@@ -198,7 +243,8 @@ final class UIState: ObservableObject {
     }
 
     /// İlk tıklamadan önceki panel ve seçim; çift tıklamanın ikincisi geri yükler.
-    private var beforeClick: (panel: BottomPanel?, source: CGWindowID?, selection: Set<CGWindowID>)?
+    private var beforeClick: (panel: BottomPanel?, source: CGWindowID?, selection: Set<CGWindowID>,
+                              rules: Set<String>)?
 
     /// Satır ve çip tıklaması. Tek tıklama hemen işlenir (çift tıklama
     /// süresini beklemez); çift tıklamanın ikinci basışı ilk tıklamanın
@@ -211,13 +257,14 @@ final class UIState: ObservableObject {
     func handleClick(count: Int, single: () -> Void, double: () -> Void) {
         switch count {
         case 1:
-            beforeClick = (panel, panelSourceWindowID, selection)
+            beforeClick = (panel, panelSourceWindowID, selection, selectedRules)
             single()
         case 2:
             if let before = beforeClick {
                 panel = before.panel
                 panelSourceWindowID = before.source
                 selection = before.selection
+                selectedRules = before.rules
             }
             beforeClick = nil
             double()

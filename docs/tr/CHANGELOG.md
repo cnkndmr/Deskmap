@@ -8,6 +8,25 @@ numarası `VERSION` dosyasından gelir.
 
 ### Eklenenler {#added}
 
+- **Pin grupları.** Bir masaüstündeki pinlerin bir kısmını bir ad altında
+  topla: pencerelere ve pin çiplerine (kapalılar dahil) ⌘ ile tıkla › **Grup
+  olarak pinle**, ya da sağ tık › **Gruba ekle**. Grup bütün olarak taşınır
+  (başlığından sürükle ya da **Grubu gönder**; dağılmış üyeler yeniden bir
+  araya gelir), tek düğmeyle açılır ve kapanır, yeniden adlandırılır
+  (başlığa çift tık). Tek başına taşınan pin grubunda kalır; **Gruptan çıkar**
+  onu çıkarır, **Grubu dağıt** pinleri korur. Geri al her adımı kapsar. Ayrıca
+  `deskmap group …` ve `deskmap://group-add`, `group-rename`, `group-remove`,
+  `group-set`; `status.json` `pinGroups` listeler. Gruplar `rules.json`’da
+  yeni isteğe bağlı alanlardır (`rules[].groupID`, `profiles[].pinGroups`,
+  şema 6 kalır); **eski bir Deskmap dosyayı kaydederse gruplar düşer**
+  (pinler kalır). Profil dışa aktarımı sürüm 5 (gruplar dahil; sürüm 4 yine
+  içe aktarılır).
+
+- **Öbür plandaki düzeni kullan.** Bir sabitlemenin iki planı pencereyi aynı
+  yere (aynı ekran ve masaüstü) farklı düzenle koyuyorsa paneli öbür planın
+  düzenini ve onu bir kez kopyalayan düğmeyi gösterir (⌘Z geri alır; planlar
+  bağlanmaz). Komut satırından da: `deskmap rule copy-layout KURAL --from
+  docked|undocked` (`deskmap://rule-copy-layout/<id>?from=`).
 - **Kendi düzenlerin.** Ayarlar › Düzenler bütün düzenleri üç grupta
   listeler: **Temel** (her pinin altındaki döşemeler, en çok altı, Gelişmiş’te
   de), **Gelişmiş** (ızgaranın yanında) ve **Gizli**. Izgarada ya da kenar

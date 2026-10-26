@@ -366,6 +366,11 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     /// sırasıyla). Taramada listede bağlı olan ilk yer kazanır; ekran rolü
     /// başına en çok bir yer. İsteğe bağlı alan: eski sürüm yok sayar.
     var dockedNext: [Destination] = []
+    /// Kullanıcının pin grubu (`Profile.pinGroups` içindeki kimlik); nil =
+    /// grupsuz. Yönlendirmeyi etkilemez. İsteğe bağlı alan: eski sürüm yok
+    /// sayar, boşsa yazılmaz. Bilinmeyen kimlik okunurken korunur, arayüz onu
+    /// grupsuz sayar.
+    var groupID: String? = nil
 
     /// `tokens`'ın küçük harfli kopyası; `matches` her çağrıda yeniden
     /// küçültmesin (her taramada ve her arayüz çiziminde kural × pencere kez
@@ -384,7 +389,8 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         path: String? = nil,
         docked: Destination? = nil,
         undocked: Destination? = nil,
-        dockedNext: [Destination] = []
+        dockedNext: [Destination] = [],
+        groupID: String? = nil
     ) {
         self.id = id
         self.appName = appName
@@ -395,7 +401,12 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         self.docked = docked
         self.undocked = undocked
         self.dockedNext = docked == nil ? [] : dockedNext
+        self.groupID = groupID
     }
+
+    /// Yönlendirmeyi etkilemeyen alanlar (grup üyeliği) atılmış kopya. Router
+    /// aboneliği bununla karşılaştırır; grup değişimi pencereleri yerinden oynatmaz.
+    var routingProjection: Rule { var r = self; r.groupID = nil; return r }
 
     /// Boş `tokens` = uygulamanın bütün pencereleri.
     var isAppWide: Bool { tokens.isEmpty && path == nil }
@@ -496,7 +507,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
     // MARK: Çözümleme (eski şemayı da okur)
 
     private enum CodingKeys: String, CodingKey {
-        case id, appName, bundleID, tokens, path, docked, undocked, dockedNext
+        case id, appName, bundleID, tokens, path, docked, undocked, dockedNext, groupID
         // v1 alanları
         case app, match
     }
@@ -516,6 +527,9 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
             dockedNext = next
         }
         path = try c.decodeIfPresent(String.self, forKey: .path)
+        // Okunamayan ya da boş grup kimliği grupsuz sayılır (kural düşmez).
+        let group = (try? c.decodeIfPresent(String.self, forKey: .groupID)) ?? nil
+        groupID = group?.isEmpty == false ? group : nil
 
         let decodedTokens: [String]
         if let name = try c.decodeIfPresent(String.self, forKey: .appName) {
@@ -550,6 +564,7 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
         try c.encodeIfPresent(docked, forKey: .docked)
         try c.encodeIfPresent(undocked, forKey: .undocked)
         if !dockedNext.isEmpty { try c.encode(dockedNext, forKey: .dockedNext) }
+        try c.encodeIfPresent(groupID, forKey: .groupID)
     }
 
     private struct LegacyApp: Decodable {
@@ -559,6 +574,72 @@ struct Rule: Codable, Equatable, Identifiable, Hashable {
 
     private struct LegacyMatch: Decodable {
         var value: String
+    }
+}
+
+// MARK: - Öbür kurulumun düzeni (tek seferlik kopya)
+
+extension Destination {
+    /// İki kurulumdaki hedef aynı yer mi (saf): aynı ekran rolü ve aynı
+    /// masaüstü. Ad hedefinde masaüstü adla (`nameID`), numara hedefinde
+    /// sırayla karşılaştırılır; ekran rolü ikisinde de aynı olmalı (aynı ada
+    /// bağlı ama öbür kurulumda başka ekrana planlanmış masaüstü aynı yer
+    /// değildir). Biri ada biri numaraya bakıyorsa aynı yer sayılmaz: ad
+    /// hedefinin numarası yalnız önbellektir, ad taşınınca ayrılırlar.
+    func isSamePlace(as other: Destination) -> Bool {
+        guard screen == other.screen else { return false }
+        switch (nameID, other.nameID) {
+        case let (mine?, theirs?): return mine == theirs
+        case (nil, nil): return desktop == other.desktop
+        default: return false
+        }
+    }
+}
+
+extension WindowLayout {
+    /// Yerleşimde aynı sonucu veren düzen mi (saf). İkisi de "yalnız
+    /// masaüstü"yse eşittir (oranlar uygulanmaz); biri öyleyse farklıdır.
+    /// İkisi de sabit boyutluysa yalnız `fixed` karşılaştırılır (oranlar eski
+    /// sürümler için yedektir); biri sabitse farklıdır. Oranlı düzenler
+    /// kütüphanenin "aynı alan" toleransıyla (`LayoutLibrary.sameArea`):
+    /// başka kaynaktan gelen aynı yarım son bitlerde ayrılabilir, panelde ikisi
+    /// de aynı görünür, düğme çıkmamalı.
+    func placesLike(_ other: WindowLayout) -> Bool {
+        if isDesktopOnly || other.isDesktopOnly { return isDesktopOnly == other.isDesktopOnly }
+        if fixed != nil || other.fixed != nil { return fixed == other.fixed }
+        return LayoutLibrary.sameArea(self, other)
+    }
+}
+
+extension Rule {
+    /// İki kurulumun aynı yerdeki hedefleri: monitörlü planın ilk yeri
+    /// (`docked`, panelin ve "şu anki boyutu kullan"ın düzenlediği yer) ve
+    /// laptop yeri aynı yerse ikisi, değilse nil. Sıradaki yerlere
+    /// (`dockedNext`) bakılmaz: panelde gösterilen ve düzenlenen ilk yer.
+    var sharedPlace: (docked: Destination, undocked: Destination)? {
+        guard let docked, let undocked, docked.isSamePlace(as: undocked) else { return nil }
+        return (docked, undocked)
+    }
+
+    /// "Öbür kurulumdakini kullan" düğmesinin koşulu (saf, iki mod için aynı):
+    /// iki kurulum aynı yerde ve düzenler yerleşimde farklı.
+    var layoutDiffersAcrossSetups: Bool {
+        guard let shared = sharedPlace else { return false }
+        return !shared.docked.layout.placesLike(shared.undocked.layout)
+    }
+
+    /// Tek seferlik kopya: `source` kurulumunun düzeni öbür kurulumun aynı
+    /// yerdeki hedefine yazılır (ekran, masaüstü, ad hedefi kalır). Bağ
+    /// kurulmaz; sonradan birinde yapılan değişiklik öbürüne geçmez. Aynı yer
+    /// değilse ya da düzenler zaten aynıysa dokunmaz, false döner.
+    @discardableResult
+    mutating func adoptLayout(from source: Mode) -> Bool {
+        guard layoutDiffersAcrossSetups, let from = self[source] else { return false }
+        let target: Mode = source == .docked ? .undocked : .docked
+        guard var destination = self[target] else { return false }
+        destination.layout = from.layout
+        self[target] = destination
+        return true
     }
 }
 
