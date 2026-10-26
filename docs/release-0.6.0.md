@@ -1,15 +1,12 @@
-# Deskmap 0.6.0 — release notes (draft)
+# Deskmap 0.6.0 — release notes
 
-> **Status: draft, not released.** `VERSION` still says 0.5.0; nothing is
-> tagged. This page is written from the `[Unreleased]` section of
-> [CHANGELOG.md](../CHANGELOG.md) and the commits since `v0.5.0`. Turkish:
-> [tr/surum-0.6.0.md](tr/surum-0.6.0.md). Steps to actually ship:
-> [release-checklist.md](release-checklist.md).
+Released 26 October 2026. Written from the 0.6.0 section of
+[CHANGELOG.md](../CHANGELOG.md). Turkish: [tr/surum-0.6.0.md](tr/surum-0.6.0.md).
 
 0.5.0 (30 September 2026) was the first release with a download. 0.6.0
 collects everything since: desktop names that follow their desktop, a second
-external monitor with its own role, multi-step undo, automatic backups, a
-scriptable CLI, and a website. Nothing here needs a new permission; the
+external monitor with its own role, pin groups, your own layouts, multi-step undo,
+automatic backups, a scriptable CLI, and a website. Nothing here needs a new permission; the
 Accessibility permission you already granted keeps working as long as the app
 is signed the same way (see *Upgrading*).
 
@@ -20,6 +17,9 @@ is signed the same way (see *Upgrading*).
   arrangement no longer moves pins to the other monitor.
 - **Desktop names belong to a desktop, not a number.** A name follows its
   desktop across displays, reordering and plug/unplug; pins can target a name.
+- **Pin groups**: collect pins under a name and move, open or close them as
+  one.
+- **Your own layouts** in Settings › Layouts, drawn on the grid and named.
 - **Undo as many steps as you like** (⌘Z / ⇧⌘Z), with a change history.
 - **Automatic backups** of profiles, pins and names, with restore in Settings.
 - **`deskmap` command line tool**, `status.json` and `deskmap://` commands for
@@ -99,6 +99,34 @@ is signed the same way (see *Upgrading*).
 - **Map window placement**: placed once per open, fixed height that fits the
   screen, top center of the built-in display, no longer pushed around after a
   resize.
+
+### Pin groups and layouts
+
+- **Pin groups.** ⌘-click windows and pin chips › **Pin as group**, or
+  right-click › **Add to group**. A group moves as a whole (drag its header or
+  **Send group to**), opens and closes with one button and can be renamed.
+  Also `deskmap group …` and `deskmap://group-*`. **An older Deskmap that saves
+  `rules.json` drops the groups** (the pins stay).
+- **Your own layouts.** Settings › Layouts lists Basic, Advanced and Hidden
+  layouts; draw new ones on the grid or with edge gaps, name, reorder, limit to
+  regular or ultrawide displays, **Reset to Defaults…**. Changing a layout never
+  moves a window.
+- **Use the other plan's layout.** When a pin's two plans put the window in the
+  same place with different layouts, its panel offers the other one
+  (`deskmap rule copy-layout`).
+- **Desktops dragged to another display in Mission Control move back** (or ask,
+  or stay: Settings › General); a card offers **Keep it there**.
+
+### Speed
+
+- **Opt-in performance switches** (`perf.*` in `defaults`, all off by
+  default): scans skip unchanged windows, apps are read in parallel, a display
+  change is polled until it settles, one slow app no longer stalls the scan
+  queue. On the test rig with all on, a stuck scan went from 2.7 s to 0.03 s and
+  a plug/unplug chain from 4.4 s to 0.35 s. `status.json` lists them as
+  `perfFlags`.
+- **Chrome windows move in about 40 ms instead of 0.8 s** (the enhanced
+  accessibility mode is turned off around the move).
 
 ### Undo and history
 
@@ -201,7 +229,7 @@ signed with a Developer ID, it is asked once more and then stays.
 
 **First launch.** Unless the release is notarized, macOS blocks the first
 launch as with 0.5.0: open the app once, then System Settings › Privacy &
-Security › **Open Anyway**. See the [download page](https://cnkndmr.github.io/Deskmap/download/)
+Security › **Open Anyway**. See the [download page](https://cnkndmr.github.io/deskmap/download/)
 or the README.
 
 **Data files.** `rules.json` moves from schema 4/5 to **schema 6** on first
@@ -212,8 +240,8 @@ reports the result and offers **Remove N empty desktops** and **Undo
 upgrade**. Nothing is moved or removed during the upgrade. **An older Deskmap
 opens the new file read-only**, so keep 0.5.0 around only if you want to go
 back, and go back through the pre-migration copy. Runtime desktop facts moved
-to `desktop-state.json`. Profile export is version 4; version 3 files still
-import. `rules.json` gets an optional `displayRoles` field (older versions
+to `desktop-state.json`. Profile export is version 5 (pin groups included);
+version 3 and 4 files still import. `rules.json` gets an optional `displayRoles` field (older versions
 ignore it).
 
 **New settings.**

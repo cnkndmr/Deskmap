@@ -6,6 +6,12 @@ number comes from the `VERSION` file.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-26
+
+Everything since 0.5.0: desktop names that follow their desktop, a second
+external monitor with its own role, pin groups, your own layouts, multi-step
+undo, automatic backups, a scriptable CLI and a website.
+
 ### Added
 
 - **Pin groups.** Collect some pins of a desktop under a name: ⌘-click
@@ -130,6 +136,13 @@ number comes from the `VERSION` file.
 
 ### Changed
 
+- **Faster window handling, opt-in.** Thirteen performance switches
+  (`defaults write com.deskmap.app perf.<name> -bool YES`, all off by default,
+  read at launch) let scans skip unchanged windows, read apps in parallel,
+  poll for a display change to settle instead of waiting a fixed time, back
+  off from windows on another display and keep one slow app from stalling the
+  scan queue. `status.json` lists the ones that are on as `perfFlags`.
+
 - **Docs on the website**: the one-page guide `docs/site/` is gone; the
   guide, kılavuz, reference, architecture, privacy and this changelog are
   built into the website by `make site` and deployed to GitHub Pages
@@ -197,6 +210,11 @@ number comes from the `VERSION` file.
   gone).
 
 ### Fixed
+
+- **Chrome and other apps with an enhanced accessibility mode move faster.**
+  Deskmap turns `AXEnhancedUserInterface` off around a frame write and back on
+  afterwards, as Rectangle does; moving a Chrome window took about 0.8 s and
+  now takes about 40 ms.
 
 - **Windows move right after a plan or a monitor choice.** At the end of a
   desktop plan (a monitor plugged in, a role swapped or confirmed) the re-place

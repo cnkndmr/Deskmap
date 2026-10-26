@@ -6,6 +6,12 @@ numarası `VERSION` dosyasından gelir.
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-26
+
+0.5.0'dan bu yana her şey: masaüstünü izleyen adlar, kendi rolü olan ikinci
+harici monitör, pin grupları, kendi düzenlerin, çok adımlı geri alma, otomatik
+yedekler, betiklenebilir bir CLI ve bir web sitesi.
+
 ### Eklenenler {#added}
 
 - **Pin grupları.** Bir masaüstündeki pinlerin bir kısmını bir ad altında
@@ -134,6 +140,14 @@ numarası `VERSION` dosyasından gelir.
 
 ### Değişenler {#changed}
 
+- **Daha hızlı pencere işleme, isteğe bağlı.** On üç performans anahtarı
+  (`defaults write com.deskmap.app perf.<ad> -bool YES`, hepsi varsayılan
+  kapalı, açılışta okunur) taramanın değişmeyen pencereleri atlamasını,
+  uygulamaları paralel okumasını, ekran değişiminin oturmasını sabit süre
+  beklemek yerine yoklamasını, başka ekrandaki pencerelerden geri çekilmesini
+  ve tek bir yavaş uygulamanın tarama kuyruğunu tıkamamasını sağlar.
+  `status.json` açık olanları `perfFlags` olarak listeler.
+
 - **Belgeler web sitesinde**: tek sayfalık rehber `docs/site/` kalktı; İngilizce guide ile
   Türkçe kılavuz, başvuru, mimari, gizlilik ve bu değişiklik günlüğü `make site` ile
   web sitesine derlenip GitHub Pages’e yayımlanıyor
@@ -207,6 +221,11 @@ numarası `VERSION` dosyasından gelir.
   kaldırıldı).
 
 ### Düzeltilenler {#fixed}
+
+- **Chrome ve gelişmiş erişilebilirlik kipi olan uygulamalar daha hızlı
+  taşınıyor.** Deskmap çerçeveyi yazarken `AXEnhancedUserInterface`'i kapatıp
+  sonra geri açıyor (Rectangle'ın yaptığı gibi); bir Chrome penceresini taşımak
+  yaklaşık 0,8 sn sürüyordu, şimdi yaklaşık 40 ms.
 
 - **Plan ya da monitör seçiminden hemen sonra pencereler taşınıyor.** Masaüstü
   planının sonunda (monitör takıldı, rol takas edildi ya da onaylandı) yeniden

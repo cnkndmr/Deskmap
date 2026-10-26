@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/macOS-13%2B-000000?logo=apple&logoColor=white" alt="macOS 13+">
   <img src="https://img.shields.io/badge/Swift-5.9-F05138?logo=swift&logoColor=white" alt="Swift 5.9">
   <img src="https://img.shields.io/badge/SwiftUI-menu%20bar%20app-0A84FF" alt="SwiftUI menu bar app">
-  <img src="https://img.shields.io/badge/version-0.5.0-5E5CE6" alt="Version 0.5.0">
+  <img src="https://img.shields.io/badge/version-0.6.0-5E5CE6" alt="Version 0.6.0">
   <img src="https://img.shields.io/badge/dependencies-none-30D158" alt="No dependencies">
   <img src="https://img.shields.io/badge/license-MIT-lightgrey" alt="MIT license">
 </p>

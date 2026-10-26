@@ -1,15 +1,12 @@
-# Deskmap 0.6.0 — sürüm notları (taslak)
+# Deskmap 0.6.0 — sürüm notları
 
-> **Durum: taslak, yayımlanmadı.** `VERSION` hâlâ 0.5.0; etiket yok. Bu sayfa
-> [CHANGELOG](CHANGELOG.md) dosyasının `[Unreleased]` bölümünden ve `v0.5.0`
-> sonrası commit'lerden yazıldı. İngilizcesi:
-> [../release-0.6.0.md](../release-0.6.0.md). Yayımlama adımları:
-> [../release-checklist.md](../release-checklist.md).
+26 Ekim 2026'da yayımlandı. [CHANGELOG](CHANGELOG.md) dosyasının 0.6.0
+bölümünden yazıldı. İngilizcesi: [../release-0.6.0.md](../release-0.6.0.md).
 
 0.5.0 (30 Eylül 2026) indirilebilen ilk sürümdü. 0.6.0 o günden beri biriken
 her şeyi topluyor: masaüstünü izleyen adlar, kendi rolü olan ikinci harici
-monitör, çok adımlı geri alma, otomatik yedekler, betiklenebilir bir CLI ve bir
-web sitesi. Yeni bir izin gerekmez; verdiğin Erişilebilirlik izni, uygulama
+monitör, pin grupları, kendi düzenlerin, çok adımlı geri alma, otomatik yedekler,
+betiklenebilir bir CLI ve bir web sitesi. Yeni bir izin gerekmez; verdiğin Erişilebilirlik izni, uygulama
 aynı biçimde imzalandığı sürece geçerli kalır (bkz. *Yükseltme*).
 
 ## Öne çıkanlar
@@ -20,6 +17,8 @@ aynı biçimde imzalandığı sürece geçerli kalır (bkz. *Yükseltme*).
 - **Masaüstü adı numaraya değil masaüstüne aittir.** Ad, ekranlar arasında,
   sıralama değişince ve monitör takılıp çıkarılınca masaüstünü izler;
   sabitleme bir adı hedef alabilir.
+- **Pin grupları**: pinleri bir ad altında topla, tek parça taşı, aç, kapat.
+- **Kendi düzenlerin**: Ayarlar › Düzenler'de ızgarada çiz, adlandır.
 - **İstediğin kadar adım geri al** (⌘Z / ⇧⌘Z), değişiklik geçmişiyle.
 - **Otomatik yedekler**: profiller, sabitlemeler, adlar; Ayarlar'dan geri
   yükleme.
@@ -103,6 +102,34 @@ aynı biçimde imzalandığı sürece geçerli kalır (bkz. *Yükseltme*).
 - **Harita penceresinin yerleşimi**: her açılışta bir kez, ekrana sığan sabit
   yükseklikte, dahili ekranın üst ortasında; yeniden boyutlandırmadan sonra
   artık oradan oraya itilmez.
+
+### Pin grupları ve düzenler
+
+- **Pin grupları.** Pencerelere ve pin çiplerine ⌘ ile tıkla › **Grup olarak
+  pinle**, ya da sağ tık › **Gruba ekle**. Grup tek parça taşınır (başlığını
+  sürükle ya da **Grubu gönder**), tek düğmeyle açılıp kapanır, yeniden
+  adlandırılabilir. Ayrıca `deskmap group …` ve `deskmap://group-*`. **Eski bir
+  Deskmap `rules.json`'u kaydederse gruplar düşer** (pinler kalır).
+- **Kendi düzenlerin.** Ayarlar › Düzenler Temel, Gelişmiş ve Gizli düzenleri
+  listeler; ızgarada ya da kenar boşluklarıyla yenisini çiz, adlandır, sırala,
+  normal ya da ultra geniş ekranla sınırla, **Varsayılanlara dön…**. Bir düzeni
+  değiştirmek hiçbir pencereyi taşımaz.
+- **Öteki planın düzenini kullan.** Bir pinin iki planı pencereyi aynı yere
+  farklı düzenle koyuyorsa paneli öteki düzeni önerir (`deskmap rule
+  copy-layout`).
+- **Mission Control'de başka ekrana sürüklenen masaüstü geri taşınır** (ya da
+  sorar, ya da kalır: Ayarlar › Genel); bir kart **Orada kalsın** seçeneği sunar.
+
+### Hız
+
+- **İsteğe bağlı performans anahtarları** (`defaults` içinde `perf.*`, hepsi
+  varsayılan kapalı): tarama değişmeyen pencereleri atlar, uygulamalar paralel
+  okunur, ekran değişimi oturana kadar yoklanır, tek bir yavaş uygulama tarama
+  kuyruğunu tıkamaz. Test düzeneğinde hepsi açıkken takılan tarama 2,7 sn'den
+  0,03 sn'ye, tak/çıkar zinciri 4,4 sn'den 0,35 sn'ye indi. `status.json`
+  bunları `perfFlags` olarak listeler.
+- **Chrome pencereleri 0,8 sn yerine yaklaşık 40 ms'de taşınır** (gelişmiş
+  erişilebilirlik kipi taşıma sırasında kapatılır).
 
 ### Geri alma ve geçmiş
 
@@ -209,7 +236,7 @@ daha istenir, sonra kalır.
 
 **İlk açılış.** Sürüm notarize edilmediyse macOS ilk açılışı 0.5.0'daki gibi
 engeller: uygulamayı bir kez aç, sonra Sistem Ayarları › Gizlilik ve Güvenlik ›
-**Yine de Aç**. Bkz. [indirme sayfası](https://cnkndmr.github.io/Deskmap/tr/download/)
+**Yine de Aç**. Bkz. [indirme sayfası](https://cnkndmr.github.io/deskmap/tr/download/)
 ya da README.
 
 **Veri dosyaları.** `rules.json` ilk açılışta şema 4/5'ten **şema 6**'ya
@@ -220,7 +247,7 @@ gelir. Bir kart sonucu bildirir, **N boş masaüstünü kaldır** ve **Yükseltm
 geri al** sunar. Yükseltme sırasında hiçbir şey taşınmaz ya da silinmez. **Eski
 Deskmap yeni dosyayı salt okunur açar**; geri dönmek istersen pre-migration
 kopyasından dön. Çalışma anındaki masaüstü bilgileri `desktop-state.json`'a
-taşındı. Profil dışa aktarma sürüm 4; sürüm 3 dosyaları yine içe alınır.
+taşındı. Profil dışa aktarma sürüm 5 (pin grupları dahil); sürüm 3 ve 4 dosyaları yine içe alınır.
 `rules.json`'a isteğe bağlı `displayRoles` alanı eklendi (eski sürümler yok
 sayar).
 
