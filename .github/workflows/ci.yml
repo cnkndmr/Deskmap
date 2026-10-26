@@ -23,8 +23,11 @@ jobs:
       - name: Build Swift package
         run: swift build --package-path app -c release
 
+      # Serial: the hosted runner has 3 cores, and the timing and concurrency
+      # tests (PerPidParallel, TitleThrottle, ScreenHooks) starve when all
+      # suites run at once. Locally the parallel run passes.
       - name: Unit tests
-        run: swift test --package-path app
+        run: swift test --package-path app --no-parallel
 
       - name: Build .app bundle
         run: ./scripts/build-app.sh release
