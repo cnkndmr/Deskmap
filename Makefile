@@ -2,7 +2,7 @@
 
 PROJECT := Deskmap
 
-.PHONY: help app run install logs measure-idle sample url check test cli-test concurrency-check dist site site-serve site-shots docs-shots demo-media clean
+.PHONY: help app run install logs measure-idle sample url check test cli-test concurrency-check dist site site-serve site-publish site-shots docs-shots demo-media clean
 
 help:
 	@echo "make app        Build the menu bar app (build/$(PROJECT).app)"
@@ -23,6 +23,7 @@ help:
 	@echo "                FORMAT=dmg|both  VERSION=x.y.z  SIGN_IDENTITY=...  NOTARY_PROFILE=..."
 	@echo "make site       Build the website into website/_site (Node + pandoc)"
 	@echo "make site-serve Build it and serve it on http://localhost:$(SITE_PORT)"
+	@echo "make site-publish Build for cnkndmr.github.io/deskmap/ and push it to the cnkndmr.github.io repo"
 	@echo "make site-shots Website screenshots, dark and light (website/shots)"
 	@echo "make docs-shots README and guide screenshots, full size (docs/images)"
 	@echo "make demo-media Demo GIF + MP4 for the README, EN and TR (docs/media)"
@@ -118,8 +119,13 @@ SITE_PORT ?= 8766
 site:
 	@node scripts/build-site.mjs
 
-# SITE_URL bu sunucuya göre verilir; yoksa 404.html'nin /Deskmap/... mutlak
+# SITE_URL bu sunucuya göre verilir; yoksa 404.html'nin /deskmap/... mutlak
 # bağlantıları yerelde kırılır.
+# Siteyi https://cnkndmr.github.io/deskmap/ için derler, cnkndmr.github.io
+# deposunun deskmap/ klasörüne koyar, commit'leyip push'lar.
+site-publish:
+	@./scripts/publish-site.sh
+
 site-serve:
 	@SITE_URL=http://localhost:$(SITE_PORT)/ node scripts/build-site.mjs
 	@echo "Serving http://localhost:$(SITE_PORT)/ (Ctrl-C to stop)"

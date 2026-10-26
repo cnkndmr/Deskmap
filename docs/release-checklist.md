@@ -168,7 +168,7 @@ dmg when `FORMAT` includes it. Things the script does not do:
 
 ### 8. Website download page
 
-- [ ] `https://cnkndmr.github.io/Deskmap/download/` and `/tr/download/`:
+- [ ] `https://cnkndmr.github.io/deskmap/download/` and `/tr/download/`:
       eyebrow and *At a glance* read *Version 0.6.0* (from `{{version}}`),
       the **Download the latest release** button lands on v0.6.0, the Homebrew
       tab's command is unchanged, the macOS note (15 and 26.0–26.3 moves off)
@@ -379,7 +379,7 @@ dmg için de aynısı. Betiğin yapmadıkları:
 
 ### 8. Web sitesi indirme sayfası
 
-- [ ] `https://cnkndmr.github.io/Deskmap/download/` ve `/tr/download/`: üst
+- [ ] `https://cnkndmr.github.io/deskmap/download/` ve `/tr/download/`: üst
       yazı ve *Bir bakışta* *Sürüm 0.6.0* der (`{{version}}`), **Son sürümü
       indir** v0.6.0'a iner, Homebrew sekmesindeki komut değişmedi, macOS notu
       (15 ve 26.0–26.3'te taşıma kapalı) hâlâ doğru.

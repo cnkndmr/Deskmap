@@ -8,7 +8,7 @@
  * No npm dependencies: Node 18+ and, for the Markdown docs, pandoc.
  * Output goes to website/_site/ (gitignored), which is deleted and rebuilt
  * on every run. The site must work from any sub-path (GitHub Pages serves it
- * at https://cnkndmr.github.io/Deskmap/), so EVERY internal link and asset URL
+ * at https://cnkndmr.github.io/deskmap/), so EVERY internal link and asset URL
  * is relative: write {{root}} in front of it. Never write href="/docs/".
  *
  * ── Source layout ──────────────────────────────────────────────────────────
@@ -150,7 +150,7 @@ const OUT = process.env.SITE_OUT ? path.resolve(process.env.SITE_OUT) : path.joi
 const SHOTS = path.join(WEB, 'shots');
 const STRICT = process.argv.includes('--strict');
 
-const SITE_URL = (process.env.SITE_URL || 'https://cnkndmr.github.io/Deskmap/').replace(/\/?$/, '/');
+const SITE_URL = (process.env.SITE_URL || 'https://cnkndmr.github.io/deskmap/').replace(/\/?$/, '/');
 const BASE_PATH = new URL(SITE_URL).pathname; // "/Deskmap/" — used only by root: absolute
 const VERSION = fs.readFileSync(path.join(REPO, 'VERSION'), 'utf8').trim();
 

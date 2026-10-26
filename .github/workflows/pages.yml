@@ -3,17 +3,22 @@ name: Website
 # Builds website/ + the Markdown docs with scripts/build-site.mjs and deploys
 # website/_site to GitHub Pages. In the repository settings, Pages must use
 # "GitHub Actions" as its source. For a custom domain later, set SITE_URL.
+#
+# Not used today: the site lives at https://cnkndmr.github.io/deskmap/, a
+# folder of the cnkndmr.github.io repository, published by `make site-publish`
+# (scripts/publish-site.sh). Pages is off for this repository, so the push
+# trigger is disabled; run by hand only after turning Pages on here.
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'website/**'
-      - 'docs/**'
-      - 'CHANGELOG.md'
-      - 'VERSION'
-      - 'scripts/build-site.mjs'
-      - '.github/workflows/pages.yml'
+  # push:
+  #   branches: [ main ]
+  #   paths:
+  #     - 'website/**'
+  #     - 'docs/**'
+  #     - 'CHANGELOG.md'
+  #     - 'VERSION'
+  #     - 'scripts/build-site.mjs'
+  #     - '.github/workflows/pages.yml'
   workflow_dispatch:
 
 permissions:
@@ -30,7 +35,7 @@ jobs:
     name: Build site
     runs-on: ubuntu-24.04
     env:
-      SITE_URL: https://cnkndmr.github.io/Deskmap/
+      SITE_URL: https://cnkndmr.github.io/deskmap/
     steps:
       - uses: actions/checkout@v4
         with:
