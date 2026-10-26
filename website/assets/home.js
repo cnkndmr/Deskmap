@@ -11,7 +11,7 @@
    The few strings this script composes itself are in STR below, one object
    per language (document.documentElement.lang); a missing key falls back to en.
 
-   Theme: same convention as site.js: data-theme="light|dark" on <html>, the
+   Theme: same convention as cine.js: data-theme="light|dark" on <html>, the
    choice stored in localStorage 'deskmap-theme'; ?theme= is applied (not stored)
    by the pre-paint script in the shared head. Screenshot twins (.shot-dark /
    .shot-light) are made by the build and switched by CSS, also inside the map

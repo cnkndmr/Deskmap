@@ -12,9 +12,12 @@
 @media (pointer: coarse) { .plan button { min-height: 44px; } }
 
 /* word reveal (hero: time-based) */
+/* Padding gives the glyphs' ink (descenders, tight tracking) room inside the box:
+   Safari clips a filtered inline-block to it. The end state drops the filter. */
 .words .w { display: inline-block; opacity: 0; transform: translateY(.35em) scale(.98); filter: blur(10px);
+  padding: 0 .08em .2em; margin: 0 -.08em -.2em;
   animation: wIn 1s cubic-bezier(.2,.7,.1,1) forwards; animation-delay: calc(var(--i) * 90ms + 200ms); }
-@keyframes wIn { to { opacity: 1; transform: none; filter: blur(0); } }
+@keyframes wIn { to { opacity: 1; transform: none; filter: none; } }
 .fade-late { opacity: 0; transform: translateY(16px); animation: wIn 1s cubic-bezier(.2,.7,.1,1) forwards; animation-delay: var(--d, 1.1s); }
 
 /* ============ Hero ============ */

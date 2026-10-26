@@ -15,10 +15,6 @@
  *   website/layout.html   the cinematic layout of every normal page: shared
  *                         head + header + <main> + footer; loads
  *                         assets/cine.css and assets/cine.js
- *   website/layout-legacy.html  the old "Cartographic" layout (site.css,
- *                         site.js, IBM Plex/Fraunces fonts), ONLY for
- *                         `layout: legacy` pages: classic/, tr/classic/,
- *                         motion/, tr/motion/. Do not use it for new pages.
  *   website/partials/     head.html ({{site_head}}: charset, title, meta, OG,
  *                         hreflang, favicons, pre-paint theme script; used by
  *                         all layouts), header.html ({{site_header}}) and
@@ -27,7 +23,7 @@
  *                         they cannot drift. A leading <!-- comment --> in a
  *                         partial is stripped.
  *   website/assets/       copied to _site/assets/ (cine.css, cine.js, home.*,
- *                         legacy site.css/site.js/docs.*, motion.*, images/).
+ *                         docs.*, download.*, compare.*, images/).
  *                         Linked as {{root}}assets/...
  *   website/pages/        hand-written page bodies. pages/foo/index.html
  *                         becomes _site/foo/index.html (URL foo/); the path
@@ -69,7 +65,6 @@
  *                                             use BASE_PATH instead of ../)
  *   noindex: true                            (optional; adds robots noindex)
  *   layout: bare                             (optional; see "Bare pages" below;
- *                                             `legacy` = layout-legacy.html;
  *                                             omitted = cinematic layout.html)
  *   theme_color: #ffffff #000000             (optional; light and dark
  *                                             <meta name="theme-color">;
@@ -122,8 +117,7 @@
  * the switch goes to the other language's home page. Give the TR page the
  * reverse `alt` (EN path, e.g. `alt: download/`). The site root itself is
  * written `alt: .` (so the TR home has `alt: .`, the EN home `alt: tr/`).
- * Every page has a Turkish twin: tr/ (home, bare), tr/motion/ (animated home,
- * noindex), tr/classic/ (static home, noindex), tr/docs/ (docs landing),
+ * Every page has a Turkish twin: tr/ (home, bare), tr/docs/ (docs landing),
  * tr/download/, tr/compare/, and
  * the Markdown docs (DOC_PAGES). In layout/page bodies use {{href.KEY}} for
  * links that have a twin, so each language links within itself.
@@ -166,9 +160,9 @@ const GLOBALS = {
 /* Language-aware site-relative paths ({{href.KEY}}). */
 const NAV_HREFS = {
   en: { home: '', docs: 'docs/', guide: 'docs/guide/', reference: 'docs/reference/', architecture: 'docs/architecture/',
-        privacy: 'privacy/', download: 'download/', compare: 'compare/', changelog: 'changelog/', classic: 'classic/', motion: 'motion/' },
+        privacy: 'privacy/', download: 'download/', compare: 'compare/', changelog: 'changelog/' },
   tr: { home: 'tr/', docs: 'tr/docs/', guide: 'tr/docs/kilavuz/', reference: 'tr/docs/reference/', architecture: 'tr/docs/architecture/',
-        privacy: 'tr/privacy/', download: 'tr/download/', compare: 'tr/compare/', changelog: 'tr/changelog/', classic: 'tr/classic/', motion: 'tr/motion/' },
+        privacy: 'tr/privacy/', download: 'tr/download/', compare: 'tr/compare/', changelog: 'tr/changelog/' },
 };
 const NAV_ORDER = ['home', 'docs', 'download', 'compare', 'changelog'];
 
@@ -179,6 +173,7 @@ const I18N = {
     nav_label: 'Main', brand_label: 'Deskmap home', lang_label: 'Language', skip: 'Skip to content',
     theme_dark: 'Switch to dark theme', theme_light: 'Switch to light theme',
     menu_open: 'Open menu', menu_close: 'Close menu', download_short: 'Download',
+    donate: 'Donate', donate_label: 'Donate to Deskmap (PayPal)',
     theme_label: 'Dark theme', foot_nav_label: 'Footer',
     foot_blurb: 'Every window on the right display, the right desktop, in the right layout. A free menu bar app for macOS by Can Kandemir.',
     foot_product: 'Product', foot_docs: 'Docs', foot_project: 'Project',
@@ -194,6 +189,7 @@ const I18N = {
     nav_label: 'Ana menü', brand_label: 'Deskmap ana sayfası', lang_label: 'Dil', skip: 'İçeriğe geç',
     theme_dark: 'Koyu temaya geç', theme_light: 'Açık temaya geç',
     menu_open: 'Menüyü aç', menu_close: 'Menüyü kapat', download_short: 'İndir',
+    donate: 'Bağış yap', donate_label: 'Deskmap\'e bağış yap (PayPal)',
     theme_label: 'Koyu tema', foot_nav_label: 'Alt bilgi',
     foot_blurb: 'Her pencere doğru ekranda, doğru masaüstünde, doğru düzende. Can Kandemir’den macOS için ücretsiz bir menü çubuğu uygulaması.',
     foot_product: 'Ürün', foot_docs: 'Belgeler', foot_project: 'Proje',
@@ -263,9 +259,8 @@ function walk(dir) {
 
 /* Layouts (front matter `layout:`):
  *   (omitted)  website/layout.html         cinematic: cine.css + cine.js
- *   legacy     website/layout-legacy.html  "Cartographic": site.css + site.js
  *   bare       BARE_LAYOUT below           the page body is the whole <body>
- * All three take their <head> essentials from website/partials/head.html
+ * Both take their <head> essentials from website/partials/head.html
  * ({{site_head}}); the cinematic header/footer partials are {{site_header}}
  * and {{site_footer}} (layout.html and the bare home pages use them). */
 const readPartial = (n) => fs.readFileSync(path.join(WEB, 'partials', n + '.html'), 'utf8').replace(/^<!--[\s\S]*?-->\n/, '');
@@ -282,11 +277,10 @@ const BARE_LAYOUT = `<!doctype html>
 `;
 const LAYOUTS = {
   cine: fs.readFileSync(path.join(WEB, 'layout.html'), 'utf8'),
-  legacy: fs.readFileSync(path.join(WEB, 'layout-legacy.html'), 'utf8'),
   bare: BARE_LAYOUT,
 };
 /* Default <meta name="theme-color"> (light, dark) per layout. */
-const THEME_COLOR = { cine: ['#ffffff', '#000000'], bare: ['#ffffff', '#000000'], legacy: ['#F3EEE3', '#0C1422'] }; // legacy: site.css --paper
+const THEME_COLOR = { cine: ['#ffffff', '#000000'], bare: ['#ffffff', '#000000'] };
 const built = []; // { outRel, lang, alt }
 
 /**
@@ -300,7 +294,7 @@ function renderPage(page) {
   const lang = data.lang || 'en';
   if (!I18N[lang]) throw new Error(`${source}: lang must be en or tr`);
   const layout = data.layout || 'cine';
-  if (!(layout in LAYOUTS) || layout === 'cine' && data.layout) throw new Error(`${source}: layout must be bare or legacy (or omitted)`);
+  if (!(layout in LAYOUTS) || layout === 'cine' && data.layout) throw new Error(`${source}: layout must be bare (or omitted)`);
   const themeColor = (data.theme_color || '').split(/\s+/).filter(Boolean);
   if (themeColor.length && themeColor.length !== 2) throw new Error(`${source}: theme_color needs two colours (light dark)`);
   const other = lang === 'en' ? 'tr' : 'en';
@@ -553,7 +547,7 @@ function sizeImages(html) {
 }
 
 /** A screenshot with a light twin (website/shots/<l>/light/<name>) becomes two
- *  <img>: .shot-dark and .shot-light; site.css shows the one matching the
+ *  <img>: .shot-dark and .shot-light; cine.css shows the one matching the
  *  page theme (system setting or the toggle). Lazy hidden copies never load. */
 function themeImages(html) {
   return html.replace(/<img\b[^>]*>/g, (tag) => {
